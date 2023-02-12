@@ -1,0 +1,39 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:converter="clr-namespace:TBird.Wpf.Converters"
+                    xmlns:options="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options">
+
+    <!-- **************************************************
+    **** ｺﾝﾊﾞｰﾀ定義
+    **** ************************************************** -->
+    <converter:Boolean2VisibilityHiddenConverter x:Key="Boolean2VisibilityHiddenConverter" />
+    <converter:Boolean2VisibilityCollapsedConverter x:Key="Boolean2VisibilityCollapsedConverter" />
+    <converter:BooleanReverseConverter x:Key="BooleanReverseConverter" />
+    <converter:ValueConverterGroup x:Key="BooleanReverse2VisibilityHiddenConverter">
+        <converter:BooleanReverseConverter />
+        <converter:Boolean2VisibilityHiddenConverter />
+    </converter:ValueConverterGroup>
+    <converter:ValueConverterGroup x:Key="BooleanReverse2VisibilityCollapsedConverter">
+        <converter:BooleanReverseConverter />
+        <converter:Boolean2VisibilityCollapsedConverter />
+    </converter:ValueConverterGroup>
+
+    <!-- **************************************************
+    **** SolidColorBrush
+    **** ************************************************** -->
+    <SolidColorBrush x:Key="My.Brushes.Transparent"         Color="#00ffffff"                                     options:Freeze="True" />
+    <SolidColorBrush x:Key="IconMouseOverBrush"             Color="#44ffffff"                                     options:Freeze="True" />
+    <SolidColorBrush x:Key="ProcessingBackgroundBrush"      Color="#66000000"                                     options:Freeze="True" />
+
+    <SolidColorBrush x:Key="My.Brushes.AccentBase"          Color="{StaticResource MahApps.Colors.AccentBase}"      options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.Accent"              Color="{StaticResource MahApps.Colors.Accent}"          options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.Accent2"             Color="{StaticResource MahApps.Colors.Accent2}"         options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.Accent3"             Color="{StaticResource MahApps.Colors.Accent3}"         options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.Accent4"             Color="{StaticResource MahApps.Colors.Accent4}"         options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.IdealForeground"     Color="{StaticResource MahApps.Colors.IdealForeground}" options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.White"               Color="White"                                         options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.Background"          Color="{StaticResource MahApps.Colors.ThemeBackground}" options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.DisableForeground"   Color="{StaticResource MahApps.Colors.Gray1}"           options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.DisableBackground"   Color="{StaticResource MahApps.Colors.Gray3}"           options:Freeze="True" />
+
+</ResourceDictionary>

@@ -2,12 +2,23 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!--
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    -->
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.117" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.112" />
   </ItemGroup>
+    <!--
 
+  <ItemGroup>
+    <EmbeddedResource Include="Project\Relative\Path\To\SDS-SEE.exml">
+      <LogicalName>SDS-SEE.exml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+    -->
   <ItemGroup>
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
     <ProjectReference Include="..\TBird.DB\TBird.DB.csproj" />

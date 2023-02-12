@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace TBird.Core
@@ -43,6 +44,16 @@ namespace TBird.Core
             {
                 yield return value;
             }
+        }
+
+        public static bool IsIncluded<T>(T a, T b) where T : Enum
+        {
+            return IsIncluded((int)(object)a, (int)(object)b);
+        }
+
+        private static bool IsIncluded(int a, int b)
+        {
+            return (a & b) == b;
         }
     }
 }
