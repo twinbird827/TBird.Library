@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,30 +9,42 @@ namespace TBird.Core
 {
     public static class TaskExtension
     {
-        /// <summary>
-        /// 非同期ﾀｽｸを実行し、指定した時間で処理が完了しない場合は例外を発生させます。
-        /// </summary>
-        /// <param name="task">非同期ﾀｽｸ</param>
-        /// <param name="timeout">ﾀｲﾑｱｳﾄ時間</param>
-        /// <returns></returns>
-        public static async Task Timeout(this Task task, TimeSpan timeout, CancellationTokenSource src)
+        public static async Task Cts(this Task task, params CancellationTokenSource[] cancellations)
         {
             var ccs = new TaskCompletionSource<bool>();
-            using (var cts = new CancellationTokenSource(timeout))
-            using (var tmp = src != null
-                ? CancellationTokenSource.CreateLinkedTokenSource(src.Token, cts.Token)
-                : CancellationTokenSource.CreateLinkedTokenSource(cts.Token))
+            var arr = cancellations.Where(x => x != null).Select(x => x.Token).ToArray();
+            using (var tmp = CancellationTokenSource.CreateLinkedTokenSource(arr))
             using (tmp.Token.Register(() => ccs.TrySetResult(true)))
             {
                 if (task != await Task.WhenAny(task, ccs.Task))
                 {
                     throw new TimeoutException("The process was interrupted.", new OperationCanceledException(tmp.Token));
                 }
-                
+
                 if (task.Exception?.InnerException != null)
                 {
                     throw new TimeoutException("The process was interrupted.", task.Exception.InnerException);
                 }
+            }
+        }
+
+        public static async Task<T> Cts<T>(this Task<T> task, params CancellationTokenSource[] cancellations)
+        {
+            await ((Task)task).Cts(cancellations);
+            return task.Result;
+        }
+
+        /// <summary>
+        /// 非同期ﾀｽｸを実行し、指定した時間で処理が完了しない場合は例外を発生させます。
+        /// </summary>
+        /// <param name="task">非同期ﾀｽｸ</param>
+        /// <param name="timeout">ﾀｲﾑｱｳﾄ時間</param>
+        /// <returns></returns>
+        public static Task Timeout(this Task task, TimeSpan timeout, CancellationTokenSource src)
+        {
+            using (var cts = new CancellationTokenSource(timeout))
+            {
+                return task.Cts(src, cts);
             }
         }
 

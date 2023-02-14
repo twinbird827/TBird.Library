@@ -1,4 +1,56 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+                    xmlns:local="clr-namespace:TBird.Wpf.Controls"
+                    xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
+
+    <DataTemplate DataType="{x:Type local:WindowViewModel}" x:Key="WindowDataTemplate">
+        <Grid DataContext="{Binding DataContext}">
+            <ContentPresenter Content="{TemplateBinding Content}" />
+
+            <Grid Visibility="{Binding ShowProgress, Converter={StaticResource Boolean2VisibilityCollapsedConverter}}"
+                  Background="{StaticResource ProcessingBackgroundBrush}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="auto" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition />
+                </Grid.RowDefinitions>
+
+                <Controls:ProgressRing Grid.Row="1" Grid.Column="1"
+                                       Width="100" Height="100"
+                                       Foreground="{StaticResource My.Brushes.AccentBase}"
+                                       Opacity="100"
+                                       IsActive="True" />
+
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <Style x:Key="DefaultWindow" TargetType="Controls:MetroWindow">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="TitleCharacterCasing" Value="Normal" />
+        <Setter Property="GlowBrush" Value="Gray" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="SaveWindowPosition" Value="True" />
+        <Setter Property="behavior:WindowBehavior.ContentRendered" Value="{Binding OnLoaded}" />
+        <Setter Property="behavior:WindowBehavior.Closing" Value="{Binding OnClosing}" />
+        <Setter Property="behavior:WindowBehavior.Disposable" Value="{Binding}" />
+        <Setter Property="ContentTemplate" Value="{StaticResource WindowDataTemplate}" />
+    </Style>
+
+    <Style x:Key="DefaultDialog" TargetType="Controls:MetroWindow" BasedOn="{StaticResource DefaultWindow}">
+        <Setter Property="SaveWindowPosition" Value="False" />
+        <Setter Property="ResizeMode" Value="NoResize" />
+        <Setter Property="SizeToContent" Value="WidthAndHeight" />
+        <Setter Property="WindowTransitionsEnabled" Value="False" />
+        <Setter Property="ShowInTaskbar" Value="False" />
+        <Setter Property="behavior:WindowBehavior.DialogResult" Value="{Binding DialogResult}" />
+    </Style>
+
 </ResourceDictionary>

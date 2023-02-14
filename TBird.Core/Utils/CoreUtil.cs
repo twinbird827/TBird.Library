@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -62,6 +63,80 @@ namespace TBird.Core
         public static async Task<bool> Delay(int delay)
         {
             return await Delay(delay, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// 指定した同期処理を非同期で実行します。
+        /// </summary>
+        /// <param name="action">同期処理</param>
+        public static async void Background(Action action)
+        {
+            await WaitAsync(action).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 指定した同期処理を非同期で実行し、処理を待機します。
+        /// </summary>
+        /// <param name="action">同期処理</param>
+        /// <returns></returns>
+        public static Task WaitAsync(Action action)
+        {
+            return Task.Run(action);
+        }
+
+        /// <summary>
+        /// 指定した同期処理を非同期で実行し、結果を取得します。
+        /// </summary>
+        /// <typeparam name="T">結果のﾃﾞｰﾀ型</typeparam>
+        /// <param name="func">同期処理</param>
+        /// <returns></returns>
+        public static Task<T> WaitAsync<T>(Func<T> func)
+        {
+            // 結果を返却
+            return Task.Run(func);
+        }
+
+        /// <summary>
+        /// 空のｺｰﾙﾊﾞｯｸ
+        /// </summary>
+        public static AsyncCallback AsyncCallbackEmpty = tmp => { };
+
+        /// <summary>
+        /// ﾌﾟﾛｾｽを実行します。実行するﾌﾟﾛｾｽが複数存在する場合ﾊﾟｲﾌﾟします。
+        /// </summary>
+        /// <param name="pis">ﾌﾟﾛｾｽ実行情報</param>
+        public static void Execute(params ProcessStartInfo[] pis)
+        {
+            Process process = null;
+            foreach (var pi in pis)
+            {
+                pi.CreateNoWindow = true;
+                pi.UseShellExecute = false;
+                pi.RedirectStandardInput = process != null;
+                pi.RedirectStandardOutput = true;
+
+                var now = Process.Start(pi);
+
+                if (process != null)
+                {
+                    using (process)
+                    using (var reader = process.StandardOutput)
+                    using (var writer = now.StandardInput)
+                    {
+                        writer.AutoFlush = true;
+                        string line = reader.ReadToEnd();
+
+                        writer.Write(line);
+                    }
+                }
+
+                process = now;
+            }
+
+            using (process)
+            {
+                process.WaitForExit();
+            }
         }
 
     }

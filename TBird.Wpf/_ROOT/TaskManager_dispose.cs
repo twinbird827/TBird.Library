@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace TBird.DB
+namespace TBird.Wpf
 {
-    public abstract partial class DbControl
+    public partial class TaskManager<T>
     {
         private bool disposedValue;
 
@@ -15,8 +17,8 @@ namespace TBird.DB
                 if (disposing)
                 {
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
-                    Rollback();
-                    Close();
+                    _cts.Cancel();
+                    _list.Clear();
                 }
 
                 // TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
@@ -26,7 +28,7 @@ namespace TBird.DB
         }
 
         // // TODO: 'Dispose(bool disposing)' にアンマネージド リソースを解放するコードが含まれる場合にのみ、ファイナライザーをオーバーライドします
-        // ~DbControl()
+        // ~TaskManager()
         // {
         //     // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
         //     Dispose(disposing: false);

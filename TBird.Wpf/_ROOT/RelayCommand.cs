@@ -33,7 +33,7 @@ namespace TBird.Wpf
             return Create<object>(func, predicate);
         }
 
-        public static IRelayCommand CreateCommand<T>(Action<T> action)
+        public static IRelayCommand Create<T>(Action<T> action)
         {
             return Create(action, null);
         }

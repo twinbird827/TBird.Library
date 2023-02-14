@@ -14,6 +14,21 @@ namespace TBird.Wpf
     public static class ControlUtil
     {
         /// <summary>
+        /// ｱｸﾃｨﾌﾞな画面を取得します。
+        /// </summary>
+        public static Window GetActiveWindow()
+        {
+            foreach (var win in Application.Current.Windows)
+            {
+                if (win is Window active && active.IsActive)
+                {
+                    return active;
+                }
+            }
+            return Application.Current.MainWindow;
+        }
+
+        /// <summary>
         /// ﾌｫｰｶｽをｸﾘｱします。
         /// </summary>
         /// <param name="fe">ｸﾘｱ処理を実行したい項目</param>

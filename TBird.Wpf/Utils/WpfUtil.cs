@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using TBird.Core;
 
 namespace TBird.Wpf
 {
@@ -63,6 +64,26 @@ namespace TBird.Wpf
             {
                 return action();
             }
+        }
+
+        public static Task ExecuteOnBackground(Func<Task> func)
+        {
+            return OnUI() ? Task.Run(func) : func();
+        }
+
+        public static Task<T> ExecuteOnBackground<T>(Func<Task<T>> func)
+        {
+            return OnUI() ? Task.Run(func) : func();
+        }
+
+        public static Task ExecuteOnBackground(Action action)
+        {
+            return ExecuteOnBackground(() => CoreUtil.WaitAsync(action));
+        }
+
+        public static Task<T> ExecuteOnBackground<T>(Func<T> func)
+        {
+            return ExecuteOnBackground(() => CoreUtil.WaitAsync(func));
         }
 
         /// <summary>

@@ -23,7 +23,7 @@
     **** ************************************************** -->
     <SolidColorBrush x:Key="My.Brushes.Transparent"         Color="#00ffffff"                                     options:Freeze="True" />
     <SolidColorBrush x:Key="IconMouseOverBrush"             Color="#44ffffff"                                     options:Freeze="True" />
-    <SolidColorBrush x:Key="ProcessingBackgroundBrush"      Color="#66000000"                                     options:Freeze="True" />
+    <SolidColorBrush x:Key="ProcessingBackgroundBrush"      Color="#22000000"                                     options:Freeze="True" />
 
     <SolidColorBrush x:Key="My.Brushes.AccentBase"          Color="{StaticResource MahApps.Colors.AccentBase}"      options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.Accent"              Color="{StaticResource MahApps.Colors.Accent}"          options:Freeze="True" />

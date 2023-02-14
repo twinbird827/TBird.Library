@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Data.SQLite;
 using TBird.Core;
 using TBird.DB.SQLite;
 
@@ -17,8 +18,12 @@ namespace coretest
 
         static async void Async()
         {
-            using (var x = new SQLiteControl(@"DataSource=database.sqlite3;password=sN!dty9*!9MW"))
+            using (var x = new SQLiteControl(@"DataSource=database.sqlite3;Password=sN!dty9*!9MW"))
             {
+                await x.ExecuteNonQueryAsync("CREATE TABLE aaa (id INTEGER)");
+                await x.ExecuteNonQueryAsync("PRAGMA key = 'sN!dty9*!9MW'");
+                await x.ExecuteNonQueryAsync("PRAGMA rekey = 'aaa'");
+                await x.ExecuteNonQueryAsync("CREATE TABLE bbb (id INTEGER)");
                 Console.WriteLine(await x.ExecuteScalarAsync("SELECT 1"));
             }
         }
@@ -36,7 +41,7 @@ namespace coretest
 
         static void Main(string[] args)
         {
-            Console.WriteLine(IsIncluded(ConsoleColor.Red | ConsoleColor.Green, ConsoleColor.Green));
+            Async();
             //var path = @"C:\Work\common-language.csv";
 
             //foreach (var lines in FileUtil.CsvLoad(path))

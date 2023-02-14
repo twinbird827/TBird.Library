@@ -14,9 +14,8 @@ namespace TBird.DB
     {
         protected DbControl(string connectionString)
         {
-            Lock = this.CreateLock4Instance();
-
             _conn = CreateConnection(connectionString);
+            Lock = CreateLock(connectionString);
         }
 
         private DbConnection _conn;
@@ -41,24 +40,31 @@ namespace TBird.DB
             }
         }
 
-        public Task Commit()
+        public void Commit()
         {
             if (_tran != null)
             {
                 _tran.Commit();
                 _tran = null;
             }
-            return Task.CompletedTask;
         }
 
-        public Task Rollback()
+        public void Rollback()
         {
             if (_tran != null)
             {
                 _tran.Commit();
                 _tran = null;
             }
-            return Task.CompletedTask;
+        }
+
+        public virtual void Close()
+        {
+            if (_conn != null)
+            {
+                _conn.Close();
+                _conn = null;
+            }
         }
 
         public Task<int> ExecuteNonQueryAsync(string sql, params DbParameter[] parameters)
@@ -78,10 +84,10 @@ namespace TBird.DB
 
         private async Task<T> ExecuteAsync<T>(Func<DbCommand, Task<T>> execute, string sql, DbParameter[] parameters)
         {
+            await OpenAsync();
+
             using (await this.LockAsync())
             {
-                await OpenAsync();
-
                 _stopwatch.Restart();
 
                 var exception = false;
@@ -121,7 +127,7 @@ namespace TBird.DB
             while (_tran != null) await CoreUtil.Delay(16);
         }
 
-        private async Task OpenAsync()
+        protected virtual async Task OpenAsync()
         {
             if (_conn.State != ConnectionState.Open)
             {
@@ -129,7 +135,7 @@ namespace TBird.DB
             }
         }
 
-        protected Dictionary<string, string> GetConnectionDictionary(string connectionString)
+        protected Dictionary<string, string> ToConnectionDictionary(string connectionString)
         {
             return connectionString.Split(';')
                 .Where(x => x.Contains('='))
@@ -138,6 +144,11 @@ namespace TBird.DB
                     x => x[0].ToLower(),
                     x => x[1]
             );
+        }
+
+        protected virtual string CreateLock(string connectionString)
+        {
+            return this.CreateLock4Instance();
         }
     }
 }

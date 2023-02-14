@@ -38,7 +38,7 @@ namespace TBird.Wpf
 
         public static bool TryExecute(this ICommand ic, object parameter)
         {
-            if (!WpfUtil.IsDesignMode())
+            if (WpfUtil.IsDesignMode())
             {
                 return true;
             }

@@ -1,4 +1,84 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ｽｸﾛｰﾙﾊﾞｰの幅 -->
+    <sys:Double x:Key="UpDwScrollBarSize">16</sys:Double>
+    <!-- ﾎﾞﾀﾝの長さ -->
+    <sys:Double x:Key="UpDwScrollBarRepeatButtonSize">12</sys:Double>
+    <!-- ﾏｳｽｵｰﾊﾞｰ時の色-->
+    <SolidColorBrush x:Key="UpDwScrollBarMouseOverBrush" Color="#66000000" />
+    <!-- ﾎﾞﾀﾝを押した時の色 -->
+    <SolidColorBrush x:Key="UpDwScrollBarPressedBrush" Color="#99000000" />
+    <!-- ﾎﾞﾀﾝの色 -->
+    <SolidColorBrush x:Key="UpDwScrollBarEnabledBrush" Color="#cc000000" />
+    <!-- 使用不可の色 -->
+    <SolidColorBrush x:Key="UpDwScrollBarDisabledBrush" Color="#44000000" />
+
+    <!-- 終端の三角ﾎﾞﾀﾝのｽﾀｲﾙ -->
+    <Style x:Key="UpDwScrollBarRepeatButton" TargetType="{x:Type RepeatButton}">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Height" Value="{StaticResource UpDwScrollBarRepeatButtonSize}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type RepeatButton}">
+                    <Border x:Name="Border"
+                            Margin="0"
+                            Padding="0"
+                            Background="{StaticResource My.Brushes.Transparent}"
+                            CornerRadius="0">
+                        <Path x:Name="Path"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Margin="0"
+                              Fill="{StaticResource UpDwScrollBarEnabledBrush}"
+                              Data="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="true">
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource UpDwScrollBarMouseOverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="true">
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource UpDwScrollBarPressedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="false">
+                            <Setter TargetName="Path" Property="Fill" Value="{StaticResource UpDwScrollBarDisabledBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ﾃｷｽﾄﾎﾞｯｸｽに付属する値を上下させるためのｽｸﾛｰﾙﾊﾞｰのｽﾀｲﾙ -->
+    <Style x:Key="UpDwScrollBar" TargetType="{x:Type ScrollBar}">
+        <Setter Property="OverridesDefaultStyle" Value="true"/>
+        <Setter Property="Orientation" Value="Vertical" />
+        <Setter Property="Width" Value="{StaticResource UpDwScrollBarSize}"/>
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="auto" />
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="auto" />
+                        </Grid.RowDefinitions>
+                        <RepeatButton Grid.Row="0"
+                                      Style="{StaticResource UpDwScrollBarRepeatButton}"
+                                      Command="ScrollBar.LineDownCommand"
+                                      Content="M 0 4 L 8 4 L 4 0 Z" />
+                        <RepeatButton Grid.Row="2"
+                                      Style="{StaticResource UpDwScrollBarRepeatButton}"
+                                      Command="ScrollBar.LineUpCommand"
+                                      Content="M 0 0 L 4 4 L 8 0 Z"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

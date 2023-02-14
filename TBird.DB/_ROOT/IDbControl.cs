@@ -18,12 +18,17 @@ namespace TBird.DB
         /// <summary>
         /// ﾄﾗﾝｻﾞｸｼｮﾝをｺﾐｯﾄします。
         /// </summary>
-        Task Commit();
+        void Commit();
 
         /// <summary>
         /// ﾄﾗﾝｻﾞｸｼｮﾝをﾛｰﾙﾊﾞｯｸします。
         /// </summary>
-        Task Rollback();
+        void Rollback();
+
+        /// <summary>
+        /// 接続を閉じます。
+        /// </summary>
+        void Close();
 
         /// <summary>
         /// SQL文を実行し、影響を及ぼした件数を取得します。

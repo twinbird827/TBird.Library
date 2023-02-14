@@ -47,6 +47,12 @@ namespace TBird.Wpf
             return true;
         }
 
+        protected virtual BindableBase SetPropertyAnd<T>(ref T storage, T value, bool isDisposeOld = false, [CallerMemberName] string propertyName = null)
+        {
+            SetProperty(ref storage, value, isDisposeOld, propertyName);
+            return this;
+        }
+
         /// <summary>
         /// ﾌﾟﾛﾊﾟﾃｨ値が変更されたことをﾘｽﾅに通知します。
         /// </summary>
