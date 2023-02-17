@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using TBird.Core;
@@ -63,7 +64,7 @@ namespace TBird.Wpf
     {
         private Action<T> _action;
         private Predicate<T> _predicate;
-        private BackgroundWorker _worker;
+        private CancellationTokenSource _cts = new CancellationTokenSource();
 
         public string Lock { get; private set; }
 
@@ -77,36 +78,31 @@ namespace TBird.Wpf
         {
             Lock = this.CreateLock4Instance();
 
-            _worker = new BackgroundWorker();
-            _worker.WorkerSupportsCancellation = true;
-            _worker.DoWork += async (sender, e) =>
-            {
-                RaiseCanExecuteChanged();
-                // 実行直前に再度確認する
-                if (!CanExecute((T)e.Argument)) return;
-                // 処理実行
-                await func((T)e.Argument);
-            };
-            _worker.RunWorkerCompleted += (sender, e) =>
-            {
-                RaiseCanExecuteChanged();
-            };
-
             _action = async x =>
             {
-                if (_worker.IsBusy)
-                {
-                    _worker.CancelAsync();
-                }
-
                 using (await this.LockAsync())
                 {
-                    // ﾋﾞｼﾞｰ状態が解除されるまで待機
-                    while (_worker.IsBusy) await CoreUtil.Delay(16);
+                    RaiseCanExecuteChanged();
+
+                    // 実行直前に再度確認する
+                    if (!CanExecute(x)) return;
+
                     // 複数の処理が待機されていた場合、最後の処理だけ実行する
                     if (1 < this.LockCount()) return;
-                    // 処理実行
-                    _worker.RunWorkerAsync(x);
+
+                    try
+                    {
+                        // 処理実行
+                        await func(x).Cts(_cts);
+                    }
+                    catch (TimeoutException)
+                    {
+                        // ｽｷｯﾌﾟ
+                    }
+                    catch (Exception ex)
+                    {
+                        ServiceFactory.MessageService.Exception(ex);
+                    }
                 }
             };
             _predicate = predicate;

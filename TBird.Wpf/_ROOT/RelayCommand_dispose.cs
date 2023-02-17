@@ -19,11 +19,7 @@ namespace TBird.Wpf
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
                     _action = null;
                     _predicate = null;
-                    if (_worker != null)
-                    {
-                        _worker.Dispose();
-                        _worker = null;
-                    }
+                    _cts.Cancel();
                 }
 
                 // TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
