@@ -13,10 +13,7 @@ namespace wpftest
     {
         public MainViewModel()
         {
-            Loaded.Add(() => Task.Delay(2000));
 
-            Closing.Add(() => Task.Delay(2000));
-            Closing.Add(() => Thread.Sleep(2000));
         }
 
         public string Text
@@ -26,9 +23,12 @@ namespace wpftest
         }
         private string _Text;
 
-        public IRelayCommand Command => RelayCommand.Create(_ =>
+        public IRelayCommand Command => RelayCommand.Create(async _ =>
         {
-            Text += DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");
+            Text += "B:" + DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");
+            await Task.Delay(new Random().Next(1000, 5000));
+            Text += "E:" + DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");
+            Text += "\n";
         });
     }
 }

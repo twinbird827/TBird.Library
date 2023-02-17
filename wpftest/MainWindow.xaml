@@ -16,6 +16,6 @@
 
     <StackPanel>
         <Button Command="{Binding Command}" Content="TEST" />
-        <TextBlock behavior:TextBlockBehavior.MaxLines="3" behavior:TextBlockBehavior.MaxText="{Binding Text}" />
+        <TextBlock behavior:TextBlockBehavior.MaxLines="50" behavior:TextBlockBehavior.MaxText="{Binding Text}" />
     </StackPanel>
 </Controls:MetroWindow>

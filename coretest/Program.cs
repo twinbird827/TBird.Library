@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.Data.SQLite;
 using TBird.Core;
 using TBird.DB.SQLite;
+using System.Threading;
+using TBird.Service;
 
 namespace coretest
 {
@@ -16,16 +18,18 @@ namespace coretest
 
         }
 
-        static async void Async()
+        static void Async()
         {
-            using (var x = new SQLiteControl(@"DataSource=database.sqlite3;Password=sN!dty9*!9MW"))
+            var r = new Random();
+            var t = new IntervalTimer(() =>
             {
-                await x.ExecuteNonQueryAsync("CREATE TABLE aaa (id INTEGER)");
-                await x.ExecuteNonQueryAsync("PRAGMA key = 'sN!dty9*!9MW'");
-                await x.ExecuteNonQueryAsync("PRAGMA rekey = 'aaa'");
-                await x.ExecuteNonQueryAsync("CREATE TABLE bbb (id INTEGER)");
-                Console.WriteLine(await x.ExecuteScalarAsync("SELECT 1"));
-            }
+                var time = r.Next(1, 5000);
+                Console.WriteLine("b:"+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+                Thread.Sleep(time);
+                Console.WriteLine("e:" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "time: " + time);
+            });
+            t.Interval = TimeSpan.FromMilliseconds(2000);
+            t.Start();
         }
         public static bool IsIncluded<T>(T a, T b) where T : Enum
         {
@@ -41,7 +45,8 @@ namespace coretest
 
         static void Main(string[] args)
         {
-            Async();
+            ServiceRunner.Run(new MyService(), "/i");
+            //Async();
             //var path = @"C:\Work\common-language.csv";
 
             //foreach (var lines in FileUtil.CsvLoad(path))
