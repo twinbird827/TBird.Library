@@ -10,12 +10,10 @@ namespace TBird.Service
 {
     public abstract class ServiceManager : ServiceBase, ILocker
     {
-        public ServiceManager(Func<Task> tick, Func<bool> start, Action stop) : this (tick, () => start == null ? null : CoreUtil.WaitAsync(start), stop)
-        {
-
-        }
-
-        public ServiceManager(Func<Task> tick, Func<Task<bool>> start, Action stop)
+        /// <summary>
+        /// ｻｰﾋﾞｽの実体を初期化します。
+        /// </summary>
+        public ServiceManager()
         {
             Lock = this.CreateLock4Instance();
 
@@ -30,36 +28,60 @@ namespace TBird.Service
             ServiceName = ServiceSetting.Instance.ServiceName;
 
             ServiceFactory.MessageService = new ServiceMessageService(EventLog);
-            ServiceFactory.MessageService.Info("コンストラクタが呼び出されました。");
+            ServiceFactory.MessageService.Info("サービスのコンストラクタが呼び出されました。");
 
-            _startfunc = start;
-            _tickfunc = tick;
-            _stop = stop;
             _timer = new IntervalTimer(async () =>
             {
                 using (await this.LockAsync())
                 {
                     // 開始処理を行っていない場合は開始処理を行い、正常終了したら後続処理を行う。
-                    if (_startasync = _startasync || _startfunc == null || await _startfunc())
+                    if (_startasync = _startasync || await StartProcess())
                     {
-                        await _tickfunc();
+                        try
+                        {
+                            await TickProcess();
+                        }
+                        catch (Exception ex)
+                        {
+                            ServiceFactory.MessageService.Info("処理されていない例外をキャッチしたため、停止処理を実行した後、開始処理を実行します。");
+                            ServiceFactory.MessageService.Exception(ex);
+                            StopProcess();
+                            _startasync = false;
+                        }
                     }
                 }
             });
             _timer.Interval = TimeSpan.FromMilliseconds(ServiceSetting.Instance.Interval);
         }
 
+        /// <summary>時間間隔のﾀｲﾏｰ</summary>
         private IntervalTimer _timer;
 
-        private Func<Task<bool>> _startfunc;
-
-        private Func<Task> _tickfunc;
-
-        private Action _stop;
-
+        /// <summary>開始処理が成功したかどうか</summary>
         private bool _startasync = false;
 
+        /// <summary>ﾛｯｸｷｰ(ｲﾝｽﾀﾝｽ毎に固有)</summary>
         public string Lock { get; private set; }
+
+        /// <summary>開始処理</summary>
+        protected virtual Task<bool> StartProcess()
+        {
+            return Task.Run(() => true);
+        }
+
+        protected Task<bool> ToStartResult(bool value)
+        {
+            return Task.Run(() => value);
+        }
+        
+        /// <summary>時間間隔の処理</summary>
+        protected abstract Task TickProcess();
+
+        /// <summary>停止処理</summary>
+        protected virtual void StopProcess()
+        {
+
+        }
 
         /// <summary>
         /// ｻｰﾋﾞｽを開始します。
@@ -67,7 +89,6 @@ namespace TBird.Service
         /// <param name="args"></param>
         protected override void OnStart(string[] args)
         {
-            ServiceFactory.MessageService.Info("テストサービスを開始します。");
             _startasync = false;
             _timer.Start();
         }
@@ -82,9 +103,7 @@ namespace TBird.Service
             //お作法らしい
             RequestAdditionalTime(2000);
 
-            ServiceFactory.MessageService.Info("テストサービスを停止します。");
-
-            if (_stop != null) _stop();
+            StopProcess();
 
             // 正常終了を通知
             ExitCode = 0;
@@ -95,7 +114,7 @@ namespace TBird.Service
         /// </summary>
         protected override void OnShutdown()
         {
-            ServiceFactory.MessageService.Info("テストサービスがシステムの終了を検知しました。");
+            ServiceFactory.MessageService.Info("サービスがシステムの終了を検知しました。");
             _timer.Dispose();
         }
     }

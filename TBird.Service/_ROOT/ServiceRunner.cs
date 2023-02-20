@@ -23,8 +23,6 @@ namespace TBird.Service
             si.ServiceName = ServiceSetting.Instance.ServiceName;
             si.DisplayName = ServiceSetting.Instance.DisplayName;
             si.Description = ServiceSetting.Instance.Description;
-
-            //自動起動を指定
             si.StartType = ServiceSetting.Instance.StartType;
 
             this.Installers.Add(spi);
@@ -33,6 +31,8 @@ namespace TBird.Service
 
         public static void Run(ServiceBase service, params string[] args)
         {
+            ServiceSetting.Instance.Save();
+
             if (Environment.UserInteractive)
             {
                 if (args.Length == 1)
@@ -68,9 +68,10 @@ namespace TBird.Service
 
                 // ｺﾝｿｰﾙでﾃｽﾄ実行
                 OnStart(service, args);
-                Console.WriteLine("Press any key to stop program");
+                Console.WriteLine("Press any key to stop program.");
                 Console.Read();
                 service.Stop();
+                Console.WriteLine("Program stopped.");
                 Console.Read();
             }
             else

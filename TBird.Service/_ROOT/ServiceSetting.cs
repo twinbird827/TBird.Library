@@ -25,10 +25,13 @@ namespace TBird.Service
                 Interval = 1000;
 
                 ServiceName = "TBird.Service";
+                DisplayName = "TBird.Service display name";
                 Description = "TBird.Service default description";
                 StartType = ServiceStartMode.Automatic;
                 Username = Environment.UserName;
                 Account = ServiceAccount.LocalSystem;
+
+                WriteInformationEventLog = true;
             }
         }
 
@@ -101,6 +104,16 @@ namespace TBird.Service
             set => SetProperty(ref _Account, value);
         }
         private ServiceAccount _Account;
+
+        /// <summary>
+        /// Informationﾛｸﾞをｲﾍﾞﾝﾄﾛｸﾞに出力するかどうか
+        /// </summary>
+        public bool WriteInformationEventLog
+        {
+            get => GetProperty(_WriteInformationEventLog);
+            set => SetProperty(ref _WriteInformationEventLog, value);
+        }
+        private bool _WriteInformationEventLog;
 
     }
 }
