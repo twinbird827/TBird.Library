@@ -41,5 +41,10 @@ namespace TBird.Core
         {
             return Locker.LockAsync(x.Lock);
         }
+
+        public static IDisposable Lock(this ILocker x)
+        {
+            return Locker.Lock(x.Lock);
+        }
     }
 }

@@ -64,6 +64,28 @@ namespace TBird.Core
         }
 
         /// <summary>
+        /// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
+        /// </summary>
+        /// <returns></returns>
+        public static IDisposable Lock(string key)
+        {
+            _lock.Wait();
+            try
+            {
+                if (!_manages.ContainsKey(key))
+                {
+                    _manages.Add(key, new Manager());
+                }
+            }
+            finally
+            {
+                _lock.Release();
+            }
+
+            return _manages[key].Lock();
+        }
+
+        /// <summary>
         /// 待機中の処理数をｶｳﾝﾄします。
         /// </summary>
         /// <returns></returns>
@@ -88,8 +110,16 @@ namespace TBird.Core
 
             public Task WaitAsync()
             {
+                ServiceFactory.MessageService.Info("WaitAsync: " + _cnt);
                 Interlocked.Increment(ref _cnt);
                 return _slim.WaitAsync();
+            }
+
+            public void Wait()
+            {
+                ServiceFactory.MessageService.Info("Wait: " + _cnt);
+                Interlocked.Increment(ref _cnt);
+                _slim.Wait();
             }
 
             public int Release()
@@ -101,6 +131,12 @@ namespace TBird.Core
             public async Task<IDisposable> LockAsync()
             {
                 await WaitAsync();
+                return new Disposer<Manager>(this, arg => arg.Release());
+            }
+
+            public IDisposable Lock()
+            {
+                Wait();
                 return new Disposer<Manager>(this, arg => arg.Release());
             }
         }

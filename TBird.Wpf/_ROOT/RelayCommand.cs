@@ -60,7 +60,7 @@ namespace TBird.Wpf
         }
     }
 
-    public partial class RelayCommand<T> : IRelayCommand, ILocker
+    public partial class RelayCommand<T> : IRelayCommand
     {
         private Action<T> _action;
         private Predicate<T> _predicate;
@@ -133,6 +133,8 @@ namespace TBird.Wpf
         public bool CanExecute(object parameter)
         {
             return disposedValue
+                ? false
+                : _cts.IsCancellationRequested
                 ? false
                 : _predicate == null
                 ? true

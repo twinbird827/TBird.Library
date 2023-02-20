@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Wpf
 {
-    public partial class BindableBase
+    public partial class BindableBase : ILocker
     {
         /// <summary>
         /// GUID
         /// </summary>
-        protected string Guid
+        public string Lock
         {
-            get => _Guid = _Guid ?? System.Guid.NewGuid().ToString();
+            get => _Guid = _Guid ?? this.CreateLock4Instance();
         }
         private string _Guid;
 
@@ -23,7 +24,7 @@ namespace TBird.Wpf
         /// <returns></returns>
         public override string ToString()
         {
-            return $"{base.ToString()} {Guid}";
+            return $"{base.ToString()} {Lock}";
         }
 
         /// <summary>
@@ -34,7 +35,7 @@ namespace TBird.Wpf
         public override bool Equals(object obj)
         {
             return obj is BindableBase bindable && bindable != null
-                ? Guid.Equals(bindable.Guid)
+                ? Lock.Equals(bindable.Lock)
                 : false;
         }
 
@@ -44,7 +45,7 @@ namespace TBird.Wpf
         /// <returns></returns>
         public override int GetHashCode()
         {
-            return Guid.GetHashCode();
+            return Lock.GetHashCode();
         }
     }
 }

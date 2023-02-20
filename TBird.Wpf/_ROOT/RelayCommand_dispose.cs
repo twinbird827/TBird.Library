@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Wpf
 {
@@ -17,6 +18,7 @@ namespace TBird.Wpf
                 if (disposing)
                 {
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
+                    if (0 < this.LockCount()) using (this.Lock()) { }
                     _action = null;
                     _predicate = null;
                     _cts.Cancel();
