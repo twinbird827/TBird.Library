@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -8,12 +9,17 @@ namespace TBird.Core
 {
     public class ConsoleMessageService : IMessageService
     {
+        public ConsoleMessageService()
+        {
+            System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.TextWriterTraceListener(Console.Out));
+        }
+
         public virtual void Error(string message,
                 [CallerMemberName] string callerMemberName = "",
                 [CallerFilePath] string callerFilePath = "",
                 [CallerLineNumber] int callerLineNumber = 0)
         {
-            Console.WriteLine(GetString(MessageType.Error, message, callerMemberName, callerFilePath, callerLineNumber));
+            Writeline(GetString(MessageType.Error, message, callerMemberName, callerFilePath, callerLineNumber));
         }
 
         public virtual void Info(string message,
@@ -21,7 +27,7 @@ namespace TBird.Core
                 [CallerFilePath] string callerFilePath = "",
                 [CallerLineNumber] int callerLineNumber = 0)
         {
-            Console.WriteLine(GetString(MessageType.Info, message, callerMemberName, callerFilePath, callerLineNumber));
+            Writeline(GetString(MessageType.Info, message, callerMemberName, callerFilePath, callerLineNumber));
         }
 
         public virtual void Debug(string message,
@@ -30,11 +36,11 @@ namespace TBird.Core
                 [CallerLineNumber] int callerLineNumber = 0)
         {
 #if DEBUG
-            Console.WriteLine(GetString(MessageType.Debug, message, callerMemberName, callerFilePath, callerLineNumber));
+            Writeline(GetString(MessageType.Debug, message, callerMemberName, callerFilePath, callerLineNumber));
 #else
             if (CoreSetting.Instance.IsDebug)
             {
-                Console.WriteLine(GetString(MessageType.Debug, message, callerMemberName, callerFilePath, callerLineNumber));
+                Writeline(GetString(MessageType.Debug, message, callerMemberName, callerFilePath, callerLineNumber));
             }
 #endif
         }
@@ -44,7 +50,7 @@ namespace TBird.Core
                 [CallerFilePath] string callerFilePath = "",
                 [CallerLineNumber] int callerLineNumber = 0)
         {
-            Console.WriteLine(GetString(MessageType.Confirm, message, callerMemberName, callerFilePath, callerLineNumber));
+            Writeline(GetString(MessageType.Confirm, message, callerMemberName, callerFilePath, callerLineNumber));
             return true;
         }
 
@@ -53,7 +59,7 @@ namespace TBird.Core
                 [CallerFilePath] string callerFilePath = "",
                 [CallerLineNumber] int callerLineNumber = 0)
         {
-            Console.WriteLine(GetString(MessageType.Exception, exception.ToString(), callerMemberName, callerFilePath, callerLineNumber));
+           Writeline(GetString(MessageType.Exception, exception.ToString(), callerMemberName, callerFilePath, callerLineNumber));
         }
 
         private string GetString(MessageType type,
@@ -91,11 +97,15 @@ namespace TBird.Core
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.ToString());
+                    Writeline(ex.ToString());
                 }
             }
         }
         private static object _lock = new object();
 
+        private void Writeline(string message)
+        {
+            System.Diagnostics.Debug.WriteLine(message);
+        }
     }
 }
