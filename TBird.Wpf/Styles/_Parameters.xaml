@@ -21,9 +21,9 @@
     <!-- **************************************************
     **** SolidColorBrush
     **** ************************************************** -->
-    <SolidColorBrush x:Key="My.Brushes.Transparent"         Color="#00ffffff"                                     options:Freeze="True" />
-    <SolidColorBrush x:Key="IconMouseOverBrush"             Color="#44ffffff"                                     options:Freeze="True" />
-    <SolidColorBrush x:Key="ProcessingBackgroundBrush"      Color="#22000000"                                     options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.Transparent"         Color="#00ffffff"                                       options:Freeze="True" />
+    <SolidColorBrush x:Key="IconMouseOverBrush"             Color="#44ffffff"                                       options:Freeze="True" />
+    <SolidColorBrush x:Key="ProcessingBackgroundBrush"      Color="#22000000"                                       options:Freeze="True" />
 
     <SolidColorBrush x:Key="My.Brushes.AccentBase"          Color="{StaticResource MahApps.Colors.AccentBase}"      options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.Accent"              Color="{StaticResource MahApps.Colors.Accent}"          options:Freeze="True" />
@@ -31,7 +31,7 @@
     <SolidColorBrush x:Key="My.Brushes.Accent3"             Color="{StaticResource MahApps.Colors.Accent3}"         options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.Accent4"             Color="{StaticResource MahApps.Colors.Accent4}"         options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.IdealForeground"     Color="{StaticResource MahApps.Colors.IdealForeground}" options:Freeze="True" />
-    <SolidColorBrush x:Key="My.Brushes.White"               Color="White"                                         options:Freeze="True" />
+    <SolidColorBrush x:Key="My.Brushes.White"               Color="White"                                           options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.Background"          Color="{StaticResource MahApps.Colors.ThemeBackground}" options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.DisableForeground"   Color="{StaticResource MahApps.Colors.Gray1}"           options:Freeze="True" />
     <SolidColorBrush x:Key="My.Brushes.DisableBackground"   Color="{StaticResource MahApps.Colors.Gray3}"           options:Freeze="True" />

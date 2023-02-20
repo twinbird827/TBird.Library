@@ -1,10 +1,9 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <ResourceDictionary.MergedDictionaries>
 
-        <!--<ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Border.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Border.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Button.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/CheckBox.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/DockPanel.xaml" />
@@ -24,30 +23,30 @@
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/StackPanel.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/TextBlock.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/TextBox.xaml" />
-        <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/ToggleButton.xaml" />-->
+        <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/ToggleButton.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Window.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/WrapPanel.xaml" />
 
     </ResourceDictionary.MergedDictionaries>
 
-    <!--<Style TargetType="Border" BasedOn="{StaticResource DefaultBorder}" />
-    <Style TargetType="Button" BasedOn="{StaticResource DefaultButton}" />
-    <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBox}" />
-    <Style TargetType="DockPanel" BasedOn="{StaticResource DefaultDockPanel}" />
-    <Style TargetType="Grid" BasedOn="{StaticResource DefaultGrid}" />
-    <Style TargetType="GroupBox" BasedOn="{StaticResource DefaultGroupBox}" />
-    <Style TargetType="Image" BasedOn="{StaticResource DefaultImage}" />
+    <Style TargetType="Border"       BasedOn="{StaticResource DefaultBorder}" />
+    <Style TargetType="Button"       BasedOn="{StaticResource DefaultButton}" />
+    <Style TargetType="CheckBox"     BasedOn="{StaticResource DefaultCheckBox}" />
+    <Style TargetType="DockPanel"    BasedOn="{StaticResource DefaultDockPanel}" />
+    <Style TargetType="Grid"         BasedOn="{StaticResource DefaultGrid}" />
+    <Style TargetType="GroupBox"     BasedOn="{StaticResource DefaultGroupBox}" />
+    <Style TargetType="Image"        BasedOn="{StaticResource DefaultImage}" />
     <Style TargetType="ItemsControl" BasedOn="{StaticResource DefaultItemsControl}" />
-    <Style TargetType="Label" BasedOn="{StaticResource DefaultLabel}" />
-    <Style TargetType="ListBox" BasedOn="{StaticResource DefaultListBox}" />
-    <Style TargetType="ListBoxItem" BasedOn="{StaticResource DefaultListBoxItem}" />
-    <Style TargetType="PasswordBox" BasedOn="{StaticResource DefaultPasswordBox}" />
-    <Style TargetType="RadioButton" BasedOn="{StaticResource DefaultRadioButton}" />
+    <Style TargetType="Label"        BasedOn="{StaticResource DefaultLabel}" />
+    <Style TargetType="ListBox"      BasedOn="{StaticResource DefaultListBox}" />
+    <Style TargetType="ListBoxItem"  BasedOn="{StaticResource DefaultListBoxItem}" />
+    <Style TargetType="PasswordBox"  BasedOn="{StaticResource DefaultPasswordBox}" />
+    <Style TargetType="RadioButton"  BasedOn="{StaticResource DefaultRadioButton}" />
     <Style TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}" />
-    <Style TargetType="StackPanel" BasedOn="{StaticResource DefaultStackPanel}" />
-    <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultTextBlock}" />
-    <Style TargetType="TextBox" BasedOn="{StaticResource DefaultTextBox}" />
+    <Style TargetType="StackPanel"   BasedOn="{StaticResource DefaultStackPanel}" />
+    <Style TargetType="TextBlock"    BasedOn="{StaticResource DefaultTextBlock}" />
+    <Style TargetType="TextBox"      BasedOn="{StaticResource DefaultTextBox}" />
     <Style TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButton}" />
-    <Style TargetType="WrapPanel" BasedOn="{StaticResource DefaultWrapPanel}" />-->
+    <Style TargetType="WrapPanel"    BasedOn="{StaticResource DefaultWrapPanel}" />
     
 </ResourceDictionary>
