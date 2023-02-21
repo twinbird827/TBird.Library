@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace TBird.Wpf
+namespace TBird.Core
 {
-    public partial class TaskManager<T>
+    public partial class TaskManager<T> : IDisposable
     {
         private bool disposedValue;
 

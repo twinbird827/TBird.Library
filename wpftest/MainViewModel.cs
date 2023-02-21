@@ -15,6 +15,8 @@ namespace wpftest
     {
         public MainViewModel()
         {
+            Loaded.Add(() => Task.Delay(new Random().Next(1000, 3000)));
+
             Closing.Add(() =>
             {
                 Command.Dispose();

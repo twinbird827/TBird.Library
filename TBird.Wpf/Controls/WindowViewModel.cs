@@ -22,7 +22,7 @@ namespace TBird.Wpf.Controls
         });
         private ICommand _OnLoaded;
 
-        public TaskManager Loaded { get; } = new TaskManager();
+        public BackgroundTaskManager Loaded { get; } = new BackgroundTaskManager();
 
         public ICommand OnClosing => _OnClosing = _OnClosing ?? RelayCommand.Create<CancelEventArgs>(e =>
         {
@@ -34,7 +34,7 @@ namespace TBird.Wpf.Controls
         });
         private ICommand _OnClosing;
 
-        public TaskManager<CancelEventArgs> Closing { get; } = new TaskManager<CancelEventArgs>();
+        public BackgroundTaskManager<CancelEventArgs> Closing { get; } = new BackgroundTaskManager<CancelEventArgs>();
 
         /// <summary>
         /// ﾀﾞｲｱﾛｸﾞ結果
