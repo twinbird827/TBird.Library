@@ -110,14 +110,12 @@ namespace TBird.Core
 
             public Task WaitAsync()
             {
-                ServiceFactory.MessageService.Info("WaitAsync: " + _cnt);
                 Interlocked.Increment(ref _cnt);
                 return _slim.WaitAsync();
             }
 
             public void Wait()
             {
-                ServiceFactory.MessageService.Info("Wait: " + _cnt);
                 Interlocked.Increment(ref _cnt);
                 _slim.Wait();
             }
