@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Roslyn.ctx" />
+    <None Remove="scripts\roslyn1.ctx" />
+    <None Remove="scripts\roslyn2.ctx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Roslyn.ctx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="scripts\roslyn2.ctx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="scripts\roslyn1.ctx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.Roslyn\TBird.Roslyn.csproj" />
+  </ItemGroup>
+
+</Project>
