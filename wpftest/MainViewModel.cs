@@ -36,9 +36,9 @@ namespace wpftest
 
         public IRelayCommand Command => _Command = _Command ?? RelayCommand.Create(async _ =>
         {
-            MessageService.Info("aaaa");
-            Text += "Command:";
+            Text += "Command: lock: ";
             Text += this.LockCount();
+            Text += "index: " + _index++;
             Text += "\n";
             Text += "B:" + DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");
             await Task.Delay(new Random().Next(1000, 5000));
@@ -46,5 +46,6 @@ namespace wpftest
             Text += "\n";
         });
         private IRelayCommand _Command;
+        private int _index;
     }
 }

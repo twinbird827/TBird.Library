@@ -65,12 +65,17 @@ namespace TBird.Wpf
         private Action<T> _action;
         private Predicate<T> _predicate;
         private CancellationTokenSource _cts = new CancellationTokenSource();
-
+        private bool _executing = false;
         public string Lock { get; private set; }
 
         public RelayCommand(Action<T> action, Predicate<T> predicate)
         {
-            _action = action;
+            _action = x =>
+            {
+                ChangeExecuting(true);
+                action(x);
+                ChangeExecuting(false);
+            };
             _predicate = predicate;
         }
 
@@ -92,6 +97,9 @@ namespace TBird.Wpf
 
                     try
                     {
+                        // 押せなくする。
+                        ChangeExecuting(true);
+
                         // 処理実行
                         await func(x).Cts(_cts);
                     }
@@ -103,12 +111,22 @@ namespace TBird.Wpf
                     {
                         MessageService.Exception(ex);
                     }
+                    finally
+                    {
+                        // 押せるようにする。
+                        ChangeExecuting(false);
+                    }
                 }
             };
             _predicate = predicate;
         }
 
         public event EventHandler CanExecuteChanged;
+
+        private void ChangeExecuting(bool value)
+        {
+            _executing = value; RaiseCanExecuteChanged();
+        }
 
         public void RaiseCanExecuteChanged()
         {
@@ -133,6 +151,8 @@ namespace TBird.Wpf
         public bool CanExecute(object parameter)
         {
             return disposedValue
+                ? false
+                : _executing
                 ? false
                 : _cts.IsCancellationRequested
                 ? false
