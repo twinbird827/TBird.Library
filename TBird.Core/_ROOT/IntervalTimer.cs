@@ -65,7 +65,7 @@ namespace TBird.Core
                 }
                 catch (Exception ex)
                 {
-                    ServiceFactory.MessageService.Exception(ex);
+                    MessageService.Exception(ex);
                 }
                 finally
                 {

@@ -36,7 +36,7 @@ namespace wpftest
 
         public IRelayCommand Command => _Command = _Command ?? RelayCommand.Create(async _ =>
         {
-            ServiceFactory.MessageService.Info("aaaa");
+            MessageService.Info("aaaa");
             Text += "Command:";
             Text += this.LockCount();
             Text += "\n";

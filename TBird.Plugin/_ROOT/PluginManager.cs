@@ -52,7 +52,7 @@ namespace TBird.Plugin
             }
             catch (Exception ex)
             {
-                ServiceFactory.MessageService.Exception(ex);
+                MessageService.Exception(ex);
             }
         }
 

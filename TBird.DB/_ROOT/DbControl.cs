@@ -115,7 +115,7 @@ namespace TBird.DB
                         sb.AppendLine($"{_stopwatch.Elapsed} ******************************************************************");
                         sb.AppendLine(sql.ToString());
                         sb.AppendLine(parameters.Select(p => p.Value?.ToString()).GetString(","));
-                        ServiceFactory.MessageService.Debug(sb.ToString());
+                        MessageService.Debug(sb.ToString());
                     }
                     _stopwatch.Stop();
                 }

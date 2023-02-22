@@ -17,20 +17,20 @@ namespace coretest
 
         protected override Task<bool> StartProcess()
         {
-            ServiceFactory.MessageService.Info("開始処理");
+            MessageService.Info("開始処理");
             return ToStartResult(true);
         }
 
         protected override async Task TickProcess()
         {
-            ServiceFactory.MessageService.Info("B:" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+            MessageService.Info("B:" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             await Task.Delay(new Random().Next(100, 900));
-            ServiceFactory.MessageService.Info("E:" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+            MessageService.Info("E:" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
         }
 
         protected override void StopProcess()
         {
-            ServiceFactory.MessageService.Info("停止処理");
+            MessageService.Info("停止処理");
         }
     }
 }

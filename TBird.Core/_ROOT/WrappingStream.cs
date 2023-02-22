@@ -104,7 +104,7 @@ namespace TBird.Core
                 }
                 catch (Exception ex)
                 {
-                    ServiceFactory.MessageService.Exception(ex);
+                    MessageService.Exception(ex);
                     tcs.TrySetResult(0);
                     //tcs.TrySetException(ex);
                 }

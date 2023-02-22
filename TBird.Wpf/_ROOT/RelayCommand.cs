@@ -101,7 +101,7 @@ namespace TBird.Wpf
                     }
                     catch (Exception ex)
                     {
-                        ServiceFactory.MessageService.Exception(ex);
+                        MessageService.Exception(ex);
                     }
                 }
             };
@@ -164,7 +164,7 @@ namespace TBird.Wpf
             }
             catch (Exception ex)
             {
-                ServiceFactory.MessageService.Exception(ex);
+                MessageService.Exception(ex);
             }
         }
     }
