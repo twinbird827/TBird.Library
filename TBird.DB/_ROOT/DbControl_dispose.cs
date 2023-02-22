@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using TBird.Core;
 
 namespace TBird.DB
 {
@@ -16,6 +17,7 @@ namespace TBird.DB
                 {
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
                     Rollback();
+                    this.WaitRelease();
                     Close();
                 }
 

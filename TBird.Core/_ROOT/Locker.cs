@@ -86,6 +86,24 @@ namespace TBird.Core
         }
 
         /// <summary>
+        /// 処理が解放されるまで非同期で待機します。
+        /// </summary>
+        /// <returns></returns>
+        public static async Task WaitReleaseAsync(string key)
+        {
+            using (await LockAsync(key)) { }
+        }
+
+        /// <summary>
+        /// 処理が解放されるまで非同期で待機します。
+        /// </summary>
+        /// <returns></returns>
+        public static void WaitRelease(string key)
+        {
+            using (Lock(key)) { }
+        }
+
+        /// <summary>
         /// 待機中の処理数をｶｳﾝﾄします。
         /// </summary>
         /// <returns></returns>

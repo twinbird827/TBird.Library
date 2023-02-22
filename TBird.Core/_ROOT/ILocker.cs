@@ -46,5 +46,15 @@ namespace TBird.Core
         {
             return Locker.Lock(x.Lock);
         }
+
+        public static void WaitRelease(this ILocker x)
+        {
+            if (0 < x.LockCount()) using (x.Lock()) { }
+        }
+
+        public static async Task WaitReleaseAsync(this ILocker x)
+        {
+            if (0 < x.LockCount()) using (await x.LockAsync()) { }
+        }
     }
 }
