@@ -2,45 +2,44 @@
 using Microsoft.CodeAnalysis.Scripting;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Roslyn
 {
-    public abstract partial class RoslynExecuter : IDisposable
+    public interface IRoslynExecuter : IDisposable
     {
-        public abstract void Dispose();
-
-        public abstract Task RunAsync();
+        Task RunAsync();
     }
 
-    public partial class RoslynExecuter<T> : RoslynExecuter
+    public partial class RoslynExecuter<T> : IRoslynExecuter
     {
         public RoslynExecuter(string path, T target)
         {
             RoslynSetting.Instance.Save();
 
-            _target = new RoslynObject<T>(target);
-            _script = CSharpScript.Create(
-                File.ReadAllText(path),
-                ScriptOptions.Default
-                    .WithImports(RoslynSetting.Instance.Imports)
-                    .WithReferences(Assemblies),
-                typeof(RoslynObject<T>)
-            );
+            using (MessageService.Measure())
+            {
+                _target = new RoslynObject<T>(target);
+                _script = CSharpScript.Create(
+                    File.ReadAllText(path),
+                    ScriptOptions.Default
+                        .WithImports(RoslynSetting.Instance.Imports)
+                        .WithReferences(
+                            typeof(object).Assembly,
+                            typeof(Uri).Assembly,
+                            typeof(Enumerable).Assembly,
+                            Assembly.GetEntryAssembly()
+                        ),
+                    typeof(RoslynObject<T>)
+                );
+            }
         }
-
-        /// <summary>ｽｸﾘﾌﾟﾄが読み込むｱｾﾝﾌﾞﾘﾘｽﾄ</summary>
-        private static Assembly[] Assemblies
-        {
-            get => _Assemblies = _Assemblies ?? RoslynSetting.Instance.Assemblies
-                .Select(dll => Assembly.LoadFrom(dll))
-                .ToArray();
-        }
-        private static Assembly[] _Assemblies = null;
 
         /// <summary>Rosylnｽｸﾘﾌﾟﾄ</summary>
         private Script<object> _script;
@@ -52,7 +51,7 @@ namespace TBird.Roslyn
         /// ｽｸﾘﾌﾟﾄを実行します。
         /// </summary>
         /// <returns></returns>
-        public override Task RunAsync()
+        public Task RunAsync()
         {
             return _script.RunAsync(_target);
         }

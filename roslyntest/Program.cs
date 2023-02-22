@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
+using TBird.Core;
 using TBird.Roslyn;
 
 namespace roslyntest
@@ -8,24 +10,24 @@ namespace roslyntest
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
             Test();
         }
 
-        static async void Test()
+        static void Test()
         {
+            using (MessageService.Measure())
             using (var manager = RoslynManager.Instance)
             {
                 manager.Initialize(new Target());
-                manager.Add("Roslyn.ctx", new Target());
-                await manager.RunAsync();
+                manager.Add("Roslyn.csx", new Target());
+
+                using (MessageService.Measure("manager.Run"))
+                {
+                    manager.RunBackground();
+                }
                 Console.ReadLine();
             }
-            //using (var exec = new RoslynExecuter<Target>("Roslyn.ctx", new Target()))
-            //{
-            //    await exec.RunAsync();
-            //    Console.ReadLine();
-            //}
+
             Console.ReadLine();
         }
     }

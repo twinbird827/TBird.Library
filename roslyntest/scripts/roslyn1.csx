@@ -9,5 +9,5 @@ Run(x =>
 
 Ticks.Add(x =>
 {
-	Info(x.Data1 + "  " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+	MessageService.Info(x.Data1 + "  " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
 });

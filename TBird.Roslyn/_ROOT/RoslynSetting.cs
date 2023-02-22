@@ -28,9 +28,6 @@ namespace TBird.Roslyn
                     "System.Text",
                     "System.Linq",
                 };
-
-                Assemblies = Directory.GetFiles(Directories.Root, "*.dll");
-
             }
         }
 
@@ -44,13 +41,9 @@ namespace TBird.Roslyn
         }
         private int _Interval;
 
-        public string[] Assemblies
-        {
-            get => GetProperty(_Assemblies);
-            set => SetProperty(ref _Assemblies, value);
-        }
-        private string[] _Assemblies;
-
+        /// <summary>
+        /// ｽｸﾘﾌﾟﾄが暗黙的にｲﾝﾎﾟｰﾄ(Using)する名前空間ﾘｽﾄ
+        /// </summary>
         public string[] Imports
         {
             get => GetProperty(_Imports);

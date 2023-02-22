@@ -3,22 +3,27 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
+    <!-- 
+     Turns off reference assembly generation 
+     See: https://learn.microsoft.com/en-us/dotnet/standard/assembly/reference-assemblies
+     -->
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Roslyn.ctx" />
-    <None Remove="scripts\roslyn1.ctx" />
-    <None Remove="scripts\roslyn2.ctx" />
+    <None Remove="Roslyn.csx" />
+    <None Remove="scripts\roslyn1.csx" />
+    <None Remove="scripts\roslyn2.csx" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Roslyn.ctx">
+    <Content Include="Roslyn.csx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="scripts\roslyn2.ctx">
+    <Content Include="scripts\roslyn2.csx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="scripts\roslyn1.ctx">
+    <Content Include="scripts\roslyn1.csx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -27,5 +32,17 @@
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
     <ProjectReference Include="..\TBird.Roslyn\TBird.Roslyn.csproj" />
   </ItemGroup>
+
+  <!-- If you use TBird.Roslyn, add the following settings. -->
+  <ItemGroup>
+    <FluentValidationExcludedCultures Include="ar;el;he;hi;no;ro;sk;be;cs;cs-CZ;da;de;es;fa;fi;fr;it;ko;mk;nl;pl;pt;pt-BR;ru;sv;tr;uk;zh-CN;zh-CHS;zh-CHT;zh;zh-Hans;zh-Hant;ja;">
+      <InProject>false</InProject>
+    </FluentValidationExcludedCultures>
+  </ItemGroup>
+
+  <Target Name="RemoveTranslationsAfterBuild" AfterTargets="AfterBuild">
+    <RemoveDir Directories="@(FluentValidationExcludedCultures->'$(OutputPath)%(Filename)')" />
+  </Target>
+  <!-- If you use TBird.Roslyn, add the following settings. to this point. -->
 
 </Project>

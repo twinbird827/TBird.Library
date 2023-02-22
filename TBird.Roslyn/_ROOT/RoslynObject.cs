@@ -19,6 +19,9 @@ namespace TBird.Roslyn
         /// <summary>ﾀｲﾏｰ</summary>
         private IntervalTimer _timer;
 
+        /// <summary>
+        /// 時間間隔処理ﾘｽﾄ
+        /// </summary>
         public TaskManager<T> Ticks
         {
             get => _Ticks = _Ticks ?? new TaskManager<T>();
@@ -32,42 +35,6 @@ namespace TBird.Roslyn
         public void Run(Action<T> action)
         {
             action(_target);
-        }
-
-        /// <summary>
-        /// ﾃﾞﾊﾞｯｸﾞﾒｯｾｰｼﾞを出力します。
-        /// </summary>
-        /// <param name="message">ﾒｯｾｰｼﾞ</param>
-        public void Debug(string message)
-        {
-            ServiceFactory.MessageService.Debug(message);
-        }
-
-        /// <summary>
-        /// 情報ﾒｯｾｰｼﾞを出力します。
-        /// </summary>
-        /// <param name="message">ﾒｯｾｰｼﾞ</param>
-        public void Info(string message)
-        {
-            ServiceFactory.MessageService.Info(message);
-        }
-
-        /// <summary>
-        /// ｴﾗｰﾒｯｾｰｼﾞを出力します。
-        /// </summary>
-        /// <param name="message">ﾒｯｾｰｼﾞ</param>
-        public void Error(string message)
-        {
-            ServiceFactory.MessageService.Error(message);
-        }
-
-        /// <summary>
-        /// 例外ﾒｯｾｰｼﾞを出力します。
-        /// </summary>
-        /// <param name="ex">例外</param>
-        public void Exception(Exception ex)
-        {
-            ServiceFactory.MessageService.Exception(ex);
         }
     }
 }

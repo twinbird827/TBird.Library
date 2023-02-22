@@ -12,7 +12,7 @@ namespace TBird.Roslyn
     {
         private const string _ctxroot = "scripts";
 
-        private IList<RoslynExecuter> _list = new List<RoslynExecuter>();
+        private IList<IRoslynExecuter> _list = new List<IRoslynExecuter>();
 
         public static RoslynManager Instance
         {
@@ -22,7 +22,11 @@ namespace TBird.Roslyn
 
         public void Initialize<T>(T parameter)
         {
-            Directory.GetFiles(Path.Combine(Directories.Root, _ctxroot), "*.ctx")
+            // ﾘｽﾄ追加済なら中断
+            if (_list.Any()) return;
+            // 指定したﾌｫﾙﾀﾞ内の全ｽｸﾘﾌﾟﾄﾌｧｲﾙをﾛｰﾄﾞする。
+            Directory
+                .GetFiles(Path.Combine(Directories.Root, _ctxroot), "*.csx")
                 .ForEach(path => Add(path, parameter));
         }
 
@@ -34,6 +38,11 @@ namespace TBird.Roslyn
         public Task RunAsync()
         {
             return _list.Select(x => x.RunAsync()).WhenAll();
+        }
+
+        public async void RunBackground()
+        {
+            await CoreUtil.WaitAsync(RunAsync);
         }
     }
 }
