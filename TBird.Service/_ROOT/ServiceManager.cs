@@ -8,15 +8,13 @@ using TBird.Core;
 
 namespace TBird.Service
 {
-    public abstract class ServiceManager : ServiceBase, ILocker
+    public abstract class ServiceManager : ServiceBase
     {
         /// <summary>
         /// ｻｰﾋﾞｽの実体を初期化します。
         /// </summary>
         public ServiceManager()
         {
-            Lock = this.CreateLock4Instance();
-
             //自動ﾛｸﾞ採取を有効
             AutoLog = true;
 
@@ -27,27 +25,24 @@ namespace TBird.Service
             // このｻｰﾋﾞｽの名前
             ServiceName = ServiceSetting.Instance.ServiceName;
 
-            ServiceFactory.MessageService = new ServiceMessageService(EventLog);
-            ServiceFactory.MessageService.Info("サービスのコンストラクタが呼び出されました。");
+            MessageService.SetService(new ServiceMessageService(EventLog));
+            MessageService.Info("サービスのコンストラクタが呼び出されました。");
 
             _timer = new IntervalTimer(async () =>
             {
-                using (await this.LockAsync())
+                // 開始処理を行っていない場合は開始処理を行い、正常終了したら後続処理を行う。
+                if (_startasync = _startasync || await StartProcess())
                 {
-                    // 開始処理を行っていない場合は開始処理を行い、正常終了したら後続処理を行う。
-                    if (_startasync = _startasync || await StartProcess())
+                    try
                     {
-                        try
-                        {
-                            await TickProcess();
-                        }
-                        catch (Exception ex)
-                        {
-                            ServiceFactory.MessageService.Info("処理されていない例外をキャッチしたため、停止処理を実行した後、開始処理を実行します。");
-                            ServiceFactory.MessageService.Exception(ex);
-                            StopProcess();
-                            _startasync = false;
-                        }
+                        await TickProcess();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageService.Info("処理されていない例外をキャッチしたため、停止処理を実行した後、開始処理を実行します。");
+                        MessageService.Exception(ex);
+                        StopProcess();
+                        _startasync = false;
                     }
                 }
             });
@@ -59,9 +54,6 @@ namespace TBird.Service
 
         /// <summary>開始処理が成功したかどうか</summary>
         private bool _startasync = false;
-
-        /// <summary>ﾛｯｸｷｰ(ｲﾝｽﾀﾝｽ毎に固有)</summary>
-        public string Lock { get; private set; }
 
         /// <summary>開始処理</summary>
         protected virtual Task<bool> StartProcess()
@@ -114,7 +106,7 @@ namespace TBird.Service
         /// </summary>
         protected override void OnShutdown()
         {
-            ServiceFactory.MessageService.Info("サービスがシステムの終了を検知しました。");
+            MessageService.Info("サービスがシステムの終了を検知しました。");
             _timer.Dispose();
         }
     }
