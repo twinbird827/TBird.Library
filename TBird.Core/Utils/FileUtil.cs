@@ -217,5 +217,17 @@ namespace TBird.Core
             return CoreUtil.WaitAsync(() => File.Copy(src, dst)).Cts(cts);
         }
 
+        /// <summary>
+        /// ﾃﾞｨﾚｸﾄﾘ内のﾌｧｲﾙﾘｽﾄを取得します。
+        /// </summary>
+        /// <param name="directory">ﾃﾞｨﾚｸﾄﾘﾊﾟｽ</param>
+        /// <param name="pattern">取得するﾌｧｲﾙのﾊﾟﾀｰﾝ</param>
+        /// <returns></returns>
+        public static string[] GetDirectoryFiles(string directory, string pattern = "*")
+        {
+            return Directory.Exists(directory)
+                ? Directory.GetFiles(directory, pattern)
+                : new string[] { };
+        }
     }
 }

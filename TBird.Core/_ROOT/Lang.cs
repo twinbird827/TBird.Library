@@ -34,8 +34,8 @@ namespace TBird.Core
 
             if (!Directory.Exists(directory)) return;
 
-            Directory
-                .GetFiles(directory, "*.csv")
+            FileUtil
+                .GetDirectoryFiles(directory, "*.csv")
                 .OrderBy(x => x)
                 .SelectMany(path => Expand(path))
                 .ForEach(x => _items[x.Key] = x.Value);

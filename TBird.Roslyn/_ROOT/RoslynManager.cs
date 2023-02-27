@@ -10,7 +10,7 @@ namespace TBird.Roslyn
 {
     public partial class RoslynManager
     {
-        private const string _ctxroot = "scripts";
+        private const string _csxroot = "scripts";
 
         private IList<IRoslynExecuter> _list = new List<IRoslynExecuter>();
 
@@ -25,8 +25,8 @@ namespace TBird.Roslyn
             // ﾘｽﾄ追加済なら中断
             if (_list.Any()) return;
             // 指定したﾌｫﾙﾀﾞ内の全ｽｸﾘﾌﾟﾄﾌｧｲﾙをﾛｰﾄﾞする。
-            Directory
-                .GetFiles(Path.Combine(Directories.Root, _ctxroot), "*.csx")
+            FileUtil
+                .GetDirectoryFiles(Path.Combine(Directories.Root, _csxroot), "*.csx")
                 .ForEach(path => Add(path, parameter));
         }
 

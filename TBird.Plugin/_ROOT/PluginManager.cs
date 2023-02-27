@@ -41,7 +41,7 @@ namespace TBird.Plugin
             {
                 if (!Directory.Exists(dllroot)) return;
 
-                foreach (var dll in Directory.GetFiles(dllroot, "*.dll"))
+                foreach (var dll in FileUtil.GetDirectoryFiles(dllroot, "*.dll"))
                 {
                     var asm = Assembly.LoadFrom(dll);
                     
