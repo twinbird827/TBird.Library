@@ -71,14 +71,17 @@ namespace TBird.Core
                 {
                     if (_isprocessing && !disposedValue && !_cts.IsCancellationRequested)
                     {
+                        var now = DateTime.Now;
                         // 処理時間を算出
-                        var milliseconds = (DateTime.Now - _starttime).TotalMilliseconds;
+                        var milliseconds = (now - _starttime).TotalMilliseconds;
                         // 処理開始時間を進めるｶｳﾝﾄを算出
                         var nextcount = Math.Ceiling(milliseconds / Interval.TotalMilliseconds);
                         // 処理開始時間を再計算
                         _starttime += TimeSpan.FromMilliseconds(Interval.TotalMilliseconds * nextcount);
-                        // 次回開始時刻設定
-                        _timer.Change((int)(_starttime - DateTime.Now).TotalMilliseconds, Timeout.Infinite);
+                        // 次回開始時刻
+                        var nexttime = (_starttime - now).TotalMilliseconds; nexttime = 0 < nexttime ? nexttime : 1d;
+                        // 次回開始時刻設定(ｾﾞﾛ不可)
+                        _timer.Change((int)nexttime, Timeout.Infinite);
                     }
                 }
             }
