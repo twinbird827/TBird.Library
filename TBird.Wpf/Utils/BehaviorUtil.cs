@@ -99,54 +99,24 @@ namespace TBird.Wpf
         /// <param name="del">ｲﾍﾞﾝﾄを削除するためのｱｸｼｮﾝ</param>
         public static void SetEventHandler<T>(T element, Action<T> add, Action<T> del) where T : FrameworkElement
         {
-            if (element == null)
+            if (element == null || add == null || del == null)
             {
                 return;
             }
 
-            RoutedEventHandler loaded = null;
-            RoutedEventHandler unloaded = null;
+            // ｲﾍﾞﾝﾄを削除してから追加
+            del(element);
+            add(element);
 
-            // ｴﾚﾒﾝﾄのﾛｰﾄﾞ処理を定義(ｲﾍﾞﾝﾄ追加)
-            loaded = (sender, e) =>
+            Unloaded(element, (sender, e) =>
             {
-                var fe = sender as FrameworkElement;
-
-                if (loaded != null)
+                if (sender is FrameworkElement fe)
                 {
-                    fe.Loaded -= loaded;
-                    loaded = null;
+                    del((T)fe);
                 }
-
-                // 既存のｲﾍﾞﾝﾄを削除(ｲﾍﾞﾝﾄ登録されていない場合でも例外は発生しないのでとりあえず呼び出す)
-                del?.Invoke((T)fe);
-
-                // ｲﾍﾞﾝﾄ追加処理
-                add?.Invoke((T)fe);
-
-                // ｱﾝﾛｰﾄﾞｲﾍﾞﾝﾄ追加
-                fe.Unloaded += unloaded;
-
-            };
-
-            // ｴﾚﾒﾝﾄのｱﾝﾛｰﾄﾞ処理を定義(ｱﾝﾛｰﾄﾞ時にｲﾍﾞﾝﾄを削除する)
-            unloaded = (sender, e) =>
-            {
-                var fe = sender as FrameworkElement;
-
-                if (unloaded != null)
-                {
-                    fe.Unloaded -= unloaded;
-                    unloaded = null;
-                }
-
-                // ｱﾝﾛｰﾄﾞ時にｲﾍﾞﾝﾄ削除処理
-                del?.Invoke((T)fe);
-
-            };
-
-            // 読込時処理の実行
-            Loaded(element, loaded);
+                add = null;
+                del = null;
+            });
         }
 
         /// <summary>
@@ -163,6 +133,26 @@ namespace TBird.Wpf
                 new Action(() => handler(element, new RoutedEventArgs())),
                 DispatcherPriority.Loaded
             );
+        }
+
+        public static void Unloaded(FrameworkElement element, RoutedEventHandler handler)
+        {
+            RoutedEventHandler unloaded = null;
+
+            unloaded = (sender, e) =>
+            {
+                if (sender is FrameworkElement fe)
+                {
+                    fe.Unloaded -= handler;
+                    fe.Unloaded -= unloaded;
+                    unloaded = null;
+                }
+            };
+
+            element.Unloaded -= handler;
+            element.Unloaded += handler;
+            element.Unloaded -= unloaded;
+            element.Unloaded += unloaded;
         }
 
         /// <summary>
