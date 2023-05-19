@@ -42,9 +42,8 @@ namespace TBird.Wpf
         /// <summary>
         /// ｲﾝｽﾀﾝｽ破棄時ｲﾍﾞﾝﾄを追加します。
         /// </summary>
-        /// <param name="bindable">一緒に追加するｲﾝｽﾀﾝｽ</param>
         /// <param name="handler">破棄ｲﾍﾞﾝﾄ</param>
-        void AddDisposed(IBindable bindable, EventHandler handler);
+        void AddDisposed(EventHandler handler);
 
     }
 }

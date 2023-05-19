@@ -16,7 +16,7 @@ namespace TBird.Core
                 {
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
                     Stop();
-                    this.WaitRelease();
+                    this.DisposeLocker();
                     _cts.Cancel();
                     _timer.Dispose();
                 }

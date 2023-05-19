@@ -74,7 +74,7 @@ namespace TBird.Wpf
             PropertyChanged -= handler;
             PropertyChanged += handler;
 
-            AddDisposed(bindable, (sender, e) =>
+            bindable.AddDisposed((sender, e) =>
             {
                 PropertyChanged -= handler;
             });
@@ -114,7 +114,7 @@ namespace TBird.Wpf
             notify.CollectionChanged -= handler;
             notify.CollectionChanged += handler;
 
-            AddDisposed(this, (sender, e) =>
+            AddDisposed((sender, e) =>
             {
                 notify.CollectionChanged -= handler;
             });
@@ -125,7 +125,7 @@ namespace TBird.Wpf
         /// </summary>
         /// <param name="bindable">一緒に追加するｲﾝｽﾀﾝｽ</param>
         /// <param name="handler">破棄ｲﾍﾞﾝﾄ</param>
-        public void AddDisposed(IBindable bindable, EventHandler handler)
+        public void AddDisposed(EventHandler handler)
         {
             // ｲﾝｽﾀﾝｽ破棄ｲﾍﾞﾝﾄ自体を破棄するﾊﾝﾄﾞﾗを作成する
             EventHandler disposed = null; disposed = (sender, e) =>
@@ -138,12 +138,6 @@ namespace TBird.Wpf
             Disposed += handler;
             Disposed -= disposed;
             Disposed += disposed;
-
-            if (bindable != null && !bindable.Equals(this))
-            {
-                // 親のｲﾝｽﾀﾝｽが破棄されたら本ｲﾝｽﾀﾝｽ破棄時ｲﾍﾞﾝﾄも破棄する
-                bindable.AddDisposed(null, disposed);
-            }
         }
     }
 }

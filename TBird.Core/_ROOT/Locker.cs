@@ -98,9 +98,21 @@ namespace TBird.Core
         /// 処理が解放されるまで非同期で待機します。
         /// </summary>
         /// <returns></returns>
-        public static void WaitRelease(string key)
+        public static void Dispose(string key)
         {
-            using (Lock(key)) { }
+            if (_manages.ContainsKey(key))
+            {
+                try
+                {
+                    _manages[key]._slim.Wait();
+                }
+                finally
+                {
+                    _manages[key]._slim.Release();
+                    _manages[key]._slim.Dispose();
+                }
+                _manages.Remove(key);
+            }
         }
 
         /// <summary>
@@ -122,7 +134,7 @@ namespace TBird.Core
                 _cnt = 0;
             }
 
-            private SemaphoreSlim _slim;
+            internal SemaphoreSlim _slim;
 
             public int _cnt;
 
