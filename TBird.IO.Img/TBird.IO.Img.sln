@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.33214.272
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.IO.Img", "TBird.IO.Img.csproj", "{46F43746-96BF-4298-B5C7-BD7429A2D5F9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{46F43746-96BF-4298-B5C7-BD7429A2D5F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46F43746-96BF-4298-B5C7-BD7429A2D5F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46F43746-96BF-4298-B5C7-BD7429A2D5F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46F43746-96BF-4298-B5C7-BD7429A2D5F9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D8D52D44-188D-45B5-A1D5-A0710C6C94AD}
+	EndGlobalSection
+EndGlobal
