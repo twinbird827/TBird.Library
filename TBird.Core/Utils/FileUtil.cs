@@ -212,9 +212,15 @@ namespace TBird.Core
         /// <param name="dst">ｺﾋﾟｰ先ﾌｧｲﾙ</param>
         /// <param name="token">ｷｬﾝｾﾙﾄｰｸﾝ</param>
         /// <returns></returns>
-        public static Task FileCopyAsync(string src, string dst, CancellationTokenSource cts)
+        public static async Task FileCopyAsync(string src, string dst, CancellationTokenSource cts)
         {
-            return CoreUtil.WaitAsync(() => File.Copy(src, dst)).Cts(cts);
+            var buffersize = 1 * 1024 * 1024;
+
+            using (var ss = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
+            using (var ds = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
+            {
+                await ss.CopyToAsync(ds, buffersize, cts.Token);
+            }
         }
 
         /// <summary>
