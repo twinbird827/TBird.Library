@@ -40,7 +40,7 @@ namespace TBird.Wpf.Controls
 
         protected virtual ICommand GetCancelCommand()
         {
-            return null;
+            return RelayCommand.Create(_ => DialogResult = false);
         }
 
         public bool? ShowDialog(Func<Window> func)
@@ -125,6 +125,7 @@ namespace TBird.Wpf.Controls
                 window.Close();
             }
         }
+
         private const int Margin = 20;
 
         private void DialogViewModel_ShowDialog_Loaded(object sender, RoutedEventArgs e)
