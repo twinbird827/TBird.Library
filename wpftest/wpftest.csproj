@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net5.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- 
+     Turns off reference assembly generation 
+     See: https://learn.microsoft.com/en-us/dotnet/standard/assembly/reference-assemblies
+     -->
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MahApps.Metro" Version="2.4.9" />
+    <PackageReference Include="MahApps.Metro.IconPacks.Material" Version="4.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.DB.SQLite\TBird.DB.SQLite.csproj" />
+    <ProjectReference Include="..\TBird.DB.SQLServer\TBird.DB.SQLServer.csproj" />
+    <ProjectReference Include="..\TBird.DB\TBird.DB.csproj" />
+    <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
+  </ItemGroup>
+
+</Project>

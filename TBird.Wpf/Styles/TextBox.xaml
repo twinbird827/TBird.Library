@@ -1,0 +1,53 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+                    xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
+
+    <ResourceDictionary.MergedDictionaries>
+
+        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.TextBox.xaml" />
+
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- **************************************************
+    **** TextBox
+    **** ************************************************** -->
+    <Style x:Key="DefaultTextBox" TargetType="TextBox" BasedOn="{StaticResource MahApps.Styles.TextBox}">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="2" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="behavior:TextBoxBehavior.MoveFocusWhenEnter" Value="True" />
+        <Setter Property="behavior:TextBoxBehavior.IsSelectAllWhenGotFocus" Value="True" />
+        <Style.Triggers>
+            <Trigger Property="IsReadOnly" Value="True">
+                <Setter Property="Background" Value="{StaticResource MahApps.Brushes.Gray5}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Controls:ControlsHelper.DisabledVisualElementVisibility" Value="Collapsed" />
+                <Setter Property="Foreground" Value="{StaticResource My.Brushes.DisableForeground}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    
+    <Style x:Key="DefaultInputDecimalTextBox" TargetType="TextBox" BasedOn="{StaticResource DefaultTextBox}">
+        <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    
+    <Style x:Key="MultilineTextBox" TargetType="TextBox" BasedOn="{StaticResource DefaultTextBox}">
+        <Setter Property="behavior:TextBoxBehavior.IsSelectAllWhenGotFocus" Value="True" />
+        <Setter Property="AcceptsReturn" Value="True" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Visible" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+    
+    <Style x:Key="WrappingTextBox" TargetType="TextBox" BasedOn="{StaticResource DefaultInputTextBox}">
+        <Setter Property="Margin" Value="{StaticResource Margin.Header}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Visible" />
+    </Style>
+
+</ResourceDictionary>

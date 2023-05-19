@@ -1,0 +1,21 @@
+﻿<Controls:MetroWindow x:Class="wpftest.MainWindow"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                      xmlns:local="clr-namespace:wpftest"
+                      xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf"
+                      xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+                      Style="{StaticResource DefaultWindow}"
+                      mc:Ignorable="d"
+                      Title="MainWindow" Height="450" Width="800">
+
+    <Controls:MetroWindow.DataContext>
+        <local:MainViewModel />
+    </Controls:MetroWindow.DataContext>
+
+    <StackPanel>
+        <Button Command="{Binding Command}" Content="TEST" />
+        <TextBlock behavior:TextBlockBehavior.MaxLines="50" behavior:TextBlockBehavior.MaxText="{Binding Text}" />
+    </StackPanel>
+</Controls:MetroWindow>

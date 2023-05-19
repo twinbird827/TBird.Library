@@ -1,0 +1,18 @@
+﻿<Window x:Class="TBird.Wpf.TaskWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TBird.Wpf"
+        xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors"
+        mc:Ignorable="d"
+        behavior:WindowBehavior.DialogResult="{Binding DialogResult}"
+        behavior:WindowBehavior.ContentRendered="{Binding OnLoaded}"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False">
+    <Grid>
+        
+    </Grid>
+</Window>

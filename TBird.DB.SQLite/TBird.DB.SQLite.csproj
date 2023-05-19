@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!--
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="extension-functions-32.dll" />
+    <None Remove="extension-functions-64.dll" />
+    <None Remove="sqlite3.exe" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="extension-functions-32.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="extension-functions-64.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="sqlite3.exe">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.112" />
+  </ItemGroup>
+    <!--
+
+  <ItemGroup>
+    <EmbeddedResource Include="Project\Relative\Path\To\SDS-SEE.exml">
+      <LogicalName>SDS-SEE.exml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+    -->
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.DB\TBird.DB.csproj" />
+  </ItemGroup>
+
+</Project>
