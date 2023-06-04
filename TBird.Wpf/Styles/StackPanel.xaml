@@ -12,10 +12,10 @@
     <Style x:Key="HorizontalStackPanel" TargetType="StackPanel" BasedOn="{StaticResource DefaultStackPanel}">
         <Setter Property="Orientation" Value="Horizontal" />
     </Style>
-    <Style x:Key="HorizontalStackPanel.Center" TargetType="StackPanel" BasedOn="{StaticResource DefaultStackPanel}">
+    <Style x:Key="HorizontalStackPanel.Center" TargetType="StackPanel" BasedOn="{StaticResource HorizontalStackPanel}">
         <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
-    <Style x:Key="HorizontalStackPanel.Right" TargetType="StackPanel" BasedOn="{StaticResource DefaultStackPanel}">
+    <Style x:Key="HorizontalStackPanel.Right" TargetType="StackPanel" BasedOn="{StaticResource HorizontalStackPanel}">
         <Setter Property="HorizontalAlignment" Value="Right" />
     </Style>
 </ResourceDictionary>
