@@ -16,5 +16,9 @@
         <Setter Property="behavior:ButtonBehavior.ClearFocus" Value="True" />
     </Style>
 
-    
+    <Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource DefaultButton}">
+        <Setter Property="Width" Value="100" />
+        <Setter Property="Margin" Value="5" />
+    </Style>
+
 </ResourceDictionary>
