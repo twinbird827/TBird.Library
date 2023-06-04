@@ -14,9 +14,13 @@
 
         <StackPanel DockPanel.Dock="Bottom"
                     Style="{StaticResource HorizontalStackPanel.Center}">
-            <Button Content="{x:Static wpfroot:WpfConst.L_Ok}"
+            <Button Style="{StaticResource DialogButton}"
+                    IsDefault="True"
+                    Content="{x:Static wpfroot:WpfConst.L_Ok}"
                     Command="{Binding OKCommand}" />
-            <Button Visibility="{Binding IsOkOnly, Converter={StaticResource Boolean2VisibilityCollapsedConverter}}"
+            <Button Style="{StaticResource DialogButton}"
+                    Visibility="{Binding IsOkOnly, Converter={StaticResource BooleanReverse2VisibilityCollapsedConverter}}"
+                    IsCancel="True"
                     Content="{x:Static wpfroot:WpfConst.L_Cancel}"
                     Command="{Binding CancelCommand}" />
         </StackPanel>
@@ -26,6 +30,7 @@
                Source="{Binding Icon}" />
 
         <TextBlock Text="{Binding Message}"
+                   Margin="10"
                    TextWrapping="Wrap" />
     </DockPanel>
 </Controls:MetroWindow>

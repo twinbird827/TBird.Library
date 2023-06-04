@@ -102,9 +102,6 @@ namespace TBird.Wpf.Controls
         /// <summary>
         /// OKﾎﾞﾀﾝのみにするかどうか
         /// </summary>
-        public bool IsOkOnly
-        {
-            get => MessageType != WpfMessageType.Confirm;
-        }
+        public bool IsOkOnly => MessageType != WpfMessageType.Confirm;
     }
 }
