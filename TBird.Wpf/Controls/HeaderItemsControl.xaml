@@ -1,0 +1,63 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:TBird.Wpf.Controls">
+
+    <ControlTemplate x:Key="HeaderItemsControl.ControlTemplate" TargetType="{x:Type local:HeaderItemsControl}">
+        <Grid Focusable="False">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="{TemplateBinding RowHeaderWidth}" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="CDefinition" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition x:Name="RDefinition" />
+            </Grid.RowDefinitions>
+
+            <!-- 行ﾍｯﾀﾞ -->
+            <ContentControl Grid.Column="0" Grid.Row="0"
+                            Content="{TemplateBinding DataContext}"
+                            ContentTemplate="{TemplateBinding RowHeaderTemplate}"
+                            Focusable="False" />
+
+            <!-- 列ﾍｯﾀﾞ -->
+            <ScrollViewer x:Name="CScrollViewer" Grid.Column="1" Grid.Row="0"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Disabled">
+
+                <ContentControl Content="{TemplateBinding DataContext}"
+                                Width="{Binding ElementName=IItemsControl, Path=ActualWidth}"
+                                ContentTemplate="{TemplateBinding ColumnHeaderTemplate}"
+                                Focusable="False" />
+            </ScrollViewer>
+
+            <!-- 行明細 -->
+            <ScrollViewer x:Name="RScrollViewer" Grid.Column="0" Grid.Row="1"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Hidden">
+
+                <ItemsControl Style="{TemplateBinding ItemStyle}"
+                              ItemsSource="{TemplateBinding ItemsSource}"
+                              ItemTemplate="{TemplateBinding RowItemTemplate}"
+                              Focusable="False" />
+            </ScrollViewer>
+
+            <!-- ﾒｲﾝ明細 -->
+            <ScrollViewer x:Name="IScrollViewer"
+                          Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="2" Grid.RowSpan="2"
+                          local:HeaderItemsControl.SyncRFooter="{Binding ElementName=RDefinition}"
+                          local:HeaderItemsControl.SyncCFooter="{Binding ElementName=CDefinition}"
+                          local:HeaderItemsControl.SyncRScroll="{Binding ElementName=RScrollViewer}"
+                          local:HeaderItemsControl.SyncCScroll="{Binding ElementName=CScrollViewer}">
+
+                <ItemsControl x:Name="IItemsControl"
+                              Style="{TemplateBinding ItemStyle}"
+                              ItemsSource="{TemplateBinding ItemsSource}"
+                              ItemTemplate="{TemplateBinding ItemTemplate}"
+                              Focusable="False" />
+            </ScrollViewer>
+        </Grid>
+    </ControlTemplate>
+    
+</ResourceDictionary>

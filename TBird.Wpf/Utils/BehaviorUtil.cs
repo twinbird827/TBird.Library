@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -153,6 +154,23 @@ namespace TBird.Wpf
             element.Unloaded += handler;
             element.Unloaded -= unloaded;
             element.Unloaded += unloaded;
+        }
+
+        /// <summary>
+        /// CollectionChangedにｲﾍﾞﾝﾄを追加します。
+        /// </summary>
+        /// <param name="instance">ﾘｽﾄｵﾌﾞｼﾞｪｸﾄを管理するFrameworkElement</param>
+        /// <param name="notify">INotifyCollectionChangedを実装したﾘｽﾄｲﾝｽﾀﾝｽ</param>
+        /// <param name="handler">ｲﾍﾞﾝﾄ</param>
+        public static void AddCollectionChanged(this FrameworkElement instance, INotifyCollectionChanged notify, NotifyCollectionChangedEventHandler handler)
+        {
+            notify.CollectionChanged -= handler;
+            notify.CollectionChanged += handler;
+
+            Unloaded(instance, (sender, e) =>
+            {
+                notify.CollectionChanged -= handler;
+            });
         }
 
         /// <summary>
