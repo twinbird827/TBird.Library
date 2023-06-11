@@ -198,9 +198,9 @@ namespace Codeplex.Data
             jsonType = type;
         }
 
-        public bool IsObject { get { return jsonType == JsonType.@object; } }
+        public bool IsObject { get => jsonType == JsonType.@object; }
 
-        public bool IsArray { get { return jsonType == JsonType.array; } }
+        public bool IsArray { get => jsonType == JsonType.array; }
 
         /// <summary>has property or not</summary>
         public bool IsDefined(string name)
