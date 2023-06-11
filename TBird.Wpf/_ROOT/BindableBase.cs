@@ -10,7 +10,7 @@ using TBird.Core;
 
 namespace TBird.Wpf
 {
-    public partial class BindableBase : IBindable
+    public partial class BindableBase : TBirdObject, IBindable
     {
         public BindableBase()
         {
