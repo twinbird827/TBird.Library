@@ -23,6 +23,8 @@
         <converter:Boolean2EnumConverter />
         <converter:Boolean2VisibilityCollapsedConverter />
     </converter:ValueConverterGroup>
+    <converter:Null2BooleanConverter x:Key="Null2BooleanConverter" />
+    <converter:Enum2StringConverter x:Key="Enum2StringConverter" />
 
 
     <!-- **************************************************
