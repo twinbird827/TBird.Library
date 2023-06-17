@@ -18,7 +18,7 @@ namespace TBird.Wpf
         public string Group
         {
             get => _Group;
-            set => SetProperty(ref _Group, Group);
+            set => SetProperty(ref _Group, value);
         }
         private string _Group;
 

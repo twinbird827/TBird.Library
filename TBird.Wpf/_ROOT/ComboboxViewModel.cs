@@ -25,7 +25,7 @@ namespace TBird.Wpf
         public ComboboxItemModel SelectedItem
         {
             get => _SelectedItem;
-            set => SetProperty(ref _SelectedItem, SelectedItem);
+            set => SetProperty(ref _SelectedItem, value);
         }
         private ComboboxItemModel _SelectedItem;
 

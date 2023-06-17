@@ -5,32 +5,11 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib"
                     xmlns:pf="clr-namespace:System.Windows;assembly=PresentationFramework">
 
-    <!-- **************************************************
-    **** ｺﾝﾊﾞｰﾀ定義
-    **** ************************************************** -->
-    <converter:Boolean2VisibilityHiddenConverter x:Key="Boolean2VisibilityHiddenConverter" />
-    <converter:Boolean2VisibilityCollapsedConverter x:Key="Boolean2VisibilityCollapsedConverter" />
-    <converter:BooleanReverseConverter x:Key="BooleanReverseConverter" />
-    <converter:ValueConverterGroup x:Key="BooleanReverse2VisibilityHiddenConverter">
-        <converter:BooleanReverseConverter />
-        <converter:Boolean2VisibilityHiddenConverter />
-    </converter:ValueConverterGroup>
-    <converter:ValueConverterGroup x:Key="BooleanReverse2VisibilityCollapsedConverter">
-        <converter:BooleanReverseConverter />
-        <converter:Boolean2VisibilityCollapsedConverter />
-    </converter:ValueConverterGroup>
-    <converter:ValueConverterGroup x:Key="Enum2Boolean2VisibilityCollapsedConverter">
-        <converter:Boolean2EnumConverter />
-        <converter:Boolean2VisibilityCollapsedConverter />
-    </converter:ValueConverterGroup>
-    <converter:Null2BooleanConverter x:Key="Null2BooleanConverter" />
-    <converter:Enum2StringConverter x:Key="Enum2StringConverter" />
-    <converter:ValueConverterGroup x:Key="Null2VisibilityCollapsedConverter">
-        <converter:Null2BooleanConverter />
-        <converter:BooleanReverseConverter />
-        <converter:Boolean2VisibilityCollapsedConverter />
-    </converter:ValueConverterGroup>
+    <ResourceDictionary.MergedDictionaries>
 
+        <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/_Converters.xaml" />
+
+    </ResourceDictionary.MergedDictionaries>
 
     <!-- **************************************************
     **** SolidColorBrush
