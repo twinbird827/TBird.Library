@@ -41,7 +41,7 @@ namespace TBird.Wpf
             if (!OnUI())
             {
                 // 現在のｽﾚｯﾄﾞがUIのﾃﾞｨｽﾊﾟｯﾁｬ上ではない場合、UIのﾃﾞｨｽﾊﾟｯﾁｬ上で処理を実行する。
-                _dispatcher.Invoke(action);
+                WaitDoEvents(_dispatcher.BeginInvoke(action));
             }
             else
             {
@@ -58,12 +58,27 @@ namespace TBird.Wpf
             if (!OnUI())
             {
                 // 現在のｽﾚｯﾄﾞがUIのﾃﾞｨｽﾊﾟｯﾁｬ上ではない場合、UIのﾃﾞｨｽﾊﾟｯﾁｬ上で処理を実行する。
-                return _dispatcher.Invoke(action);
+                return (T)WaitDoEvents(_dispatcher.BeginInvoke(action)).Result;
             }
             else
             {
                 return action();
             }
+        }
+
+        /// <summary>
+        /// UIｽﾚｯﾄﾞの処理を徐々に実行します。
+        /// </summary>
+        /// <param name="x">処理ﾀｽｸ</param>
+        /// <returns></returns>
+        private static DispatcherOperation WaitDoEvents(DispatcherOperation x)
+        {
+            while (x.Status == DispatcherOperationStatus.Executing || x.Status == DispatcherOperationStatus.Pending)
+            {
+                x.Wait(TimeSpan.FromMilliseconds(32));
+                DoEvents();
+            }
+            return x;
         }
 
         public static Task ExecuteOnBackground(Func<Task> func)
@@ -84,6 +99,21 @@ namespace TBird.Wpf
         public static Task<T> ExecuteOnBackground<T>(Func<T> func)
         {
             return ExecuteOnBackground(() => CoreUtil.WaitAsync(func));
+        }
+
+        /// <summary>
+        /// 画面ｲﾍﾞﾝﾄをすべて実行します。
+        /// </summary>
+        public static void DoEvents()
+        {
+            DispatcherFrame frame = new DispatcherFrame();
+            var callback = new DispatcherOperationCallback(obj =>
+            {
+                ((DispatcherFrame)obj).Continue = false;
+                return null;
+            });
+            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, callback, frame);
+            Dispatcher.PushFrame(frame);
         }
 
         /// <summary>

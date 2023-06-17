@@ -13,6 +13,5 @@ namespace TBird.Wpf.Controls
         {
             MessageService.SetService(new WpfMessageService());
         }
-
     }
 }

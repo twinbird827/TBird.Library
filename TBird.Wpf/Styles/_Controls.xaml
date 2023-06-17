@@ -6,6 +6,7 @@
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Border.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Button.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/CheckBox.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/ComboBox.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/DockPanel.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Grid.xaml" />
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/GroupBox.xaml" />
@@ -32,6 +33,7 @@
     <Style TargetType="Border"       BasedOn="{StaticResource DefaultBorder}" />
     <Style TargetType="Button"       BasedOn="{StaticResource DefaultButton}" />
     <Style TargetType="CheckBox"     BasedOn="{StaticResource DefaultCheckBox}" />
+    <Style TargetType="ComboBox"     BasedOn="{StaticResource DefaultComboBox}" />
     <Style TargetType="DockPanel"    BasedOn="{StaticResource DefaultDockPanel}" />
     <Style TargetType="Grid"         BasedOn="{StaticResource DefaultGrid}" />
     <Style TargetType="GroupBox"     BasedOn="{StaticResource DefaultGroupBox}" />

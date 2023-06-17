@@ -25,6 +25,11 @@
     </converter:ValueConverterGroup>
     <converter:Null2BooleanConverter x:Key="Null2BooleanConverter" />
     <converter:Enum2StringConverter x:Key="Enum2StringConverter" />
+    <converter:ValueConverterGroup x:Key="Null2VisibilityCollapsedConverter">
+        <converter:Null2BooleanConverter />
+        <converter:BooleanReverseConverter />
+        <converter:Boolean2VisibilityCollapsedConverter />
+    </converter:ValueConverterGroup>
 
 
     <!-- **************************************************

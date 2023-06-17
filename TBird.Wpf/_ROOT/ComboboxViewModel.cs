@@ -28,5 +28,15 @@ namespace TBird.Wpf
             set => SetProperty(ref _SelectedItem, SelectedItem);
         }
         private ComboboxItemModel _SelectedItem;
+
+        public ComboboxItemModel GetItemNotNull(string value)
+        {
+            return GetItem(value) ?? Items.FirstOrDefault();
+        }
+
+        public ComboboxItemModel GetItem(string value)
+        {
+            return Items.FirstOrDefault(x => x.Value == value);
+        }
     }
 }

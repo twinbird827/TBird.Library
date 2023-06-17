@@ -16,6 +16,31 @@
 
     <StackPanel>
         <Button Command="{Binding Command}" Content="TEST" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Background="AliceBlue"
+                       Text="L TextBlock1" />
+
+            <TextBlock Grid.Column="1" Background="AntiqueWhite"
+                       Text="L TextBlock2" />
+
+            <TextBlock Grid.Column="2" Background="Aqua"
+                       Text="L TextBlock3" />
+
+            <TextBlock Grid.Column="4" Background="Gray"
+                       Text="R TextBlock1" />
+
+            <TextBlock Grid.Column="5" Background="DarkBlue"
+                       Text="R TextBlock2" />
+        </Grid>
         <TextBlock behavior:TextBlockBehavior.MaxLines="50" behavior:TextBlockBehavior.MaxText="{Binding Text}" />
     </StackPanel>
 </Controls:MetroWindow>
