@@ -69,9 +69,6 @@ namespace TBird.Wpf.Behaviors
                 // ﾌｫｰｶｽｸﾘｱ
                 ControlUtil.ClearFocus(fe);
 
-                // ｺﾏﾝﾄﾞ実行
-                command.Execute(e);
-
                 // 処理済にする。
                 e.Handled = command.TryExecute(e);
             }

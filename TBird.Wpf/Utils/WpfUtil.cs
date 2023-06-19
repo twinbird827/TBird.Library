@@ -32,6 +32,11 @@ namespace TBird.Wpf
             return _dispatcher.Thread == Thread.CurrentThread;
         }
 
+        public static SynchronizationContext GetContext()
+        {
+            return ExecuteOnUI(() => SynchronizationContext.Current);
+        }
+
         /// <summary>
         /// UI上で処理を実行します。
         /// </summary>

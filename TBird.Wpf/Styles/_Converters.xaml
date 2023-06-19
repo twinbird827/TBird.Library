@@ -27,5 +27,14 @@
         <converter:BooleanReverseConverter />
         <converter:Boolean2VisibilityCollapsedConverter />
     </converter:ValueConverterGroup>
+    <converter:ValueConverterGroup x:Key="Type2VisibilityCollapsedConverter">
+        <converter:Type2BooleanConverter />
+        <converter:Boolean2VisibilityCollapsedConverter />
+    </converter:ValueConverterGroup>
+    <converter:ValueConverterGroup x:Key="Type2ReverseVisibilityCollapsedConverter">
+        <converter:Type2BooleanConverter />
+        <converter:BooleanReverseConverter />
+        <converter:Boolean2VisibilityCollapsedConverter />
+    </converter:ValueConverterGroup>
 
 </ResourceDictionary>

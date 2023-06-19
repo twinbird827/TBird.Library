@@ -5,23 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
-using TBird.Core;
 
 namespace TBird.Wpf.Converters
 {
-    public class Enum2StringConverter : IValueConverter
+    public class Type2BooleanConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var tmp = value as Enum;
-            if (tmp != null)
-            {
-                return tmp.GetLabel();
-            }
-            else
-            {
-                return parameter;
-            }
+            return value.GetType() == parameter as Type;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
