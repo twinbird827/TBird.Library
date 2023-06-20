@@ -170,7 +170,7 @@ namespace Codeplex.Data
         private static string CreateJsonString(XStreamingElement element)
         {
             using (var ms = new MemoryStream())
-            using (var writer = JsonReaderWriterFactory.CreateJsonWriter(ms, Encoding.Unicode))
+            using (var writer = JsonReaderWriterFactory.CreateJsonWriter(ms, Encoding.Unicode, true, true, "  "))
             {
                 element.WriteTo(writer);
                 writer.Flush();

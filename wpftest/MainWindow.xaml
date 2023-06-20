@@ -16,7 +16,7 @@
 
     <StackPanel>
         <Button Command="{Binding Command}" Content="TEST" />
-        <Grid>
+        <Grid behavior:FrameworkElementBehavior.DragDrop="{Binding DragDrop}" AllowDrop="True">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="auto" />
                 <ColumnDefinition Width="auto" />

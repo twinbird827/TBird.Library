@@ -47,5 +47,14 @@ namespace wpftest
         });
         private IRelayCommand _Command;
         private int _index;
+
+        public IRelayCommand DragDrop => _DragDrop = _DragDrop ?? RelayCommand.Create<DragEventArgs>(e =>
+        {
+            var data = e.Data;
+            var url = e.Data.GetData(DataFormats.Text);
+            MessageService.Debug(url as string);
+        });
+        private IRelayCommand _DragDrop;
+
     }
 }
