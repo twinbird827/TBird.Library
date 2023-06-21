@@ -4,15 +4,16 @@
 
     <ResourceDictionary.MergedDictionaries>
 
-        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ComboBox.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.CheckBox.xaml" />
 
     </ResourceDictionary.MergedDictionaries>
 
-    <Style x:Key="DefaultComboBox" TargetType="ComboBox" BasedOn="{StaticResource MahApps.Styles.ComboBox}">
+    <Style x:Key="DefaultCheckBox" TargetType="CheckBox" BasedOn="{StaticResource MahApps.Styles.CheckBox}">
+        <Setter Property="Controls:CheckBoxHelper.ForegroundUncheckedDisabled" Value="{StaticResource My.Brushes.DisableForeground}"/>
         <Setter Property="Margin" Value="0" />
-        <Setter Property="Padding" Value="3,0" />
-        <Setter Property="DisplayMemberPath" Value="Display" />
-        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
 
 
