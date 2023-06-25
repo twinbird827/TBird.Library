@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -16,37 +17,49 @@ namespace TBird.Core
     {
         public static HttpClient CreateClient()
         {
-            if (_service == null)
+            lock (_createclient)
             {
-                _name = Guid.NewGuid().ToString();
-                _service = new ServiceCollection();
-                _service
-                    .AddHttpClient(_name)
-                    .AddTransientHttpErrorPolicy(
-                        x => x.WaitAndRetryAsync(Enumerable.Range(1, 5).Select(i => TimeSpan.FromSeconds(i * 2)))
-                    );
+                if (_service == null)
+                {
+                    _name = Guid.NewGuid().ToString();
+                    _service = new ServiceCollection();
+                    _service
+                        .AddHttpClient(_name)
+                        .AddTransientHttpErrorPolicy(
+                            x => x.WaitAndRetryAsync(Enumerable.Range(1, 5).Select(i => TimeSpan.FromSeconds(i * 2)))
+                        );
 
-                _factory = _service.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
+                    _factory = _service.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
+                }
             }
-
             return _factory.CreateClient(_name);
         }
+        private static object _createclient = new object();
         private static string _name;
         private static ServiceCollection _service;
         private static IHttpClientFactory _factory;
 
+        private static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
+        {
+            return await CreateClient().SendAsync(request);
+        }
+
         public static async Task<byte[]> GetThumnailBytes(string url)
         {
-            var response = await CreateClient().SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-            if (response.IsSuccessStatusCode)
+            using (await Locker.LockAsync(_guid))
             {
-                return await response.Content.ReadAsByteArrayAsync();
-            }
-            else
-            {
-                return null;
+                var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsByteArrayAsync();
+                }
+                else
+                {
+                    return null;
+                }
             }
         }
+        private static string _guid = Guid.NewGuid().ToString();
 
         /// <summary>
         /// URLの内容を取得します。
@@ -55,7 +68,7 @@ namespace TBird.Core
         /// <returns></returns>
         public static async Task<string> GetStringAsync(string url)
         {
-            var response = await CreateClient().SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+            var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
             if (response.IsSuccessStatusCode)
             {
                 var txt = await response.Content.ReadAsStringAsync();

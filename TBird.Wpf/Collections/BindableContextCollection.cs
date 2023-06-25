@@ -5,21 +5,18 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
-    public class BindableContextCollection<T> : BindableCollection<T>
+    public class BindableContextCollection<T> : BindableChildCollection<T>
     {
         private SynchronizationContext _context;
 
-        internal BindableContextCollection(BindableCollection<T> collection, SynchronizationContext context)
+        internal BindableContextCollection(BindableCollection<T> collection, SynchronizationContext context) : base(collection)
         {
             _context = context;
-
-            foreach (var item in collection)
-            {
-                Add(item);
-            }
+            collection.ForEach(item => Add(item));
 
             AddCollectionChanged(collection, (sender, e) =>
             {
@@ -29,7 +26,7 @@ namespace TBird.Wpf.Collections
                         Insert(e.NewStartingIndex, (T)e.NewItems[0]);
                         break;
                     case NotifyCollectionChangedAction.Remove:
-                        RemoveAt(e.NewStartingIndex);
+                        RemoveAt(e.OldStartingIndex);
                         break;
                     case NotifyCollectionChangedAction.Replace:
                         this[e.NewStartingIndex] = (T)e.NewItems[0];
@@ -41,16 +38,11 @@ namespace TBird.Wpf.Collections
                         throw new NotSupportedException("NotifyCollectionChangedAction is Move.");
                 }
             });
-
-            AddDisposed((sender, e) =>
-            {
-                _context = null;
-            });
         }
 
         public override T this[int index]
         {
-            get => base[index]; 
+            get => base[index];
             set => _context.Post(args =>
             {
                 var argsarr = (object[])args;
@@ -58,7 +50,7 @@ namespace TBird.Wpf.Collections
                 var argsvalue = (T)argsarr[1];
 
                 base[argsindex] = argsvalue;
-            }, new object[] { index, value }); 
+            }, new object[] { index, value });
         }
         public override void Add(T item)
         {

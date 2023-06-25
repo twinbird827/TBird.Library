@@ -5,19 +5,17 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
-    public class BindableConvertCollection<TSource, TResult> : BindableCollection<TResult>
+    public class BindableConvertCollection<TSource, TResult> : BindableChildCollection<TResult>
         where TSource : class
         where TResult : class
     {
-        internal BindableConvertCollection(BindableCollection<TSource> collection, Func<TSource, TResult> func)
+        internal BindableConvertCollection(BindableCollection<TSource> collection, Func<TSource, TResult> func) : base(collection)
         {
-            foreach (var item in collection)
-            {
-                Add(func(item));
-            }
+            collection.ForEach(x => Add(func(x)));
 
             AddCollectionChanged(collection, (sender, e) =>
             {
@@ -27,7 +25,7 @@ namespace TBird.Wpf.Collections
                         Insert(e.NewStartingIndex, func((TSource)e.NewItems[0]));
                         break;
                     case NotifyCollectionChangedAction.Remove:
-                        RemoveAt(e.NewStartingIndex);
+                        RemoveAt(e.OldStartingIndex);
                         break;
                     case NotifyCollectionChangedAction.Replace:
                         this[e.NewStartingIndex] = func((TSource)e.NewItems[0]);
@@ -39,6 +37,40 @@ namespace TBird.Wpf.Collections
                         throw new NotSupportedException("NotifyCollectionChangedAction is Move.");
                 }
             });
+        }
+
+        internal BindableConvertCollection(BindableCollection<TSource> collection, Func<TSource, Task<TResult>> func) : base(collection)
+        {
+            InitializeCollection(collection, func);
+
+            AddCollectionChanged(collection, async (sender, e) =>
+            {
+                switch (e.Action)
+                {
+                    case NotifyCollectionChangedAction.Add:
+                        Insert(e.NewStartingIndex, await func((TSource)e.NewItems[0]));
+                        break;
+                    case NotifyCollectionChangedAction.Remove:
+                        RemoveAt(e.OldStartingIndex);
+                        break;
+                    case NotifyCollectionChangedAction.Replace:
+                        this[e.NewStartingIndex] = await func((TSource)e.NewItems[0]);
+                        break;
+                    case NotifyCollectionChangedAction.Reset:
+                        Clear();
+                        break;
+                    case NotifyCollectionChangedAction.Move:
+                        throw new NotSupportedException("NotifyCollectionChangedAction is Move.");
+                }
+            });
+        }
+
+        private async void InitializeCollection(BindableCollection<TSource> collection, Func<TSource, Task<TResult>> func)
+        {
+            foreach (var item in collection)
+            {
+                Add(await func(item));
+            }
         }
     }
 

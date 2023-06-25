@@ -5,16 +5,19 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
-    public class BindableSortedCollection<T> : BindableCollection<T>
+    public class BindableSortedCollection<T> : BindableChildCollection<T>
     {
         private Func<T, T, bool> _func;
 
-        internal BindableSortedCollection(BindableCollection<T> collection, Func<T, T, bool> func)
+        internal BindableSortedCollection(BindableCollection<T> collection, Func<T, T, bool> func) : base(collection)
         {
             _func = func;
+
+            collection.ForEach(item => Add(item));
 
             AddCollectionChanged(collection, (sender, e) =>
             {
@@ -24,7 +27,7 @@ namespace TBird.Wpf.Collections
                         Add((T)e.NewItems[0]);
                         break;
                     case NotifyCollectionChangedAction.Remove:
-                        Remove((T)e.NewItems[0]);
+                        Remove((T)e.OldItems[0]);
                         break;
                     case NotifyCollectionChangedAction.Replace:
                         Remove((T)e.OldItems[0]);
@@ -79,7 +82,7 @@ namespace TBird.Wpf.Collections
 
                 if (scomparable != null && dcomparable != null)
                 {
-                    return 0 <= (isDescending ? scomparable.CompareTo(dcomparable) : dcomparable.CompareTo(scomparable));
+                    return 0 <= (isDescending ? dcomparable.CompareTo(scomparable) : scomparable.CompareTo(dcomparable));
                 }
                 else if (scomparable != null)
                 {
