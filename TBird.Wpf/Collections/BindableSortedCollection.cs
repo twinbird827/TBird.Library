@@ -59,7 +59,7 @@ namespace TBird.Wpf.Collections
 
         private int GetIndex(FindIndex find, T item)
         {
-            if (find.Start == find.End) return find.Start;
+            if (find.Start == find.End || find.End < 0) return find.Start;
 
             if (find.Count == 2)
             {
@@ -70,7 +70,8 @@ namespace TBird.Wpf.Collections
                     : find.End + 1;
             }
 
-            if (_func(item, this[find.Center]) < 0)
+            var center = _func(item, this[find.Center]);
+            if (center < 0)
             {
                 return GetIndex(new FindIndex(find.Start, find.Center), item);
             }
@@ -84,7 +85,7 @@ namespace TBird.Wpf.Collections
         {
             public int Start;
             public int End;
-            public int Center => (End - Start) / 2;
+            public int Center => (End - Start) / 2 + Start;
             public int Count => End - Start + 1;
 
             public FindIndex(int start, int end)

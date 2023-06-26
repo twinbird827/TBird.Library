@@ -11,7 +11,7 @@ namespace TBird.Wpf.Collections
     {
         protected BindableChildCollection(IBindableCollection collection)
         {
-            LockObject = ((BindableCollection<T>)collection).LockObject;
+            LockObject = ((BindableCollection)collection).LockObject;
 
             AddDisposed((sender, e) =>
             {

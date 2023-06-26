@@ -9,9 +9,13 @@ using System.Threading.Tasks;
 
 namespace TBird.Wpf.Collections
 {
-    public class BindableCollection<T> : BindableBase, IBindableCollection<T>
+    public abstract class BindableCollection : BindableBase
     {
         internal object LockObject { get; set; }
+    }
+
+    public class BindableCollection<T> : BindableCollection, IBindableCollection<T>
+    {
         private IList<T> _list;
 
         public BindableCollection() : this(Enumerable.Empty<T>())
