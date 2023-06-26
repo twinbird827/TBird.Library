@@ -43,23 +43,19 @@ namespace TBird.Wpf.Collections
         public override T this[int index]
         {
             get => base[index];
-            set => _context.Post(args =>
-            {
-                var argsarr = (object[])args;
-                var argsindex = (int)argsarr[0];
-                var argsvalue = (T)argsarr[1];
-
-                base[argsindex] = argsvalue;
-            }, new object[] { index, value });
+            set => Post(
+                args => base[(int)args[0]] = (T)args[1],
+                index, value
+            );
         }
         public override void Add(T item)
         {
-            _context.Post(x => base.Add((T)x), item);
+            Post(args => base.Add((T)args[0]), item);
         }
 
         public override void Clear()
         {
-            _context.Post(_ => base.Clear(), null);
+            Post(_ => base.Clear(), null);
         }
 
         public override int IndexOf(T item)
@@ -69,13 +65,10 @@ namespace TBird.Wpf.Collections
 
         public override void Insert(int index, T item)
         {
-            _context.Post(args =>
-            {
-                var argsarr = (object[])args;
-                var argsindex = (int)argsarr[0];
-                var argsitem = (T)argsarr[1];
-                base.Insert(argsindex, argsitem);
-            }, new object[] { index, item });
+            Post(
+                args => base.Insert((int)args[0], (T)args[1]),
+                index, item
+            );
         }
 
         public override bool Remove(T item)
@@ -95,6 +88,12 @@ namespace TBird.Wpf.Collections
         {
             _context.Post(x => base.RemoveAt((int)x), index);
         }
+
+        private void Post(Action<object[]> post, params object[] args)
+        {
+            _context.Post(x => post((object[])x), args);
+        }
+
     }
 
     public static class BindableContextCollectionExtension

@@ -11,9 +11,9 @@ namespace TBird.Wpf.Collections
 {
     public class BindableSortedCollection<T> : BindableChildCollection<T>
     {
-        private Func<T, T, bool> _func;
+        private Func<T, T, int> _func;
 
-        internal BindableSortedCollection(BindableCollection<T> collection, Func<T, T, bool> func) : base(collection)
+        internal BindableSortedCollection(BindableCollection<T> collection, Func<T, T, int> func) : base(collection)
         {
             _func = func;
 
@@ -44,15 +44,7 @@ namespace TBird.Wpf.Collections
 
         public override void Add(T item)
         {
-            for (var i = 0; i < Count; i++)
-            {
-                if (_func(this[i], item))
-                {
-                    base.Insert(i, item);
-                    return;
-                }
-            }
-            base.Add(item);
+            base.Insert(GetIndex(new FindIndex(0, Count - 1), item), item);
         }
 
         public override void Insert(int index, T item)
@@ -64,38 +56,67 @@ namespace TBird.Wpf.Collections
         {
             throw new NotSupportedException(nameof(RemoveAt));
         }
+
+        private int GetIndex(FindIndex find, T item)
+        {
+            if (find.Start == find.End) return find.Start;
+
+            if (find.Count == 2)
+            {
+                return _func(item, this[find.Start]) < 0
+                    ? find.Start
+                    : _func(item, this[find.End]) < 0
+                    ? find.End
+                    : find.End + 1;
+            }
+
+            if (_func(item, this[find.Center]) < 0)
+            {
+                return GetIndex(new FindIndex(find.Start, find.Center), item);
+            }
+            else
+            {
+                return GetIndex(new FindIndex(find.Center, find.End), item);
+            }
+        }
+
+        private struct FindIndex
+        {
+            public int Start;
+            public int End;
+            public int Center => (End - Start) / 2;
+            public int Count => End - Start + 1;
+
+            public FindIndex(int start, int end)
+            {
+                Start = start;
+                End = end;
+            }
+        }
     }
 
     public static class BinbdaleSortedCollectionExtension
     {
-        public static BindableSortedCollection<T> ToBindableSortedCollection<T>(this BindableCollection<T> collection, Func<T, T, bool> func)
+        public static BindableSortedCollection<T> ToBindableSortedCollection<T>(this BindableCollection<T> collection, Func<T, T, int> func)
         {
             return new BindableSortedCollection<T>(collection, func);
         }
 
         public static BindableSortedCollection<T> ToBindableSortedCollection<T>(this BindableCollection<T> collection, Func<T, IComparable> func, bool isDescending)
         {
+            Func<T, T, T> getsrc = isDescending ? (src, dst) => dst : (src, dst) => src;
+            Func<T, T, T> getdst = isDescending ? (src, dst) => src : (src, dst) => dst;
+
             return new BindableSortedCollection<T>(collection, (src, dst) =>
             {
-                var scomparable = func(src);
-                var dcomparable = func(dst);
+                var scomparable = func(getsrc(src, dst));
+                var dcomparable = func(getdst(src, dst));
 
-                if (scomparable != null && dcomparable != null)
+                if (scomparable != null)
                 {
-                    return 0 <= (isDescending ? dcomparable.CompareTo(scomparable) : scomparable.CompareTo(dcomparable));
+                    return scomparable.CompareTo(dcomparable);
                 }
-                else if (scomparable != null)
-                {
-                    return isDescending;
-                }
-                else if (dcomparable != null)
-                {
-                    return !isDescending;
-                }
-                else
-                {
-                    return true;
-                }
+                return 0;
             });
         }
     }

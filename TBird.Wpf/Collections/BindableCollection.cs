@@ -11,15 +11,17 @@ namespace TBird.Wpf.Collections
 {
     public class BindableCollection<T> : BindableBase, IBindableCollection<T>
     {
+        internal object LockObject { get; set; }
         private IList<T> _list;
 
-        public BindableCollection() : this (Enumerable.Empty<T>())
+        public BindableCollection() : this(Enumerable.Empty<T>())
         {
 
         }
 
         public BindableCollection(IEnumerable<T> list)
         {
+            LockObject = new object();
             _list = new List<T>(list);
         }
 
@@ -48,7 +50,13 @@ namespace TBird.Wpf.Collections
         public virtual T this[int index]
         {
             get => _list[index];
-            set => OnCollectionChanged(_list[index], _list[index] = value, index);
+            set
+            {
+                lock (LockObject)
+                {
+                    OnCollectionChanged(_list[index], _list[index] = value, index);
+                }
+            }
         }
 
         public int Count => _list.Count;
@@ -59,14 +67,20 @@ namespace TBird.Wpf.Collections
 
         public virtual void Add(T item)
         {
-            _list.Add(item);
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, Count - 1);
+            lock (LockObject)
+            {
+                _list.Add(item);
+                OnCollectionChanged(NotifyCollectionChangedAction.Add, item, Count - 1);
+            }
         }
 
         public virtual void Clear()
         {
-            _list.Clear();
-            OnCollectionChanged();
+            lock (LockObject)
+            {
+                _list.Clear();
+                OnCollectionChanged();
+            }
         }
 
         public bool Contains(T item)
@@ -76,7 +90,10 @@ namespace TBird.Wpf.Collections
 
         public void CopyTo(T[] array, int arrayIndex)
         {
-            _list.CopyTo(array, arrayIndex);
+            lock (LockObject)
+            {
+                _list.CopyTo(array, arrayIndex);
+            }
         }
 
         public IEnumerator<T> GetEnumerator()
@@ -91,24 +108,34 @@ namespace TBird.Wpf.Collections
 
         public virtual void Insert(int index, T item)
         {
-            _list.Insert(index, item);
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
+            lock (LockObject)
+            {
+                _list.Insert(index, item);
+                OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
+            }
         }
 
         public virtual bool Remove(T item)
         {
-            var index = IndexOf(item);
-            if (index < 0) return false;
+            var result = false;
+            lock (LockObject)
+            {
+                var index = IndexOf(item);
+                if (index < 0) return false;
 
-            var result = _list.Remove(item);
-            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
+                result = _list.Remove(item);
+                OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
+            }
             return result;
         }
 
         public virtual void RemoveAt(int index)
         {
-            if (index < 0 || Count <= index) return;
-            Remove(this[index]);
+            lock (LockObject)
+            {
+                if (index < 0 || Count <= index) return;
+                Remove(this[index]);
+            }
         }
 
         IEnumerator IEnumerable.GetEnumerator()

@@ -11,6 +11,8 @@ namespace TBird.Wpf.Collections
     {
         protected BindableChildCollection(IBindableCollection collection)
         {
+            LockObject = ((BindableCollection<T>)collection).LockObject;
+
             AddDisposed((sender, e) =>
             {
                 this.ForEach(x => x.TryDispose());
