@@ -100,18 +100,23 @@ namespace TBird.Core
         /// <returns></returns>
         public static void Dispose(string key)
         {
-            if (_manages.ContainsKey(key))
+            using (_lock.LockAsync().Result)
             {
-                try
+                if (key == null) return;
+
+                if (_manages.ContainsKey(key))
                 {
-                    _manages[key]._slim.Wait();
+                    try
+                    {
+                        _manages[key]._slim.Wait();
+                    }
+                    finally
+                    {
+                        _manages[key]._slim.Release();
+                        _manages[key]._slim.Dispose();
+                    }
+                    _manages.Remove(key);
                 }
-                finally
-                {
-                    _manages[key]._slim.Release();
-                    _manages[key]._slim.Dispose();
-                }
-                _manages.Remove(key);
             }
         }
 
