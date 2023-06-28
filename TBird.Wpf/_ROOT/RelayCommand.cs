@@ -85,7 +85,7 @@ namespace TBird.Wpf
 
             _action = async x =>
             {
-                using (await this.LockAsync())
+                using (await Locker.LockAsync(Lock))
                 {
                     RaiseCanExecuteChanged();
 
@@ -93,7 +93,7 @@ namespace TBird.Wpf
                     if (!CanExecute(x)) return;
 
                     // 複数の処理が待機されていた場合、最後の処理だけ実行する
-                    if (1 < this.LockCount()) return;
+                    if (1 < Locker.Count(Lock)) return;
 
                     try
                     {

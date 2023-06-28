@@ -9,11 +9,11 @@ using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
-    public class BindableConvertCollection<TSource, TResult> : BindableChildCollection<TResult>
+    public class BindableSelectCollection<TSource, TResult> : BindableChildCollection<TResult>
         where TSource : class
         where TResult : class
     {
-        internal BindableConvertCollection(BindableCollection<TSource> collection, Func<TSource, TResult> func) : base(collection)
+        internal BindableSelectCollection(BindableCollection<TSource> collection, Func<TSource, TResult> func) : base(collection)
         {
             collection.ForEach(x => Add(func(x)));
 
@@ -39,7 +39,7 @@ namespace TBird.Wpf.Collections
             });
         }
 
-        internal BindableConvertCollection(BindableCollection<TSource> collection, Func<TSource, Task<TResult>> func) : base(collection)
+        internal BindableSelectCollection(BindableCollection<TSource> collection, Func<TSource, Task<TResult>> func) : base(collection)
         {
             InitializeCollection(collection, func);
 
@@ -74,13 +74,13 @@ namespace TBird.Wpf.Collections
         }
     }
 
-    public static class BindableConvertCollectionExtension
+    public static class BindableSelectCollectionExtension
     {
-        public static BindableConvertCollection<TSource, TResult> ToBindableConvertCollection<TSource, TResult>(this BindableCollection<TSource> collection, Func<TSource, TResult> func)
+        public static BindableSelectCollection<TSource, TResult> ToBindableSelectCollection<TSource, TResult>(this BindableCollection<TSource> collection, Func<TSource, TResult> func)
             where TSource : class
             where TResult : class
         {
-            return new BindableConvertCollection<TSource, TResult>(collection, func);
+            return new BindableSelectCollection<TSource, TResult>(collection, func);
         }
     }
 }

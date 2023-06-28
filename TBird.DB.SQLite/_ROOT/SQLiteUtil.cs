@@ -19,7 +19,7 @@ namespace TBird.DB.SQLite
         {
             FileUtil.FileOutputPreprocessing(path);
 
-            using (await src.LockAsync())
+            using (await Locker.LockAsync(src.Lock))
             using (var dst = new SQLiteControl($"datasource={path}"))
             {
                 src._m._conn.BackupDatabase(dst._m._conn, "main", "main", -1, null, 0);

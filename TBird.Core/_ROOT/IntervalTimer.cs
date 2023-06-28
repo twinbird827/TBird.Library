@@ -49,7 +49,7 @@ namespace TBird.Core
         private async void Tick(object sender)
         {
             // 処理の重複禁止
-            using (await this.LockAsync())
+            using (await Locker.LockAsync(Lock))
             {
                 // ﾀｲﾏｰ停止
                 _timer.Change(Timeout.Infinite, Timeout.Infinite);

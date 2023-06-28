@@ -32,7 +32,7 @@ namespace TBird.DB
 
         public async Task BeginTransaction()
         {
-            using (await this.LockAsync())
+            using (await Locker.LockAsync(Lock))
             {
                 await OpenAsync();
                 await WaitTransaction().Timeout(_timeout, null);
@@ -86,7 +86,7 @@ namespace TBird.DB
         {
             await OpenAsync();
 
-            using (await this.LockAsync())
+            using (await Locker.LockAsync(Lock))
             {
                 _stopwatch.Restart();
 

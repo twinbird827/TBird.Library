@@ -16,42 +16,7 @@ namespace TBird.Core
         /// <summary>
         /// 内部用ﾛｯｸｲﾝｽﾀﾝｽ
         /// </summary>
-        private static SemaphoreSlim _lock { get; } = new SemaphoreSlim(1, 1);
-
-        /// <summary>
-        /// 内部用ﾏﾈｰｼﾞｬ作成ﾒｿｯﾄﾞ
-        /// </summary>
-        /// <returns></returns>
-        private static async Task CreateManager(string key)
-        {
-            if (_manages.ContainsKey(key)) return;
-
-            using (await _lock.LockAsync())
-            {
-                if (_manages.ContainsKey(key)) return;
-
-                _manages.Add(key, new Manager());
-            }
-        }
-
-        /// <summary>
-        /// 処理を待機します。
-        /// </summary>
-        /// <returns></returns>
-        public static async Task WaitAsync(string key)
-        {
-            await CreateManager(key);
-            await _manages[key].WaitAsync();
-        }
-
-        /// <summary>
-        /// 処理を開放します。
-        /// </summary>
-        /// <returns></returns>
-        public static int Release(string key)
-        {
-            return _manages[key].Release();
-        }
+        private static Manager _lock { get; } = new Manager();
 
         /// <summary>
         /// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
@@ -59,7 +24,13 @@ namespace TBird.Core
         /// <returns></returns>
         public static async Task<IDisposable> LockAsync(string key)
         {
-            await CreateManager(key);
+            using (await _lock.LockAsync())
+            {
+                if (!_manages.ContainsKey(key))
+                {
+                    _manages.Add(key, new Manager());
+                }
+            }
             return await _manages[key].LockAsync();
         }
 
@@ -69,29 +40,14 @@ namespace TBird.Core
         /// <returns></returns>
         public static IDisposable Lock(string key)
         {
-            _lock.Wait();
-            try
+            using (_lock.Lock())
             {
                 if (!_manages.ContainsKey(key))
                 {
                     _manages.Add(key, new Manager());
                 }
             }
-            finally
-            {
-                _lock.Release();
-            }
-
             return _manages[key].Lock();
-        }
-
-        /// <summary>
-        /// 処理が解放されるまで非同期で待機します。
-        /// </summary>
-        /// <returns></returns>
-        public static async Task WaitReleaseAsync(string key)
-        {
-            using (await LockAsync(key)) { }
         }
 
         /// <summary>
@@ -100,23 +56,16 @@ namespace TBird.Core
         /// <returns></returns>
         public static void Dispose(string key)
         {
-            using (_lock.LockAsync().Result)
+            using (_lock.Lock())
             {
                 if (key == null) return;
 
-                if (_manages.ContainsKey(key))
-                {
-                    try
-                    {
-                        _manages[key]._slim.Wait();
-                    }
-                    finally
-                    {
-                        _manages[key]._slim.Release();
-                        _manages[key]._slim.Dispose();
-                    }
-                    _manages.Remove(key);
-                }
+                if (!_manages.ContainsKey(key)) return;
+
+                using (_manages[key].Lock()) { }
+
+                _manages[key]._slim.Dispose();
+                _manages.Remove(key);
             }
         }
 

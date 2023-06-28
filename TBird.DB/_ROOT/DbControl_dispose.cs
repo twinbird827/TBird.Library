@@ -17,7 +17,7 @@ namespace TBird.DB
                 {
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
                     Rollback();
-                    this.DisposeLocker();
+                    Locker.Dispose(Lock);
                     Close();
                 }
 

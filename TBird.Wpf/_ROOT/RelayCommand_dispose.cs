@@ -18,7 +18,7 @@ namespace TBird.Wpf
                 if (disposing)
                 {
                     // TODO: マネージド状態を破棄します (マネージド オブジェクト)
-                    this.DisposeLocker();
+                    Locker.Dispose(Lock);
                     _action = null;
                     _predicate = null;
                     _cts.Cancel();

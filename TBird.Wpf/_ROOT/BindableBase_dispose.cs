@@ -30,7 +30,7 @@ namespace TBird.Wpf
                     }
                     Disposed = null;
                     PropertyChanged = null;
-                    this.DisposeLocker();
+                    Locker.Dispose(Lock);
                 }
 
                 // TODO: アンマネージ リソース (アンマネージ オブジェクト) を解放し、下のファイナライザーをオーバーライドします。

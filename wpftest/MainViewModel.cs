@@ -37,7 +37,7 @@ namespace wpftest
         public IRelayCommand Command => _Command = _Command ?? RelayCommand.Create(async _ =>
         {
             Text += "Command: lock: ";
-            Text += this.LockCount();
+            Text += Locker.Count(Lock);
             Text += "index: " + _index++;
             Text += "\n";
             Text += "B:" + DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");

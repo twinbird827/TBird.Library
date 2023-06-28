@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace TBird.Core
 {
-    public interface ILocker
+    public interface ILocker : IDisposable
     {
         string Lock { get; }
     }
@@ -20,36 +20,6 @@ namespace TBird.Core
         public static string CreateLock4Class(this ILocker x)
         {
             return x.GetType().FullName;
-        }
-
-        public static Task WaitAsync(this ILocker x)
-        {
-            return Locker.WaitAsync(x.Lock);
-        }
-
-        public static int Release(this ILocker x)
-        {
-            return Locker.Release(x.Lock);
-        }
-
-        public static int LockCount(this ILocker x)
-        {
-            return Locker.Count(x.Lock);
-        }
-
-        public static Task<IDisposable> LockAsync(this ILocker x)
-        {
-            return Locker.LockAsync(x.Lock);
-        }
-
-        public static IDisposable Lock(this ILocker x)
-        {
-            return Locker.Lock(x.Lock);
-        }
-
-        public static void DisposeLocker(this ILocker x)
-        {
-            Locker.Dispose(x.Lock);
         }
     }
 }

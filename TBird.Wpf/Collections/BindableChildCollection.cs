@@ -9,18 +9,22 @@ namespace TBird.Wpf.Collections
 {
     public abstract class BindableChildCollection<T> : BindableCollection<T>, IBindableChild
     {
+        protected IBindableCollection Parent { get; private set; }
+
         protected BindableChildCollection(IBindableCollection collection)
         {
-            LockObject = ((BindableCollection)collection).LockObject;
+            Parent = collection;
+            LockObject = ((BindableCollection)Parent).LockObject;
 
             AddDisposed((sender, e) =>
             {
                 this.ForEach(x => x.TryDispose());
 
-                if (collection is IBindableChild i)
+                if (Parent is IBindableChild i)
                 {
                     i.Dispose();
                 }
+                Parent = null;
             });
         }
     }
