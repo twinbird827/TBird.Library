@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace TBird.Core
+﻿namespace TBird.Core
 {
     public enum MessageType
     {

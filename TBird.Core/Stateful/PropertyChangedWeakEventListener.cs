@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {
@@ -67,7 +65,6 @@ namespace TBird.Core.Stateful
             ThrowExceptionIfDisposed();
             _bag.Add(propertyName, handler);
         }
-
 
         public void Add(string propertyName, params PropertyChangedEventHandler[] handlers)
         {

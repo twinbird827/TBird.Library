@@ -4,12 +4,10 @@
     <ResourceDictionary.MergedDictionaries>
 
         <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.RadioButton.xaml" />
-
     </ResourceDictionary.MergedDictionaries>
 
     <Style x:Key="DefaultRadioButton" TargetType="RadioButton" BasedOn="{StaticResource MahApps.Styles.RadioButton}">
         <Setter Property="Margin" Value="0" />
         <Setter Property="Padding" Value="0" />
     </Style>
-
 </ResourceDictionary>

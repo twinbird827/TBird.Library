@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using TBird.Core;
 
 namespace TBird.Roslyn
@@ -14,6 +12,7 @@ namespace TBird.Roslyn
             _timer.Interval = TimeSpan.FromMilliseconds(RoslynSetting.Instance.Interval);
             _timer.Start();
         }
+
         private T _target;
 
         /// <summary>ﾀｲﾏｰ</summary>

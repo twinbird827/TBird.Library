@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 
 namespace TBird.Wpf.Behaviors
@@ -13,10 +8,12 @@ namespace TBird.Wpf.Behaviors
         public static readonly DependencyProperty MouseOverItemProperty = BehaviorUtil.RegisterAttached(
             "MouseOverItem", typeof(FrameworkElementBehavior), default(IMouseOverItem), OnSetMouseOverItemCallback
         );
+
         public static IMouseOverItem GetMouseOverItem(DependencyObject obj)
         {
             return (IMouseOverItem)obj.GetValue(MouseOverItemProperty);
         }
+
         public static void SetMouseOverItem(DependencyObject obj, IMouseOverItem value)
         {
             obj.SetValue(MouseOverItemProperty, value);

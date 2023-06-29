@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 using TBird.Core;
 
 namespace TBird.Plugin
@@ -36,6 +34,7 @@ namespace TBird.Plugin
         }
 
         #region IDisposable Support
+
         private bool disposedValue = false; // 重複する呼び出しを検出するには
 
         protected virtual void Dispose(bool disposing)
@@ -79,6 +78,7 @@ namespace TBird.Plugin
             // TODO: 上のファイナライザーがオーバーライドされる場合は、次の行のコメントを解除してください。
             // GC.SuppressFinalize(this);
         }
+
         #endregion
 
     }

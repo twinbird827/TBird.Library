@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Input;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media.Imaging;
 
 namespace TBird.Wpf.Behaviors
@@ -14,10 +8,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty SyncProperty = BehaviorUtil.RegisterAttached(
             "Sync", typeof(BitmapImageBehavior), default(BitmapImage), OnSetSyncCallback
         );
+
         public static void SetSync(DependencyObject target, object value)
         {
             target.SetValue(SyncProperty, value);
         }
+
         public static BitmapImage GetSync(DependencyObject target)
         {
             return (BitmapImage)target.GetValue(SyncProperty);

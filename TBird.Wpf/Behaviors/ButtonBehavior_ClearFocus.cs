@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,10 +11,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty ClearFocusProperty = BehaviorUtil.RegisterAttached(
             "ClearFocus", typeof(ButtonBehavior), false, OnSetClearFocusCallback
         );
+
         public static void SetClearFocus(DependencyObject target, object value)
         {
             target.SetValue(ClearFocusProperty, value);
         }
+
         public static bool GetClearFocus(DependencyObject target)
         {
             return (bool)target.GetValue(ClearFocusProperty);

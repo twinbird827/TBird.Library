@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 
 namespace TBird.Wpf.Behaviors
 {
@@ -12,10 +7,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty DialogResultProperty = BehaviorUtil.RegisterAttached(
             "DialogResult", typeof(WindowBehavior), default(bool?), OnSetDialogResultCallback
         );
+
         public static void SetDialogResult(DependencyObject target, object value)
         {
             target.SetValue(DialogResultProperty, value);
         }
+
         public static bool? GetDialogResult(DependencyObject target)
         {
             return (bool?)target.GetValue(DialogResultProperty);

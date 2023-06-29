@@ -43,7 +43,7 @@
                             <Setter TargetName="Border" Property="Background" Value="{StaticResource UpDwScrollBarPressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="false">
-                            <Setter TargetName="Path" Property="Fill" Value="{StaticResource UpDwScrollBarDisabledBrush}"/>
+                            <Setter TargetName="Path" Property="Fill" Value="{StaticResource UpDwScrollBarDisabledBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -53,9 +53,9 @@
 
     <!-- ﾃｷｽﾄﾎﾞｯｸｽに付属する値を上下させるためのｽｸﾛｰﾙﾊﾞｰのｽﾀｲﾙ -->
     <Style x:Key="UpDwScrollBar" TargetType="{x:Type ScrollBar}">
-        <Setter Property="OverridesDefaultStyle" Value="true"/>
+        <Setter Property="OverridesDefaultStyle" Value="true" />
         <Setter Property="Orientation" Value="Vertical" />
-        <Setter Property="Width" Value="{StaticResource UpDwScrollBarSize}"/>
+        <Setter Property="Width" Value="{StaticResource UpDwScrollBarSize}" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="Margin" Value="0" />
         <Setter Property="Template">
@@ -64,7 +64,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="auto" />
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*" />
                             <RowDefinition Height="auto" />
                         </Grid.RowDefinitions>
                         <RepeatButton Grid.Row="0"
@@ -74,11 +74,10 @@
                         <RepeatButton Grid.Row="2"
                                       Style="{StaticResource UpDwScrollBarRepeatButton}"
                                       Command="ScrollBar.LineUpCommand"
-                                      Content="M 0 0 L 4 4 L 8 0 Z"/>
+                                      Content="M 0 0 L 4 4 L 8 0 Z" />
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
-
 </ResourceDictionary>

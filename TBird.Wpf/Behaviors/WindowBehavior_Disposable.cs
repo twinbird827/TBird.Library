@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace TBird.Wpf.Behaviors
@@ -12,10 +8,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty DisposableProperty = BehaviorUtil.RegisterAttached(
             "Disposable", typeof(WindowBehavior), default(IDisposable), OnSetDisposableCallback
         );
+
         public static void SetDisposable(DependencyObject target, object value)
         {
             target.SetValue(DisposableProperty, value);
         }
+
         public static IDisposable GetDisposable(DependencyObject target)
         {
             return (IDisposable)target.GetValue(DisposableProperty);

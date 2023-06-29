@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace TBird.Core.Stateful
@@ -14,7 +13,9 @@ namespace TBird.Core.Stateful
         private readonly IList<T> _list;
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
 
-        public ObservableSynchronizedCollection() : this(Enumerable.Empty<T>()) { }
+        public ObservableSynchronizedCollection() : this(Enumerable.Empty<T>())
+        {
+        }
 
         public ObservableSynchronizedCollection(IEnumerable<T> source)
         {
@@ -153,7 +154,6 @@ namespace TBird.Core.Stateful
 
         IEnumerator IEnumerable.GetEnumerator() => ReadWithLockAction(() => ((IEnumerable<T>)_list.ToArray()).GetEnumerator());
 
-
         private void ReadWithLockAction(Action readAction)
         {
             if (!_lock.IsReadLockHeld)
@@ -275,27 +275,38 @@ namespace TBird.Core.Stateful
         public void Dispose() => Synchronizer.Dispose();
 
         #region ICollection(non-generic) support
+
         void ICollection.CopyTo(Array array, int index) => CopyTo(array.Cast<T>().ToArray(), index);
+
         bool ICollection.IsSynchronized { get; } = false;
         object ICollection.SyncRoot { get; } = new object();
+
         #endregion
 
         #region IList(non-generic) support
+
         object IList.this[int index]
         {
             get { return _list[index]; }
             set { this[index] = (T)value; }
         }
+
         void IList.Remove(object value) => Remove((T)value);
+
         bool IList.IsFixedSize { get; } = false;
+
         int IList.Add(object value)
         {
             Add((T)value);
             return _list.Count - 1;
         }
+
         bool IList.Contains(object value) => Contains((T)value);
+
         int IList.IndexOf(object value) => IndexOf((T)value);
+
         void IList.Insert(int index, object value) => Insert(index, (T)value);
+
         #endregion
     }
 

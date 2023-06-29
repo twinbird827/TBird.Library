@@ -5,7 +5,6 @@
     <ResourceDictionary.MergedDictionaries>
 
         <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ScrollBars.xaml" />
-
     </ResourceDictionary.MergedDictionaries>
 
     <Style x:Key="DefaultScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource MahApps.Styles.ScrollViewer}">
@@ -17,15 +16,14 @@
         <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
         <Setter Property="behavior:ScrollViewerBehavior.DisableContextMenu" Value="true" />
     </Style>
-    
+
     <Style x:Key="RowHeaderScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}">
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
         <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
     </Style>
-    
+
     <Style x:Key="ColumnHeaderScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}">
         <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
         <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
-
 </ResourceDictionary>

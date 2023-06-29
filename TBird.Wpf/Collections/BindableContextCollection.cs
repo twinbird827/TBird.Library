@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using TBird.Core;
 
 namespace TBird.Wpf.Collections
@@ -48,6 +44,7 @@ namespace TBird.Wpf.Collections
                 index, value
             );
         }
+
         public override void Add(T item)
         {
             Post(args => base.Add((T)args[0]), item);

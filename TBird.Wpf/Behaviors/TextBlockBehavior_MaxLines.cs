@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 
@@ -14,10 +9,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty MaxLinesProperty = BehaviorUtil.RegisterAttached(
             "MaxLines", typeof(TextBlockBehavior), 1, null
         );
+
         public static void SetMaxLines(DependencyObject target, object value)
         {
             target.SetValue(MaxLinesProperty, value);
         }
+
         public static int GetMaxLines(DependencyObject target)
         {
             return (int)target.GetValue(MaxLinesProperty);
@@ -26,10 +23,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty MaxTextProperty = BehaviorUtil.RegisterAttached(
             "MaxText", typeof(TextBlockBehavior), default(string), OnSetMaxTextCallback
         );
+
         public static void SetMaxText(DependencyObject target, object value)
         {
             target.SetValue(MaxTextProperty, value);
         }
+
         public static string GetMaxText(DependencyObject target)
         {
             return (string)target.GetValue(MaxTextProperty);

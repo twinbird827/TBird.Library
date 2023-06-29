@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,10 +10,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty IsInitializeFocusProperty = BehaviorUtil.RegisterAttached(
             "IsInitializeFocus", typeof(WindowBehavior), false, OnSetIsInitializeFocusCallback
         );
+
         public static void SetIsInitializeFocus(DependencyObject target, object value)
         {
             target.SetValue(IsInitializeFocusProperty, value);
         }
+
         public static bool GetIsInitializeFocus(DependencyObject target)
         {
             return (bool)target.GetValue(IsInitializeFocusProperty);

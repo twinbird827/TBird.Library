@@ -1,8 +1,8 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
-                    xmlns:local="clr-namespace:TBird.Wpf.Controls"
-                    xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors"
+                    xmlns:local="clr-namespace:TBird.Wpf.Controls">
 
     <DataTemplate DataType="{x:Type local:WindowViewModel}" x:Key="WindowDataTemplate">
         <Grid DataContext="{Binding DataContext}">
@@ -26,7 +26,6 @@
                                        Foreground="{StaticResource My.Brushes.AccentBase}"
                                        Opacity="100"
                                        IsActive="True" />
-
             </Grid>
         </Grid>
     </DataTemplate>
@@ -52,5 +51,4 @@
         <Setter Property="ShowInTaskbar" Value="False" />
         <Setter Property="behavior:WindowBehavior.DialogResult" Value="{Binding DialogResult}" />
     </Style>
-
 </ResourceDictionary>

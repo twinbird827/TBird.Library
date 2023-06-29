@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reflection;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {

@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -13,10 +9,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty ContentRenderedProperty = BehaviorUtil.RegisterAttached(
             "ContentRendered", typeof(WindowBehavior), default(ICommand), OnSetContentRenderedCallback
         );
+
         public static void SetContentRendered(DependencyObject target, object value)
         {
             target.SetValue(ContentRenderedProperty, value);
         }
+
         public static ICommand GetContentRendered(DependencyObject target)
         {
             return (ICommand)target.GetValue(ContentRenderedProperty);

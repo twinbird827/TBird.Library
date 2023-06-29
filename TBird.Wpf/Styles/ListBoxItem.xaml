@@ -4,7 +4,6 @@
     <ResourceDictionary.MergedDictionaries>
 
         <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ListBox.xaml" />
-
     </ResourceDictionary.MergedDictionaries>
 
     <Style x:Key="DefaultListBoxItem" TargetType="ListBoxItem" BasedOn="{StaticResource MahApps.Styles.ListBoxItem}">
@@ -15,5 +14,4 @@
         <Setter Property="VerticalContentAlignment" Value="Stretch" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     </Style>
-
 </ResourceDictionary>

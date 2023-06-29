@@ -40,6 +40,7 @@ namespace TBird.DB.SQLite
                 return _m._conn;
             }
         }
+
         internal string _cs;
         internal Manager _m;
         private static object _lock = new object();
@@ -153,6 +154,7 @@ namespace TBird.DB.SQLite
                 return OpenAsync(false);
             }
         }
+
         private bool _openinit = true;
 
         public override void Close()

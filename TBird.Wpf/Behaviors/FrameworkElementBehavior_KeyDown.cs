@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 
 namespace TBird.Wpf.Behaviors
@@ -13,10 +8,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty KeyDownProperty = BehaviorUtil.RegisterAttached(
             "KeyDown", typeof(FrameworkElementBehavior), default(ICommand), OnSetKeyDownCallback
         );
+
         public static void SetKeyDown(DependencyObject target, object value)
         {
             target.SetValue(KeyDownProperty, value);
         }
+
         public static ICommand GetKeyDown(DependencyObject target)
         {
             return (ICommand)target.GetValue(KeyDownProperty);

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -14,10 +9,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty MoveFocusWhenEnterProperty = BehaviorUtil.RegisterAttached(
             "MoveFocusWhenEnter", typeof(TextBoxBehavior), false, OnSetMoveFocusWhenEnterCallback
         );
+
         public static void SetMoveFocusWhenEnter(DependencyObject target, object value)
         {
             target.SetValue(MoveFocusWhenEnterProperty, value);
         }
+
         public static bool GetMoveFocusWhenEnter(DependencyObject target)
         {
             return (bool)target.GetValue(MoveFocusWhenEnterProperty);
@@ -26,10 +23,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty MoveFocusableProperty = BehaviorUtil.RegisterAttached(
             "MoveFocusable", typeof(TextBoxBehavior), default(FrameworkElement), null
         );
+
         public static void SetMoveFocusable(DependencyObject target, object value)
         {
             target.SetValue(MoveFocusableProperty, value);
         }
+
         public static FrameworkElement GetMoveFocusable(DependencyObject target)
         {
             return (FrameworkElement)target.GetValue(MoveFocusableProperty);

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace TBird.IO
+﻿namespace TBird.IO
 {
     public class Class1
     {

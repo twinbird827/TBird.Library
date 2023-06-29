@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {
     public sealed class FilteredObservableCollection<T> : NotifyChangedCollection<T>, ISynchronizableNotifyChangedCollection<T>
     {
-        public FilteredObservableCollection(Func<T, bool> filter) : this(Enumerable.Empty<T>(), filter) { }
+        public FilteredObservableCollection(Func<T, bool> filter) : this(Enumerable.Empty<T>(), filter)
+        {
+        }
 
         public FilteredObservableCollection(IEnumerable<T> collection, Func<T, bool> filter) : base(collection)
         {

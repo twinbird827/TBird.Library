@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {
@@ -98,7 +97,6 @@ namespace TBird.Core.Stateful
         internal void Add(NotifyCollectionChangedEventHandler handler) => RegisterHandler(handler);
 
         internal void Add(NotifyCollectionChangedAction action, NotifyCollectionChangedEventHandler handler) => RegisterHandler(action, handler);
-
 
         internal void Add(NotifyCollectionChangedAction action, params NotifyCollectionChangedEventHandler[] handlers)
         {

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -127,7 +124,7 @@ namespace TBird.Wpf
         /// <returns></returns>
         public static bool IsDesignMode()
         {
-            // Check for design mode. 
+            // Check for design mode.
             return (bool)DesignerProperties
                 .IsInDesignModeProperty
                 .GetMetadata(typeof(DependencyObject))

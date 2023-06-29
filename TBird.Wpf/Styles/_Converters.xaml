@@ -36,5 +36,4 @@
         <converter:BooleanReverseConverter />
         <converter:Boolean2VisibilityCollapsedConverter />
     </converter:ValueConverterGroup>
-
 </ResourceDictionary>

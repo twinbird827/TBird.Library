@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reflection;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {
@@ -16,6 +15,7 @@ namespace TBird.Core.Stateful
     public interface ISynchronizableNotifyChangedCollection<T> : ISynchronizableNotifyChangedCollection, IList<T>
     {
         Synchronizer<T> Synchronizer { get; }
+
         void Move(int oldIndex, int newIndex);
     }
 

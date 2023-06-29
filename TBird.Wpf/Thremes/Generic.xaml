@@ -3,13 +3,17 @@
                     xmlns:controls="clr-namespace:TBird.Wpf.Controls">
 
     <ResourceDictionary.MergedDictionaries>
-
         <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Controls/HeaderItemsControl.xaml" />
-
     </ResourceDictionary.MergedDictionaries>
 
     <Style TargetType="{x:Type controls:HeaderItemsControl}">
-        <Setter Property="Template" Value="{StaticResource HeaderItemsControl.ControlTemplate}" />
+        <Style.Triggers>
+            <Trigger Property="IsVirtualizing" Value="True">
+                <Setter Property="Template" Value="{StaticResource VirtualizingHeaderItemsControl.ControlTemplate}" />
+            </Trigger>
+            <Trigger Property="IsVirtualizing" Value="False">
+                <Setter Property="Template" Value="{StaticResource HeaderItemsControl.ControlTemplate}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
-    
 </ResourceDictionary>

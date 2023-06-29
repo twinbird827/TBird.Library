@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 
@@ -14,10 +9,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty ClosingProperty = BehaviorUtil.RegisterAttached(
             "Closing", typeof(WindowBehavior), default(ICommand), OnSetClosingCallback
         );
+
         public static void SetClosing(DependencyObject target, object value)
         {
             target.SetValue(ClosingProperty, value);
         }
+
         public static ICommand GetClosing(DependencyObject target)
         {
             return (ICommand)target.GetValue(ClosingProperty);

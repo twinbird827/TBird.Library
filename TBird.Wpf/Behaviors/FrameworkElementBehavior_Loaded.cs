@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -13,10 +9,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty LoadedProperty = BehaviorUtil.RegisterAttached(
             "Loaded", typeof(FrameworkElementBehavior), default(ICommand), OnSetLoadedCallback
         );
+
         public static void SetLoaded(DependencyObject target, object value)
         {
             target.SetValue(LoadedProperty, value);
         }
+
         public static ICommand GetLoaded(DependencyObject target)
         {
             return (ICommand)target.GetValue(LoadedProperty);

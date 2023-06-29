@@ -2,12 +2,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -34,6 +31,7 @@ namespace TBird.Core
             }
             return _factory.CreateClient(_name);
         }
+
         private static object _createclient = new object();
         private static string _name;
         private static ServiceCollection _service;
@@ -59,6 +57,7 @@ namespace TBird.Core
                 }
             }
         }
+
         private static string _guid = Guid.NewGuid().ToString();
 
         /// <summary>

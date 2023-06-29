@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Windows;
 using System.Windows.Input;
-using System.Windows;
 
 namespace TBird.Wpf.Behaviors
 {
@@ -13,10 +8,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty DragDropProperty = BehaviorUtil.RegisterAttached(
             "DragDrop", typeof(FrameworkElementBehavior), default(ICommand), OnSetDragDropCallback
         );
+
         public static void SetDragDrop(DependencyObject target, object value)
         {
             target.SetValue(DragDropProperty, value);
         }
+
         public static ICommand GetDragDrop(DependencyObject target)
         {
             return (ICommand)target.GetValue(DragDropProperty);

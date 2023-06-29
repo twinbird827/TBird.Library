@@ -5,7 +5,6 @@
     <ResourceDictionary.MergedDictionaries>
 
         <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ListBox.xaml" />
-
     </ResourceDictionary.MergedDictionaries>
 
     <!-- **************************************************
@@ -19,6 +18,4 @@
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="behavior:ListBoxBehavior.MustSelected" Value="True" />
     </Style>
-
-
 </ResourceDictionary>

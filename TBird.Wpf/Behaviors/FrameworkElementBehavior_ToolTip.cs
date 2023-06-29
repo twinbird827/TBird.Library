@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 
 namespace TBird.Wpf.Behaviors
 {
@@ -12,10 +7,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty ToolTipProperty = BehaviorUtil.RegisterAttached(
             "ToolTip", typeof(FrameworkElementBehavior), "", OnSetToolTipCallback
         );
+
         public static void SetToolTip(DependencyObject target, object value)
         {
             target.SetValue(ToolTipProperty, value);
         }
+
         public static object GetToolTip(DependencyObject target)
         {
             return target.GetValue(ToolTipProperty);

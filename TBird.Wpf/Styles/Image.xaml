@@ -7,5 +7,4 @@
         <Setter Property="Width" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Source.PixelWidth}" />
         <Setter Property="Height" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Source.PixelHeight}" />
     </Style>
-
 </ResourceDictionary>

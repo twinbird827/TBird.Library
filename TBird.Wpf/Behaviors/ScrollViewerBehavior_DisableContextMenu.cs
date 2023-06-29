@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,10 +11,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty DisableContextMenuProperty = BehaviorUtil.RegisterAttached(
             "DisableContextMenu", typeof(ScrollViewerBehavior), false, OnSetDisableContextMenuCallback
         );
+
         public static void SetDisableContextMenu(DependencyObject target, object value)
         {
             target.SetValue(DisableContextMenuProperty, value);
         }
+
         public static bool GetDisableContextMenu(DependencyObject target)
         {
             return (bool)target.GetValue(DisableContextMenuProperty);

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 
 namespace TBird.Wpf.Behaviors
 {
@@ -12,10 +7,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty FocusableItemProperty = BehaviorUtil.RegisterAttached(
             "FocusableItem", typeof(FrameworkElementBehavior), default(IFocusableItem), OnSetFocusableItemCallback
         );
+
         public static void SetFocusableItem(DependencyObject target, object value)
         {
             target.SetValue(FocusableItemProperty, value);
         }
+
         public static IFocusableItem GetFocusableItem(DependencyObject target)
         {
             return (IFocusableItem)target.GetValue(FocusableItemProperty);

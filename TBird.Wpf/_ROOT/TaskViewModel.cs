@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Input;
-using TBird.Core;
+﻿using TBird.Core;
 using TBird.Wpf.Controls;
 
 namespace TBird.Wpf

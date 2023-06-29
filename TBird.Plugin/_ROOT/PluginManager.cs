@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using TBird.Core;
 
 namespace TBird.Plugin
@@ -44,7 +43,7 @@ namespace TBird.Plugin
                 foreach (var dll in FileUtil.GetDirectoryFiles(dllroot, "*.dll"))
                 {
                     var asm = Assembly.LoadFrom(dll);
-                    
+
                     asm.GetTypes()
                         .Where(t => t.IsClass && t.IsPublic && !t.IsAbstract && t.GetInterface(iplugin) != null)
                         .ForEach(t => _plugins.Add(new PluginExecuter(asm, t)));
@@ -57,6 +56,7 @@ namespace TBird.Plugin
         }
 
         #region IDisposable Support
+
         private bool disposedValue = false; // 重複する呼び出しを検出するには
 
         protected virtual void Dispose(bool disposing)
@@ -91,6 +91,7 @@ namespace TBird.Plugin
             // TODO: 上のファイナライザーがオーバーライドされる場合は、次の行のコメントを解除してください。
             // GC.SuppressFinalize(this);
         }
+
         #endregion
     }
 }

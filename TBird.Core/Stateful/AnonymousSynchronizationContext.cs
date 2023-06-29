@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace TBird.Core.Stateful
@@ -10,7 +8,8 @@ namespace TBird.Core.Stateful
         private Action<SendOrPostCallback> _syncCallback;
         private Action<SendOrPostCallback> _asyncCallback;
 
-        private AnonymousSynchronizationContext() { }
+        private AnonymousSynchronizationContext()
+        { }
 
         public static AnonymousSynchronizationContext CreateForSync(Action<SendOrPostCallback> callback)
         {

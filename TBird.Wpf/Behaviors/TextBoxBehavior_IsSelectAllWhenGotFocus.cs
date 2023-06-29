@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -14,10 +9,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty IsSelectAllWhenGotFocusProperty = BehaviorUtil.RegisterAttached(
             "IsSelectAllWhenGotFocus", typeof(TextBoxBehavior), false, OnSetIsSelectAllWhenGotFocusCallback
         );
+
         public static void SetIsSelectAllWhenGotFocus(DependencyObject target, object value)
         {
             target.SetValue(IsSelectAllWhenGotFocusProperty, value);
         }
+
         public static bool GetIsSelectAllWhenGotFocus(DependencyObject target)
         {
             return (bool)target.GetValue(IsSelectAllWhenGotFocusProperty);

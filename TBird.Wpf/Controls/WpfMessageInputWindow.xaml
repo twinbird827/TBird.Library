@@ -1,10 +1,9 @@
 ﻿<Controls:MetroWindow x:Class="TBird.Wpf.Controls.WpfMessageInputWindow"
                       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                      xmlns:local="clr-namespace:TBird.Wpf.Controls"
                       xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                       xmlns:wpfroot="clr-namespace:TBird.Wpf"
                       mc:Ignorable="d"
                       Style="{StaticResource DefaultDialog}"
@@ -42,11 +41,10 @@
                      Margin="{StaticResource Margin.Header}"
                      Text="{Binding Value}" />
         </Grid>
-        
+
         <TextBlock Text="{Binding Message}"
                    FontSize="{StaticResource FontSize.L}"
                    Margin="10"
                    TextWrapping="Wrap" />
     </DockPanel>
-    
 </Controls:MetroWindow>

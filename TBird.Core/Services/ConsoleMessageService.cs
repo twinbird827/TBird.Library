@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace TBird.Core
 {
@@ -59,7 +56,7 @@ namespace TBird.Core
                 [CallerFilePath] string callerFilePath = "",
                 [CallerLineNumber] int callerLineNumber = 0)
         {
-           Writeline(GetString(MessageType.Exception, exception.ToString(), callerMemberName, callerFilePath, callerLineNumber));
+            Writeline(GetString(MessageType.Exception, exception.ToString(), callerMemberName, callerFilePath, callerLineNumber));
         }
 
         private string GetString(MessageType type,
@@ -101,6 +98,7 @@ namespace TBird.Core
                 }
             }
         }
+
         private static object _lock = new object();
 
         private void Writeline(string message)

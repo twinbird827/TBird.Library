@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 
 namespace TBird.Wpf.Behaviors
@@ -13,10 +8,12 @@ namespace TBird.Wpf.Behaviors
         public static DependencyProperty MouseDownProperty = BehaviorUtil.RegisterAttached(
             "MouseDown", typeof(FrameworkElementBehavior), default(ICommand), OnSetMouseDownCallback
         );
+
         public static void SetMouseDown(DependencyObject target, object value)
         {
             target.SetValue(MouseDownProperty, value);
         }
+
         public static ICommand GetMouseDown(DependencyObject target)
         {
             return (ICommand)target.GetValue(MouseDownProperty);

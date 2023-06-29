@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,6 +8,11 @@ namespace TBird.Core
 {
     public static class CoreUtil
     {
+        public static T[] Arr<T>(params T[] arr)
+        {
+            return arr;
+        }
+
         /// <summary>
         /// 対象文字配列のうち最初の空文字以外の文字を取得します。
         /// </summary>

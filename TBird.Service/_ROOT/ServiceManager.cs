@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.ServiceProcess;
-using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
 
@@ -65,7 +62,7 @@ namespace TBird.Service
         {
             return Task.Run(() => value);
         }
-        
+
         /// <summary>時間間隔の処理</summary>
         protected abstract Task TickProcess();
 

@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {
@@ -62,7 +60,6 @@ namespace TBird.Core.Stateful
             ThrowExceptionIfDisposed();
             _bag.Add(action, handler);
         }
-
 
         public void Add(NotifyCollectionChangedAction action, params NotifyCollectionChangedEventHandler[] handlers)
         {

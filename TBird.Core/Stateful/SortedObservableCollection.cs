@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 
 namespace TBird.Core.Stateful
 {
@@ -61,6 +59,7 @@ namespace TBird.Core.Stateful
                 base.InsertItem(FindNewIndex(item), item);
             }
         }
+
         protected override void MoveItem(int oldIndex, int newIndex)
         {
             throw new NotSupportedException("Move is not supported.");

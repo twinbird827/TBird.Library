@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -105,19 +101,23 @@ namespace TBird.Wpf
                 return;
             }
 
-            // ｲﾍﾞﾝﾄを削除してから追加
-            del(element);
-            add(element);
-
             Unloaded(element, (sender, e) =>
             {
-                if (sender is FrameworkElement fe)
+                if (sender is T target)
                 {
-                    del((T)fe);
+                    del(target);
                 }
-                add = null;
-                del = null;
             });
+
+            Loaded(element, (sender, e) =>
+            {
+                if (sender is T target)
+                {
+                    // ｲﾍﾞﾝﾄを削除してから追加
+                    del(target);
+                    add(target);
+                }
+            }, true);
         }
 
         /// <summary>
@@ -125,35 +125,33 @@ namespace TBird.Wpf
         /// </summary>
         /// <param name="element">対象ｵﾌﾞｼﾞｪｸﾄ</param>
         /// <param name="handler">読込時処理</param>
-        public static void Loaded(FrameworkElement element, RoutedEventHandler handler)
+        public static void Loaded(FrameworkElement element, RoutedEventHandler handler, bool ismanytimes = false)
         {
             if (WpfUtil.IsDesignMode()) return;
 
-            // ﾛｰﾄﾞｲﾍﾞﾝﾄ追加orﾛｰﾄﾞ済みの場合は直接実行
-            element.Dispatcher.BeginInvoke(
-                new Action(() => handler(element, new RoutedEventArgs())),
-                DispatcherPriority.Loaded
-            );
+            if (element.IsLoaded)
+            {
+                // ﾛｰﾄﾞｲﾍﾞﾝﾄ追加orﾛｰﾄﾞ済みの場合は直接実行
+                _ = element.Dispatcher.BeginInvoke(handler, DispatcherPriority.Loaded, element, new RoutedEventArgs());
+            }
+            if (!element.IsLoaded || ismanytimes)
+            {
+                // ﾛｰﾄﾞｲﾍﾞﾝﾄ実行前orﾛｰﾄﾞｲﾍﾞﾝﾄ毎に実行したい処理の場合ｲﾍﾞﾝﾄ購読
+                element.Loaded -= handler;
+                element.Loaded += handler;
+
+                if (!ismanytimes)
+                {
+                    // 1回だけのｲﾍﾞﾝﾄ購読の場合、Unloadｲﾍﾞﾝﾄ追加
+                    Unloaded(element, (sender, e) => element.Loaded -= handler);
+                }
+            }
         }
 
         public static void Unloaded(FrameworkElement element, RoutedEventHandler handler)
         {
-            RoutedEventHandler unloaded = null;
-
-            unloaded = (sender, e) =>
-            {
-                if (sender is FrameworkElement fe)
-                {
-                    fe.Unloaded -= handler;
-                    fe.Unloaded -= unloaded;
-                    unloaded = null;
-                }
-            };
-
             element.Unloaded -= handler;
             element.Unloaded += handler;
-            element.Unloaded -= unloaded;
-            element.Unloaded += unloaded;
         }
 
         /// <summary>
@@ -164,13 +162,10 @@ namespace TBird.Wpf
         /// <param name="handler">ｲﾍﾞﾝﾄ</param>
         public static void AddCollectionChanged(this FrameworkElement instance, INotifyCollectionChanged notify, NotifyCollectionChangedEventHandler handler)
         {
-            notify.CollectionChanged -= handler;
-            notify.CollectionChanged += handler;
-
-            Unloaded(instance, (sender, e) =>
-            {
-                notify.CollectionChanged -= handler;
-            });
+            SetEventHandler(instance,
+                x => notify.CollectionChanged += handler,
+                x => notify.CollectionChanged -= handler
+            );
         }
 
         /// <summary>

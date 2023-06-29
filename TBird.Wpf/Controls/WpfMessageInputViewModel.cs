@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace TBird.Wpf.Controls
@@ -89,6 +85,7 @@ namespace TBird.Wpf.Controls
                 this, nameof(IsRequired), nameof(Value)
             );
         }
+
         private Func<bool> _iscanok;
 
     }

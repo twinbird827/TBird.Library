@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace TBird.Core.Stateful
 {
     public sealed class SynchronizationContextCollection<T> : NotifyChangedCollection<T>, ISynchronizableNotifyChangedCollection<T>
     {
-        public SynchronizationContextCollection(SynchronizationContext context) : this(Enumerable.Empty<T>(), context) { }
+        public SynchronizationContextCollection(SynchronizationContext context) : this(Enumerable.Empty<T>(), context)
+        {
+        }
 
         public SynchronizationContextCollection(IEnumerable<T> collection, SynchronizationContext context) : base(collection)
         {
@@ -19,9 +20,13 @@ namespace TBird.Core.Stateful
         }
 
         protected override void InsertItem(int index, T newItem) => DoActionWithLockOnContext(() => base.InsertItem(index, newItem));
+
         protected override void RemoveItem(int index) => DoActionWithLockOnContext(() => base.RemoveItem(index));
+
         protected override void ReplaceItem(int index, T newItem) => DoActionWithLockOnContext(() => base.ReplaceItem(index, newItem));
+
         protected override void MoveItem(int oldIndex, int newIndex) => DoActionWithLockOnContext(() => base.MoveItem(oldIndex, newIndex));
+
         protected override void ClearItems() => DoActionWithLockOnContext(base.ClearItems);
 
         public void Move(int oldIndex, int newIndex) => MoveItem(oldIndex, newIndex);
