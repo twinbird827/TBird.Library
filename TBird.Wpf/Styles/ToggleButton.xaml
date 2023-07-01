@@ -15,22 +15,22 @@
         <Setter Property="behavior:ButtonBehavior.ClearFocus" Value="True" />
         <Style.Triggers>
             <Trigger Property="IsChecked" Value="true">
-                <Setter Property="Background" Value="{StaticResource My.Brushes.Accent}" />
-                <Setter Property="Foreground" Value="{StaticResource My.Brushes.IdealForeground}" />
-                <Setter Property="BorderBrush" Value="{StaticResource My.Brushes.Accent}" />
+                <Setter Property="Background" Value="{DynamicResource My.Brushes.Accent}" />
+                <Setter Property="Foreground" Value="{DynamicResource My.Brushes.IdealForeground}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource My.Brushes.Accent}" />
             </Trigger>
         </Style.Triggers>
     </Style>
     <Style x:Key="AlwaysSelectedToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButton}">
         <Style.Triggers>
             <Trigger Property="IsChecked" Value="False">
-                <Setter Property="Background" Value="{StaticResource My.Brushes.Accent}" />
-                <Setter Property="Foreground" Value="{StaticResource My.Brushes.IdealForeground}" />
-                <Setter Property="BorderBrush" Value="{StaticResource My.Brushes.Accent}" />
+                <Setter Property="Background" Value="{DynamicResource My.Brushes.Accent}" />
+                <Setter Property="Foreground" Value="{DynamicResource My.Brushes.IdealForeground}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource My.Brushes.Accent}" />
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource My.Brushes.Accent2}" />
-                <Setter Property="BorderBrush" Value="{StaticResource My.Brushes.Accent2}" />
+                <Setter Property="Background" Value="{DynamicResource My.Brushes.Accent2}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource My.Brushes.Accent2}" />
             </Trigger>
         </Style.Triggers>
     </Style>

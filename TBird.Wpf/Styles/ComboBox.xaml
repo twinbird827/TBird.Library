@@ -10,9 +10,10 @@
         <Setter Property="Margin" Value="0" />
         <Setter Property="Padding" Value="3,0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="DisplayMemberPath" Value="Display" />
     </Style>
 
-    <Style x:Key="DefaultComboBox.ComboboxItemModel" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBox}">
-        <Setter Property="DisplayMemberPath" Value="Display" />
+    <Style x:Key="DefaultComboBox.Custom" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBox}">
+        <Setter Property="DisplayMemberPath" Value="{x:Null}" />
     </Style>
 </ResourceDictionary>

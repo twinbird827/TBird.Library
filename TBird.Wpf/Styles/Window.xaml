@@ -9,7 +9,7 @@
             <ContentPresenter Content="{TemplateBinding Content}" />
 
             <Grid Visibility="{Binding ShowProgress, Converter={StaticResource Boolean2VisibilityCollapsedConverter}}"
-                  Background="{StaticResource ProcessingBackgroundBrush}">
+                  Background="{DynamicResource ProcessingBackgroundBrush}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition />
                     <ColumnDefinition Width="auto" />
@@ -23,7 +23,7 @@
 
                 <Controls:ProgressRing Grid.Row="1" Grid.Column="1"
                                        Width="100" Height="100"
-                                       Foreground="{StaticResource My.Brushes.AccentBase}"
+                                       Foreground="{DynamicResource My.Brushes.AccentBase}"
                                        Opacity="100"
                                        IsActive="True" />
             </Grid>

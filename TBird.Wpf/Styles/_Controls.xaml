@@ -31,7 +31,7 @@
     <Style TargetType="Border"       BasedOn="{StaticResource DefaultBorder}" />
     <Style TargetType="Button"       BasedOn="{StaticResource DefaultButton}" />
     <Style TargetType="CheckBox"     BasedOn="{StaticResource DefaultCheckBox}" />
-    <Style TargetType="ComboBox"     BasedOn="{StaticResource DefaultComboBox.ComboboxItemModel}" />
+    <Style TargetType="ComboBox"     BasedOn="{StaticResource DefaultComboBox}" />
     <Style TargetType="DockPanel"    BasedOn="{StaticResource DefaultDockPanel}" />
     <Style TargetType="Grid"         BasedOn="{StaticResource DefaultGrid}" />
     <Style TargetType="GroupBox"     BasedOn="{StaticResource DefaultGroupBox}" />

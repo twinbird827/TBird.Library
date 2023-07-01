@@ -29,7 +29,7 @@
               Margin="10">
 
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{StaticResource GridLength.Width.Header}" />
+                <ColumnDefinition Width="{DynamicResource GridLength.Width.Header}" />
                 <ColumnDefinition Width="200" />
             </Grid.ColumnDefinitions>
 
@@ -38,12 +38,12 @@
                    Content="{Binding Header}" />
 
             <TextBox Grid.Column="1"
-                     Margin="{StaticResource Margin.Header}"
+                     Margin="{DynamicResource Margin.Header}"
                      Text="{Binding Value}" />
         </Grid>
 
         <TextBlock Text="{Binding Message}"
-                   FontSize="{StaticResource FontSize.L}"
+                   FontSize="{DynamicResource FontSize.L}"
                    Margin="10"
                    TextWrapping="Wrap" />
     </DockPanel>

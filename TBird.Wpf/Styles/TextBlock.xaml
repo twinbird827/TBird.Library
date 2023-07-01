@@ -11,7 +11,7 @@
         <Setter Property="behavior:FrameworkElementBehavior.ShowToolTip" Value="True" />
         <Style.Triggers>
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Foreground" Value="{StaticResource My.Brushes.DisableForeground}" />
+                <Setter Property="Foreground" Value="{DynamicResource My.Brushes.DisableForeground}" />
             </Trigger>
         </Style.Triggers>
     </Style>

@@ -43,15 +43,15 @@
 
     <Style x:Key="AlternationItemsControl.Panel" TargetType="Panel">
         <Setter Property="Focusable" Value="False" />
-        <Setter Property="Background" Value="{StaticResource My.Brushes.Transparent}" />
+        <Setter Property="Background" Value="{DynamicResource My.Brushes.Transparent}" />
         <Setter Property="Width" Value="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ScrollViewer}}, Path=ViewportWidth}" />
         <Setter Property="behavior:FrameworkElementBehavior.MouseOverItem" Value="{Binding}" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=(ItemsControl.AlternationIndex)}" Value="1">
-                <Setter Property="Background" Value="{StaticResource My.Brushes.Accent4}" />
+                <Setter Property="Background" Value="{DynamicResource My.Brushes.Accent4}" />
             </DataTrigger>
             <DataTrigger Binding="{Binding IsMouseOver}" Value="true">
-                <Setter Property="Background" Value="{StaticResource My.Brushes.Accent3}" />
+                <Setter Property="Background" Value="{DynamicResource My.Brushes.Accent3}" />
             </DataTrigger>
         </Style.Triggers>
     </Style>

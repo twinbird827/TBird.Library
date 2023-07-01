@@ -26,24 +26,24 @@
                     <Border x:Name="Border"
                             Margin="0"
                             Padding="0"
-                            Background="{StaticResource My.Brushes.Transparent}"
+                            Background="{DynamicResource My.Brushes.Transparent}"
                             CornerRadius="0">
                         <Path x:Name="Path"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
                               Margin="0"
-                              Fill="{StaticResource UpDwScrollBarEnabledBrush}"
+                              Fill="{DynamicResource UpDwScrollBarEnabledBrush}"
                               Data="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="true">
-                            <Setter TargetName="Border" Property="Background" Value="{StaticResource UpDwScrollBarMouseOverBrush}" />
+                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource UpDwScrollBarMouseOverBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="true">
-                            <Setter TargetName="Border" Property="Background" Value="{StaticResource UpDwScrollBarPressedBrush}" />
+                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource UpDwScrollBarPressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="false">
-                            <Setter TargetName="Path" Property="Fill" Value="{StaticResource UpDwScrollBarDisabledBrush}" />
+                            <Setter TargetName="Path" Property="Fill" Value="{DynamicResource UpDwScrollBarDisabledBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

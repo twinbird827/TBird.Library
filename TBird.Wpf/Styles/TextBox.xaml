@@ -21,11 +21,11 @@
         <Setter Property="behavior:TextBoxBehavior.IsSelectAllWhenGotFocus" Value="True" />
         <Style.Triggers>
             <Trigger Property="IsReadOnly" Value="True">
-                <Setter Property="Background" Value="{StaticResource MahApps.Brushes.Gray5}" />
+                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray5}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Controls:ControlsHelper.DisabledVisualElementVisibility" Value="Collapsed" />
-                <Setter Property="Foreground" Value="{StaticResource My.Brushes.DisableForeground}" />
+                <Setter Property="Foreground" Value="{DynamicResource My.Brushes.DisableForeground}" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -43,7 +43,7 @@
     </Style>
 
     <Style x:Key="WrappingTextBox" TargetType="TextBox" BasedOn="{StaticResource DefaultInputTextBox}">
-        <Setter Property="Margin" Value="{StaticResource Margin.Header}" />
+        <Setter Property="Margin" Value="{DynamicResource Margin.Header}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="VerticalContentAlignment" Value="Top" />
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Visible" />
