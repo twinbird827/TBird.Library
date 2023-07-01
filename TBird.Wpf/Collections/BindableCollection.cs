@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
@@ -19,10 +20,21 @@ namespace TBird.Wpf.Collections
 
         }
 
-        public BindableCollection(IEnumerable<T> list)
+        public BindableCollection(IEnumerable<T> enumerable, bool disposesource = false)
         {
             LockObject = new object();
-            _list = new List<T>(list);
+            _list = new List<T>(enumerable);
+
+            AddDisposed((sender, e) =>
+            {
+                _list.Clear();
+
+                if (disposesource)
+                {
+                    enumerable.ForEach(x => x.TryDispose());
+                    if (enumerable is IList list) list.Clear();
+                }
+            });
         }
 
         private void OnCollectionChanged(bool isnotifycount, bool isnotifyitem, NotifyCollectionChangedEventArgs e)

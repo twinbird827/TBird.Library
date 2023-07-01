@@ -9,7 +9,10 @@
     <Style x:Key="DefaultComboBox" TargetType="ComboBox" BasedOn="{StaticResource MahApps.Styles.ComboBox}">
         <Setter Property="Margin" Value="0" />
         <Setter Property="Padding" Value="3,0" />
-        <Setter Property="DisplayMemberPath" Value="Display" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="DefaultComboBox.ComboboxItemModel" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBox}">
+        <Setter Property="DisplayMemberPath" Value="Display" />
     </Style>
 </ResourceDictionary>

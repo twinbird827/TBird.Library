@@ -17,19 +17,37 @@ namespace TBird.Core
         /// </summary>
         private static Manager _lock { get; } = new Manager();
 
+        private static void AddManager(string key)
+        {
+            if (_manages.ContainsKey(key)) return;
+
+            using (_lock.Lock())
+            {
+                if (_manages.ContainsKey(key)) return;
+
+                _manages.Add(key, new Manager());
+            }
+        }
+
+        private static async Task AddManagerAsync(string key)
+        {
+            if (_manages.ContainsKey(key)) return;
+
+            using (await _lock.LockAsync())
+            {
+                if (_manages.ContainsKey(key)) return;
+
+                _manages.Add(key, new Manager());
+            }
+        }
+
         /// <summary>
         /// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
         /// </summary>
         /// <returns></returns>
         public static async Task<IDisposable> LockAsync(string key)
         {
-            using (await _lock.LockAsync())
-            {
-                if (!_manages.ContainsKey(key))
-                {
-                    _manages.Add(key, new Manager());
-                }
-            }
+            await AddManagerAsync(key);
             return await _manages[key].LockAsync();
         }
 
@@ -39,13 +57,7 @@ namespace TBird.Core
         /// <returns></returns>
         public static IDisposable Lock(string key)
         {
-            using (_lock.Lock())
-            {
-                if (!_manages.ContainsKey(key))
-                {
-                    _manages.Add(key, new Manager());
-                }
-            }
+            AddManager(key);
             return _manages[key].Lock();
         }
 
@@ -55,10 +67,12 @@ namespace TBird.Core
         /// <returns></returns>
         public static void Dispose(string key)
         {
+            if (key == null) return;
+
+            if (!_manages.ContainsKey(key)) return;
+
             using (_lock.Lock())
             {
-                if (key == null) return;
-
                 if (!_manages.ContainsKey(key)) return;
 
                 using (_manages[key].Lock()) { }
