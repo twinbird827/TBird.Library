@@ -22,7 +22,7 @@ namespace TBird.Wpf.Collections
                         Insert(e.NewStartingIndex, (T)e.NewItems[0]);
                         break;
                     case NotifyCollectionChangedAction.Remove:
-                        RemoveAt(e.OldStartingIndex);
+                        Remove((T)e.OldItems[0]);
                         break;
                     case NotifyCollectionChangedAction.Replace:
                         this[e.NewStartingIndex] = (T)e.NewItems[0];
