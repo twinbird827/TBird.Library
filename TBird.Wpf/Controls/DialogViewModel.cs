@@ -39,13 +39,13 @@ namespace TBird.Wpf.Controls
             return RelayCommand.Create(_ => DialogResult = false);
         }
 
-        public bool? ShowDialog(Func<Window> func)
+        public bool ShowDialog(Func<Window> func)
         {
             return WpfUtil.ExecuteOnUI(() =>
             {
                 var window = func();
                 window.DataContext = this;
-                return ShowDialog(window);
+                return (bool)ShowDialog(window);
             });
         }
 
