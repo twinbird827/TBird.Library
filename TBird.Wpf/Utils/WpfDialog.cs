@@ -1,5 +1,4 @@
-﻿using Microsoft.WindowsAPICodePack.Dialogs;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,67 +18,96 @@ namespace TBird.Wpf
         /// <param name="initializePath">初期ﾊﾟｽ</param>
         public static string ShowSaveFile(string initializePath, string filter)
         {
-            var dialog = new CommonOpenFileDialog
+            var dialog = new Microsoft.Win32.OpenFileDialog()
             {
                 Title = WpfConst.H_ShowSaveFileDialog,
                 // ﾌｫﾙﾀﾞ選択ﾀﾞｲｱﾛｸﾞの場合は true
-                IsFolderPicker = false,
                 // ﾀﾞｲｱﾛｸﾞが表示されたときの初期ﾃﾞｨﾚｸﾄﾘを指定
                 InitialDirectory = !string.IsNullOrEmpty(initializePath) ? Path.GetDirectoryName(initializePath) : string.Empty,
                 // ﾃﾞﾌｫﾙﾄﾌｧｲﾙ名
-                DefaultFileName = !string.IsNullOrEmpty(initializePath) ? Path.GetFileName(initializePath) : string.Empty,
-                // ﾕｰｻﾞｰが最近したｱｲﾃﾑの一覧を表示するかどうか
-                AddToMostRecentlyUsedList = false,
-                // ﾕｰｻﾞｰがﾌｫﾙﾀﾞやﾗｲﾌﾞﾗﾘなどのﾌｧｲﾙｼｽﾃﾑ以外の項目を選択できるようにするかどうか
-                AllowNonFileSystemItems = false,
-                // 存在するﾌｧｲﾙのみ許可するかどうか
-                EnsureFileExists = false,
-                // 存在するﾊﾟｽのみ許可するかどうか
-                EnsurePathExists = false,
-                // 読み取り専用ﾌｧｲﾙを許可するかどうか
-                EnsureReadOnly = false,
-                // 有効なﾌｧｲﾙ名のみ許可するかどうか（ﾌｧｲﾙ名を検証するかどうか）
-                EnsureValidNames = true,
+                FileName = !string.IsNullOrEmpty(initializePath) ? Path.GetFileName(initializePath) : string.Empty,
                 // 複数選択を許可するかどうか
                 Multiselect = false,
-                // PC やﾈｯﾄﾜｰｸなどの場所を表示するかどうか
-                ShowPlacesList = true,
+                // ﾌｨﾙﾀ
+                Filter = filter,
+                // ﾌｧｲﾙの存在ﾁｪｯｸをするかどうか
+                CheckFileExists = false,
+                // ﾊﾟｽの存在ﾁｪｯｸをするかどうか
+                CheckPathExists = false,
             };
-
-            var source = filter.Split('|');
-            var filters = Enumerable.Range(0, source.Length / 2)
-                .Select(i => new CommonFileDialogFilter(source[i * 2], source[i * 2 + 1]));
-
-            dialog.Filters.AddRange(filters);
 
             // ﾀﾞｲｱﾛｸﾞ起動時にﾌｧｲﾙ名項目が見切れてしまうので、起動時にﾌｧｲﾙ名項目でHOMEﾎﾞﾀﾝを押す処理を追加
             new HandlerHelper().AssignHandle();
 
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            if ((bool)dialog.ShowDialog())
             {
-                var index = dialog.SelectedFileTypeIndex - 1;
-                var filename = dialog.FileName;
-
-                if (index == dialog.Filters.Count - 1)
-                {
-                    // 選択中のﾌｨﾙﾀが全ﾌｧｲﾙなら何もせず返却
-                    return filename;
-                }
-                else if (filename.EndsWith(dialog.Filters[index].Extensions[0]))
-                {
-                    // 拡張子が同じなら
-                    return filename;
-                }
-                else
-                {
-                    // 拡張子が違うなら変更して返却
-                    return Path.ChangeExtension(filename, dialog.Filters[index].Extensions[0]);
-                }
+                return dialog.FileName;
             }
             else
             {
                 return string.Empty;
             }
+            //var dialog = new CommonOpenFileDialog()
+            //{
+            //    //Title = WpfConst.H_ShowSaveFileDialog,
+            //    //// ﾌｫﾙﾀﾞ選択ﾀﾞｲｱﾛｸﾞの場合は true
+            //    //IsFolderPicker = false,
+            //    //// ﾀﾞｲｱﾛｸﾞが表示されたときの初期ﾃﾞｨﾚｸﾄﾘを指定
+            //    //InitialDirectory = !string.IsNullOrEmpty(initializePath) ? Path.GetDirectoryName(initializePath) : string.Empty,
+            //    //// ﾃﾞﾌｫﾙﾄﾌｧｲﾙ名
+            //    //DefaultFileName = !string.IsNullOrEmpty(initializePath) ? Path.GetFileName(initializePath) : string.Empty,
+            //    //// ﾕｰｻﾞｰが最近したｱｲﾃﾑの一覧を表示するかどうか
+            //    //AddToMostRecentlyUsedList = false,
+            //    //// ﾕｰｻﾞｰがﾌｫﾙﾀﾞやﾗｲﾌﾞﾗﾘなどのﾌｧｲﾙｼｽﾃﾑ以外の項目を選択できるようにするかどうか
+            //    //AllowNonFileSystemItems = false,
+            //    //// 存在するﾌｧｲﾙのみ許可するかどうか
+            //    //EnsureFileExists = false,
+            //    //// 存在するﾊﾟｽのみ許可するかどうか
+            //    //EnsurePathExists = false,
+            //    //// 読み取り専用ﾌｧｲﾙを許可するかどうか
+            //    //EnsureReadOnly = false,
+            //    //// 有効なﾌｧｲﾙ名のみ許可するかどうか（ﾌｧｲﾙ名を検証するかどうか）
+            //    //EnsureValidNames = true,
+            //    //// 複数選択を許可するかどうか
+            //    //Multiselect = false,
+            //    //// PC やﾈｯﾄﾜｰｸなどの場所を表示するかどうか
+            //    //ShowPlacesList = true,
+            //};
+
+            //var source = filter.Split('|');
+            //var filters = Enumerable.Range(0, source.Length / 2)
+            //    .Select(i => new CommonFileDialogFilter(source[i * 2], source[i * 2 + 1]));
+
+            //dialog.Filters.AddRange(filters);
+
+            //// ﾀﾞｲｱﾛｸﾞ起動時にﾌｧｲﾙ名項目が見切れてしまうので、起動時にﾌｧｲﾙ名項目でHOMEﾎﾞﾀﾝを押す処理を追加
+            //new HandlerHelper().AssignHandle();
+
+            //if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            //{
+            //    var index = dialog.SelectedFileTypeIndex - 1;
+            //    var filename = dialog.FileName;
+
+            //    if (index == dialog.Filters.Count - 1)
+            //    {
+            //        // 選択中のﾌｨﾙﾀが全ﾌｧｲﾙなら何もせず返却
+            //        return filename;
+            //    }
+            //    else if (filename.EndsWith(dialog.Filters[index].Extensions[0]))
+            //    {
+            //        // 拡張子が同じなら
+            //        return filename;
+            //    }
+            //    else
+            //    {
+            //        // 拡張子が違うなら変更して返却
+            //        return Path.ChangeExtension(filename, dialog.Filters[index].Extensions[0]);
+            //    }
+            //}
+            //else
+            //{
+            //    return string.Empty;
+            //}
         }
 
         private class HandlerHelper : NativeWindow
