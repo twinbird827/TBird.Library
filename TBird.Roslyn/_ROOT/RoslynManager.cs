@@ -24,7 +24,7 @@ namespace TBird.Roslyn
             if (_list.Any()) return;
             // 指定したﾌｫﾙﾀﾞ内の全ｽｸﾘﾌﾟﾄﾌｧｲﾙをﾛｰﾄﾞする。
             FileUtil
-                .GetDirectoryFiles(Path.Combine(Directories.Root, _csxroot), "*.csx")
+                .GetDirectoryFiles(Path.Combine(Directories.RootDirectory, _csxroot), "*.csx")
                 .ForEach(path => Add(path, parameter));
         }
 
