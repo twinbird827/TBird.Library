@@ -8,6 +8,38 @@ namespace TBird.Core
 {
     public static class TaskExtension
     {
+        public static async Task<bool> TryCatch(this Task task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception ex)
+            {
+                MessageService.Exception(ex);
+                return false;
+            }
+            if (task.Exception?.InnerException != null)
+            {
+                MessageService.Exception(task.Exception?.InnerException);
+                return false;
+            }
+
+            return true;
+        }
+
+        public static async Task<T> TryCatch<T>(this Task<T> task)
+        {
+            if (await ((Task)task).TryCatch())
+            {
+                return task.Result;
+            }
+            else
+            {
+                return default(T);
+            }
+        }
+
         public static async Task Cts(this Task task, params CancellationTokenSource[] cancellations)
         {
             var ccs = new TaskCompletionSource<bool>();
