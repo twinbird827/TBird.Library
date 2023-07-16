@@ -58,7 +58,7 @@ namespace TBird.Core
     {
         protected JsonBase(string path)
         {
-            _basepath = FileUtil.RelativePathToAbsolutePath(path);
+            _basepath = Directories.GetAbsolutePath(path);
             _encrypt = false;
         }
 

@@ -124,7 +124,7 @@ namespace TBird.DB
 
         private async Task WaitTransaction()
         {
-            while (_tran != null) await CoreUtil.Delay(16);
+            while (_tran != null) await Task.Delay(16);
         }
 
         protected virtual async Task OpenAsync()
@@ -148,7 +148,7 @@ namespace TBird.DB
 
         protected virtual string CreateLock(string connectionString)
         {
-            return this.CreateLock4Instance();
+            return Locker.GetNewLockKey();
         }
     }
 }

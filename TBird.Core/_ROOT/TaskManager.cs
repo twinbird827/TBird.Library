@@ -10,7 +10,7 @@ namespace TBird.Core
 
     }
 
-    public partial class TaskManager<T>
+    public partial class TaskManager<T> : TBirdObject
     {
         private CancellationTokenSource _cts = new CancellationTokenSource();
 
@@ -73,53 +73,56 @@ namespace TBird.Core
 
         public virtual async Task ExecuteAsync(T parameter)
         {
-            try
+            using (await Locker.LockAsync(Lock))
             {
-                foreach (var x in _list)
+                try
                 {
-                    var nextloop = true;
-                    if (x is Action a)
+                    foreach (var x in _list)
                     {
-                        await ExecuteAsync(a);
+                        var nextloop = true;
+                        if (x is Action a)
+                        {
+                            await ExecuteAsync(a);
+                        }
+                        else if (x is Func<Task> b)
+                        {
+                            await ExecuteAsync(b);
+                        }
+                        else if (x is Action<T> c)
+                        {
+                            await ExecuteAsync(() => c(parameter));
+                        }
+                        else if (x is Func<T, Task> d)
+                        {
+                            await ExecuteAsync(() => d(parameter));
+                        }
+                        else if (x is Func<bool> e)
+                        {
+                            nextloop = await ExecuteAsync(e);
+                        }
+                        else if (x is Func<Task<bool>> f)
+                        {
+                            nextloop = await ExecuteAsync(f);
+                        }
+                        else if (x is Func<T, bool> g)
+                        {
+                            nextloop = await ExecuteAsync(() => g(parameter));
+                        }
+                        else if (x is Func<T, Task<bool>> h)
+                        {
+                            nextloop = await ExecuteAsync(() => h(parameter));
+                        }
+                        if (!nextloop) break;
                     }
-                    else if (x is Func<Task> b)
-                    {
-                        await ExecuteAsync(b);
-                    }
-                    else if (x is Action<T> c)
-                    {
-                        await ExecuteAsync(() => c(parameter));
-                    }
-                    else if (x is Func<T, Task> d)
-                    {
-                        await ExecuteAsync(() => d(parameter));
-                    }
-                    else if (x is Func<bool> e)
-                    {
-                        nextloop = await ExecuteAsync(e);
-                    }
-                    else if (x is Func<Task<bool>> f)
-                    {
-                        nextloop = await ExecuteAsync(f);
-                    }
-                    else if (x is Func<T, bool> g)
-                    {
-                        nextloop = await ExecuteAsync(() => g(parameter));
-                    }
-                    else if (x is Func<T, Task<bool>> h)
-                    {
-                        nextloop = await ExecuteAsync(() => h(parameter));
-                    }
-                    if (!nextloop) break;
                 }
-            }
-            catch (TimeoutException)
-            {
-                // no process
-            }
-            catch (Exception ex)
-            {
-                MessageService.Exception(ex);
+                catch (TimeoutException)
+                {
+                    // no process
+                }
+                catch (Exception ex)
+                {
+                    MessageService.Exception(ex);
+                }
             }
         }
 
@@ -135,12 +138,22 @@ namespace TBird.Core
 
         private Task ExecuteAsync(Action action)
         {
-            return ExecuteAsync(() => CoreUtil.WaitAsync(action));
+            return ExecuteAsync(() => TaskUtil.WaitAsync(action));
         }
 
         private Task<TParam> ExecuteAsync<TParam>(Func<TParam> func)
         {
-            return ExecuteAsync(() => CoreUtil.WaitAsync(func));
+            return ExecuteAsync(() => TaskUtil.WaitAsync(func));
+        }
+
+        protected override void DisposeManagedResource()
+        {
+            // 処理中断
+            _cts.Cancel();
+            // 処理待機
+            base.DisposeManagedResource();
+            // ﾘｿｰｽ破棄
+            _list.Clear();
         }
     }
 }

@@ -34,13 +34,13 @@ namespace TBird.Plugin
         public void Initialize()
         {
             var iplugin = typeof(IPlugin).FullName;
-            var dllroot = FileUtil.RelativePathToAbsolutePath(_dllroot);
+            var dllroot = Directories.GetAbsolutePath(_dllroot);
 
             try
             {
                 if (!Directory.Exists(dllroot)) return;
 
-                foreach (var dll in FileUtil.GetDirectoryFiles(dllroot, "*.dll"))
+                foreach (var dll in DirectoryUtil.GetFiles(dllroot, "*.dll"))
                 {
                     var asm = Assembly.LoadFrom(dll);
 

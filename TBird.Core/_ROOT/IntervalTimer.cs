@@ -1,20 +1,19 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.Core
 {
-    public partial class IntervalTimer : ILocker
+    public partial class IntervalTimer : TBirdObject
     {
-        public IntervalTimer(Action action) : this(() => CoreUtil.WaitAsync(action))
+        public IntervalTimer(Action action) : this(() => TaskUtil.WaitAsync(action))
         {
 
         }
 
         public IntervalTimer(Func<Task> func)
         {
-            Lock = this.CreateLock4Instance();
-
             _func = func;
             _timer = new Timer(Tick);
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -33,9 +32,6 @@ namespace TBird.Core
 
         /// <summary>破棄時のｷｬﾝｾﾙﾄｰｸﾝ</summary>
         private CancellationTokenSource _cts = new CancellationTokenSource();
-
-        /// <summary>ﾛｯｸｷｰ</summary>
-        public string Lock { get; private set; }
 
         /// <summary>処理間隔を設定、または取得します。</summary>
         public TimeSpan Interval { get; set; }
@@ -66,7 +62,7 @@ namespace TBird.Core
                 }
                 finally
                 {
-                    if (_isprocessing && !disposedValue && !_cts.IsCancellationRequested)
+                    if (_isprocessing && !IsDisposed && !_cts.IsCancellationRequested)
                     {
                         var now = DateTime.Now;
                         // 処理時間を算出
@@ -89,7 +85,7 @@ namespace TBird.Core
         /// </summary>
         public void Start()
         {
-            if (disposedValue) throw new ObjectDisposedException("This timer has been destroyed.");
+            ThrowIfDisposed();
             // 処理開始ﾌﾗｸﾞ
             _isprocessing = true;
             // 処理開始時間設定
@@ -103,11 +99,23 @@ namespace TBird.Core
         /// </summary>
         public void Stop()
         {
-            if (disposedValue) throw new ObjectDisposedException("This timer has been destroyed.");
+            ThrowIfDisposed();
             // 処理開始ﾌﾗｸﾞ
             _isprocessing = false;
             // ﾀｲﾏｰ停止
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+
+        protected override void DisposeManagedResource()
+        {
+            // ﾀｲﾏｰ停止
+            Stop();
+            // 処理ｷｬﾝｾﾙ
+            _cts.Cancel();
+            // 処理中のﾀｲﾏｰ待機
+            base.DisposeManagedResource();
+            // ﾀｲﾏｰ破棄
+            _timer.Dispose();
         }
     }
 }

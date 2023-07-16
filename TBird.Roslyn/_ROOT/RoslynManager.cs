@@ -23,8 +23,8 @@ namespace TBird.Roslyn
             // ﾘｽﾄ追加済なら中断
             if (_list.Any()) return;
             // 指定したﾌｫﾙﾀﾞ内の全ｽｸﾘﾌﾟﾄﾌｧｲﾙをﾛｰﾄﾞする。
-            FileUtil
-                .GetDirectoryFiles(Path.Combine(Directories.RootDirectory, _csxroot), "*.csx")
+            DirectoryUtil
+                .GetFiles(Path.Combine(Directories.RootDirectory, _csxroot), "*.csx")
                 .ForEach(path => Add(path, parameter));
         }
 
@@ -40,7 +40,7 @@ namespace TBird.Roslyn
 
         public async void RunBackground()
         {
-            await CoreUtil.WaitAsync(RunAsync);
+            await TaskUtil.WaitAsync(RunAsync);
         }
     }
 }

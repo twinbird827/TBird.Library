@@ -6,7 +6,6 @@ namespace TBird.Wpf.Controls
 {
     public class DialogViewModel : WindowViewModel
     {
-
         /// <summary>
         /// ﾀﾞｲｱﾛｸﾞ結果
         /// </summary>

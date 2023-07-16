@@ -56,13 +56,12 @@ namespace TBird.Wpf
         }
     }
 
-    public partial class RelayCommand<T> : IRelayCommand
+    public partial class RelayCommand<T> : TBirdObject, IRelayCommand
     {
         private Action<T> _action;
         private Predicate<T> _predicate;
         private CancellationTokenSource _cts = new CancellationTokenSource();
         private bool _executing = false;
-        public string Lock { get; private set; }
 
         public RelayCommand(Action<T> action, Predicate<T> predicate)
         {
@@ -77,8 +76,6 @@ namespace TBird.Wpf
 
         public RelayCommand(Func<T, Task> func, Predicate<T> predicate)
         {
-            Lock = this.CreateLock4Instance();
-
             _action = async x =>
             {
                 using (await Locker.LockAsync(Lock))
@@ -146,7 +143,7 @@ namespace TBird.Wpf
 
         public bool CanExecute(object parameter)
         {
-            return disposedValue
+            return IsDisposed
                 ? false
                 : _executing
                 ? false
@@ -182,6 +179,17 @@ namespace TBird.Wpf
             {
                 MessageService.Exception(ex);
             }
+        }
+
+        protected override void DisposeManagedResource()
+        {
+            // 処理中断
+            _cts.Cancel();
+            // 処理待機
+            base.DisposeManagedResource();
+            // ﾘｿｰｽ破棄
+            _action = null;
+            _predicate = null;
         }
     }
 }

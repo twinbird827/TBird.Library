@@ -95,12 +95,12 @@ namespace TBird.Wpf
 
         public static Task ExecuteOnBackground(Action action)
         {
-            return ExecuteOnBackground(() => CoreUtil.WaitAsync(action));
+            return ExecuteOnBackground(() => TaskUtil.WaitAsync(action));
         }
 
         public static Task<T> ExecuteOnBackground<T>(Func<T> func)
         {
-            return ExecuteOnBackground(() => CoreUtil.WaitAsync(func));
+            return ExecuteOnBackground(() => TaskUtil.WaitAsync(func));
         }
 
         /// <summary>

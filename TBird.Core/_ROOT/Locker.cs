@@ -41,6 +41,16 @@ namespace TBird.Core
             }
         }
 
+        public static string GetNewLockKey()
+        {
+            return Guid.NewGuid().ToString();
+        }
+
+        public static string GetNewLockKey(object x)
+        {
+            return x.GetType().FullName;
+        }
+
         /// <summary>
         /// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
         /// </summary>

@@ -1,8 +1,11 @@
 ﻿using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using TBird.Core;
 
 namespace TBird.Wpf
 {
@@ -131,5 +134,21 @@ namespace TBird.Wpf
             }
         }
 
+        public static BitmapImage GetImage(byte[] bytes)
+        {
+            using (WrappingStream stream = new WrappingStream(new MemoryStream(bytes)))
+            {
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.StreamSource = stream;
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+                if (bitmap.CanFreeze)
+                {
+                    bitmap.Freeze();
+                }
+                return bitmap;
+            }
+        }
     }
 }

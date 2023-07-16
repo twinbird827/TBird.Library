@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
 
 namespace TBird.Core
 {
@@ -32,6 +35,16 @@ namespace TBird.Core
                 var folder = shell.Namespace("shell:Downloads");
                 return folder.Self.Path;
             }
+        }
+
+        public static string GetAbsolutePath(string path)
+        {
+            return Path.Combine(RootDirectory, path);
+        }
+
+        public static string GetAbsolutePath(string directory, string file)
+        {
+            return Path.Combine(GetAbsolutePath(directory), file);
         }
     }
 }

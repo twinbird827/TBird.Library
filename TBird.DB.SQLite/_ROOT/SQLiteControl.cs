@@ -77,7 +77,7 @@ namespace TBird.DB.SQLite
                 else
                 {
                     // 何らかのｴﾗｰ時はﾀﾞﾝﾌﾟしてﾃﾞｰﾀﾍﾞｰｽを再作成する。
-                    var exe = FileUtil.RelativePathToAbsolutePath("sqlite3.exe");
+                    var exe = Directories.GetAbsolutePath("sqlite3.exe");
 
                     var dic = ToConnectionDictionary(_cs);
                     var password = dic["password"];
@@ -86,7 +86,7 @@ namespace TBird.DB.SQLite
                     var dst = $"{src}.tmp";
 
                     // ｿｰｽﾌｧｲﾙをﾊﾞｯｸｱｯﾌﾟ
-                    await FileUtil.FileCopyAsync(src, bak);
+                    await FileUtil.CopyAsync(src, bak);
 
                     if (!string.IsNullOrEmpty(password))
                     {
@@ -123,7 +123,7 @@ namespace TBird.DB.SQLite
                     }
 
                     // ｵﾘｼﾞﾅﾙﾃﾞｰﾀﾍﾞｰｽに差し替えて再帰
-                    FileUtil.FileMove(dst, src);
+                    FileUtil.Move(dst, src);
                     await OpenAsync(true);
                 }
             }

@@ -14,7 +14,7 @@ namespace TBird.DB.SQLite
 
         public static async Task BackupAsync(SQLiteControl src, string path)
         {
-            FileUtil.FileOutputPreprocessing(path);
+            FileUtil.BeforeCreate(path);
 
             using (await Locker.LockAsync(src.Lock))
             using (var dst = new SQLiteControl($"datasource={path}"))

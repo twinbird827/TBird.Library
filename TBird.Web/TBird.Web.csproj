@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.IO\TBird.IO.csproj" />
   </ItemGroup>
 
 </Project>

@@ -28,12 +28,12 @@ namespace TBird.Core
         /// </summary>
         private Lang()
         {
-            var directory = FileUtil.RelativePathToAbsolutePath(basedir);
+            var directory = Directories.GetAbsolutePath(basedir);
 
             if (!Directory.Exists(directory)) return;
 
-            FileUtil
-                .GetDirectoryFiles(directory, "*.csv")
+            DirectoryUtil
+                .GetFiles(directory, "*.csv")
                 .OrderBy(x => x)
                 .SelectMany(path => Expand(path))
                 .ForEach(x => _items[x.Key] = x.Value);
@@ -71,7 +71,7 @@ namespace TBird.Core
         private Dictionary<string, Dictionary<string, string>> Expand(string path)
         {
             // 明細行を全行取得
-            var all = FileUtil.CsvLoad(path);
+            var all = CsvUtil.Load(path);
             // ﾍｯﾀﾞ行(存在することが前提)
             var headers = all.First();
             // 明細行(2行目以降)

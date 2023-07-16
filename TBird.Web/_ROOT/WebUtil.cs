@@ -2,16 +2,33 @@
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Web;
 using System.Xml.Linq;
+using TBird.Core;
 
-namespace TBird.Core
+namespace TBird.Web
 {
     public static class WebUtil
     {
+        public static void Browse(string url)
+        {
+            // ﾌﾞﾗｳｻﾞ起動
+            Process.Start(WebSetting.Instance.BrowserPath, url);
+        }
+
+        public static string GetUrl(string baseurl, Dictionary<string, string> dic)
+        {
+            baseurl = baseurl.TrimEnd('?');
+            var urlparameter = dic.Select(x => $"{x.Key}={HttpUtility.UrlEncode(x.Value)}").GetString("&");
+            return $"{baseurl}?{urlparameter}";
+        }
+
         public static HttpClient CreateClient()
         {
             lock (_createclient)
@@ -37,28 +54,10 @@ namespace TBird.Core
         private static ServiceCollection _service;
         private static IHttpClientFactory _factory;
 
-        private static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
+        public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
         {
             return await CreateClient().SendAsync(request);
         }
-
-        public static async Task<byte[]> GetThumnailBytes(string url)
-        {
-            using (await Locker.LockAsync(_guid))
-            {
-                var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-                if (response.IsSuccessStatusCode)
-                {
-                    return await response.Content.ReadAsByteArrayAsync();
-                }
-                else
-                {
-                    return null;
-                }
-            }
-        }
-
-        private static string _guid = Guid.NewGuid().ToString();
 
         /// <summary>
         /// URLの内容を取得します。
@@ -100,20 +99,7 @@ namespace TBird.Core
         /// <param name="url">URL</param>
         public static async Task<XElement> GetXmlAsync(string url)
         {
-            return ToXml(await GetStringAsync(url));
+            return XmlUtil.Str2Xml(await GetStringAsync(url));
         }
-
-        /// <summary>
-        /// 文字列をXml形式に変換します。
-        /// </summary>
-        /// <param name="url">URL</param>
-        public static XElement ToXml(string value)
-        {
-            using (var sr = new StringReader(value))
-            {
-                return XDocument.Load(sr).Root;
-            }
-        }
-
     }
 }
