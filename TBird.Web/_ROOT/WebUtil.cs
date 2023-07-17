@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using System.Xml.Linq;
@@ -22,11 +23,15 @@ namespace TBird.Web
             Process.Start(WebSetting.Instance.BrowserPath, url);
         }
 
+        public static string ToParameter(Dictionary<string, string> dic)
+        {
+            var urlparameter = dic.Select(x => $"{x.Key}={HttpUtility.UrlEncode(x.Value)}").GetString("&");
+            return urlparameter;
+        }
+
         public static string GetUrl(string baseurl, Dictionary<string, string> dic)
         {
-            baseurl = baseurl.TrimEnd('?');
-            var urlparameter = dic.Select(x => $"{x.Key}={HttpUtility.UrlEncode(x.Value)}").GetString("&");
-            return $"{baseurl}?{urlparameter}";
+            return $"{baseurl.TrimEnd('?')}?{ToParameter(dic)}";
         }
 
         public static HttpClient CreateClient()
@@ -54,9 +59,35 @@ namespace TBird.Web
         private static ServiceCollection _service;
         private static IHttpClientFactory _factory;
 
+        private static async Task<string> ResponseToStr(HttpResponseMessage response)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
         {
             return await CreateClient().SendAsync(request);
+        }
+
+        public static async Task<string> SendStringAsync(HttpRequestMessage request)
+        {
+            return await ResponseToStr(await SendAsync(request));
+        }
+
+        public static async Task<string> PostStringAsync(string url, string content, string mediatype)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(content, Encoding.UTF8, mediatype)
+            };
+            return await SendStringAsync(request);
         }
 
         /// <summary>
@@ -66,22 +97,7 @@ namespace TBird.Web
         /// <returns></returns>
         public static async Task<string> GetStringAsync(string url)
         {
-            var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-            if (response.IsSuccessStatusCode)
-            {
-                var txt = await response.Content.ReadAsStringAsync();
-
-                //txt = txt.Replace("&copy;", "");
-                //txt = txt.Replace("&nbsp;", " ");
-                //txt = txt.Replace("&#x20;", " ");
-                //txt = txt.Replace("&", "&amp;");
-
-                return txt;
-            }
-            else
-            {
-                return null;
-            }
+            return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url));
         }
 
         /// <summary>

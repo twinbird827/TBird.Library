@@ -47,11 +47,9 @@ namespace TBird.Core
         /// </summary>
         /// <param name="action">同期処理</param>
         /// <returns></returns>
-        public static async Task WaitAsync(Action action)
+        public static Task WaitAsync(Action action)
         {
-            var iar = action.BeginInvoke(null, null);
-            await WaitAsync(iar);
-            action.EndInvoke(iar);
+            return Task.Run(action);
         }
 
         /// <summary>
@@ -61,11 +59,9 @@ namespace TBird.Core
         /// <param name="value">同期処理の引数</param>
         /// <param name="action">同期処理</param>
         /// <returns></returns>
-        public static async Task WaitAsync<TParam>(TParam value, Action<TParam> action)
+        public static Task WaitAsync<TParam>(TParam value, Action<TParam> action)
         {
-            var iar = action.BeginInvoke(value, null, null);
-            await WaitAsync(iar);
-            action.EndInvoke(iar);
+            return Task.Run(() => action(value));
         }
 
         /// <summary>
@@ -75,12 +71,9 @@ namespace TBird.Core
         /// <param name="func">同期処理</param>
         /// <param name="def">処理失敗時のﾃﾞﾌｫﾙﾄ値</param>
         /// <returns></returns>
-        public static async Task<TResult> WaitAsync<TResult>(Func<TResult> func, TResult def = default(TResult))
+        public static Task<TResult> WaitAsync<TResult>(Func<TResult> func)
         {
-            var iar = func.BeginInvoke(null, null);
-            return await WaitAsync(iar)
-                ? func.EndInvoke(iar)
-                : def;
+            return Task.Run(func);
         }
 
         /// <summary>
@@ -92,12 +85,9 @@ namespace TBird.Core
         /// <param name="func">同期処理</param>
         /// <param name="def">処理失敗時のﾃﾞﾌｫﾙﾄ値</param>
         /// <returns></returns>
-        public static async Task<TResult> WaitAsync<TParam, TResult>(TParam value, Func<TParam, TResult> func, TResult def = default(TResult))
+        public static Task<TResult> WaitAsync<TParam, TResult>(TParam value, Func<TParam, TResult> func)
         {
-            var iar = func.BeginInvoke(value, null, null);
-            return await WaitAsync(iar)
-                ? func.EndInvoke(iar)
-                : def;
+            return Task.Run(() => func(value));
         }
 
         public static async Task<bool> WaitAsync(IAsyncResult iar)

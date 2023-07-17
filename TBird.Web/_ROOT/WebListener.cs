@@ -17,7 +17,7 @@ namespace TBird.Web
 
             _listener = new HttpListener();
             _listener.Prefixes.Clear();
-            _listener.Prefixes.Add($"{prefix}:{port}");
+            _listener.Prefixes.Add($"{prefix}:{port}/");
             _listener.Start();
 
             AddDisposed((sender, e) =>
