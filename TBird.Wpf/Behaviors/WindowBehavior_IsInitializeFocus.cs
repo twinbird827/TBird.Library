@@ -1,7 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace TBird.Wpf.Behaviors
 {
@@ -38,13 +40,12 @@ namespace TBird.Wpf.Behaviors
         {
             if (sender is Window window && GetIsInitializeFocus(window))
             {
-                var target = BehaviorUtil
-                    .EnumerateDescendantObjects<Control>(window)
-                    .FirstOrDefault(x => x is TextBox || x is PasswordBox);
+                var target = BehaviorUtil.EnumerateDescendantObjects<Control>(window)
+                    .FirstOrDefault(x => (x is TextBox t && !t.IsReadOnly && t.IsEnabled) || (x is PasswordBox p && p.IsEnabled));
 
                 if (target != null)
                 {
-                    target.Focus();
+                    BehaviorUtil.Invoke(target, FocusManager.SetFocusedElement, window, target);
                 }
                 else
                 {

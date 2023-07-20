@@ -12,7 +12,7 @@ namespace TBird.Core
         /// 文字列をXml形式に変換します。
         /// </summary>
         /// <param name="value">文字列</param>
-        public static XElement Str2Xml(string value)
+        public static XElement ToXml(string value)
         {
             using (var sr = new StringReader(value))
             {

@@ -35,7 +35,7 @@ namespace TBird.Core
 
         public static T T<T>(dynamic value, string key)
         {
-            Func<string, T> func = s => default(T);
+            Func<string, T> func = s => default;
             return T<T>(value, key, func);
         }
 

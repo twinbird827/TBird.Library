@@ -132,7 +132,7 @@ namespace TBird.Wpf
             if (element.IsLoaded)
             {
                 // ﾛｰﾄﾞｲﾍﾞﾝﾄ追加orﾛｰﾄﾞ済みの場合は直接実行
-                _ = element.Dispatcher.BeginInvoke(handler, DispatcherPriority.Loaded, element, new RoutedEventArgs());
+                Invoke(element, handler, element, new RoutedEventArgs());
             }
             if (!element.IsLoaded || ismanytimes)
             {
@@ -146,6 +146,11 @@ namespace TBird.Wpf
                     Unloaded(element, (sender, e) => element.Loaded -= handler);
                 }
             }
+        }
+
+        public static void Invoke(DispatcherObject target, Delegate method, params object[] args)
+        {
+            _ = target.Dispatcher.BeginInvoke(method, args);
         }
 
         public static void Unloaded(FrameworkElement element, RoutedEventHandler handler)

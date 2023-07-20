@@ -115,7 +115,7 @@ namespace TBird.Web
         /// <param name="url">URL</param>
         public static async Task<XElement> GetXmlAsync(string url)
         {
-            return XmlUtil.Str2Xml(await GetStringAsync(url));
+            return XmlUtil.ToXml(await GetStringAsync(url));
         }
     }
 }
