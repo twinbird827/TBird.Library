@@ -3,19 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Data.SQLite;
 using TBird.Core;
-using TBird.DB.SQLite;
 using System.Threading;
-using TBird.Service;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace coretest
 {
-    class Program
+    internal class Program
     {
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
+            var htmlString = File.ReadAllText(@"C:\Work\Temp\tube-home-rss.html");
+            var jsonString = Regex.Match(htmlString, @"(?<=var ytInitialData =)[^;]+");
             Console.ReadLine();
         }
     }

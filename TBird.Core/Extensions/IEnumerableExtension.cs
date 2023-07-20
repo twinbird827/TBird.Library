@@ -7,24 +7,24 @@ namespace TBird.Core
 {
     public static class IEnumerableExtension
     {
-        /// <summary>
-        /// 指定した配列を<code>chunkSize</code>区切りのIEnumerable&lt;IEnumerable&lt;T&gt;&gt;として取得します。
-        /// </summary>
-        /// <typeparam name="T">配列内のｲﾝｽﾀﾝｽ型</typeparam>
-        /// <param name="source">元配列</param>
-        /// <param name="chunkSize">元配列を分割する区切り数</param>
-        /// <returns></returns>
-        public static IEnumerable<IEnumerable<T>> Chunk<T>(this IEnumerable<T> source, int chunkSize)
-        {
-            if (chunkSize <= 0)
-                throw new ArgumentException("Chunk size must be greater than 0.", nameof(chunkSize));
+        ///// <summary>
+        ///// 指定した配列を<code>chunkSize</code>区切りのIEnumerable&lt;IEnumerable&lt;T&gt;&gt;として取得します。
+        ///// </summary>
+        ///// <typeparam name="T">配列内のｲﾝｽﾀﾝｽ型</typeparam>
+        ///// <param name="source">元配列</param>
+        ///// <param name="chunkSize">元配列を分割する区切り数</param>
+        ///// <returns></returns>
+        //public static IEnumerable<IEnumerable<T>> Chunk<T>(this IEnumerable<T> source, int chunkSize)
+        //{
+        //    if (chunkSize <= 0)
+        //        throw new ArgumentException("Chunk size must be greater than 0.", nameof(chunkSize));
 
-            while (source.Any())
-            {
-                yield return source.Take(chunkSize);
-                source = source.Skip(chunkSize);
-            }
-        }
+        //    while (source.Any())
+        //    {
+        //        yield return source.Take(chunkSize);
+        //        source = source.Skip(chunkSize);
+        //    }
+        //}
 
         /// <summary>
         /// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
