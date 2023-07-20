@@ -11,6 +11,7 @@ namespace TBird.Core
         public string Lock
         {
             get => _Guid = _Guid ?? Locker.GetNewLockKey();
+            set => _Guid = value;
         }
         private string _Guid;
 

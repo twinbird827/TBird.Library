@@ -31,8 +31,10 @@ namespace TBird.Wpf
 
         public static SynchronizationContext GetContext()
         {
-            return ExecuteOnUI(() => SynchronizationContext.Current);
+            if (_context != null) return _context;
+            return ExecuteOnUI(() => _context = SynchronizationContext.Current);
         }
+        private static SynchronizationContext _context;
 
         /// <summary>
         /// UI上で処理を実行します。

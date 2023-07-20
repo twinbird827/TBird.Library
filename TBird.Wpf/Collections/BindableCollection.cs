@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -22,7 +23,7 @@ namespace TBird.Wpf.Collections
 
         public BindableCollection(IEnumerable<T> enumerable, bool disposesource = false)
         {
-            LockObject = new object();
+            LockObject = Guid.NewGuid().ToString();
             _list = new List<T>(enumerable);
 
             AddDisposed((sender, e) =>

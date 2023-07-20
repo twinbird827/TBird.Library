@@ -106,7 +106,7 @@ namespace TBird.Web
         /// <param name="url">URL</param>
         public static async Task<dynamic> GetJsonAsync(string url)
         {
-            return DynamicJson.Parse(await GetStringAsync(url));
+            return DynamicJson.Parse(await GetStringAsync(url).TryCatch());
         }
 
         /// <summary>
