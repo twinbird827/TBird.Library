@@ -73,6 +73,8 @@ namespace TBird.Core
 
         public virtual async Task ExecuteAsync(T parameter)
         {
+            if (IsDisposed) return;
+
             using (await Locker.LockAsync(Lock))
             {
                 try
