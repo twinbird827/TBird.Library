@@ -14,10 +14,11 @@ namespace TBird.Web
         public WebListener(string prefix, int port)
         {
             Port = port;
+            Prefix = $"{prefix}:{port}/";
 
             _listener = new HttpListener();
             _listener.Prefixes.Clear();
-            _listener.Prefixes.Add($"{prefix}:{port}/");
+            _listener.Prefixes.Add(Prefix);
             _listener.Start();
 
             AddDisposed((sender, e) =>
@@ -32,12 +33,14 @@ namespace TBird.Web
 
         }
 
-        public WebListener() : this(ListenerUtil.GetAvailablePort(50000))
+        public WebListener() : this(ListenerUtil.GetUnusedPort())
         {
 
         }
 
         public int Port { get; private set; }
+
+        public string Prefix { get; private set; }
 
         private HttpListener _listener;
 

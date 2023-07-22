@@ -34,7 +34,7 @@ namespace TBird.Web
             return -1;
         }
 
-        public static int GetRandomUnusedPort()
+        public static int GetUnusedPort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             using (new Disposer<TcpListener>(listener, x => x.Stop()))
