@@ -29,7 +29,7 @@ namespace TBird.Wpf
             {
                 rc.RaiseCanExecuteChanged();
             }
-            return ic.CanExecute(parameter);
+            return ic != null ? ic.CanExecute(parameter) : false;
         }
 
         public static bool TryExecute(this ICommand ic, object parameter)
