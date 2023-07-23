@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,8 +20,8 @@ namespace TBird.Wpf.Collections
             _func = func;
             _names = names;
 
-            collection.ForEach(item => Add(item));
-
+            collection.ForEach(Add);
+            
             AddCollectionChanged(collection, (sender, e) =>
             {
                 switch (e.Action)
@@ -46,8 +47,8 @@ namespace TBird.Wpf.Collections
 
         public override void Add(T item)
         {
-            if (this.Any(x => _func(x, item) == 0)) return;
-            if (item is IBindable bindable) AddOnRefreshCollection(bindable, _names);
+            if (item is IBindable bindable) AddOnRefreshCollection(bindable);
+            if (this.Any(x => _func(item, x) == 0)) return;
             base.Add(item);
         }
 
@@ -61,31 +62,29 @@ namespace TBird.Wpf.Collections
             throw new NotSupportedException(nameof(RemoveAt));
         }
 
-        public BindableDistinctCollection<T> AddOnRefreshCollection(IBindable bindable, params string[] names)
+        public BindableDistinctCollection<T> AddOnRefreshCollection(IBindable bindable)
         {
-            bindable.AddOnPropertyChanged(this, (sender, e) =>
-            {
-                if (!names.Contains(e.PropertyName)) return;
-
-                if (Parent is BindableCollection<T> parent)
-                {
-                    // 重複を改めて削除
-                    for (var i = Count - 1; 0 <= i; i--)
-                    {
-                        var item = this[i];
-                        if (this.Take(i).Any(x => _func(x, item) == 0))
-                        {
-                            Remove(item);
-                        }
-                    }
-
-                    // 親から追加
-                    parent.ForEach(x => Add(x));
-                }
-            });
+            bindable.AddOnPropertyChanged(this, OnPropertyChangedRefreshCollection);
             return this;
         }
 
+        private void OnPropertyChangedRefreshCollection(object sender, PropertyChangedEventArgs e)
+        {
+            if (!_names.Contains(e.PropertyName)) return;
+
+            lock (_lock)
+            {
+                if (Parent is BindableCollection<T> parent)
+                {
+                    // 重複を改めて削除
+                    Clear();
+
+                    // 親から追加
+                    parent.ForEach(Add);
+                }
+            }
+        }
+        private object _lock = new object();
     }
 
     public static class BindableDistinctCollectionExtension

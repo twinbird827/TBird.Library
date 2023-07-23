@@ -20,13 +20,13 @@ namespace TBird.Wpf.Converters
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (_structdefaults.ContainsKey(targetType))
+            if (value != null && _structdefaults.ContainsKey(value.GetType()))
             {
-                return value != _structdefaults[targetType];
+                return value == _structdefaults[value.GetType()];
             }
             else
             {
-                return value != null;
+                return value == null;
             }
         }
 
