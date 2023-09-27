@@ -4,7 +4,6 @@ using Polly;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -15,107 +14,107 @@ using TBird.Core;
 
 namespace TBird.Web
 {
-    public static class WebUtil
-    {
-        public static void Browse(string url)
-        {
-            // ﾌﾞﾗｳｻﾞ起動
-            Process.Start(WebSetting.Instance.BrowserPath, url);
-        }
+	public static class WebUtil
+	{
+		public static void Browse(string url)
+		{
+			// ﾌﾞﾗｳｻﾞ起動
+			Process.Start(WebSetting.Instance.BrowserPath, url);
+		}
 
-        public static string ToParameter(Dictionary<string, string> dic)
-        {
-            var urlparameter = dic.Select(x => $"{x.Key}={HttpUtility.UrlEncode(x.Value)}").GetString("&");
-            return urlparameter;
-        }
+		public static string ToParameter(Dictionary<string, string> dic)
+		{
+			var urlparameter = dic.Select(x => $"{x.Key}={HttpUtility.UrlEncode(x.Value)}").GetString("&");
+			return urlparameter;
+		}
 
-        public static string GetUrl(string baseurl, Dictionary<string, string> dic)
-        {
-            return $"{baseurl.TrimEnd('?')}?{ToParameter(dic)}";
-        }
+		public static string GetUrl(string baseurl, Dictionary<string, string> dic)
+		{
+			return $"{baseurl.TrimEnd('?')}?{ToParameter(dic)}";
+		}
 
-        public static HttpClient CreateClient()
-        {
-            lock (_createclient)
-            {
-                if (_service == null)
-                {
-                    _name = Guid.NewGuid().ToString();
-                    _service = new ServiceCollection();
-                    _service
-                        .AddHttpClient(_name)
-                        .AddTransientHttpErrorPolicy(
-                            x => x.WaitAndRetryAsync(Enumerable.Range(1, 5).Select(i => TimeSpan.FromSeconds(i * 2)))
-                        );
+		public static HttpClient CreateClient()
+		{
+			lock (_createclient)
+			{
+				if (_service == null)
+				{
+					_name = Guid.NewGuid().ToString();
+					_service = new ServiceCollection();
+					_service
+						.AddHttpClient(_name)
+						.AddTransientHttpErrorPolicy(
+							x => x.WaitAndRetryAsync(Enumerable.Range(1, 5).Select(i => TimeSpan.FromSeconds(i * 2)))
+						);
 
-                    _factory = _service.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
-                }
-            }
-            return _factory.CreateClient(_name);
-        }
+					_factory = _service.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
+				}
+			}
+			return _factory.CreateClient(_name);
+		}
 
-        private static object _createclient = new object();
-        private static string _name;
-        private static ServiceCollection _service;
-        private static IHttpClientFactory _factory;
+		private static object _createclient = new object();
+		private static string _name;
+		private static ServiceCollection _service;
+		private static IHttpClientFactory _factory;
 
-        private static async Task<string> ResponseToStr(HttpResponseMessage response)
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                return await response.Content.ReadAsStringAsync();
-            }
-            else
-            {
-                return null;
-            }
-        }
+		private static async Task<string> ResponseToStr(HttpResponseMessage response)
+		{
+			if (response.IsSuccessStatusCode)
+			{
+				return await response.Content.ReadAsStringAsync();
+			}
+			else
+			{
+				return null;
+			}
+		}
 
-        public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
-        {
-            return await CreateClient().SendAsync(request);
-        }
+		public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
+		{
+			return await CreateClient().SendAsync(request);
+		}
 
-        public static async Task<string> SendStringAsync(HttpRequestMessage request)
-        {
-            return await ResponseToStr(await SendAsync(request));
-        }
+		public static async Task<string> SendStringAsync(HttpRequestMessage request)
+		{
+			return await ResponseToStr(await SendAsync(request));
+		}
 
-        public static async Task<string> PostStringAsync(string url, string content, string mediatype)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = new StringContent(content, Encoding.UTF8, mediatype)
-            };
-            return await SendStringAsync(request);
-        }
+		public static async Task<string> PostStringAsync(string url, string content, string mediatype)
+		{
+			var request = new HttpRequestMessage(HttpMethod.Post, url)
+			{
+				Content = new StringContent(content, Encoding.UTF8, mediatype)
+			};
+			return await SendStringAsync(request);
+		}
 
-        /// <summary>
-        /// URLの内容を取得します。
-        /// </summary>
-        /// <param name="url">URL</param>
-        /// <returns></returns>
-        public static async Task<string> GetStringAsync(string url)
-        {
-            return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url));
-        }
+		/// <summary>
+		/// URLの内容を取得します。
+		/// </summary>
+		/// <param name="url">URL</param>
+		/// <returns></returns>
+		public static async Task<string> GetStringAsync(string url)
+		{
+			return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url));
+		}
 
-        /// <summary>
-        /// URLの内容をJson形式で取得します。
-        /// </summary>
-        /// <param name="url">URL</param>
-        public static async Task<dynamic> GetJsonAsync(string url)
-        {
-            return DynamicJson.Parse(await GetStringAsync(url).TryCatch());
-        }
+		/// <summary>
+		/// URLの内容をJson形式で取得します。
+		/// </summary>
+		/// <param name="url">URL</param>
+		public static async Task<dynamic> GetJsonAsync(string url)
+		{
+			return DynamicJson.Parse(await GetStringAsync(url).TryCatch());
+		}
 
-        /// <summary>
-        /// URLの内容をXml形式で取得します。
-        /// </summary>
-        /// <param name="url">URL</param>
-        public static async Task<XElement> GetXmlAsync(string url)
-        {
-            return XmlUtil.ToXml(await GetStringAsync(url));
-        }
-    }
+		/// <summary>
+		/// URLの内容をXml形式で取得します。
+		/// </summary>
+		/// <param name="url">URL</param>
+		public static async Task<XElement> GetXmlAsync(string url)
+		{
+			return XmlUtil.ToXml(await GetStringAsync(url));
+		}
+	}
 }

@@ -1,50 +1,50 @@
 ﻿<Controls:MetroWindow x:Class="TBird.Wpf.Controls.WpfMessageInputWindow"
-                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                      xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
-                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                      xmlns:wpfroot="clr-namespace:TBird.Wpf"
-                      mc:Ignorable="d"
+					  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					  xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+					  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+					  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+					  xmlns:wpfroot="clr-namespace:TBird.Wpf"
+					  mc:Ignorable="d"
                       Style="{StaticResource DefaultDialog}"
                       WindowStartupLocation="CenterOwner"
                       Title="{Binding Title}"
                       MaxWidth="600">
-    <DockPanel Margin="10">
+	<DockPanel Margin="10">
 
-        <StackPanel DockPanel.Dock="Bottom"
+		<StackPanel DockPanel.Dock="Bottom"
                     Style="{StaticResource HorizontalStackPanel.Center}">
-            <Button Style="{StaticResource DialogButton}"
+			<Button Style="{StaticResource DialogButton}"
                     IsDefault="True"
                     Content="{x:Static wpfroot:WpfConst.L_Ok}"
                     Command="{Binding OKCommand}" />
-            <Button Style="{StaticResource DialogButton}"
+			<Button Style="{StaticResource DialogButton}"
                     Visibility="{Binding IsOkOnly, Converter={StaticResource BooleanReverse2VisibilityCollapsedConverter}}"
                     IsCancel="True"
                     Content="{x:Static wpfroot:WpfConst.L_Cancel}"
                     Command="{Binding CancelCommand}" />
-        </StackPanel>
+		</StackPanel>
 
-        <Grid DockPanel.Dock="Bottom"
+		<Grid DockPanel.Dock="Bottom"
               Margin="10">
 
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{DynamicResource GridLength.Width.Header}" />
-                <ColumnDefinition Width="200" />
-            </Grid.ColumnDefinitions>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="{DynamicResource GridLength.Width.Header}" />
+				<ColumnDefinition Width="200" />
+			</Grid.ColumnDefinitions>
 
-            <Label Grid.Column="0"
+			<Label Grid.Column="0"
                    Style="{StaticResource HeaderLabel}"
                    Content="{Binding Header}" />
 
-            <TextBox Grid.Column="1"
+			<TextBox Grid.Column="1"
                      Margin="{DynamicResource Margin.Header}"
                      Text="{Binding Value}" />
-        </Grid>
+		</Grid>
 
-        <TextBlock Text="{Binding Message}"
+		<TextBlock Text="{Binding Message}"
                    FontSize="{DynamicResource FontSize.L}"
                    Margin="10"
                    TextWrapping="Wrap" />
-    </DockPanel>
+	</DockPanel>
 </Controls:MetroWindow>

@@ -1,21 +1,21 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
 
-    <ResourceDictionary.MergedDictionaries>
+	<ResourceDictionary.MergedDictionaries>
 
-        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ListBox.xaml" />
-    </ResourceDictionary.MergedDictionaries>
+		<ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ListBox.xaml" />
+	</ResourceDictionary.MergedDictionaries>
 
-    <!-- **************************************************
+	<!-- **************************************************
     **** ListBox
     **** ************************************************** -->
-    <Style x:Key="DefaultListBox" TargetType="ListBox" BasedOn="{StaticResource MahApps.Styles.ListBox}">
-        <Setter Property="Focusable" Value="False" />
-        <Setter Property="Margin" Value="0" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
-        <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="behavior:ListBoxBehavior.MustSelected" Value="True" />
-    </Style>
+	<Style x:Key="DefaultListBox" TargetType="ListBox" BasedOn="{StaticResource MahApps.Styles.ListBox}">
+		<Setter Property="Focusable" Value="False" />
+		<Setter Property="Margin" Value="0" />
+		<Setter Property="Padding" Value="0" />
+		<Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+		<Setter Property="HorizontalAlignment" Value="Stretch" />
+		<Setter Property="behavior:ListBoxBehavior.MustSelected" Value="True" />
+	</Style>
 </ResourceDictionary>

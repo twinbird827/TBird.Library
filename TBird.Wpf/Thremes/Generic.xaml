@@ -1,19 +1,19 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:controls="clr-namespace:TBird.Wpf.Controls">
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:controls="clr-namespace:TBird.Wpf.Controls">
 
-    <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Controls/HeaderItemsControl.xaml" />
-    </ResourceDictionary.MergedDictionaries>
+	<ResourceDictionary.MergedDictionaries>
+		<ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Controls/HeaderItemsControl.xaml" />
+	</ResourceDictionary.MergedDictionaries>
 
-    <Style TargetType="{x:Type controls:HeaderItemsControl}">
-        <Style.Triggers>
-            <Trigger Property="IsVirtualizing" Value="True">
-                <Setter Property="Template" Value="{StaticResource VirtualizingHeaderItemsControl.ControlTemplate}" />
-            </Trigger>
-            <Trigger Property="IsVirtualizing" Value="False">
-                <Setter Property="Template" Value="{StaticResource HeaderItemsControl.ControlTemplate}" />
-            </Trigger>
-        </Style.Triggers>
-    </Style>
+	<Style TargetType="{x:Type controls:HeaderItemsControl}">
+		<Style.Triggers>
+			<Trigger Property="IsVirtualizing" Value="True">
+				<Setter Property="Template" Value="{StaticResource VirtualizingHeaderItemsControl.ControlTemplate}" />
+			</Trigger>
+			<Trigger Property="IsVirtualizing" Value="False">
+				<Setter Property="Template" Value="{StaticResource HeaderItemsControl.ControlTemplate}" />
+			</Trigger>
+		</Style.Triggers>
+	</Style>
 </ResourceDictionary>

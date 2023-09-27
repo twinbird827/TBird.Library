@@ -1,29 +1,29 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors">
 
-    <ResourceDictionary.MergedDictionaries>
+	<ResourceDictionary.MergedDictionaries>
 
-        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ScrollBars.xaml" />
-    </ResourceDictionary.MergedDictionaries>
+		<ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.ScrollBars.xaml" />
+	</ResourceDictionary.MergedDictionaries>
 
-    <Style x:Key="DefaultScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource MahApps.Styles.ScrollViewer}">
-        <Setter Property="Focusable" Value="False" />
-        <Setter Property="Margin" Value="0" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="IsTabStop" Value="False" />
-        <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
-        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-        <Setter Property="behavior:ScrollViewerBehavior.DisableContextMenu" Value="true" />
-    </Style>
+	<Style x:Key="DefaultScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource MahApps.Styles.ScrollViewer}">
+		<Setter Property="Focusable" Value="False" />
+		<Setter Property="Margin" Value="0" />
+		<Setter Property="Padding" Value="0" />
+		<Setter Property="IsTabStop" Value="False" />
+		<Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+		<Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+		<Setter Property="behavior:ScrollViewerBehavior.DisableContextMenu" Value="true" />
+	</Style>
 
-    <Style x:Key="RowHeaderScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}">
-        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
-        <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
-    </Style>
+	<Style x:Key="RowHeaderScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}">
+		<Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+		<Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
+	</Style>
 
-    <Style x:Key="ColumnHeaderScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}">
-        <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
-        <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
-    </Style>
+	<Style x:Key="ColumnHeaderScrollViewer" TargetType="ScrollViewer" BasedOn="{StaticResource DefaultScrollViewer}">
+		<Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
+		<Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+	</Style>
 </ResourceDictionary>
