@@ -22,7 +22,7 @@ namespace TBird.Wpf.Converters
         {
             if (value != null && _structdefaults.ContainsKey(value.GetType()))
             {
-                return value == _structdefaults[value.GetType()];
+                return value.Equals(_structdefaults[value.GetType()]);
             }
             else
             {
