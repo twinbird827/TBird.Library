@@ -41,6 +41,7 @@
             <TextBlock Grid.Column="5" Background="DarkBlue"
                        Text="R TextBlock2" />
         </Grid>
+        <TextBlock Text="{Binding TEST, Converter={StaticResource Null2BooleanConverter}}" />
         <TextBlock behavior:TextBlockBehavior.MaxLines="50" behavior:TextBlockBehavior.MaxText="{Binding Text}" />
     </StackPanel>
 </Controls:MetroWindow>

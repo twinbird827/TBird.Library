@@ -15,8 +15,7 @@ namespace coretest
 
         private static void Main(string[] args)
         {
-            var htmlString = File.ReadAllText(@"C:\Work\Temp\tube-home-rss.html");
-            var jsonString = Regex.Match(htmlString, @"(?<=var ytInitialData =)[^;]+");
+
             Console.ReadLine();
         }
     }

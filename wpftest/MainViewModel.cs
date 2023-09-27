@@ -40,6 +40,7 @@ namespace wpftest
             await Task.Delay(new Random().Next(1000, 5000));
             Text += "E:" + DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");
             Text += "\n";
+            TEST = DateTime.Now;
         });
         private IRelayCommand _Command;
         private int _index;
@@ -52,5 +53,11 @@ namespace wpftest
         });
         private IRelayCommand _DragDrop;
 
+        public DateTime TEST
+        {
+            get => _TEST;
+            set => SetProperty(ref _TEST, value);
+        }
+        private DateTime _TEST;
     }
 }
