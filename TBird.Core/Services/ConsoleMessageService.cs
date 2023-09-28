@@ -69,7 +69,6 @@ namespace TBird.Core
 
 			switch (type)
 			{
-				case MessageType.Debug:
 				case MessageType.Error:
 				case MessageType.Exception:
 					AppendLogfile(txt);

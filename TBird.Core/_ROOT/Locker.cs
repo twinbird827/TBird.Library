@@ -62,7 +62,6 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static async Task<IDisposable> LockAsync(string key)
 		{
-			MessageService.Debug(key);
 			await AddManagerAsync(key);
 			return await _manages[key].LockAsync();
 		}
