@@ -71,35 +71,12 @@ namespace TBird.Core
 			{
 				case MessageType.Error:
 				case MessageType.Exception:
-					AppendLogfile(txt);
+					MessageService.AppendLogfile(txt);
 					break;
 			}
 
 			return txt;
 		}
-
-		private void AppendLogfile(string message)
-		{
-			lock (_lock)
-			{
-				var dir = Directories.GetAbsolutePath("log");
-				var tmp = Path.Combine(dir, $"{DateTime.Now.ToString("yyyy-MM-dd")}.log");
-
-				// ﾃﾞｨﾚｸﾄﾘを作成
-				Directory.CreateDirectory(dir);
-
-				try
-				{
-					File.AppendAllText(tmp, message);
-				}
-				catch (Exception ex)
-				{
-					Writeline(ex.ToString());
-				}
-			}
-		}
-
-		private static object _lock = new object();
 
 		private void Writeline(string message)
 		{

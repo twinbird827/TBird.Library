@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace TBird.Core
@@ -95,5 +96,28 @@ namespace TBird.Core
 			// Dispose処理で終了ﾒｯｾｰｼﾞ
 			return new Disposer<Stopwatch>(stopwatch, x => Debug($"{message} process took {x.Elapsed:d\\.hh\\:mm\\:ss\\.fff} (...TimeSpan)", callerMemberName, callerFilePath, callerLineNumber));
 		}
+
+		public static void AppendLogfile(string message)
+		{
+			lock (_lock)
+			{
+				var dir = Directories.GetAbsolutePath("log");
+				var tmp = Path.Combine(dir, $"{DateTime.Now.ToString("yyyy-MM-dd")}.log");
+
+				// ﾃﾞｨﾚｸﾄﾘを作成
+				Directory.CreateDirectory(dir);
+
+				try
+				{
+					File.AppendAllText(tmp, message);
+				}
+				catch (Exception ex)
+				{
+					Debug(ex.ToString());
+				}
+			}
+		}
+
+		private static object _lock = new object();
 	}
 }
