@@ -314,6 +314,19 @@ namespace TBird.Core
 		public static extern DCSafeHandle IntCreateDC(String lpszDriver,
 			String lpszDeviceName, String lpszOutput, IntPtr devMode);
 
+		[DllImport("kernel32.dll")]
+		private static extern int GetShortPathName(string longPath, StringBuilder shortPathBuffer, int bufferSize);
+
+		public static string GetShortPathName(string longpath)
+		{
+			const int bufferSize = 128;
+			var sb = new StringBuilder(bufferSize);
+
+			GetShortPathName(longpath, sb, bufferSize);
+
+			return 0 < sb.Length ? sb.ToString() : longpath;
+		}
+
 		private static void Win32Shutdown(int shutdownFlags)
 		{
 			Thread thread = new Thread(() =>

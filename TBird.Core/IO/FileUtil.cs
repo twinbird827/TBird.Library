@@ -8,6 +8,8 @@ namespace TBird.Core
 {
 	public static class FileUtil
 	{
+		private static string ToShort(string s) => Win32Methods.GetShortPathName(s);
+
 		/// <summary>
 		/// 対象のﾊﾟｽ名に使用できない文字が含まれていないか確認します。
 		/// </summary>
@@ -42,9 +44,9 @@ namespace TBird.Core
 
 		public static void BeforeCreate(string path)
 		{
-			Directory.CreateDirectory(Path.GetDirectoryName(path));
+			DirectoryUtil.Create(Path.GetDirectoryName(path));
 
-			if (File.Exists(path)) File.Delete(path);
+			Delete(path);
 		}
 
 		/// <summary>
@@ -57,7 +59,16 @@ namespace TBird.Core
 		{
 			if (overwrite) BeforeCreate(dst);
 
-			File.Move(src, dst);
+			File.Move(ToShort(src), ToShort(dst));
+		}
+
+		/// <summary>
+		/// ﾌｧｲﾙを削除します。
+		/// </summary>
+		/// <param name="file">削除するﾌｧｲﾙ</param>
+		public static void Delete(string file)
+		{
+			if (File.Exists(ToShort(file))) File.Delete(ToShort(file));
 		}
 
 		/// <summary>
@@ -67,7 +78,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static Task<bool> Exists(string file)
 		{
-			return TaskUtil.WaitAsync(file, s => File.Exists(s));
+			return TaskUtil.WaitAsync(file, s => File.Exists(ToShort(s)));
 		}
 
 		/// <summary>
@@ -93,12 +104,21 @@ namespace TBird.Core
 		{
 			var buffersize = 1 * 1024 * 1024;
 
-			using (var ss = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
-			using (var ds = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
+			using (var ss = new FileStream(ToShort(src), FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
+			using (var ds = new FileStream(ToShort(dst), FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
 			{
 				await ss.CopyToAsync(ds, buffersize, cts.Token);
 			}
 		}
 
+		/// <summary>
+		/// 拡張子を除いたﾌｧｲﾙ名を取得します。
+		/// </summary>
+		/// <param name="file">ﾌｧｲﾙ名</param>
+		/// <returns></returns>
+		public static string GetFileNameWithoutExtension(string file)
+		{
+			return file.Left(file.Length - Path.GetExtension(file).Length);
+		}
 	}
 }

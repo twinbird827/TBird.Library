@@ -14,6 +14,7 @@ namespace TBird.Core
 		/// <param name="includeBaseDirectory">圧縮するﾃﾞｨﾚｸﾄﾘをZIPﾌｧｲﾙに含めるかどうか</param>
 		public static void CreateFromDirectory(string src, string dst, CompressionLevel level = CompressionLevel.Optimal, bool includeBaseDirectory = true)
 		{
+			FileUtil.Delete(dst);
 			ZipFile.CreateFromDirectory(src, dst, level, includeBaseDirectory);
 		}
 

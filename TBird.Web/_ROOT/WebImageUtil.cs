@@ -52,7 +52,7 @@ namespace TBird.Web
 		{
 			var file = GetSavePath(key);
 
-			DirectoryUtil.DeleteInFiles(Path.GetDirectoryName(file), DateTime.Now.AddDays(-7));
+			DirectoryUtil.DeleteInFiles(Path.GetDirectoryName(file), info => info.CreationTime < DateTime.Now.AddDays(-7));
 
 			return File.Exists(file)
 				? File.ReadAllBytes(file)
