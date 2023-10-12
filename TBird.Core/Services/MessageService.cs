@@ -109,7 +109,7 @@ namespace TBird.Core
 
 				try
 				{
-					File.AppendAllText(tmp, message);
+					File.AppendAllText(tmp, $"{message}\n");
 				}
 				catch (Exception ex)
 				{
