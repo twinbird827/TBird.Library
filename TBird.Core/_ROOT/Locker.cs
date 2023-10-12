@@ -123,13 +123,13 @@ namespace TBird.Core
 			public Task WaitAsync()
 			{
 				Interlocked.Increment(ref _cnt);
-				return _slim.WaitAsync();
+				return _slim.WaitAsync(5000);
 			}
 
 			public void Wait()
 			{
 				Interlocked.Increment(ref _cnt);
-				_slim.Wait();
+				_slim.Wait(5000);
 			}
 
 			public int Release()
