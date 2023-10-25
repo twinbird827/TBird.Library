@@ -49,4 +49,12 @@
     </None>
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
+  </Target>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="set direc=$(ProjectDir)..\_Tools\$(ProjectName)\lib&#xD;&#xA;set time_tmp=%25time: =0%25&#xD;&#xA;set dt=%25date:/=%25%25time_tmp:~0,2%25%25time_tmp:~3,2%25%25time_tmp:~6,2%25&#xD;&#xA;&#xD;&#xA;xcopy &quot;%25direc%25\*.xml&quot; &quot;%25direc%25\%25dt%25&quot; /H /C /I&#xD;&#xA;xcopy &quot;%25direc%25\*.json&quot; &quot;%25direc%25\%25dt%25&quot; /H /C /I" />
+  </Target>
+
 </Project>
