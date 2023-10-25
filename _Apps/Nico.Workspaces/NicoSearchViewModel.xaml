@@ -1,0 +1,63 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:corestyle="clr-namespace:Moviewer.Core.Styles"
+					xmlns:nicocore="clr-namespace:Moviewer.Nico.Core"
+					xmlns:local="clr-namespace:Moviewer.Nico.Workspaces">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/_Core.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/_Converters.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<Style x:Key="IconPacksButton.SearchButton" TargetType="{x:Type corestyle:IconPacksButton}" BasedOn="{StaticResource Core.HorizontalIconPackButton}">
+		<Setter Property="Orientation" Value="Horizontal" />
+		<Setter Property="Margin" Value="4,2" />
+		<Setter Property="Kind" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Tag, Converter={StaticResource NicoSearchTypeKindConverter}}" />
+		<Setter Property="Text" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Tag, Converter={StaticResource Enum2StringConverter}}" />
+		<Setter Property="Command" Value="{Binding OnSearch}" />
+		<Setter Property="CommandParameter" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Tag}" />
+	</Style>
+
+	<DataTemplate DataType="{x:Type local:NicoSearchViewModel}">
+		<DockPanel>
+
+			<DockPanel DockPanel.Dock="Top">
+
+				<ComboBox DockPanel.Dock="Left"
+                          Style="{DynamicResource Core.HeaderComboBox}"
+                          ItemsSource="{Binding Orderby.Items}"
+                          SelectedItem="{Binding Orderby.SelectedItem}" />
+
+				<corestyle:IconPacksButton DockPanel.Dock="Right"
+                                           Style="{DynamicResource IconPacksButton.SearchButton}"
+                                           Tag="{x:Static nicocore:NicoSearchType.Mylist}" />
+
+				<corestyle:IconPacksButton DockPanel.Dock="Right"
+                                           Style="{DynamicResource IconPacksButton.SearchButton}"
+                                           Tag="{x:Static nicocore:NicoSearchType.Tag}" />
+
+				<corestyle:IconPacksButton DockPanel.Dock="Right"
+                                           Style="{DynamicResource IconPacksButton.SearchButton}"
+                                           Tag="{x:Static nicocore:NicoSearchType.User}" />
+
+				<corestyle:IconPacksButton DockPanel.Dock="Right"
+                                           Style="{DynamicResource IconPacksButton.SearchButton}"
+                                           Tag="{x:Static nicocore:NicoSearchType.Word}" />
+
+				<TextBox Style="{DynamicResource DefaultTextBox}"
+                         Margin="4,2"
+                         Text="{Binding Word}" />
+			</DockPanel>
+
+			<ListBox DockPanel.Dock="Left"
+                     Style="{DynamicResource Core.SeachHistoryStyle}"
+                     ItemsSource="{Binding Histories}"
+                     ItemContainerStyle="{DynamicResource NicoSearchHistoryViewModel.ItemContainerStyle}" />
+
+			<ListBox Style="{DynamicResource Core.VideoStyle}"
+                     ItemsSource="{Binding Videos}"
+                     ItemContainerStyle="{DynamicResource VideoViewModel.ItemContainerStyle}" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>

@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xml>
+    <combo group="history_date_condition">
+        <item value="7"  display="1週間" />
+        <item value="30" display="1カ月" />
+    </combo>
+</xml>

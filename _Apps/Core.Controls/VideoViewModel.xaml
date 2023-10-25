@@ -1,0 +1,127 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:moctrl="clr-namespace:Moviewer.Core.Controls"
+                    xmlns:beha="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/_Converters.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Controls/CounterViewModel.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Controls/UserViewModel.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Controls/TagViewModel.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<Style x:Key="VideoViewModel.MenuItem.OnTemporaryAdd" TargetType="MenuItem" BasedOn="{StaticResource MahApps.Styles.MenuItem}">
+		<Setter Property="Header" Value="追加" />
+		<Setter Property="Command" Value="{Binding OnTemporaryAdd}" />
+	</Style>
+
+	<Style x:Key="VideoViewModel.MenuItem.OnTemporaryDel" TargetType="MenuItem" BasedOn="{StaticResource MahApps.Styles.MenuItem}">
+		<Setter Property="Header" Value="削除" />
+		<Setter Property="Command" Value="{Binding OnTemporaryDel}" />
+	</Style>
+
+	<Style x:Key="VideoViewModel.MenuItem.OnDownload" TargetType="MenuItem" BasedOn="{StaticResource MahApps.Styles.MenuItem}">
+		<Setter Property="Header" Value="ダウンロード" />
+		<Setter Property="Command" Value="{Binding OnDownload}" />
+	</Style>
+
+	<Style x:Key="VideoViewModel.ItemContainerStyle" TargetType="ListBoxItem" BasedOn="{StaticResource MahApps.Styles.ListBoxItem}">
+		<Setter Property="beha:FrameworkElementBehavior.LDoubleClick" Value="{Binding OnDoubleClick}" />
+		<Setter Property="beha:FrameworkElementBehavior.KeyDown" Value="{Binding OnKeyDown}" />
+		<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+		<Setter Property="ContextMenu">
+			<Setter.Value>
+				<ContextMenu>
+					<MenuItem Style="{DynamicResource VideoViewModel.MenuItem.OnTemporaryAdd}" />
+					<MenuItem Style="{DynamicResource VideoViewModel.MenuItem.OnTemporaryDel}" />
+					<MenuItem Style="{DynamicResource VideoViewModel.MenuItem.OnDownload}" />
+				</ContextMenu>
+			</Setter.Value>
+		</Setter>
+	</Style>
+
+	<DataTemplate DataType="{x:Type moctrl:VideoViewModel}">
+		<DockPanel beha:FrameworkElementBehavior.Height="161"
+                   HorizontalAlignment="Stretch"
+                   beha:FrameworkElementBehavior.Loaded="{Binding OnLoaded}">
+
+			<DockPanel DockPanel.Dock="Left" ToolTip="{Binding ContentUrl}">
+
+				<TextBlock DockPanel.Dock="Bottom"
+                           Text="{Binding Status, Converter={StaticResource Enum2StringConverter}}" />
+
+				<ContentPresenter DockPanel.Dock="Left"
+                                  beha:FrameworkElementBehavior.Width="188"
+                                  beha:FrameworkElementBehavior.Height="141"
+                                  ContentTemplate="{DynamicResource Core.Thumbnail}"
+                                  Content="{Binding Thumbnail}" />
+			</DockPanel>
+
+			<!-- 最下段 -->
+			<DockPanel DockPanel.Dock="Bottom">
+
+				<StackPanel DockPanel.Dock="Left"
+                            Style="{DynamicResource HorizontalStackPanel}">
+
+					<TextBlock beha:FrameworkElementBehavior.Width="100"
+                               Text="{Binding Duration}" />
+
+					<ItemsControl ItemsSource="{Binding Counters}">
+						<ItemsControl.ItemsPanel>
+							<ItemsPanelTemplate>
+								<StackPanel Orientation="Horizontal" />
+							</ItemsPanelTemplate>
+						</ItemsControl.ItemsPanel>
+					</ItemsControl>
+				</StackPanel>
+
+				<StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal">
+
+					<TextBlock Visibility="{Binding TempTime, Converter={StaticResource Null2VisibilityCollapsedConverter}}"
+                               Foreground="DarkBlue"
+                               Margin="5,0">
+                        <Run Text="( " />
+                        <Run Text="{Binding TempTime, StringFormat={}{0:yy/MM/dd HH:mm:ss}}" />
+                        <Run Text=" )" />
+					</TextBlock>
+
+					<TextBlock Foreground="DarkRed"
+                               Text="{Binding StartTime, StringFormat={}{0:yy/MM/dd HH:mm:ss}}" />
+				</StackPanel>
+
+				<StackPanel />
+			</DockPanel>
+
+			<DockPanel DockPanel.Dock="Bottom">
+
+				<ContentControl DockPanel.Dock="Right"
+                                Content="{Binding UserInfo}"
+                                ContentTemplate="{DynamicResource UserViewModel.Video}" />
+
+				<ItemsControl ItemsSource="{Binding Tags}">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<StackPanel Orientation="Horizontal" />
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+				</ItemsControl>
+			</DockPanel>
+
+			<TextBlock DockPanel.Dock="Top"
+                       TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis"
+                       FontSize="{DynamicResource FontSize.L}"
+                       beha:TextBlockBehavior.MaxLines="1"
+                       beha:TextBlockBehavior.MaxText="{Binding Title}" />
+
+			<TextBlock TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis"
+                       FontSize="{DynamicResource FontSize.SS}"
+                       Foreground="DimGray"
+                       beha:FrameworkElementBehavior.ShowToolTip="False"
+                       Text="{Binding Description}" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>

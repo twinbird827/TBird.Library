@@ -1,0 +1,26 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:core="clr-namespace:Moviewer.Core.Styles">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/IconPacksButton.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/LinkedTextBlock.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<Style TargetType="{x:Type core:IconPacksButton}">
+		<Style.Triggers>
+			<Trigger Property="Orientation" Value="Horizontal">
+				<Setter Property="Template" Value="{StaticResource IconPacksButton.ControlTemplate.Horizontal}" />
+			</Trigger>
+			<Trigger Property="Orientation" Value="Vertical">
+				<Setter Property="Template" Value="{StaticResource IconPacksButton.ControlTemplate.Vertical}" />
+			</Trigger>
+			<Trigger Property="Text" Value="{x:Null}">
+				<Setter Property="Template" Value="{StaticResource IconPacksButton.ControlTemplate.IconOnly}" />
+			</Trigger>
+		</Style.Triggers>
+	</Style>
+
+	<Style TargetType="{x:Type core:LinkedTextBlock}" BasedOn="{StaticResource LinkedTextBlock.Style}" />
+</ResourceDictionary>

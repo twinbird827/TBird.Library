@@ -1,0 +1,79 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:moctrl="clr-namespace:Moviewer.Core.Controls"
+					xmlns:mocore="clr-namespace:Moviewer.Core.Styles"
+					xmlns:beha="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/Thumbnail.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<Style x:Key="UserViewModel.Thumbnail" TargetType="ContentControl">
+		<Setter Property="ContentTemplate" Value="{DynamicResource Core.Thumbnail}" />
+		<Setter Property="Content" Value="{Binding Thumbnail}" />
+	</Style>
+
+	<Style x:Key="My.UserViewModel.TextBlock" TargetType="TextBlock">
+		<Setter Property="Margin" Value="4,2" />
+		<Setter Property="VerticalAlignment" Value="Center" />
+	</Style>
+
+	<Style x:Key="My.UserViewModel.UsernameTextBlock" TargetType="TextBlock" BasedOn="{StaticResource My.UserViewModel.TextBlock}">
+		<Setter Property="Text" Value="{Binding Username}" />
+		<Setter Property="Foreground" Value="DarkBlue" />
+		<Setter Property="TextDecorations" Value="Underline" />
+	</Style>
+
+	<DataTemplate x:Key="UserViewModel.Combo" DataType="{x:Type moctrl:UserViewModel}">
+		<DockPanel beha:FrameworkElementBehavior.Width="200">
+
+			<ContentControl DockPanel.Dock="Left"
+                            beha:FrameworkElementBehavior.Width="30"
+                            beha:FrameworkElementBehavior.Height="30"
+                            Style="{StaticResource UserViewModel.Thumbnail}" />
+
+			<TextBlock Style="{StaticResource My.UserViewModel.UsernameTextBlock}"
+                       FontSize="{DynamicResource FontSize.M}" />
+		</DockPanel>
+	</DataTemplate>
+
+	<DataTemplate x:Key="UserViewModel.Video" DataType="{x:Type moctrl:UserViewModel}">
+		<DockPanel MinWidth="200"
+				   beha:FrameworkElementBehavior.Loaded="{Binding OnLoaded}">
+
+			<ContentControl DockPanel.Dock="Left"
+                            beha:FrameworkElementBehavior.Width="35"
+                            beha:FrameworkElementBehavior.Height="35"
+                            Style="{StaticResource UserViewModel.Thumbnail}" />
+
+			<mocore:LinkedTextBlock Margin="4,2"
+                                    Command="{Binding OnClickUsername}"
+                                    Text="{Binding Username}" />
+		</DockPanel>
+	</DataTemplate>
+
+	<DataTemplate x:Key="UserViewModel.Search" DataType="{x:Type moctrl:UserViewModel}">
+		<DockPanel beha:FrameworkElementBehavior.Loaded="{Binding OnLoaded}">
+
+			<!--<Grid DockPanel.Dock="Left"
+                  beha:FrameworkElementBehavior.Width="50"
+                  beha:FrameworkElementBehavior.Height="50">
+                <ContentPresenter ContentTemplate="{DynamicResource Core.Thumbnail}"
+                                  Content="{Binding Thumbnail}" />
+            </Grid>-->
+
+			<ContentControl DockPanel.Dock="Left"
+                            beha:FrameworkElementBehavior.Width="50"
+                            beha:FrameworkElementBehavior.Height="50"
+                            Style="{StaticResource UserViewModel.Thumbnail}" />
+
+			<TextBlock DockPanel.Dock="Top"
+                       Style="{StaticResource My.UserViewModel.TextBlock}"
+                       Text="{Binding Userid}" />
+
+			<TextBlock Style="{StaticResource My.UserViewModel.UsernameTextBlock}"
+                       FontSize="{DynamicResource FontSize.L}" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>

@@ -1,0 +1,28 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:nictrl="clr-namespace:Moviewer.Nico.Controls"
+					xmlns:beha="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf">
+
+	<DataTemplate x:Key="NicoMylistViewModel.M" DataType="{x:Type nictrl:NicoMylistViewModel}">
+		<DockPanel ToolTip="{Binding MylistDescription}">
+
+			<ContentPresenter DockPanel.Dock="Left"
+                              beha:FrameworkElementBehavior.Width="50"
+                              beha:FrameworkElementBehavior.Height="50"
+                              ContentTemplate="{DynamicResource Core.Thumbnail}"
+                              Content="{Binding Thumbnail}" />
+
+			<TextBlock DockPanel.Dock="Top"
+                       Margin="4,2"
+                       VerticalAlignment="Center"
+                       Text="{Binding MylistUsername}" />
+
+			<TextBlock Margin="4,2"
+                       VerticalAlignment="Center"
+                       Text="{Binding MylistTitle}"
+                       FontSize="{DynamicResource FontSize.L}"
+                       Foreground="DarkBlue"
+                       TextDecorations="Underline" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>

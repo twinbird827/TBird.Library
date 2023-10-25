@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xml>
+    <combo group="popular_category">
+        <item value="1"  display="映画とアニメ" />
+        <item value="2"  display="自動車と乗り物" />
+        <item value="10" display="音楽" />
+        <item value="15" display="ペットと動物" />
+        <item value="17" display="スポーツ" />
+        <item value="18" display="ショート ムービー" />
+        <item value="19" display="旅行とイベント" />
+        <item value="20" display="ゲーム" />
+        <item value="21" display="動画ブログ" />
+        <item value="22" display="ブログ" />
+        <item value="23" display="コメディー" />
+        <item value="24" display="エンターテイメント" />
+        <item value="25" display="ニュースと政治" />
+        <item value="26" display="ハウツーとスタイル" />
+        <item value="27" display="教育" />
+        <item value="28" display="科学と技術" />
+        <item value="30" display="映画" />
+        <item value="31" display="アニメ" />
+        <item value="32" display="アクション/アドベンチャー" />
+        <item value="33" display="クラシック" />
+        <item value="34" display="コメディー" />
+        <item value="35" display="ドキュメンタリー" />
+        <item value="36" display="ドラマ" />
+        <item value="37" display="家族向け" />
+        <item value="38" display="海外" />
+        <item value="39" display="ホラー" />
+        <item value="40" display="SF/ファンタジー" />
+        <item value="41" display="サスペンス" />
+        <item value="42" display="短編" />
+        <item value="43" display="番組" />
+        <item value="44" display="予告編" />
+    </combo>
+</xml>

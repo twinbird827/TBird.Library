@@ -1,0 +1,23 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/_Converters.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<DataTemplate x:Key="Core.Thumbnail" DataType="{x:Type BitmapImage}">
+		<Grid Name="ROOT_Grid" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+			<Controls:ProgressRing MaxWidth="{Binding ElementName=ROOT_Grid, Path=ActualWidth}"
+                                   MaxHeight="{Binding ElementName=ROOT_Grid, Path=ActualHeight}"
+                                   Visibility="{Binding ., Converter={StaticResource Null2VisibilityCollapsedConverter}}" />
+
+			<Image Margin="{DynamicResource Margin.Zero}"
+                   Width="{Binding ElementName=ROOT_Grid, Path=ActualWidth}"
+                   Height="{Binding ElementName=ROOT_Grid, Path=ActualHeight}"
+                   Focusable="False"
+                   Source="{Binding}" />
+		</Grid>
+	</DataTemplate>
+</ResourceDictionary>

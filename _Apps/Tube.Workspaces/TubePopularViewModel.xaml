@@ -1,0 +1,21 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:local="clr-namespace:Moviewer.Tube.Workspaces">
+
+	<DataTemplate DataType="{x:Type local:TubePopularViewModel}">
+		<DockPanel>
+
+			<StackPanel DockPanel.Dock="Top"
+                        Style="{DynamicResource HorizontalStackPanel}">
+
+				<ComboBox Style="{DynamicResource Core.HeaderComboBox}"
+                          ItemsSource="{Binding Categories.Items}"
+                          SelectedItem="{Binding Categories.SelectedItem}" />
+			</StackPanel>
+
+			<ListBox Style="{DynamicResource Core.VideoStyle}"
+                     ItemsSource="{Binding Videos}"
+                     ItemContainerStyle="{DynamicResource VideoViewModel.ItemContainerStyle}" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>

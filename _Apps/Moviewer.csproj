@@ -1,0 +1,52 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net7.0-windows10.0.17763.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <ApplicationIcon>Core.Windows\cinema.ico</ApplicationIcon>
+    <PackageIcon>cinema.ico</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="lib\nico-combo-setting.xml" />
+    <None Remove="lib\tube-combo-setting.xml" />
+    <None Remove="lib\view-combo-setting.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Core.Windows\cinema.ico" />
+    <Content Include="lib\view-combo-setting.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="lib\tube-combo-setting.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="lib\nico-combo-setting.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MahApps.Metro" Version="2.4.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.IO\TBird.IO.csproj" />
+    <ProjectReference Include="..\TBird.Web\TBird.Web.csproj" />
+    <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Core.Windows\cinema.ico">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="lang\moviewer-language.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

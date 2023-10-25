@@ -1,0 +1,41 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:mocore="clr-namespace:Moviewer.Core"
+					xmlns:mostyl="clr-namespace:Moviewer.Core.Styles"
+					xmlns:local="clr-namespace:Moviewer.Tube.Workspaces"
+					xmlns:beha="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf">
+
+	<DataTemplate DataType="{x:Type local:TubeTemporaryViewModel}">
+		<DockPanel>
+
+			<DockPanel DockPanel.Dock="Top">
+
+				<mostyl:IconPacksButton DockPanel.Dock="Left"
+                                        Style="{DynamicResource Core.HorizontalIconPackButton}"
+                                        Kind="BookmarkPlus"
+                                        Text="{x:Static mocore:AppConst.L_AddTemporary}"
+                                        Command="{Binding OnTemporaryAdd}" />
+
+				<mostyl:IconPacksButton DockPanel.Dock="Right"
+                                        Margin="3,0"
+                                        beha:FrameworkElementBehavior.Width="35"
+                                        Command="{Binding OnDeleteSelectedUser}"
+                                        Kind="Close" />
+
+				<ComboBox DockPanel.Dock="Right"
+                          beha:FrameworkElementBehavior.Width="200"
+                          Style="{DynamicResource DefaultComboBox.Custom}"
+                          ItemsSource="{Binding Users}"
+                          ItemTemplate="{DynamicResource UserViewModel.Combo}"
+                          SelectedItem="{Binding SelectedUser}" />
+
+				<StackPanel />
+			</DockPanel>
+
+			<ListBox Style="{DynamicResource Core.VideoStyle}"
+                     beha:FrameworkElementBehavior.DragDrop="{Binding OnDrop}"
+                     ItemsSource="{Binding Videos}"
+                     ItemContainerStyle="{DynamicResource VideoViewModel.ItemContainerStyle}" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>
