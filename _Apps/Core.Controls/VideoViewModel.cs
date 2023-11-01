@@ -59,6 +59,7 @@ namespace Moviewer.Core.Controls
 			}, nameof(m.Status), true);
 
 			Loaded.Add(SetThumbnail);
+			Loaded.Add(UserInfo.OnLoaded.Execute);
 
 			AddDisposed((sender, e) =>
 			{

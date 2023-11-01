@@ -39,8 +39,7 @@
 	</DataTemplate>
 
 	<DataTemplate x:Key="UserViewModel.Video" DataType="{x:Type moctrl:UserViewModel}">
-		<DockPanel MinWidth="200"
-				   beha:FrameworkElementBehavior.Loaded="{Binding OnLoaded}">
+		<DockPanel MinWidth="200">
 
 			<ContentControl DockPanel.Dock="Left"
                             beha:FrameworkElementBehavior.Width="35"
