@@ -66,7 +66,7 @@ namespace TBird.Wpf.Controls
 		public bool IsRequired
 		{
 			get => _IsRequired;
-			set => SetProperty(ref _IsRequired, IsRequired);
+			set => SetProperty(ref _IsRequired, value);
 		}
 		private bool _IsRequired;
 
