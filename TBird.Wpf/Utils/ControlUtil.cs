@@ -136,7 +136,13 @@ namespace TBird.Wpf
 
 		public static BitmapImage GetImage(byte[] bytes)
 		{
-			using (WrappingStream stream = new WrappingStream(new MemoryStream(bytes)))
+			return GetImage(new MemoryStream(bytes));
+		}
+
+		public static BitmapImage GetImage(Stream input)
+		{
+			using (input)
+			using (WrappingStream stream = new WrappingStream(input))
 			{
 				BitmapImage bitmap = new BitmapImage();
 				bitmap.BeginInit();

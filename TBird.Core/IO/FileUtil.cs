@@ -8,7 +8,7 @@ namespace TBird.Core
 {
 	public static class FileUtil
 	{
-		private static string ToShort(string s) => Win32Methods.GetShortPathName(s);
+		private static string ToShort(string s) => Directories.GetShortPathName(s);
 
 		/// <summary>
 		/// 対象のﾊﾟｽ名に使用できない文字が含まれていないか確認します。

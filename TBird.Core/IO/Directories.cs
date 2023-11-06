@@ -23,6 +23,9 @@ namespace TBird.Core
 		/// <summary>ﾐｭｰｼﾞｯｸﾌｫﾙﾀﾞ</summary>
 		public static string MusicDirectory => Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
 
+		/// <summary>一時ﾃﾞｨﾚｸﾄﾘ</summary>
+		public static string TemporaryDirectory => Path.GetTempPath();
+
 		/// <summary>ﾀﾞｳﾝﾛｰﾄﾞﾌｫﾙﾀﾞ</summary>
 		public static string DownloadDirectory
 		{
@@ -43,6 +46,11 @@ namespace TBird.Core
 		public static string GetAbsolutePath(string directory, string file)
 		{
 			return Path.Combine(GetAbsolutePath(directory), file);
+		}
+
+		public static string GetShortPathName(string path)
+		{
+			return Win32Methods.GetShortPathName(path);
 		}
 	}
 }

@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using TBird.Core;
-using TBird.IO.Img;
+using TBird.IO.Pdf;
 
-namespace ZIPConverter
+namespace PDF2ZIP
 {
 	internal class Process
 	{
@@ -38,76 +40,59 @@ namespace ZIPConverter
 
 		private static async Task<bool> Execute(int option, string arg)
 		{
-			var argdir = Path.GetDirectoryName(arg);
-			var argfile = Path.GetFileName(arg);
+			// 対象PDFﾌｧｲﾙ
+			var pdfpath = Directories.GetAbsolutePath(arg);
 
-			if (argdir is null || argfile is null)
+			if (!Path.GetExtension(pdfpath).ToLower().EndsWith("pdf"))
 			{
-				return true;
+				MessageService.Info("中断(非PDFﾌｧｲﾙ):" + arg);
+				return false;
 			}
 
-			// 作業用ﾃﾞｨﾚｸﾄﾘﾊﾟｽ
-			var tmpdir = Path.GetTempPath();
-			// 画像変換のための一時ﾃﾞｨﾚｸﾄﾘ
-			var tmp1 = Path.Combine(tmpdir, Guid.NewGuid().ToString());
-			// zip圧縮用ﾌｧｲﾙ名
-			var tmp2 = Path.Combine(tmpdir, argfile);
-			var zip = tmp2 + ".zip";
+			// 作業中のPDFﾌｧｲﾙﾊﾟｽ
+			var pdftemp = Path.Combine(Directories.TemporaryDirectory, $"{Guid.NewGuid()}.pdf");
+			// 作業中のﾃﾞｨﾚｸﾄﾘ
+			var dirtemp = FileUtil.GetFileNameWithoutExtension(pdftemp);
+			// 処理後のﾃﾞｨﾚｸﾄﾘ
+			var dircomp = FileUtil.GetFileNameWithoutExtension(pdfpath);
 
 			try
 			{
 				MessageService.Info("***** 開始:" + arg);
 
-				DirectoryUtil.Create(tmp1);
+				// 作業用ﾃﾞｨﾚｸﾄﾘ作成
+				DirectoryUtil.Create(dirtemp);
 
 				MessageService.Info("終了(作業用ﾃﾞｨﾚｸﾄﾘ作成):" + arg);
 
-				// 対象ﾌｧｲﾙを作業用ﾃﾞｨﾚｸﾄﾘにｺﾋﾟｰ
-				var copyfiles = GetFiles(arg).Select(async (x, i) =>
-				{
-					var dst = Path.Combine(tmp1, string.Format("{0,0:D8}", i) + Path.GetExtension(x));
-					await FileUtil.CopyAsync(x, dst);
-				});
-				await Task.WhenAll(copyfiles);
+				// PDFﾌｧｲﾙを一時ﾃﾞｨﾚｸﾄﾘにｺﾋﾟｰ(且つ、半角英数で構成されたﾌｧｲﾙ名にする)
+				await FileUtil.CopyAsync(pdfpath, pdftemp);
 
 				MessageService.Info("終了(作業ﾌｧｲﾙｺﾋﾟｰ):" + arg);
 
-				if (option == 0)
-				{
-					if (!await NConvert(tmp1))
-					{
-						MessageService.Info("異常(NConvert):" + arg);
-						return false;
-					}
+				// 単一ｲﾝｽﾀﾝｽで全ﾍﾟｰｼﾞJPG化すると遅いので設定ﾌｧｲﾙで指定したﾍﾟｰｼﾞ数で処理を分ける
+				await PdfUtil.PDF2JPG2(pdftemp, AppSetting.Instance.NumberOfParallel, AppSetting.Instance.Dpi, AppSetting.Instance.Quality);
 
-					MessageService.Info("終了(NConvert):" + arg);
-				}
+				//// ﾌｧｲﾙ名を連番にする。
+				//var i = 0; foreach (var x in DirectoryUtil.GetFiles(dirtemp))
+				//{
+				//	FileUtil.Move(x, Path.Combine(dirtemp, string.Format("{0,0:D7}", i++) + Path.GetExtension(x)));
+				//}
 
-				// ﾌｧｲﾙ名を連番にする。
-				var i = 0; foreach (var x in DirectoryUtil.GetFiles(tmp1))
-				{
-					FileUtil.Move(x, Path.Combine(tmp1, string.Format("{0,0:D7}", i++) + Path.GetExtension(x)));
-				}
-
-				// 元のﾃﾞｨﾚｸﾄﾘ名に変更
-				DirectoryUtil.Move(tmp1, tmp2);
-
-				// zip圧縮
-				ZipUtil.CreateFromDirectory(tmp2, zip);
-
-				MessageService.Info("終了(ZIP):" + arg);
-
-				// 元の場所に移動
-				FileUtil.Move(zip, Path.Combine(argdir, Path.GetFileName(zip)));
+				// 処理後ﾃﾞｨﾚｸﾄﾘに移動
+				DirectoryUtil.Move(dirtemp, dircomp);
 
 				MessageService.Info("終了(移動):" + arg);
 
-				// 作業用ﾃﾞｨﾚｸﾄﾘ削除
-				DirectoryUtil.Delete(tmp1);
-				DirectoryUtil.Delete(tmp2);
+				// 作業用PDFﾌｧｲﾙを削除
+				FileUtil.Delete(pdftemp);
 
-				// 元のﾃﾞｨﾚｸﾄﾘ削除
-				DirectoryUtil.Delete(arg);
+				if (option == 1)
+				{
+					// 元のPDFﾌｧｲﾙを削除
+					FileUtil.Delete(pdfpath);
+					MessageService.Info("***** 元ﾌｧｲﾙ削除:" + arg);
+				}
 
 				MessageService.Info("***** 終了:" + arg);
 
@@ -120,82 +105,30 @@ namespace ZIPConverter
 			}
 			finally
 			{
-				// 作業用ﾃﾞｨﾚｸﾄﾘ削除
-				DirectoryUtil.Delete(tmp1);
-				DirectoryUtil.Delete(tmp2);
+				// 作業用ﾃﾞｨﾚｸﾄﾘ、及びﾌｧｲﾙ削除
+				FileUtil.Delete(pdftemp);
+				DirectoryUtil.Delete(dirtemp);
 			}
 		}
 
-		private static IEnumerable<string> GetFiles(string dir)
-		{
-			var targets = OrderBy(DirectoryUtil.GetFiles(dir))
-				.Select(OrganizeExtension)
-				.Where(x => x != null)
-				.OfType<string>()
-				.Where(x => !AppSetting.Instance.IgnoreFiles.Contains(Path.GetExtension(x)));
+		//private static IEnumerable<string> GetSettingIndexes(string pdffile)
+		//{
+		//	try
+		//	{
+		//		var pu = AppSetting.Instance.ProcessingUnit;
+		//		var pages = PdfUtil.GetNumberOfPages(pdffile);
+		//		return Enumerable.Range(0, (int)Math.Ceiling(pages / (double)pu)).Select(i =>
+		//		{
+		//			var min = i * pu + 1;
+		//			var max = (i + 1) * pu;
 
-			foreach (var f in targets)
-			{
-				yield return f;
-			}
-
-			var children = OrderBy(DirectoryUtil.GetDirectories(dir))
-				.Where(x => !AppSetting.Instance.IgnoreDirectories.Contains(Path.GetFileName(x)))
-				.SelectMany(GetFiles);
-
-			foreach (var f in children)
-			{
-				yield return f;
-			}
-		}
-
-		private static IEnumerable<string> OrderBy(string[] bases)
-		{
-			return bases.OrderBy(x =>
-			{
-				x = Regex.Replace(x, @"^[a-zA-Z]*cover[a-zA-Z]*", m => "!!!");
-				x = Regex.Replace(x, @"[0-9]{1,8}", m => string.Format("{0,0:D8}", long.Parse(m.Value)));
-				return x;
-			});
-		}
-
-		private static string? OrganizeExtension(string file)
-		{
-			var src = Path.GetExtension(file);
-			var dst = ImgUtil.GetEncodedExtension(file);
-
-			if (dst == null)
-			{
-				return null;
-			}
-
-			if (src.ToLower() != dst.ToLower())
-			{
-				var tmp = $"{FileUtil.GetFileNameWithoutExtension(file)}{dst}";
-				FileUtil.Move(file, tmp);
-				return tmp;
-			}
-			else
-			{
-				return file;
-			}
-
-		}
-
-		private static async Task<bool> NConvert(string dir)
-		{
-			return await DirectoryUtil.GetFiles(dir).AsParallel().Select(async x =>
-			{
-				await _sematmp.WaitAsync();
-
-				using (new Disposer<SemaphoreSlim>(_sematmp, arg => arg.Release()))
-				{
-					ImgUtil.ResizeUnder(x, 2400, 1350, 100);
-				}
-			}).WhenAll().TryCatch();
-		}
-
-		public static SemaphoreSlim _sematmp = new SemaphoreSlim(100);
-
+		//			return $"{min}-{(max < pages ? max : pages)}";
+		//		});
+		//	}
+		//	catch
+		//	{
+		//		return new[] { "0-0" };
+		//	}
+		//}
 	}
 }

@@ -1,5 +1,5 @@
 ﻿using TBird.Core;
-using ZIPConverter;
+using PDF2ZIP;
 
 /* **************************************************
  *  ﾒｲﾝﾒｿｯﾄﾞ
@@ -8,8 +8,8 @@ using ZIPConverter;
 // 引数で/sourcefilepathを与えている
 // ｵﾌﾟｼｮﾝを選択
 Console.WriteLine("起動ｵﾌﾟｼｮﾝを選択してください。");
-Console.WriteLine("0: 全て実行する。");
-Console.WriteLine("1: 画像縮小をｽｷｯﾌﾟする。");
+Console.WriteLine($"0: 元となるPDFﾌｧｲﾙを残す。");
+Console.WriteLine($"1: 処理が完了したらPDFﾌｧｲﾙを削除する。");
 Console.WriteLine($"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}");
 
 // ｵﾌﾟｼｮﾝを選択

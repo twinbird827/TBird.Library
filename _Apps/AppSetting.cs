@@ -1,6 +1,6 @@
 ﻿using TBird.Core;
 
-namespace ZIPConverter
+namespace PDF2ZIP
 {
 	public class AppSetting : JsonBase<AppSetting>
 	{
@@ -13,43 +13,14 @@ namespace ZIPConverter
 				// ｵﾌﾟｼｮﾝ
 				Option = 0;
 
-				// 並行処理数
-				ParallelCount = 10;
+				// 並列処理数
+				NumberOfParallel = 100;
 
-				// NConvert ﾌｧｲﾙﾊﾟｽ
-				NConvertPath = "nconvert.exe";
+				// 一度に処理するﾍﾟｰｼﾞ数
+				Dpi = 96 * 3;
 
-				/*
-				 * NConvert Option
-				 * -D           元のﾌｧｲﾙを削除する
-				 * -q 80        圧縮率[0 - 100]を指定する
-				 * -opthuff     ﾊﾌﾏﾝﾃｰﾌﾞﾙを最適化する。
-				 * -ratio       元のｲﾒｰｼﾞの比率を保持する
-				 * -rflag decr  減少方向でﾘｻｲｽﾞする
-				 * -resize h w  ﾘｻｲｽﾞpx h = 高さ, w = 幅
-				 * -out jpeg    変換後の画像形式
-				 * https://geolog.mydns.jp/www.geocities.co.jp/xnviewja/nconvert.html
-				 **/
-				NConvertOption = "-D -q 80 -opthuff -ratio -rflag decr -resize 1350px 2400px -out jpeg";
-
-				// 除外するﾃﾞｨﾚｸﾄﾘ
-				IgnoreDirectories = new[]
-				{
-					"単ページ"
-				};
-
-				// 除外するﾌｧｲﾙ拡張子
-				IgnoreFiles = new[]
-				{
-					".db",
-					".dll",
-					".htm",
-					".lnk",
-					".url",
-					".html",
-					".shtml",
-					".txt"
-				};
+				// 品質
+				Quality = 100;
 			}
 		}
 
@@ -64,54 +35,34 @@ namespace ZIPConverter
 		private int _Option;
 
 		/// <summary>
-		/// 並行処理数
+		/// 並列処理数
 		/// </summary>
-		public int ParallelCount
+		public int NumberOfParallel
 		{
-			get => GetProperty(_ParallelCount);
-			set => SetProperty(ref _ParallelCount, value);
+			get => GetProperty(_NumberOfParallel);
+			set => SetProperty(ref _NumberOfParallel, value);
 		}
-		private int _ParallelCount;
+		private int _NumberOfParallel;
 
 		/// <summary>
-		/// NConvertﾌｧｲﾙﾊﾟｽ
+		/// 処理数
 		/// </summary>
-		public string NConvertPath
+		public double Dpi
 		{
-			get => GetProperty(_NConvertPath);
-			set => SetProperty(ref _NConvertPath, value);
+			get => GetProperty(_Dpi);
+			set => SetProperty(ref _Dpi, value);
 		}
-		private string _NConvertPath = string.Empty;
+		private double _Dpi;
 
 		/// <summary>
-		/// NConvertｵﾌﾟｼｮﾝ
+		/// 処理数
 		/// </summary>
-		public string NConvertOption
+		public int Quality
 		{
-			get => GetProperty(_NConvertOption);
-			set => SetProperty(ref _NConvertOption, value);
+			get => GetProperty(_Quality);
+			set => SetProperty(ref _Quality, value);
 		}
-		private string _NConvertOption = string.Empty;
-
-		/// <summary>
-		/// 除外するﾃﾞｨﾚｸﾄﾘ
-		/// </summary>
-		public string[] IgnoreDirectories
-		{
-			get => GetProperty(_IgnoreDirectories);
-			set => SetProperty(ref _IgnoreDirectories, value);
-		}
-		private string[] _IgnoreDirectories = new string[] { };
-
-		/// <summary>
-		/// 除外するﾌｧｲﾙ拡張子
-		/// </summary>
-		public string[] IgnoreFiles
-		{
-			get => GetProperty(_IgnoreFiles);
-			set => SetProperty(ref _IgnoreFiles, value);
-		}
-		private string[] _IgnoreFiles = new string[] { };
+		private int _Quality;
 
 	}
 }
