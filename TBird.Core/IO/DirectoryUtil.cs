@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace TBird.Core
@@ -135,6 +136,18 @@ namespace TBird.Core
 			return Directory.Exists(ToShort(directory))
 				? Directory.GetDirectories(ToShort(directory), pattern)
 				: new string[] { };
+		}
+
+		/// <summary>
+		/// ﾌｧｲﾙ名を連番付きにします。
+		/// </summary>
+		/// <param name="directory">対象ﾌｧｲﾙを格納したﾃﾞｨﾚｸﾄﾘ</param>
+		public static void OrganizeNumber(string directory)
+		{
+			var i = 1; foreach (var x in GetFiles(directory).OrderBy(x => Regex.Replace(x, @"[0-9]{1,8}", m => m.Value.GetInt32().ToString(8))))
+			{
+				FileUtil.Move(x, Path.Combine(directory, i++.ToString(8) + Path.GetExtension(x)));
+			}
 		}
 	}
 }
