@@ -1,6 +1,6 @@
 ﻿using TBird.Core;
 
-namespace PDF2ZIP
+namespace PDF2JPG
 {
 	public class AppSetting : JsonBase<AppSetting>
 	{
@@ -11,13 +11,13 @@ namespace PDF2ZIP
 			if (!Load())
 			{
 				// ｵﾌﾟｼｮﾝ
-				Option = 0;
+				Option = 1;
 
-				// 並列処理数
-				NumberOfParallel = 100;
+				// 一度に処理するﾌｧｲﾙ数
+				NumberOfParallel = 10;
 
-				// 一度に処理するﾍﾟｰｼﾞ数
-				Dpi = 96 * 3;
+				// 解像度
+				Dpi = 384;
 
 				// 品質
 				Quality = 100;
@@ -45,17 +45,17 @@ namespace PDF2ZIP
 		private int _NumberOfParallel;
 
 		/// <summary>
-		/// 処理数
+		/// 解像度
 		/// </summary>
-		public double Dpi
+		public int Dpi
 		{
 			get => GetProperty(_Dpi);
 			set => SetProperty(ref _Dpi, value);
 		}
-		private double _Dpi;
+		private int _Dpi;
 
 		/// <summary>
-		/// 処理数
+		/// 品質
 		/// </summary>
 		public int Quality
 		{

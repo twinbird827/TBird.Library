@@ -1,13 +1,10 @@
 ﻿using System.Diagnostics;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 using TBird.Core;
 using TBird.IO.Pdf;
 
-namespace PDF2ZIP
+namespace PDF2JPG
 {
-	internal class Process
+	internal class MyCode
 	{
 		public static int GetOption(string? line)
 		{
@@ -52,9 +49,9 @@ namespace PDF2ZIP
 			// 作業中のPDFﾌｧｲﾙﾊﾟｽ
 			var pdftemp = Path.Combine(Directories.TemporaryDirectory, $"{Guid.NewGuid()}.pdf");
 			// 作業中のﾃﾞｨﾚｸﾄﾘ
-			var dirtemp = FileUtil.GetFileNameWithoutExtension(pdftemp);
+			var dirtemp = FileUtil.GetFullPathWithoutExtension(pdftemp);
 			// 処理後のﾃﾞｨﾚｸﾄﾘ
-			var dircomp = FileUtil.GetFileNameWithoutExtension(pdfpath);
+			var dircomp = FileUtil.GetFullPathWithoutExtension(pdfpath);
 
 			try
 			{
@@ -71,13 +68,13 @@ namespace PDF2ZIP
 				MessageService.Info("終了(作業ﾌｧｲﾙｺﾋﾟｰ):" + arg);
 
 				// 単一ｲﾝｽﾀﾝｽで全ﾍﾟｰｼﾞJPG化すると遅いので設定ﾌｧｲﾙで指定したﾍﾟｰｼﾞ数で処理を分ける
-				await PdfUtil.PDF2JPG2(pdftemp, AppSetting.Instance.NumberOfParallel, AppSetting.Instance.Dpi, AppSetting.Instance.Quality);
+				await PDF2JPG(pdftemp, AppSetting.Instance.NumberOfParallel);
 
-				//// ﾌｧｲﾙ名を連番にする。
-				//var i = 0; foreach (var x in DirectoryUtil.GetFiles(dirtemp))
-				//{
-				//	FileUtil.Move(x, Path.Combine(dirtemp, string.Format("{0,0:D7}", i++) + Path.GetExtension(x)));
-				//}
+				// ﾌｧｲﾙ名を連番にする。
+				var i = 0; foreach (var x in DirectoryUtil.GetFiles(dirtemp))
+				{
+					FileUtil.Move(x, Path.Combine(dirtemp, i++.ToString(7) + Path.GetExtension(x)));
+				}
 
 				// 処理後ﾃﾞｨﾚｸﾄﾘに移動
 				DirectoryUtil.Move(dirtemp, dircomp);
@@ -111,24 +108,35 @@ namespace PDF2ZIP
 			}
 		}
 
-		//private static IEnumerable<string> GetSettingIndexes(string pdffile)
-		//{
-		//	try
-		//	{
-		//		var pu = AppSetting.Instance.ProcessingUnit;
-		//		var pages = PdfUtil.GetNumberOfPages(pdffile);
-		//		return Enumerable.Range(0, (int)Math.Ceiling(pages / (double)pu)).Select(i =>
-		//		{
-		//			var min = i * pu + 1;
-		//			var max = (i + 1) * pu;
+		public const string Key = "PDF2JPG.GENERATE";
 
-		//			return $"{min}-{(max < pages ? max : pages)}";
-		//		});
-		//	}
-		//	catch
-		//	{
-		//		return new[] { "0-0" };
-		//	}
-		//}
+		private static async Task PDF2JPG(string pdffile, int parallel)
+		{
+			var pagesize = (double)await PdfUtil.GetPageSize(pdffile);
+			var split = (int)Math.Ceiling(pagesize.Divide(parallel));
+
+			await Enumerable.Range(0, split).AsParallel().Select(i => Task.Run(() =>
+			{
+				var min = i * parallel + 1;
+				var max = Math.Min((i + 1) * parallel, pagesize);
+
+				MessageService.Info($"処理中:{pdffile} {min} - {max} / {pagesize}");
+
+				// 識別子付きで本ﾌﾟﾛｸﾞﾗﾑを実行し直すことで別ﾌﾟﾛｾｽで非同期的にPDFをJPGに変換する。
+				CoreUtil.Execute(new ProcessStartInfo()
+				{
+					FileName = Process.GetCurrentProcess().MainModule?.FileName,
+					CreateNoWindow = true,
+					Arguments = $"{Key} \"{pdffile}\" {min} {max}",
+					UseShellExecute = false
+				});
+			})).WhenAll();
+		}
+
+		public static void PDF2JPG(string pdffile, string min, string max)
+		{
+			// 別ﾌﾟﾛｾｽで実行される処理
+			PdfUtil.PDF2JPG(pdffile, min.GetInt32(), max.GetInt32(), AppSetting.Instance.Dpi);
+		}
 	}
 }
