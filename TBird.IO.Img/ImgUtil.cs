@@ -1,10 +1,6 @@
 ﻿using SkiaSharp;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
-using System.Text;
 using TBird.Core;
 
 namespace TBird.IO.Img
@@ -41,7 +37,7 @@ namespace TBird.IO.Img
 		}
 
 		/// <summary>
-		/// 指定した幅及び高さを超えるにﾘｻｲｽﾞします。
+		/// 指定した幅及び高さを超えるようにﾘｻｲｽﾞします。
 		/// </summary>
 		/// <param name="src">画像ﾌｧｲﾙﾊﾟｽ</param>
 		/// <param name="width">幅</param>
@@ -86,7 +82,7 @@ namespace TBird.IO.Img
 					(int)scale.Multiply(before.Height)
 				);
 
-				using (var afterwriter = File.OpenWrite(FileUtil.GetFileNameWithoutExtension(src) + ".jpeg"))
+				using (var afterwriter = File.OpenWrite(FileUtil.GetFullPathWithoutExtension(src) + ".jpeg"))
 				using (var after = before.Resize(info, SKFilterQuality.High))
 				{
 					after.Encode(afterwriter, SKEncodedImageFormat.Jpeg, quality);
