@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
-    <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
   </ItemGroup>
 
 </Project>
