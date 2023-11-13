@@ -116,7 +116,7 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="file">ﾌｧｲﾙ名</param>
 		/// <returns></returns>
-		public static string GetFileNameWithoutExtension(string file)
+		public static string GetFullPathWithoutExtension(string file)
 		{
 			return file.Left(file.Length - Path.GetExtension(file).Length);
 		}
