@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing.Imaging;
+﻿using GhostscriptSharp;
+using GhostscriptSharp.Settings;
+using System;
+using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Controls;
-using System.Windows.Forms;
-using System.Windows.Media.Imaging;
 using TBird.Core;
-using TBird.Wpf;
 using Windows.Data.Pdf;
 
 namespace TBird.IO.Pdf
@@ -18,76 +13,47 @@ namespace TBird.IO.Pdf
 {
 	public static class PdfUtil
 	{
-		public static async Task PDF2JPG2(string pdffile, int parallel, double dpi, int quality)
+		public static async Task<int> GetPageSize(string pdffile)
 		{
-			var jpgdir = FileUtil.GetFileNameWithoutExtension(pdffile);
-
 			using (var pdfStream = File.OpenRead(pdffile))
 			using (var winrtStream = pdfStream.AsRandomAccessStream())
 			{
 				var doc = await PdfDocument.LoadFromStreamAsync(winrtStream);
-				for (var i = 0u; i < doc.PageCount; i++)
-				{
-					using (var page = doc.GetPage(i))
-					using (var memStream = new WrappingStream(new MemoryStream()))
-					using (var outStream = memStream.AsRandomAccessStream())
-					{
-						var jpgfile = Path.Combine(jpgdir, string.Format("{0,0:D7}", i) + ".bmp");
-						await page.RenderToStreamAsync(outStream);
-
-						using (var image = System.Drawing.Image.FromStream(memStream))
-						{
-							image.Save(jpgfile, ImageFormat.Bmp);
-						}
-					}
-				}
+				return (int)doc.PageCount;
 			}
 		}
 
-		public static async Task PDF2JPG(string pdffile, int parallel, double dpi, int quality)
+		public static async Task PDF2JPG(string pdffile, int parallel, int dpi)
 		{
-			var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(pdffile);
-			using (var stream = await file.OpenReadAsync())
+			var pagesize = await GetPageSize(pdffile);
+
+			await Enumerable.Range(0, parallel).AsParallel().Select(i => Task.Run(() =>
 			{
-				var pdf = await PdfDocument.LoadFromStreamAsync(stream);
+				var min = i * parallel + 1;
+				var max = Math.Min((i + 1) * parallel, pagesize);
 
-				var jpgdir = FileUtil.GetFileNameWithoutExtension(pdffile);
-				var semaphore = new SemaphoreSlim(parallel, parallel);
-
-				await Enumerable.Range(0, (int)pdf.PageCount).AsParallel().WithDegreeOfParallelism(parallel).Select(async i =>
-				{
-					using (var page = pdf.GetPage((uint)i))
-					{
-						var jpgfile = Path.Combine(jpgdir, string.Format("{0,0:D7}", i) + ".jpg");
-
-						await PDF2JPG(page, jpgfile, dpi, quality);
-					}
-				}).WhenAll().TryCatch();
-			}
+				PDF2JPG(pdffile, min, max, dpi);
+			})).WhenAll();
 		}
 
-		private static async Task PDF2JPG(PdfPage page, string jpgfile, double dpi, int quality)
+		public static void PDF2JPG(string pdffile, int begin, int end, int dpi)
 		{
-			var options = new PdfPageRenderOptions();
-			options.DestinationHeight = (uint)Math.Round(page.Size.Height * (dpi / 96.0), MidpointRounding.AwayFromZero);
+			var jpgdir = FileUtil.GetFullPathWithoutExtension(pdffile);
+			var jpgexp = $"{begin}-{end}-%d.jpeg";
 
-			using (var access = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+			var setting = new GhostscriptSettings();
+
+			setting.Device = GhostscriptDevices.jpeg;
+			setting.Page.AllPages = false;
+			setting.Page.Start = begin;
+			setting.Page.End = end;
+			setting.Resolution = new Size(dpi, dpi);
+			setting.Size = new GhostscriptPageSize()
 			{
-				await page.RenderToStreamAsync(access, options);
+				Native = GhostscriptPageSizes.a1
+			};
 
-				var image = ControlUtil.GetImage(access.AsStream());
-
-				JpegBitmapEncoder encoder = new JpegBitmapEncoder();
-				encoder.QualityLevel = quality;
-				encoder.Frames.Add(BitmapFrame.Create(image));
-
-				FileUtil.BeforeCreate(jpgfile);
-
-				using (var fileStream = new FileStream(jpgfile, FileMode.Create, FileAccess.Write))
-				{
-					encoder.Save(fileStream);
-				}
-			}
+			GhostscriptWrapper.GenerateOutput(pdffile, Path.Combine(jpgdir, jpgexp), setting);
 		}
 	}
 }
