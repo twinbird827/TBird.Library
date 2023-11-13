@@ -11,7 +11,7 @@ namespace coretest
 		{
 			var x = @"c:\aaa\bbb\ccc.eee";
 			Console.WriteLine(Path.GetExtension(x));
-			Console.WriteLine(FileUtil.GetFileNameWithoutExtension(x));
+			Console.WriteLine(FileUtil.GetFullPathWithoutExtension(x));
 			Console.ReadLine();
 		}
 	}
