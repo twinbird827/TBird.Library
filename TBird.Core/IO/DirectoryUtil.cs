@@ -144,9 +144,14 @@ namespace TBird.Core
 		/// <param name="directory">対象ﾌｧｲﾙを格納したﾃﾞｨﾚｸﾄﾘ</param>
 		public static void OrganizeNumber(string directory)
 		{
-			var i = 1; foreach (var x in GetFiles(directory).OrderBy(x => Regex.Replace(x, @"[0-9]{1,8}", m => m.Value.GetInt32().ToString(8))))
+			var tmpfilebase = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + "-";
+			var i = 1; foreach (var x in GetFiles(directory).OrderBy(x => Regex.Replace(x, @"[0-9]{1,8}", m => m.Value.GetInt32().ToString(8))).ToArray())
 			{
-				FileUtil.Move(x, Path.Combine(directory, i++.ToString(8) + Path.GetExtension(x)));
+				FileUtil.Move(x, Path.Combine(directory, tmpfilebase + i++.ToString(8) + Path.GetExtension(x)));
+			}
+			var j = 1; foreach (var x in GetFiles(directory).OrderBy(x => Regex.Replace(x, @"[0-9]{1,8}", m => m.Value.GetInt32().ToString(8))).ToArray())
+			{
+				FileUtil.Move(x, Path.Combine(directory, j++.ToString(8) + Path.GetExtension(x)));
 			}
 		}
 	}
