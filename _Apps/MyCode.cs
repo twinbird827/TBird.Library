@@ -71,10 +71,7 @@ namespace PDF2JPG
 				await PDF2JPG(pdftemp, AppSetting.Instance.NumberOfParallel);
 
 				// ﾌｧｲﾙ名を連番にする。
-				var i = 0; foreach (var x in DirectoryUtil.GetFiles(dirtemp))
-				{
-					FileUtil.Move(x, Path.Combine(dirtemp, i++.ToString(7) + Path.GetExtension(x)));
-				}
+				DirectoryUtil.OrganizeNumber(dirtemp);
 
 				// 処理後ﾃﾞｨﾚｸﾄﾘに移動
 				DirectoryUtil.Move(dirtemp, dircomp);
