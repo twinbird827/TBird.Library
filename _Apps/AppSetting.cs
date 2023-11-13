@@ -14,23 +14,13 @@ namespace ZIPConverter
 				Option = 0;
 
 				// 並行処理数
-				ParallelCount = 10;
+				ParallelCount = 50;
 
-				// NConvert ﾌｧｲﾙﾊﾟｽ
-				NConvertPath = "nconvert.exe";
+				Width = 2400;
 
-				/*
-				 * NConvert Option
-				 * -D           元のﾌｧｲﾙを削除する
-				 * -q 80        圧縮率[0 - 100]を指定する
-				 * -opthuff     ﾊﾌﾏﾝﾃｰﾌﾞﾙを最適化する。
-				 * -ratio       元のｲﾒｰｼﾞの比率を保持する
-				 * -rflag decr  減少方向でﾘｻｲｽﾞする
-				 * -resize h w  ﾘｻｲｽﾞpx h = 高さ, w = 幅
-				 * -out jpeg    変換後の画像形式
-				 * https://geolog.mydns.jp/www.geocities.co.jp/xnviewja/nconvert.html
-				 **/
-				NConvertOption = "-D -q 80 -opthuff -ratio -rflag decr -resize 1350px 2400px -out jpeg";
+				Height = 1350;
+
+				Quality = 100;
 
 				// 除外するﾃﾞｨﾚｸﾄﾘ
 				IgnoreDirectories = new[]
@@ -74,24 +64,34 @@ namespace ZIPConverter
 		private int _ParallelCount;
 
 		/// <summary>
-		/// NConvertﾌｧｲﾙﾊﾟｽ
+		/// 並行処理数
 		/// </summary>
-		public string NConvertPath
+		public double Width
 		{
-			get => GetProperty(_NConvertPath);
-			set => SetProperty(ref _NConvertPath, value);
+			get => GetProperty(_Width);
+			set => SetProperty(ref _Width, value);
 		}
-		private string _NConvertPath = string.Empty;
+		private double _Width;
 
 		/// <summary>
-		/// NConvertｵﾌﾟｼｮﾝ
+		/// 並行処理数
 		/// </summary>
-		public string NConvertOption
+		public double Height
 		{
-			get => GetProperty(_NConvertOption);
-			set => SetProperty(ref _NConvertOption, value);
+			get => GetProperty(_Height);
+			set => SetProperty(ref _Height, value);
 		}
-		private string _NConvertOption = string.Empty;
+		private double _Height;
+
+		/// <summary>
+		/// 並行処理数
+		/// </summary>
+		public int Quality
+		{
+			get => GetProperty(_Quality);
+			set => SetProperty(ref _Quality, value);
+		}
+		private int _Quality;
 
 		/// <summary>
 		/// 除外するﾃﾞｨﾚｸﾄﾘ

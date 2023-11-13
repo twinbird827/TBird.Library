@@ -65,7 +65,7 @@ namespace ZIPConverter
 				// 対象ﾌｧｲﾙを作業用ﾃﾞｨﾚｸﾄﾘにｺﾋﾟｰ
 				var copyfiles = GetFiles(arg).Select(async (x, i) =>
 				{
-					var dst = Path.Combine(tmp1, string.Format("{0,0:D8}", i) + Path.GetExtension(x));
+					var dst = Path.Combine(tmp1, i.ToString(8) + Path.GetExtension(x));
 					await FileUtil.CopyAsync(x, dst);
 				});
 				await Task.WhenAll(copyfiles);
@@ -74,20 +74,17 @@ namespace ZIPConverter
 
 				if (option == 0)
 				{
-					if (!await NConvert(tmp1))
+					if (!await ResizeJPG(tmp1))
 					{
-						MessageService.Info("異常(NConvert):" + arg);
+						MessageService.Info("異常(ResizeJPG):" + arg);
 						return false;
 					}
 
-					MessageService.Info("終了(NConvert):" + arg);
+					MessageService.Info("終了(ResizeJPG):" + arg);
 				}
 
 				// ﾌｧｲﾙ名を連番にする。
-				var i = 0; foreach (var x in DirectoryUtil.GetFiles(tmp1))
-				{
-					FileUtil.Move(x, Path.Combine(tmp1, string.Format("{0,0:D7}", i++) + Path.GetExtension(x)));
-				}
+				DirectoryUtil.OrganizeNumber(tmp1);
 
 				// 元のﾃﾞｨﾚｸﾄﾘ名に変更
 				DirectoryUtil.Move(tmp1, tmp2);
@@ -171,7 +168,7 @@ namespace ZIPConverter
 
 			if (src.ToLower() != dst.ToLower())
 			{
-				var tmp = $"{FileUtil.GetFileNameWithoutExtension(file)}{dst}";
+				var tmp = $"{FileUtil.GetFullPathWithoutExtension(file)}{dst}";
 				FileUtil.Move(file, tmp);
 				return tmp;
 			}
@@ -182,7 +179,7 @@ namespace ZIPConverter
 
 		}
 
-		private static async Task<bool> NConvert(string dir)
+		private static async Task<bool> ResizeJPG(string dir)
 		{
 			return await DirectoryUtil.GetFiles(dir).AsParallel().Select(async x =>
 			{
@@ -190,12 +187,12 @@ namespace ZIPConverter
 
 				using (new Disposer<SemaphoreSlim>(_sematmp, arg => arg.Release()))
 				{
-					ImgUtil.ResizeUnder(x, 2400, 1350, 100);
+					ImgUtil.ResizeUnder(x, AppSetting.Instance.Width, AppSetting.Instance.Height, AppSetting.Instance.Quality);
 				}
 			}).WhenAll().TryCatch();
 		}
 
-		public static SemaphoreSlim _sematmp = new SemaphoreSlim(100);
+		public static SemaphoreSlim _sematmp = new SemaphoreSlim(AppSetting.Instance.ParallelCount, AppSetting.Instance.ParallelCount);
 
 	}
 }
