@@ -10,12 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="custom.css" />
+    <None Remove="style.css" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="450869f825d0e2c7d7d1053827303cb3_xxo.ico" />
-    <Content Include="custom.css">
+    <Content Include="style.css">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -26,6 +26,10 @@
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
+  </Target>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="rd &quot;$(TargetDir)&quot; /s /q" />
   </Target>
 
 </Project>

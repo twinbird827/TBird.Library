@@ -5,7 +5,7 @@ using EBook2PDF;
  *  ﾒｲﾝﾒｿｯﾄﾞ
  ************************************************** */
 
-var task = Process.Execute(args);
+var task = MyCode.Execute(args);
 
 if (!task.TryCatch().Result)
 {

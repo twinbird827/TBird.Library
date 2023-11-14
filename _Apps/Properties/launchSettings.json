@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EBook2PDF": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Work\\Temp"
+    }
+  }
+}
