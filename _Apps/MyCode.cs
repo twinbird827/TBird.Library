@@ -109,7 +109,7 @@ namespace PDF2JPG
 
 		private static async Task PDF2JPG(string pdffile, int parallel)
 		{
-			var pagesize = (double)await PdfUtil.GetPageSize(pdffile);
+			var pagesize = (double)PdfUtil.GetPageSize(pdffile);
 			var split = (int)Math.Ceiling(pagesize.Divide(parallel));
 
 			await Enumerable.Range(0, split).AsParallel().Select(i => Task.Run(() =>
