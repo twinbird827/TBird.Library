@@ -10,7 +10,6 @@ using TBird.Core;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
-using WinCopies.Util;
 
 namespace Moviewer.Tube.Workspaces
 {
