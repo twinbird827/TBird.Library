@@ -31,5 +31,14 @@ namespace TBird.Core
 			await TaskUtil.WaitAsync(() => CreateFromDirectory(src, dst, level, includeBaseDirectory));
 		}
 
+		public static void ExtractToDirectory(string src)
+		{
+			ExtractToDirectory(src, FileUtil.GetFullPathWithoutExtension(src));
+		}
+
+		public static void ExtractToDirectory(string src, string dst)
+		{
+			ZipFile.ExtractToDirectory(src, dst);
+		}
 	}
 }

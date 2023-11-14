@@ -25,24 +25,54 @@ namespace EBook2PDF
 
 		private static bool Execute(string file)
 		{
-			var builder = new StringBuilder();
-			var format = $"\"{AppSetting.Instance.Calibre}\" \"{file}\" \"{{0}}\"";
+			//var builder = new StringBuilder();
+			//var format = $"\"{AppSetting.Instance.Calibre}\" \"{file}\" \"{{0}}\"";
 			var epub = FileUtil.GetFullPathWithoutExtension(file) + ".epub";
 			var htmlz = FileUtil.GetFullPathWithoutExtension(file) + ".htmlz";
 
-			builder.AppendLine(string.Format(format, epub));
-			builder.AppendLine(string.Format(format, htmlz));
+			//builder.AppendLine(string.Format(format, epub));
+			//builder.AppendLine(string.Format(format, htmlz));
 
-			var tmpfile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".bat");
+			//var tmpfile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".bat");
 
-			File.AppendAllText(tmpfile, builder.ToString());
+			//File.AppendAllText(tmpfile, builder.ToString());
 
-			CoreUtil.Execute(new ProcessStartInfo()
+			//CoreUtil.Execute(new ProcessStartInfo()
+			//{
+			//	FileName = tmpfile
+			//});
+
+			//FileUtil.Delete(tmpfile);
+
+			var pis = new[]
 			{
-				FileName = tmpfile
+				new ProcessStartInfo()
+				{
+					Arguments = $"\"{file}\" \"{epub}\"",
+				},
+				new ProcessStartInfo()
+				{
+					Arguments = $"\"{file}\" \"{htmlz}\"",
+				}
+			};
+
+			pis.ForEach(x =>
+			{
+				x.WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.Calibre);
+				x.FileName = AppSetting.Instance.Calibre;
+				x.UseShellExecute = false;
+				x.CreateNoWindow = true;
+				x.RedirectStandardOutput = true;
+
+				using (var process = Process.Start(x)) if (process != null)
+				{
+					Console.WriteLine(process.StandardOutput.ReadToEnd());
+					process.WaitForExit();
+				}
+
 			});
 
-			FileUtil.Delete(tmpfile);
+			ZipUtil.ExtractToDirectory(htmlz);
 
 			return true;
 		}
