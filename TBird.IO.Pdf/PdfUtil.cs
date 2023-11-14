@@ -6,26 +6,20 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using TBird.Core;
-using Windows.Data.Pdf;
 
 namespace TBird.IO.Pdf
 
 {
 	public static class PdfUtil
 	{
-		public static async Task<int> GetPageSize(string pdffile)
+		public static int GetPageSize(string pdffile)
 		{
-			using (var pdfStream = File.OpenRead(pdffile))
-			using (var winrtStream = pdfStream.AsRandomAccessStream())
-			{
-				var doc = await PdfDocument.LoadFromStreamAsync(winrtStream);
-				return (int)doc.PageCount;
-			}
+			return GhostscriptWrapper.GetPageSize(pdffile);
 		}
 
 		public static async Task PDF2JPG(string pdffile, int parallel, int dpi)
 		{
-			var pagesize = await GetPageSize(pdffile);
+			var pagesize = GetPageSize(pdffile);
 
 			await Enumerable.Range(0, parallel).AsParallel().Select(i => Task.Run(() =>
 			{
