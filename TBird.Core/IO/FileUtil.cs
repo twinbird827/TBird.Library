@@ -112,13 +112,24 @@ namespace TBird.Core
 		}
 
 		/// <summary>
-		/// 拡張子を除いたﾌｧｲﾙ名を取得します。
+		/// 拡張子を除いたﾌｧｲﾙﾊﾟｽを取得します。
 		/// </summary>
-		/// <param name="file">ﾌｧｲﾙ名</param>
+		/// <param name="file">ﾌｧｲﾙﾊﾟｽ</param>
 		/// <returns></returns>
 		public static string GetFullPathWithoutExtension(string file)
 		{
 			return file.Left(file.Length - Path.GetExtension(file).Length);
 		}
+
+		/// <summary>
+		/// 拡張子を除いたﾌｧｲﾙﾊﾟｽを取得します。
+		/// </summary>
+		/// <param name="file">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <returns></returns>
+		public static string GetFileNameWithoutExtension(string file)
+		{
+			return Path.GetFileNameWithoutExtension(file);
+		}
+
 	}
 }
