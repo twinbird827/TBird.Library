@@ -10,7 +10,11 @@ namespace EBook2PDF
 		{
 			if (!Load())
 			{
+				// 変換実行ﾌｧｲﾙ
 				Calibre = @"C:\Program Files\Calibre2\ebook-convert.exe";
+
+				// 変換結果格納ﾃﾞｨﾚｸﾄﾘ
+				OutputDir = Directories.DownloadDirectory;
 			}
 		}
 
@@ -20,6 +24,13 @@ namespace EBook2PDF
 			set => SetProperty(ref _Calibre, value);
 		}
 		private string _Calibre = string.Empty;
+
+		public string OutputDir
+		{
+			get => GetProperty(_OutputDir);
+			set => SetProperty(ref _OutputDir, value);
+		}
+		private string _OutputDir = string.Empty;
 
 	}
 }

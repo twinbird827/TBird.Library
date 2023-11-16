@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using TBird.Core;
+using TBird.IO.Html;
 
 namespace EBook2PDF
 {
@@ -10,69 +11,82 @@ namespace EBook2PDF
 		public static async Task Execute(string[] args)
 		{
 			await Task.Delay(1);
-
-			var executes = args.SelectMany(GetFiles).AsParallel().Select(Execute);
-
-			// 実行ﾊﾟﾗﾒｰﾀに対して処理実行
-			var results = executes;
-
-			if (results.Contains(false))
+			await HeadlessWebView2.Call(new Uri("https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/how-to/print?tabs=dotnetcsharp"), webview2 =>
 			{
-				// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
-				Console.ReadLine();
-			}
+				return webview2.CoreWebView2.PrintToPdfAsync(@"C:\work\temp\" + DateTime.Now.ToString("yyMMhh-HHmmss") + ".pdf");
+			});
+			//var executes = await args
+			//	.SelectMany(GetFiles)
+			//	.AsParallel()
+			//	.Select(Execute)
+			//	.WhenAll();
+
+			//// 実行ﾊﾟﾗﾒｰﾀに対して処理実行
+			//var results = executes;
+
+			//if (results.Contains(false))
+			//{
+			//	// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
+			//	Console.ReadLine();
+			//}
 		}
 
-		private static bool Execute(string file)
+		private static async Task<bool> Execute(string src)
 		{
-			//var builder = new StringBuilder();
-			//var format = $"\"{AppSetting.Instance.Calibre}\" \"{file}\" \"{{0}}\"";
-			var epub = FileUtil.GetFullPathWithoutExtension(file) + ".epub";
-			var htmlz = FileUtil.GetFullPathWithoutExtension(file) + ".htmlz";
+			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
+			var epub = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".epub");
+			var htmlz = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".htmlz");
 
-			//builder.AppendLine(string.Format(format, epub));
-			//builder.AppendLine(string.Format(format, htmlz));
-
-			//var tmpfile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".bat");
-
-			//File.AppendAllText(tmpfile, builder.ToString());
-
-			//CoreUtil.Execute(new ProcessStartInfo()
-			//{
-			//	FileName = tmpfile
-			//});
-
-			//FileUtil.Delete(tmpfile);
-
-			var pis = new[]
+			var argments = new[]
 			{
-				new ProcessStartInfo()
-				{
-					Arguments = $"\"{file}\" \"{epub}\"",
-				},
-				new ProcessStartInfo()
-				{
-					Arguments = $"\"{file}\" \"{htmlz}\"",
-				}
+				$"\"{src}\" \"{epub}\"",
+				$"\"{src}\" \"{htmlz}\""
 			};
 
-			pis.ForEach(x =>
+			foreach (var argment in argments)
 			{
-				x.WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.Calibre);
-				x.FileName = AppSetting.Instance.Calibre;
-				x.UseShellExecute = false;
-				x.CreateNoWindow = true;
-				x.RedirectStandardOutput = true;
-
-				using (var process = Process.Start(x)) if (process != null)
+				var info = new ProcessStartInfo()
 				{
-					Console.WriteLine(process.StandardOutput.ReadToEnd());
+					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.Calibre),
+					FileName = AppSetting.Instance.Calibre,
+					Arguments = argment,
+					UseShellExecute = false,
+					CreateNoWindow = true,
+					RedirectStandardOutput = true,
+				};
+
+				using (var process = Process.Start(info))
+				{
+					if (process == null) break;
+
+					for (string? s; (s = await process.StandardOutput.ReadLineAsync()) != null;)
+					{
+						Console.WriteLine(s);
+					}
+
 					process.WaitForExit();
 				}
+			}
 
-			});
-
+			// ZIPﾌｧｲﾙを解凍する。
 			ZipUtil.ExtractToDirectory(htmlz);
+
+			// ZIPﾌｧｲﾙは不要なので削除
+			FileUtil.Delete(htmlz);
+
+			// 以後はﾌｫﾙﾀﾞに対して処理する
+			htmlz = FileUtil.GetFullPathWithoutExtension(htmlz);
+
+			// ｽﾀｲﾙｼｰﾄの上書き
+			await FileUtil.CopyAsync(Directories.GetAbsolutePath("style.css"), Path.Combine(htmlz, "style.css"));
+
+			var srcpdf = Path.Combine(htmlz, "index.html");
+			var dstpdf = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".pdf");
+
+			await HeadlessWebView2.Call(new Uri(srcpdf), webview2 =>
+			{
+				return webview2.CoreWebView2.PrintToPdfAsync(dstpdf);
+			});
 
 			return true;
 		}
