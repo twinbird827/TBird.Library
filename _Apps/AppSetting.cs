@@ -10,6 +10,9 @@ namespace EBook2PDF
 		{
 			if (!Load())
 			{
+				// ｵﾌﾟｼｮﾝ
+				Option = 0;
+
 				// 変換実行ﾌｧｲﾙ
 				Calibre = @"C:\Program Files\Calibre2\ebook-convert.exe";
 
@@ -17,6 +20,13 @@ namespace EBook2PDF
 				OutputDir = Directories.DownloadDirectory;
 			}
 		}
+
+		public int Option
+		{
+			get => GetProperty(_Option);
+			set => SetProperty(ref _Option, value);
+		}
+		private int _Option = 0;
 
 		public string Calibre
 		{

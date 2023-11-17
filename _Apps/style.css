@@ -80,16 +80,3 @@ div.p-image {
 	page-break-after: always;
 	page-break-inside: avoid;
 }
-
-
-body {
-	counter-reset: page-number;
-}
-
-.page::after {
-	position: absolute;
-	bottom: 0;
-	right: 0;
-	counter-increment: page-number;
-	content: "P." counter(page-number);
-}
