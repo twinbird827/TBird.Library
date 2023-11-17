@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using TBird.Core;
 
@@ -19,7 +20,8 @@ namespace TBird.IO.Pdf
 		internal static void Execute(Action<string> action, params object[] args)
 		{
 			var path = Assembly.GetExecutingAssembly().Location;
-			var task = CoreUtil.ExecuteAsync(new ProcessStartInfo()
+
+			CoreUtil.Execute(new ProcessStartInfo()
 			{
 				WorkingDirectory = Path.GetDirectoryName(path),
 				FileName = FileUtil.GetFullPathWithoutExtension(path) + ".exe",
@@ -28,13 +30,6 @@ namespace TBird.IO.Pdf
 				CreateNoWindow = true,
 				RedirectStandardOutput = true,
 			}, action);
-
-			while (!task.IsCompleted) { }
-
-			if (task.Exception != null)
-			{
-				throw new ApplicationException("An exception occurred in Task.", task.Exception);
-			}
 		}
 
 		internal static void Execute(string[] args)
