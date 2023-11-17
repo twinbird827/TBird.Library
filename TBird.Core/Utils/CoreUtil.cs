@@ -89,5 +89,23 @@ namespace TBird.Core
 				return process.ExitCode;
 			}
 		}
+
+		public static int Execute(ProcessStartInfo info, Action<string> action)
+		{
+			using (var process = Process.Start(info))
+			{
+				if (process == null) return -1;
+
+				if (action != null) for (string s; (s = process.StandardOutput.ReadLine()) != null;)
+					{
+						action(s);
+					}
+
+				process.WaitForExit();
+
+				return process.ExitCode;
+			}
+		}
+
 	}
 }
