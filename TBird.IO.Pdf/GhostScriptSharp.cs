@@ -1,126 +1,106 @@
-﻿using System;
+﻿using GhostscriptSharp.Settings;
+using System;
+using System.Collections.Generic;
 using System.Drawing;
-using System.Text;
 using System.Runtime.InteropServices;
+using System.Text;
+using TBird.Core;
 
 namespace GhostscriptSharp.API
 {
-	internal class GhostScript32
+	internal class GhostScript
 	{
+#if WIN64
+		private const string lib_dll = "gsdll64.dll";
+#else
+		private const string lib_dll = "gsdll32.dll";
+#endif
+
 		#region Hooks into Ghostscript DLL
 
-		[DllImport("gsdll32.dll", EntryPoint = "gsapi_new_instance")]
-		private static extern int CreateAPIInstance(out IntPtr pinstance, IntPtr caller_handle);
+		[DllImport(lib_dll, EntryPoint = "gsapi_new_instance")]
+		private static extern int gsapi_new_instance(out IntPtr pinstance, IntPtr caller_handle);
 
-		[DllImport("gsdll32.dll", EntryPoint = "gsapi_init_with_args")]
-		private static extern int InitAPI(IntPtr instance, int argc, string[] argv);
+		[DllImport(lib_dll, EntryPoint = "gsapi_init_with_args")]
+		private static extern int gsapi_init_with_args(IntPtr instance, int argc, string[] argv);
 
-		[DllImport("gsdll32.dll", EntryPoint = "gsapi_exit")]
-		private static extern int ExitAPI(IntPtr instance);
+		[DllImport(lib_dll, EntryPoint = "gsapi_exit")]
+		private static extern int gsapi_exit(IntPtr instance);
 
-		[DllImport("gsdll32.dll", EntryPoint = "gsapi_delete_instance")]
-		private static extern void DeleteAPIInstance(IntPtr instance);
+		[DllImport(lib_dll, EntryPoint = "gsapi_delete_instance")]
+		private static extern void gsapi_delete_instance(IntPtr instance);
+
+		[DllImport(lib_dll, EntryPoint = "gsapi_set_stdio", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+		public static extern int gsapi_set_stdio(IntPtr instance, gs_stdio_handler stdin, gs_stdio_handler stdout, gs_stdio_handler stderr);
+
+		public delegate int gs_stdio_handler(IntPtr caller_handle, IntPtr buffer, int len);
 
 		#endregion
 
 		/// <summary>
 		/// Calls the Ghostscript API with a collection of arguments to be passed to it
 		/// </summary>
-		public static void CallAPI(string[] args)
+		public static int Call(string[] args, bool error = true)
 		{
 			// Get a pointer to an instance of the Ghostscript API and run the API with the current arguments
-			IntPtr gsInstancePtr;
-			lock (resourceLock)
+			IntPtr instance;
+			int code;
+
+			lock (_lock)
 			{
-				CreateAPIInstance(out gsInstancePtr, IntPtr.Zero);
+				code = gsapi_new_instance(out instance, IntPtr.Zero);
+
+				ThrowIfErrorOccurred(code, true);
+
 				try
 				{
-					int result = InitAPI(gsInstancePtr, args.Length, args);
+					var sb = new StringBuilder();
 
-					if (result < 0)
+					gs_stdio_handler raise_stdin = (caller_handle, buffer, len) =>
 					{
-						throw new ExternalException("Ghostscript conversion error", result);
-					}
+						var output = Marshal.PtrToStringAnsi(buffer);
+						return len;
+					};
+
+					gs_stdio_handler raise_stdout = (caller_handle, buffer, len) =>
+					{
+						var output = Marshal.PtrToStringAnsi(buffer);
+						sb.Append(output.Substring(0, len));
+						return len;
+					};
+
+					gs_stdio_handler raise_stderr = raise_stdout;
+
+					code = gsapi_set_stdio(instance, raise_stdin, raise_stdout, raise_stderr);
+
+					ThrowIfErrorOccurred(code, true);
+
+					code = gsapi_init_with_args(instance, args.Length, args);
+
+					ThrowIfErrorOccurred(code, error);
+
+					return sb.ToString().GetInt32();
 				}
 				finally
 				{
-					Cleanup(gsInstancePtr);
+					gsapi_exit(instance);
+					gsapi_delete_instance(instance);
 				}
 			}
 		}
 
-		/// <summary>
-		/// Frees up the memory used for the API arguments and clears the Ghostscript API instance
-		/// </summary>
-		private static void Cleanup(IntPtr gsInstancePtr)
+		private static void ThrowIfErrorOccurred(int code, bool error)
 		{
-			ExitAPI(gsInstancePtr);
-			DeleteAPIInstance(gsInstancePtr);
+			if (error && code < 0)
+			{
+				throw new ExternalException("Ghostscript conversion error", code);
+			}
 		}
 
 		/// <summary>
 		/// GS can only support a single instance, so we need to bottleneck any multi-threaded systems.
 		/// </summary>
-		private static object resourceLock = new object();
-	}
-
-	internal class GhostScript64
-	{
-		#region Hooks into Ghostscript DLL
-
-		[DllImport("gsdll64.dll", EntryPoint = "gsapi_new_instance")]
-		private static extern int CreateAPIInstance(out IntPtr pinstance, IntPtr caller_handle);
-
-		[DllImport("gsdll64.dll", EntryPoint = "gsapi_init_with_args")]
-		private static extern int InitAPI(IntPtr instance, int argc, string[] argv);
-
-		[DllImport("gsdll64.dll", EntryPoint = "gsapi_exit")]
-		private static extern int ExitAPI(IntPtr instance);
-
-		[DllImport("gsdll64.dll", EntryPoint = "gsapi_delete_instance")]
-		private static extern void DeleteAPIInstance(IntPtr instance);
-
-		#endregion
-
-		/// <summary>
-		/// Calls the Ghostscript API with a collection of arguments to be passed to it
-		/// </summary>
-		public static void CallAPI(string[] args)
-		{
-			// Get a pointer to an instance of the Ghostscript API and run the API with the current arguments
-			IntPtr gsInstancePtr;
-			lock (resourceLock)
-			{
-				CreateAPIInstance(out gsInstancePtr, IntPtr.Zero);
-				try
-				{
-					int result = InitAPI(gsInstancePtr, args.Length, args);
-
-					if (result < 0)
-					{
-						throw new ExternalException("Ghostscript conversion error", result);
-					}
-				}
-				finally
-				{
-					Cleanup(gsInstancePtr);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Frees up the memory used for the API arguments and clears the Ghostscript API instance
-		/// </summary>
-		private static void Cleanup(IntPtr gsInstancePtr)
-		{
-			ExitAPI(gsInstancePtr);
-			DeleteAPIInstance(gsInstancePtr);
-		}
-
-		/// <summary>
-		/// GS can only support a single instance, so we need to bottleneck any multi-threaded systems.
-		/// </summary>
-		private static object resourceLock = new object();
+		private static object _lock = new object();
 	}
 }
 
@@ -131,9 +111,72 @@ namespace GhostscriptSharp
 	/// </summary>
 	public class GhostscriptWrapper
 	{
-		#region Globals
+		private static string GetPath(string x) => x.Replace('\\', '/');
 
-		private static readonly string[] ARGS = new string[] {
+		public static void PutPageNumber(string path)
+		{
+			var tmpout = FileUtil.GetTempFilePath(".pdf");
+			var script = @"globaldict /MyPageCount 1 put /concatstrings { exch dup length 2 index length add string dup dup 4 2 roll copy length 4 -1 roll putinterval } bind def << /EndPage {exch pop 0 eq dup {/Helvetica 12 selectfont MyPageCount =string cvs ( / $npages) concatstrings dup stringwidth pop currentpagedevice /PageSize get 0 get exch sub 20 sub 20 moveto show globaldict /MyPageCount MyPageCount 1 add put } if } bind >> setpagedevice";
+
+			script = script.Replace("$npages", GetPageSize(path).ToString());
+
+			var args = new string[]
+			{
+				"gs",	// dummy
+				"-dBATCH",
+				"-dNOPAUSE",
+				"-sDEVICE=pdfwrite",
+				"-dPDFSETTINGS=/prepress",
+				"-o",
+				GetPath(tmpout),
+				"-c",
+				script,
+				"-f",
+				GetPath(path)
+			};
+
+			API.GhostScript.Call(args);
+
+			FileUtil.Move(tmpout, path);
+		}
+
+		public static int GetPageSize(string path)
+		{
+			var args = new string[]
+			{
+				"gs",	// dummy
+				"-q",
+				"-dNODISPLAY",
+				//$"-sFile='{GetPath(path)}'",
+				//$"--permit-file-read='{GetPath(path)}'",	// ←ｺﾒﾝﾄ解除するとｴﾗｰになる
+				"-c",
+				$"({GetPath(path)}) (r) file runpdfbegin pdfpagecount = quit"
+			};
+
+			// なぜかｴﾗｰｺｰﾄﾞが返ってくるのでこのｺｰﾙではｴﾗｰを無視する。
+			return API.GhostScript.Call(args, false);
+		}
+
+		public static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, GhostscriptPageSizes pagesize, int min = 0, int max = 0)
+		{
+			Pdf2Image(src, dst, devices, resolution, pagesize, Size.Empty, min, max);
+		}
+
+		public static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, Size size, int min = 0, int max = 0)
+		{
+			Pdf2Image(src, dst, devices, resolution, GhostscriptPageSizes.UNDEFINED, size, min, max);
+		}
+
+		/// <summary>
+		/// Rasterises a PDF into selected format
+		/// </summary>
+		/// <param name="src">PDF file to convert</param>
+		/// <param name="dst">Destination file</param>
+		/// <param name="settings">Conversion settings</param>
+		private static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, GhostscriptPageSizes pagesize, Size size, int min = 0, int max = 0)
+		{
+			var args = new List<string>(new[]
+			{
 				// Keep gs from writing information to standard output
                 "-q",
 				"-dQUIET",
@@ -150,257 +193,63 @@ namespace GhostscriptSharp
 				"-dGridFitTT=0",
 				"-dTextAlphaBits=4",
 				"-dGraphicsAlphaBits=4"
-		};
+			});
 
-		#endregion
-
-		/// <summary>
-		/// Generates a thumbnail jpg for the pdf at the input path and saves it
-		/// at the output path
-		/// </summary>
-		public static void GeneratePageThumb(string inputPath, string outputPath, int page, int dpix, int dpiy, int width = 0, int height = 0)
-		{
-			GeneratePageThumbs(inputPath, outputPath, page, page, dpix, dpiy, width, height);
-		}
-
-		/// <summary>
-		/// Generates a collection of thumbnail jpgs for the pdf at the input path
-		/// starting with firstPage and ending with lastPage.
-		/// Put "%d" somewhere in the output path to have each of the pages numbered
-		/// </summary>
-		public static void GeneratePageThumbs(string inputPath, string outputPath, int firstPage, int lastPage, int dpix, int dpiy, int width = 0, int height = 0)
-		{
-			if (IntPtr.Size == 4)
-				API.GhostScript32.CallAPI(GetArgs(inputPath, outputPath, firstPage, lastPage, dpix, dpiy, width, height));
-			else
-				API.GhostScript64.CallAPI(GetArgs(inputPath, outputPath, firstPage, lastPage, dpix, dpiy, width, height));
-		}
-
-		/// <summary>
-		/// Rasterises a PDF into selected format
-		/// </summary>
-		/// <param name="inputPath">PDF file to convert</param>
-		/// <param name="outputPath">Destination file</param>
-		/// <param name="settings">Conversion settings</param>
-		public static void GenerateOutput(string inputPath, string outputPath, GhostscriptSettings settings)
-		{
-			if (IntPtr.Size == 4)
-				API.GhostScript32.CallAPI(GetArgs(inputPath, outputPath, settings));
-			else
-				API.GhostScript64.CallAPI(GetArgs(inputPath, outputPath, settings));
-		}
-
-		/// <summary>
-		/// Returns an array of arguments to be sent to the Ghostscript API
-		/// </summary>
-		/// <param name="inputPath">Path to the source file</param>
-		/// <param name="outputPath">Path to the output file</param>
-		/// <param name="firstPage">The page of the file to start on</param>
-		/// <param name="lastPage">The page of the file to end on</param>
-		private static string[] GetArgs(string inputPath,
-			string outputPath,
-			int firstPage,
-			int lastPage,
-			int dpix,
-			int dpiy,
-			int width,
-			int height)
-		{
-			// To maintain backwards compatibility, this method uses previous hardcoded values.
-
-			GhostscriptSettings s = new GhostscriptSettings();
-			s.Device = Settings.GhostscriptDevices.jpeg;
-			s.Page.Start = firstPage;
-			s.Page.End = lastPage;
-			s.Resolution = new System.Drawing.Size(dpix, dpiy);
-
-			Settings.GhostscriptPageSize pageSize = new Settings.GhostscriptPageSize();
-			if (width == 0 && height == 0)
+			if (devices == GhostscriptDevices.UNDEFINED)
 			{
-				pageSize.Native = GhostscriptSharp.Settings.GhostscriptPageSizes.a7;
-			}
-			else
-			{
-				pageSize.Manual = new Size(width, height);
-			}
-			s.Size = pageSize;
-
-			return GetArgs(inputPath, outputPath, s);
-		}
-
-		/// <summary>
-		/// Returns an array of arguments to be sent to the Ghostscript API
-		/// </summary>
-		/// <param name="inputPath">Path to the source file</param>
-		/// <param name="outputPath">Path to the output file</param>
-		/// <param name="settings">API parameters</param>
-		/// <returns>API arguments</returns>
-		private static string[] GetArgs(string inputPath,
-			string outputPath,
-			GhostscriptSettings settings)
-		{
-			System.Collections.ArrayList args = new System.Collections.ArrayList(ARGS);
-
-			if (settings.Device == Settings.GhostscriptDevices.UNDEFINED)
-			{
-				throw new ArgumentException("An output device must be defined for Ghostscript", "GhostscriptSettings.Device");
+				throw new ArgumentException("An output device must be defined for Ghostscript", "GhostscriptDevices");
 			}
 
-			if (settings.Page.AllPages == false && (settings.Page.Start <= 0 && settings.Page.End < settings.Page.Start))
-			{
-				throw new ArgumentException("Pages to be printed must be defined.", "GhostscriptSettings.Pages");
-			}
-
-			if (settings.Resolution.IsEmpty)
+			if (resolution.IsEmpty)
 			{
 				throw new ArgumentException("An output resolution must be defined", "GhostscriptSettings.Resolution");
 			}
 
-			if (settings.Size.Native == Settings.GhostscriptPageSizes.UNDEFINED && settings.Size.Manual.IsEmpty)
-			{
-				throw new ArgumentException("Page size must be defined", "GhostscriptSettings.Size");
-			}
-
 			// Output device
-			args.Add(String.Format("-sDEVICE={0}", settings.Device));
+			args.Add(string.Format("-sDEVICE={0}", devices));
 
 			// Pages to output
-			if (settings.Page.AllPages)
+			if (min == 0 && max == 0)
 			{
 				args.Add("-dFirstPage=1");
 			}
 			else
 			{
-				args.Add(String.Format("-dFirstPage={0}", settings.Page.Start));
-				if (settings.Page.End >= settings.Page.Start)
+				args.Add(string.Format("-dFirstPage={0}", min));
+				if (min <= max)
 				{
-					args.Add(String.Format("-dLastPage={0}", settings.Page.End));
+					args.Add(string.Format("-dLastPage={0}", max));
 				}
 			}
 
 			// Page size
-			if (settings.Size.Native == Settings.GhostscriptPageSizes.UNDEFINED)
+			if (pagesize == GhostscriptPageSizes.UNDEFINED)
 			{
-				args.Add(String.Format("-dDEVICEWIDTHPOINTS={0}", settings.Size.Manual.Width));
-				args.Add(String.Format("-dDEVICEHEIGHTPOINTS={0}", settings.Size.Manual.Height));
+				args.Add(string.Format("-dDEVICEWIDTHPOINTS={0}", size.Width));
+				args.Add(string.Format("-dDEVICEHEIGHTPOINTS={0}", size.Height));
 				args.Add("-dFIXEDMEDIA");
 				args.Add("-dPDFFitPage");
 			}
 			else
 			{
-				args.Add(String.Format("-sPAPERSIZE={0}", settings.Size.Native.ToString()));
+				args.Add(string.Format("-sPAPERSIZE={0}", pagesize.ToString()));
 			}
 
 			// Page resolution
-			args.Add(String.Format("-dDEVICEXRESOLUTION={0}", settings.Resolution.Width));
-			args.Add(String.Format("-dDEVICEYRESOLUTION={0}", settings.Resolution.Height));
+			args.Add(string.Format("-dDEVICEXRESOLUTION={0}", resolution.Width));
+			args.Add(string.Format("-dDEVICEYRESOLUTION={0}", resolution.Height));
 
 			// Files
-			args.Add(String.Format("-sOutputFile={0}", outputPath));
-			args.Add(inputPath);
+			args.Add(string.Format("-sOutputFile={0}", dst));
+			args.Add(src);
 
-			return (string[])args.ToArray(typeof(string));
-
-		}
-	}
-
-	/// <summary>
-	/// Ghostscript settings
-	/// </summary>
-	public class GhostscriptSettings
-	{
-		private Settings.GhostscriptDevices _device;
-		private Settings.GhostscriptPages _pages = new Settings.GhostscriptPages();
-		private System.Drawing.Size _resolution;
-		private Settings.GhostscriptPageSize _size = new Settings.GhostscriptPageSize();
-
-		public Settings.GhostscriptDevices Device
-		{
-			get { return this._device; }
-			set { this._device = value; }
-		}
-
-		public Settings.GhostscriptPages Page
-		{
-			get { return this._pages; }
-			set { this._pages = value; }
-		}
-
-		public System.Drawing.Size Resolution
-		{
-			get { return this._resolution; }
-			set { this._resolution = value; }
-		}
-
-		public Settings.GhostscriptPageSize Size
-		{
-			get { return this._size; }
-			set { this._size = value; }
+			API.GhostScript.Call(args.ToArray());
 		}
 	}
 }
 
 namespace GhostscriptSharp.Settings
 {
-	/// <summary>
-	/// Which pages to output
-	/// </summary>
-	public class GhostscriptPages
-	{
-		private bool _allPages = true;
-		private int _start;
-		private int _end;
-
-		/// <summary>
-		/// Output all pages avaialble in document
-		/// </summary>
-		public bool AllPages
-		{
-			set
-			{
-				this._start = -1;
-				this._end = -1;
-				this._allPages = true;
-			}
-			get
-			{
-				return this._allPages;
-			}
-		}
-
-		/// <summary>
-		/// Start output at this page (1 for page 1)
-		/// </summary>
-		public int Start
-		{
-			set
-			{
-				this._allPages = false;
-				this._start = value;
-			}
-			get
-			{
-				return this._start;
-			}
-		}
-
-		/// <summary>
-		/// Page to stop output at
-		/// </summary>
-		public int End
-		{
-			set
-			{
-				this._allPages = false;
-				this._end = value;
-			}
-			get
-			{
-				return this._end;
-			}
-		}
-	}
-
 	/// <summary>
 	/// Output devices for GhostScript
 	/// </summary>
@@ -450,48 +299,6 @@ namespace GhostscriptSharp.Settings
 		epswrite,
 		pxlmono,
 		pxlcolor
-	}
-
-	/// <summary>
-	/// Output document physical dimensions
-	/// </summary>
-	public class GhostscriptPageSize
-	{
-		private GhostscriptPageSizes _fixed;
-		private System.Drawing.Size _manual;
-
-		/// <summary>
-		/// Custom document size
-		/// </summary>
-		public System.Drawing.Size Manual
-		{
-			set
-			{
-				this._fixed = GhostscriptPageSizes.UNDEFINED;
-				this._manual = value;
-			}
-			get
-			{
-				return this._manual;
-			}
-		}
-
-		/// <summary>
-		/// Standard paper size
-		/// </summary>
-		public GhostscriptPageSizes Native
-		{
-			set
-			{
-				this._fixed = value;
-				this._manual = new System.Drawing.Size(0, 0);
-			}
-			get
-			{
-				return this._fixed;
-			}
-		}
-
 	}
 
 	/// <summary>
