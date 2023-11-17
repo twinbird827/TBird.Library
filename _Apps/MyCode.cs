@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.Web.WebView2.Core;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using TBird.Core;
@@ -10,25 +11,20 @@ namespace EBook2PDF
 	{
 		public static async Task Execute(string[] args)
 		{
-			await Task.Delay(1);
-			await HeadlessWebView2.Call(new Uri("https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/how-to/print?tabs=dotnetcsharp"), webview2 =>
+			var executes = await args
+				.SelectMany(GetFiles)
+				.AsParallel()
+				.Select(Execute)
+				.WhenAll();
+
+			// 実行ﾊﾟﾗﾒｰﾀに対して処理実行
+			var results = executes;
+
+			if (results.Contains(false))
 			{
-				return webview2.CoreWebView2.PrintToPdfAsync(@"C:\work\temp\" + DateTime.Now.ToString("yyMMhh-HHmmss") + ".pdf");
-			});
-			//var executes = await args
-			//	.SelectMany(GetFiles)
-			//	.AsParallel()
-			//	.Select(Execute)
-			//	.WhenAll();
-
-			//// 実行ﾊﾟﾗﾒｰﾀに対して処理実行
-			//var results = executes;
-
-			//if (results.Contains(false))
-			//{
-			//	// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
-			//	Console.ReadLine();
-			//}
+				// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
+				Console.ReadLine();
+			}
 		}
 
 		private static async Task<bool> Execute(string src)
