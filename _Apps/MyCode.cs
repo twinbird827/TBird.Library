@@ -67,8 +67,8 @@ namespace PDF2JPG
 
 				MessageService.Info("終了(作業ﾌｧｲﾙｺﾋﾟｰ):" + arg);
 
-				// 単一ｲﾝｽﾀﾝｽで全ﾍﾟｰｼﾞJPG化すると遅いので設定ﾌｧｲﾙで指定したﾍﾟｰｼﾞ数で処理を分ける
-				await PDF2JPG(pdftemp, AppSetting.Instance.NumberOfParallel);
+				// PDFﾌｧｲﾙを画像ﾌｧｲﾙに変換
+				await PdfUtil.Pdf2Jpg(pdftemp, AppSetting.Instance.NumberOfParallel, AppSetting.Instance.Dpi);
 
 				// ﾌｧｲﾙ名を連番にする。
 				DirectoryUtil.OrganizeNumber(dirtemp);
@@ -103,37 +103,6 @@ namespace PDF2JPG
 				FileUtil.Delete(pdftemp);
 				DirectoryUtil.Delete(dirtemp);
 			}
-		}
-
-		public const string Key = "PDF2JPG.GENERATE";
-
-		private static async Task PDF2JPG(string pdffile, int parallel)
-		{
-			var pagesize = (double)PdfUtil.GetPageSize(pdffile);
-			var split = (int)Math.Ceiling(pagesize.Divide(parallel));
-
-			await Enumerable.Range(0, split).AsParallel().Select(i => Task.Run(() =>
-			{
-				var min = i * parallel + 1;
-				var max = Math.Min((i + 1) * parallel, pagesize);
-
-				MessageService.Info($"処理中:{pdffile} {min} - {max} / {pagesize}");
-
-				// 識別子付きで本ﾌﾟﾛｸﾞﾗﾑを実行し直すことで別ﾌﾟﾛｾｽで非同期的にPDFをJPGに変換する。
-				CoreUtil.Execute(new ProcessStartInfo()
-				{
-					FileName = Process.GetCurrentProcess().MainModule?.FileName,
-					CreateNoWindow = true,
-					Arguments = $"{Key} \"{pdffile}\" {min} {max}",
-					UseShellExecute = false
-				});
-			})).WhenAll();
-		}
-
-		public static void PDF2JPG(string pdffile, string min, string max)
-		{
-			// 別ﾌﾟﾛｾｽで実行される処理
-			PdfUtil.PDF2JPG(pdffile, min.GetInt32(), max.GetInt32(), AppSetting.Instance.Dpi);
 		}
 	}
 }
