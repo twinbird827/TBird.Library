@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GhostscriptSharp.Settings;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -110,6 +111,34 @@ namespace GhostscriptSharp
 	/// </summary>
 	public class GhostscriptWrapper
 	{
+		private static string GetPath(string x) => x.Replace('\\', '/');
+
+		public static void PutPageNumber(string path)
+		{
+			var tmpout = FileUtil.GetTempFilePath(".pdf");
+			var script = @"globaldict /MyPageCount 1 put /concatstrings { exch dup length 2 index length add string dup dup 4 2 roll copy length 4 -1 roll putinterval } bind def << /EndPage {exch pop 0 eq dup {/Helvetica 12 selectfont MyPageCount =string cvs ( / $npages) concatstrings dup stringwidth pop currentpagedevice /PageSize get 0 get exch sub 20 sub 20 moveto show globaldict /MyPageCount MyPageCount 1 add put } if } bind >> setpagedevice";
+
+			script = script.Replace("$npages", GetPageSize(path).ToString());
+
+			var args = new string[]
+			{
+				"gs",	// dummy
+				"-dBATCH",
+				"-dNOPAUSE",
+				"-sDEVICE=pdfwrite",
+				"-dPDFSETTINGS=/prepress",
+				"-o",
+				GetPath(tmpout),
+				"-c",
+				script,
+				"-f",
+				GetPath(path)
+			};
+
+			API.GhostScript.Call(args);
+
+			FileUtil.Move(tmpout, path);
+		}
 
 		public static int GetPageSize(string path)
 		{
@@ -118,23 +147,33 @@ namespace GhostscriptSharp
 				"gs",	// dummy
 				"-q",
 				"-dNODISPLAY",
-				//$"-sFile='{path.Replace('\\', '/')}'",
-				//$"--permit-file-read='{path.Replace('\\', '/')}'",	// ←ｺﾒﾝﾄ解除するとｴﾗｰになる
+				//$"-sFile='{GetPath(path)}'",
+				//$"--permit-file-read='{GetPath(path)}'",	// ←ｺﾒﾝﾄ解除するとｴﾗｰになる
 				"-c",
-				$"({path.Replace('\\', '/')}) (r) file runpdfbegin pdfpagecount = quit"
+				$"({GetPath(path)}) (r) file runpdfbegin pdfpagecount = quit"
 			};
 
 			// なぜかｴﾗｰｺｰﾄﾞが返ってくるのでこのｺｰﾙではｴﾗｰを無視する。
 			return API.GhostScript.Call(args, false);
 		}
 
+		public static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, GhostscriptPageSizes pagesize, int min = 0, int max = 0)
+		{
+			Pdf2Image(src, dst, devices, resolution, pagesize, Size.Empty, min, max);
+		}
+
+		public static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, Size size, int min = 0, int max = 0)
+		{
+			Pdf2Image(src, dst, devices, resolution, GhostscriptPageSizes.UNDEFINED, size, min, max);
+		}
+
 		/// <summary>
 		/// Rasterises a PDF into selected format
 		/// </summary>
-		/// <param name="inputPath">PDF file to convert</param>
-		/// <param name="outputPath">Destination file</param>
+		/// <param name="src">PDF file to convert</param>
+		/// <param name="dst">Destination file</param>
 		/// <param name="settings">Conversion settings</param>
-		public static void GenerateOutput(string inputPath, string outputPath, GhostscriptSettings settings)
+		private static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, GhostscriptPageSizes pagesize, Size size, int min = 0, int max = 0)
 		{
 			var args = new List<string>(new[]
 			{
@@ -156,165 +195,61 @@ namespace GhostscriptSharp
 				"-dGraphicsAlphaBits=4"
 			});
 
-			if (settings.Device == Settings.GhostscriptDevices.UNDEFINED)
+			if (devices == GhostscriptDevices.UNDEFINED)
 			{
-				throw new ArgumentException("An output device must be defined for Ghostscript", "GhostscriptSettings.Device");
+				throw new ArgumentException("An output device must be defined for Ghostscript", "GhostscriptDevices");
 			}
 
-			if (settings.Page.AllPages == false && (settings.Page.Start <= 0 && settings.Page.End < settings.Page.Start))
-			{
-				throw new ArgumentException("Pages to be printed must be defined.", "GhostscriptSettings.Pages");
-			}
-
-			if (settings.Resolution.IsEmpty)
+			if (resolution.IsEmpty)
 			{
 				throw new ArgumentException("An output resolution must be defined", "GhostscriptSettings.Resolution");
 			}
 
-			if (settings.Size.Native == Settings.GhostscriptPageSizes.UNDEFINED && settings.Size.Manual.IsEmpty)
-			{
-				throw new ArgumentException("Page size must be defined", "GhostscriptSettings.Size");
-			}
-
 			// Output device
-			args.Add(string.Format("-sDEVICE={0}", settings.Device));
+			args.Add(string.Format("-sDEVICE={0}", devices));
 
 			// Pages to output
-			if (settings.Page.AllPages)
+			if (min == 0 && max == 0)
 			{
 				args.Add("-dFirstPage=1");
 			}
 			else
 			{
-				args.Add(string.Format("-dFirstPage={0}", settings.Page.Start));
-				if (settings.Page.End >= settings.Page.Start)
+				args.Add(string.Format("-dFirstPage={0}", min));
+				if (min <= max)
 				{
-					args.Add(string.Format("-dLastPage={0}", settings.Page.End));
+					args.Add(string.Format("-dLastPage={0}", max));
 				}
 			}
 
 			// Page size
-			if (settings.Size.Native == Settings.GhostscriptPageSizes.UNDEFINED)
+			if (pagesize == GhostscriptPageSizes.UNDEFINED)
 			{
-				args.Add(string.Format("-dDEVICEWIDTHPOINTS={0}", settings.Size.Manual.Width));
-				args.Add(string.Format("-dDEVICEHEIGHTPOINTS={0}", settings.Size.Manual.Height));
+				args.Add(string.Format("-dDEVICEWIDTHPOINTS={0}", size.Width));
+				args.Add(string.Format("-dDEVICEHEIGHTPOINTS={0}", size.Height));
 				args.Add("-dFIXEDMEDIA");
 				args.Add("-dPDFFitPage");
 			}
 			else
 			{
-				args.Add(string.Format("-sPAPERSIZE={0}", settings.Size.Native.ToString()));
+				args.Add(string.Format("-sPAPERSIZE={0}", pagesize.ToString()));
 			}
 
 			// Page resolution
-			args.Add(string.Format("-dDEVICEXRESOLUTION={0}", settings.Resolution.Width));
-			args.Add(string.Format("-dDEVICEYRESOLUTION={0}", settings.Resolution.Height));
+			args.Add(string.Format("-dDEVICEXRESOLUTION={0}", resolution.Width));
+			args.Add(string.Format("-dDEVICEYRESOLUTION={0}", resolution.Height));
 
 			// Files
-			args.Add(string.Format("-sOutputFile={0}", outputPath));
-			args.Add(inputPath);
+			args.Add(string.Format("-sOutputFile={0}", dst));
+			args.Add(src);
 
 			API.GhostScript.Call(args.ToArray());
-		}
-	}
-
-	/// <summary>
-	/// Ghostscript settings
-	/// </summary>
-	public class GhostscriptSettings
-	{
-		private Settings.GhostscriptDevices _device;
-		private Settings.GhostscriptPages _pages = new Settings.GhostscriptPages();
-		private Size _resolution;
-		private Settings.GhostscriptPageSize _size = new Settings.GhostscriptPageSize();
-
-		public Settings.GhostscriptDevices Device
-		{
-			get { return this._device; }
-			set { this._device = value; }
-		}
-
-		public Settings.GhostscriptPages Page
-		{
-			get { return this._pages; }
-			set { this._pages = value; }
-		}
-
-		public Size Resolution
-		{
-			get { return this._resolution; }
-			set { this._resolution = value; }
-		}
-
-		public Settings.GhostscriptPageSize Size
-		{
-			get { return this._size; }
-			set { this._size = value; }
 		}
 	}
 }
 
 namespace GhostscriptSharp.Settings
 {
-	/// <summary>
-	/// Which pages to output
-	/// </summary>
-	public class GhostscriptPages
-	{
-		private bool _allPages = true;
-		private int _start;
-		private int _end;
-
-		/// <summary>
-		/// Output all pages avaialble in document
-		/// </summary>
-		public bool AllPages
-		{
-			set
-			{
-				this._start = -1;
-				this._end = -1;
-				this._allPages = true;
-			}
-			get
-			{
-				return this._allPages;
-			}
-		}
-
-		/// <summary>
-		/// Start output at this page (1 for page 1)
-		/// </summary>
-		public int Start
-		{
-			set
-			{
-				this._allPages = false;
-				this._start = value;
-			}
-			get
-			{
-				return this._start;
-			}
-		}
-
-		/// <summary>
-		/// Page to stop output at
-		/// </summary>
-		public int End
-		{
-			set
-			{
-				this._allPages = false;
-				this._end = value;
-			}
-			get
-			{
-				return this._end;
-			}
-		}
-	}
-
 	/// <summary>
 	/// Output devices for GhostScript
 	/// </summary>
@@ -364,48 +299,6 @@ namespace GhostscriptSharp.Settings
 		epswrite,
 		pxlmono,
 		pxlcolor
-	}
-
-	/// <summary>
-	/// Output document physical dimensions
-	/// </summary>
-	public class GhostscriptPageSize
-	{
-		private GhostscriptPageSizes _fixed;
-		private Size _manual;
-
-		/// <summary>
-		/// Custom document size
-		/// </summary>
-		public Size Manual
-		{
-			set
-			{
-				this._fixed = GhostscriptPageSizes.UNDEFINED;
-				this._manual = value;
-			}
-			get
-			{
-				return this._manual;
-			}
-		}
-
-		/// <summary>
-		/// Standard paper size
-		/// </summary>
-		public GhostscriptPageSizes Native
-		{
-			set
-			{
-				this._fixed = value;
-				this._manual = new Size(0, 0);
-			}
-			get
-			{
-				return this._fixed;
-			}
-		}
-
 	}
 
 	/// <summary>
