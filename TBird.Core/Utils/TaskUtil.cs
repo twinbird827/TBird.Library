@@ -106,5 +106,22 @@ namespace TBird.Core
 		{
 			return WaitAsync(iar).Cts(cts);
 		}
+
+		public static void Wait(Task task)
+		{
+			while (!task.IsCompleted) Thread.Sleep(10);
+
+			if (task.Exception != null)
+			{
+				throw new SystemException("An exception occurred in Task.", task.Exception);
+			}
+		}
+
+		public static T Wait<T>(Task<T> task)
+		{
+			Wait((Task)task);
+			return task.Result;
+		}
+
 	}
 }
