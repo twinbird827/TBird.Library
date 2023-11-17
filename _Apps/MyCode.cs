@@ -97,7 +97,7 @@ namespace EBook2PDF
 		{
 			var extensions = new[] { "*.azw", "*.azw3" };
 
-			if (File.Exists(dir) && extensions.Contains(Path.GetExtension(dir)))
+			if (File.Exists(dir) && extensions.Contains("*" + Path.GetExtension(dir)))
 			{
 				yield return dir;
 				yield break;
