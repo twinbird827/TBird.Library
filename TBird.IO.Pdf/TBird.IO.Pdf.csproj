@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net7.0-windows</TargetFramework>
 	<UseWPF>true</UseWPF>
+	<OutputType>Exe</OutputType>
+    <StartupObject></StartupObject>
   </PropertyGroup>
 
   <ItemGroup>

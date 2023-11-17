@@ -131,5 +131,9 @@ namespace TBird.Core
 			return Path.GetFileNameWithoutExtension(file);
 		}
 
+		public static string GetTempFilePath(string extension)
+		{
+			return Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString() + extension);
+		}
 	}
 }
