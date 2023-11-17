@@ -1,5 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace TBird.Core
 {
@@ -71,5 +73,21 @@ namespace TBird.Core
 			}
 		}
 
+		public static async Task<int> ExecuteAsync(ProcessStartInfo info, Action<string> action)
+		{
+			using (var process = Process.Start(info))
+			{
+				if (process == null) return -1;
+
+				if (action != null) for (string s; (s = await process.StandardOutput.ReadLineAsync()) != null;)
+					{
+						action(s);
+					}
+
+				process.WaitForExit();
+
+				return process.ExitCode;
+			}
+		}
 	}
 }
