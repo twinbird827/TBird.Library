@@ -72,7 +72,7 @@ namespace TBird.IO.Pdf
 
 			DirectoryUtil.Create(FileUtil.GetFullPathWithoutExtension(pdffile));
 
-			await Enumerable.Range(0, parallel).AsParallel().Select(i => Task.Run(() =>
+			await Enumerable.Range(0, (int)Math.Ceiling((double)pagesize / parallel)).AsParallel().Select(i => Task.Run(() =>
 			{
 				var min = i * parallel + 1;
 				var max = Math.Min((i + 1) * parallel, pagesize);
