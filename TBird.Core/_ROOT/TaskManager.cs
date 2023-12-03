@@ -75,7 +75,7 @@ namespace TBird.Core
 		{
 			if (IsDisposed) return;
 
-			using (await Locker.LockAsync(Lock))
+			//using (await Locker.LockAsync(Lock))
 			{
 				try
 				{
