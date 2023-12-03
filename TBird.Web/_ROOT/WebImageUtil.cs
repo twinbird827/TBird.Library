@@ -34,9 +34,11 @@ namespace TBird.Web
 
 		public static async Task<byte[]> GetBytesAsync(string key, string[] urls)
 		{
-			using (await Locker.LockAsync(_lock))
+			using (await Locker.LockAsync(key))
 			{
-				var bytes = GetBytesFromFile(key) ?? await GetBytesAsync(urls);
+				var bytes = GetBytesFromFile(key);
+
+				if (bytes == null) bytes = await GetBytesAsync(urls);
 
 				if (bytes == null) return null;
 
