@@ -35,46 +35,44 @@ namespace EBook2PDF
 
 		private static async Task<bool> Execute(string src)
 		{
-			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
-			var epub = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".epub");
-			var htmlz = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".htmlz");
-
-			var argments = new[]
+			if (IsTarget(src, ".azw", ".azw3"))
 			{
-				$"\"{src}\" \"{epub}\"",
-				$"\"{src}\" \"{htmlz}\""
-			};
+				// epubﾌｧｲﾙ生成
+				await CallCalibre(src, ".epub");
 
-			foreach (var argment in argments)
-			{
-				var info = new ProcessStartInfo()
-				{
-					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.Calibre),
-					FileName = AppSetting.Instance.Calibre,
-					Arguments = argment,
-					UseShellExecute = false,
-					CreateNoWindow = true,
-					RedirectStandardOutput = true,
-				};
-
-				await CoreUtil.ExecuteAsync(info, Console.WriteLine);
+				// 対象ﾌｧｲﾙをepubに変更
+				src = Path.Combine(AppSetting.Instance.OutputDir, FileUtil.GetFileNameWithoutExtension(src) + ".epub");
 			}
 
-			// ZIPﾌｧｲﾙを解凍する。
-			ZipUtil.ExtractToDirectory(htmlz);
+			if (IsTarget(src, ".epub"))
+			{
+				// htmlzﾌｧｲﾙ生成
+				await CallCalibre(src, ".htmlz");
 
-			// ZIPﾌｧｲﾙは不要なので削除
-			FileUtil.Delete(htmlz);
+				// 対象ﾌｧｲﾙをhtmlzに変更
+				src = Path.Combine(AppSetting.Instance.OutputDir, FileUtil.GetFileNameWithoutExtension(src) + ".htmlz");
+			}
 
-			// 以後はﾌｫﾙﾀﾞに対して処理する
-			htmlz = FileUtil.GetFullPathWithoutExtension(htmlz);
+			if (IsTarget(src, ".htmlz"))
+			{
+				// ZIPﾌｧｲﾙを解凍する。
+				ZipUtil.ExtractToDirectory(src);
+
+				// ZIPﾌｧｲﾙは不要なので削除
+				FileUtil.Delete(src);
+
+				// 以後はﾌｫﾙﾀﾞに対して処理する
+				src = FileUtil.GetFullPathWithoutExtension(src);
+			}
 
 			// ｽﾀｲﾙｼｰﾄの上書き
-			await FileUtil.CopyAsync(Directories.GetAbsolutePath("style.css"), Path.Combine(htmlz, "style.css"));
+			await FileUtil.CopyAsync(Directories.GetAbsolutePath("style.css"), Path.Combine(src, "style.css"));
 
 			// HTMLをPDFに変換
-			var srcpdf = Path.Combine(htmlz, "index.html");
+			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
+			var srcpdf = Path.Combine(src, "index.html");
 			var dstpdf = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".pdf");
+			var epub = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + ".epub");
 
 			await HeadlessWebView2.Call(new Uri(srcpdf), webview2 =>
 			{
@@ -88,14 +86,43 @@ namespace EBook2PDF
 			ChangeFilename(srcpdf, dstpdf, epub);
 
 			// HTMLﾌｫﾙﾀﾞは不要なので削除
-			if (AppSetting.Instance.Option == 1) DirectoryUtil.Delete(htmlz);
+			if (AppSetting.Instance.Option == 1) DirectoryUtil.Delete(src);
 
 			return true;
 		}
 
+		private static bool IsTarget(string src, params string[] extensions)
+		{
+			return extensions.Contains(Path.GetExtension(src).ToLower());
+		}
+
+		private static Task CallCalibre(string src, string dstextension)
+		{
+			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
+			var dst = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + dstextension);
+
+			var info = new ProcessStartInfo()
+			{
+				WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.Calibre),
+				FileName = AppSetting.Instance.Calibre,
+				Arguments = $"\"{src}\" \"{dst}\"",
+				UseShellExecute = false,
+				CreateNoWindow = true,
+				RedirectStandardOutput = true,
+			};
+
+			return CoreUtil.ExecuteAsync(info, Console.WriteLine);
+		}
+
 		private static IEnumerable<string> GetFiles(string dir)
 		{
-			var extensions = new[] { "*.azw", "*.azw3" };
+			if (Directory.Exists(dir) && DirectoryUtil.GetFiles(dir, "index.html").Any())
+			{
+				yield return dir;
+				yield break;
+			}
+
+			var extensions = new[] { "*.azw", "*.azw3", "*.epub", "*.htmlz" };
 
 			if (File.Exists(dir) && extensions.Contains("*" + Path.GetExtension(dir)))
 			{
@@ -131,6 +158,7 @@ namespace EBook2PDF
 
 				foreach (var target in new[] { pdf, epub })
 				{
+					if (!File.Exists(target)) break;
 					var dir = Path.GetDirectoryName(target);
 					if (dir == null) break;
 					FileUtil.Move(target, Path.Combine(dir, title + Path.GetExtension(target)));
