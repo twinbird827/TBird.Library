@@ -8,35 +8,45 @@ namespace TBird.Web
 {
 	public static class WebImageUtil
 	{
-		public static async Task<byte[]> GetBytesAsync(string url)
+		private const string SaveDir = @"cache\bytes";
+
+		static WebImageUtil()
 		{
-			var response = await WebUtil.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-			if (response.IsSuccessStatusCode)
-			{
-				return await response.Content.ReadAsByteArrayAsync();
-			}
-			else
-			{
-				return null;
-			}
+			// 起動時に一回だけ古いｷｬｯｼｭを削除する。
+			DirectoryUtil.DeleteInFiles(SaveDir, info => info.CreationTime < DateTime.Now.AddDays(-7));
 		}
 
-		public static async Task<byte[]> GetBytesAsync(string[] urls)
+		/// <summary>
+		/// URLからﾊﾞｲﾄﾃﾞｰﾀを取得する。
+		/// </summary>
+		/// <param name="urls">URLﾘｽﾄ</param>
+		/// <returns></returns>
+		public static async Task<byte[]> GetBytesAsync(params string[] urls)
 		{
 			foreach (var url in urls)
 			{
 				if (string.IsNullOrEmpty(url)) continue;
-				var bytes = await GetBytesAsync(url);
-				if (bytes != null) return bytes;
+
+				var response = await WebUtil.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+				if (response.IsSuccessStatusCode)
+				{
+					return await response.Content.ReadAsByteArrayAsync();
+				}
 			}
 			return null;
 		}
 
+		/// <summary>
+		/// ﾊﾞｲﾄﾃﾞｰﾀを取得する。
+		/// </summary>
+		/// <param name="key">ｷｰ情報</param>
+		/// <param name="urls">URLﾘｽﾄ</param>
+		/// <returns></returns>
 		public static async Task<byte[]> GetBytesAsync(string key, string[] urls)
 		{
 			using (await Locker.LockAsync(key))
 			{
-				var bytes = GetBytesFromFile(key);
+				byte[] bytes = GetBytesFromFile(key);
 
 				if (bytes == null) bytes = await GetBytesAsync(urls);
 
@@ -50,17 +60,25 @@ namespace TBird.Web
 
 		private static string _lock = Locker.GetNewLockKey(typeof(WebImageUtil));
 
+		/// <summary>
+		/// ｷｰに紐づくﾌｧｲﾙからﾊﾞｲﾄﾃﾞｰﾀを取得する。
+		/// </summary>
+		/// <param name="key">ｷｰ情報</param>
+		/// <returns></returns>
 		private static byte[] GetBytesFromFile(string key)
 		{
 			var file = GetSavePath(key);
-
-			DirectoryUtil.DeleteInFiles(Path.GetDirectoryName(file), info => info.CreationTime < DateTime.Now.AddDays(-7));
 
 			return File.Exists(file)
 				? File.ReadAllBytes(file)
 				: null;
 		}
 
+		/// <summary>
+		/// ﾊﾞｲﾄﾃﾞｰﾀをｷｰﾌｧｲﾙに保存する。
+		/// </summary>
+		/// <param name="key">ｷｰ情報</param>
+		/// <param name="bytes">ﾊﾞｲﾄﾃﾞｰﾀ</param>
 		private static void SetBytesToFile(string key, byte[] bytes)
 		{
 			var file = GetSavePath(key);
@@ -72,9 +90,14 @@ namespace TBird.Web
 			File.WriteAllBytes(file, bytes);
 		}
 
+		/// <summary>
+		/// 保存ﾌｧｲﾙﾊﾟｽを取得する。
+		/// </summary>
+		/// <param name="key">ｷｰ情報</param>
+		/// <returns></returns>
 		private static string GetSavePath(string key)
 		{
-			return Directories.GetAbsolutePath(@"cache\bytes", key);
+			return Directories.GetAbsolutePath(SaveDir, key);
 		}
 	}
 }
