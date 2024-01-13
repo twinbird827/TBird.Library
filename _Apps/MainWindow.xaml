@@ -15,6 +15,10 @@
 			<Setter Property="Margin" Value="10" />
 		</Style>
 
+		<Style TargetType="ProgressBar">
+			<Setter Property="Margin" Value="0" />
+		</Style>
+
 		<Style TargetType="TextBlock">
 			<Setter Property="Margin" Value="3" />
 			<Setter Property="MinWidth" Value="60" />
@@ -45,6 +49,13 @@
 	</Window.Resources>
 
 	<DockPanel>
+
+		<StatusBar DockPanel.Dock="Bottom">
+			<ProgressBar Width="300" 
+						 Value="{Binding Progress.Value}"
+						 Maximum="{Binding Progress.Maximum}"
+						 Minimum="{Binding Progress.Minimum}" />
+		</StatusBar>
 
 		<GroupBox Header="STEP1: データ収集" Height="150" DockPanel.Dock="Top">
 			<DockPanel>
@@ -95,7 +106,21 @@
 		</GroupBox>
 
 		<GroupBox Header="実行ログ">
-			<ListBox />
+			<ListBox ItemsSource="{Binding Logs}">
+				<ItemsControl.ItemsPanel>
+					<ItemsPanelTemplate>
+						<StackPanel Orientation="Vertical" />
+					</ItemsPanelTemplate>
+				</ItemsControl.ItemsPanel>
+				<ItemsControl.ItemTemplate>
+					<DataTemplate>
+						<DockPanel>
+							<TextBlock Text="{Binding Value}" DockPanel.Dock="Left" Width="150" />
+							<TextBlock Text="{Binding Display}" />
+						</DockPanel>
+					</DataTemplate>
+				</ItemsControl.ItemTemplate>
+			</ListBox>
 		</GroupBox>
 	</DockPanel>
 </Window>
