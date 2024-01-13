@@ -1,0 +1,2 @@
+python encode.py
+pause

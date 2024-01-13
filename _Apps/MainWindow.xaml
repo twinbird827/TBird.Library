@@ -1,0 +1,101 @@
+﻿<Window x:Class="Netkeiba.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Netkeiba"
+        mc:Ignorable="d"
+        Title="Netkeiba">
+	<Window.DataContext>
+		<local:MainViewModel />
+	</Window.DataContext>
+	<Window.Resources>
+
+		<Style TargetType="GroupBox">
+			<Setter Property="Margin" Value="10" />
+		</Style>
+
+		<Style TargetType="TextBlock">
+			<Setter Property="Margin" Value="3" />
+			<Setter Property="MinWidth" Value="60" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+
+		<Style TargetType="TextBox">
+			<Setter Property="Margin" Value="3" />
+			<Setter Property="Padding" Value="3" />
+			<Setter Property="MinWidth" Value="60" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+		</Style>
+
+		<Style TargetType="CheckBox">
+			<Setter Property="Margin" Value="3" />
+			<Setter Property="MinWidth" Value="60" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+
+		<Style TargetType="Button">
+			<Setter Property="Margin" Value="3" />
+		</Style>
+
+		<Style TargetType="ListBox">
+			<Setter Property="Margin" Value="5" />
+		</Style>
+	</Window.Resources>
+
+	<DockPanel>
+
+		<GroupBox Header="STEP1: データ収集" Height="150" DockPanel.Dock="Top">
+			<DockPanel>
+
+				<Button DockPanel.Dock="Right" Width="200" Content="実行" Command="{Binding S1EXEC}" />
+
+				<UniformGrid DockPanel.Dock="Left" Width="200" Rows="3">
+
+					<TextBlock Text="日時" />
+
+					<TextBlock Text="開催場所" />
+
+					<TextBlock Text="上書き" />
+				</UniformGrid>
+
+				<UniformGrid Rows="3">
+
+					<StackPanel Orientation="Horizontal">
+
+						<TextBlock Text="開始" />
+
+						<TextBox Text="{Binding SYear, Converter={StaticResource Int2StringConverter}}" />
+
+						<TextBlock Text="終了" />
+
+						<TextBox Text="{Binding EYear, Converter={StaticResource Int2StringConverter}}" />
+					</StackPanel>
+
+					<ItemsControl ItemsSource="{Binding Basyos}">
+						<ItemsControl.ItemsPanel>
+							<ItemsPanelTemplate>
+								<StackPanel Orientation="Horizontal" />
+							</ItemsPanelTemplate>
+						</ItemsControl.ItemsPanel>
+						<ItemsControl.ItemTemplate>
+							<DataTemplate>
+								<CheckBox Margin="3" Width="60" IsChecked="{Binding IsChecked}" Content="{Binding Display}" />
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+
+					<CheckBox IsChecked="{Binding Overwrite.IsChecked}" Content="上書きする" />
+				</UniformGrid>
+			</DockPanel>
+		</GroupBox>
+
+		<GroupBox Header="STEP2: データ分析" DockPanel.Dock="Top">
+		</GroupBox>
+
+		<GroupBox Header="実行ログ">
+			<ListBox />
+		</GroupBox>
+	</DockPanel>
+</Window>
