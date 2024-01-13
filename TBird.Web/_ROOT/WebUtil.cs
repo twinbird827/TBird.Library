@@ -99,6 +99,25 @@ namespace TBird.Web
 			return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url));
 		}
 
+		public static async Task<string> GetStringAsync(string url, Encoding srcenc, Encoding dstenc)
+		{
+			return dstenc.GetString(Encoding.Convert(srcenc, dstenc, await GetBytesAsync(url)));
+		}
+
+		public static async Task<byte[]> GetBytesAsync(string url)
+		{
+			var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+			if (response.IsSuccessStatusCode)
+			{
+				return await response.Content.ReadAsByteArrayAsync();
+			}
+			else
+			{
+				return null;
+			}
+		}
+
+
 		/// <summary>
 		/// URLの内容をJson形式で取得します。
 		/// </summary>
