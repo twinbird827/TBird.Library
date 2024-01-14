@@ -1,4 +1,7 @@
-﻿using System.Data.Common;
+﻿using System.Collections.Generic;
+using System;
+using System.Data.Common;
+using System.Threading.Tasks;
 
 namespace TBird.DB
 {
@@ -15,5 +18,47 @@ namespace TBird.DB
 		{
 			return DbUtil.GetValue<T>(reader.GetValue(index));
 		}
+
+		/// <summary>
+		/// DbDataReaderを全件読み出し、ﾘｽﾄとして取得します。
+		/// </summary>
+		/// <typeparam name="T">1行の型</typeparam>
+		/// <param name="reader">DbDataReader</param>
+		/// <param name="func">1行読み出し用の処理内容</param>
+		/// <returns></returns>
+		public static async Task<List<T>> GetRows<T>(this DbDataReader reader, Func<DbDataReader, T> func)
+		{
+			var ret = new List<T>();
+			while (await reader.ReadAsync())
+			{
+				ret.Add(func(reader));
+			}
+			return ret;
+		}
+
+		public static async Task<List<T>> GetRows<T>(this DbControl conn, Func<DbDataReader, T> func, string sql, params DbParameter[] parameters)
+		{
+			using (var reader = await conn.ExecuteReaderAsync(sql, parameters))
+			{
+				return await reader.GetRows(func);
+			}
+		}
+
+		/// <summary>
+		/// DbDataReaderを1件読み出し、ｵﾌﾞｼﾞｪｸﾄとして取得します。
+		/// </summary>
+		/// <typeparam name="T">1行の型</typeparam>
+		/// <param name="reader">DbDataReader</param>
+		/// <param name="func">1行読み出し用の処理内容</param>
+		/// <returns></returns>
+		public static async Task<T> GetRow<T>(this DbDataReader reader, Func<DbDataReader, T> func)
+		{
+			if (await reader.ReadAsync())
+			{
+				return func(reader);
+			}
+			return default(T);
+		}
+
 	}
 }
