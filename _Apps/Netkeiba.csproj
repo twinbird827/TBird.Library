@@ -9,10 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.0.7" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.DB.SQLite\TBird.DB.SQLite.csproj" />
+    <ProjectReference Include="..\TBird.DB\TBird.DB.csproj" />
     <ProjectReference Include="..\TBird.Web\TBird.Web.csproj" />
     <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
   </ItemGroup>

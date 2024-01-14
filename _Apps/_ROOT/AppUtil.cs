@@ -1,9 +1,12 @@
-﻿using System;
+﻿using AngleSharp.Html.Dom;
+using AngleSharp.Html.Parser;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using TBird.Web;
 
 namespace Netkeiba
 {
@@ -11,7 +14,7 @@ namespace Netkeiba
 	{
 		public static string GetInnerHtml(this AngleSharp.Dom.IElement x)
 		{
-			var innerhtml = x.GetElementsByTagName("span").Any() 
+			var innerhtml = x.GetElementsByTagName("span").Any()
 				? x.GetElementsByTagName("span").First().InnerHtml
 				: x.InnerHtml;
 			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
@@ -33,5 +36,19 @@ namespace Netkeiba
 				return string.Empty;
 			}
 		}
+
+		public static async Task<IHtmlDocument> GetDocument(string url)
+		{
+			var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+
+			var doc = await _parser.ParseDocumentAsync(res);
+
+			return doc;
+		}
+
+		private static HtmlParser _parser = new HtmlParser();
+		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
+		private static Encoding _dstenc = Encoding.UTF8;
+
 	}
 }

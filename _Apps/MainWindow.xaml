@@ -41,6 +41,7 @@
 
 		<Style TargetType="Button">
 			<Setter Property="Margin" Value="3" />
+			<Setter Property="MinHeight" Value="40" />
 		</Style>
 
 		<Style TargetType="ListBox">
@@ -51,13 +52,13 @@
 	<DockPanel>
 
 		<StatusBar DockPanel.Dock="Bottom">
-			<ProgressBar Width="300" 
+			<ProgressBar Width="300"
 						 Value="{Binding Progress.Value}"
 						 Maximum="{Binding Progress.Maximum}"
 						 Minimum="{Binding Progress.Minimum}" />
 		</StatusBar>
 
-		<GroupBox Header="STEP1: データ収集" Height="150" DockPanel.Dock="Top">
+		<GroupBox Header="STEP1: データ収集" DockPanel.Dock="Top">
 			<DockPanel>
 
 				<Button DockPanel.Dock="Right" Width="200" Content="実行" Command="{Binding S1EXEC}" />
@@ -97,13 +98,36 @@
 						</ItemsControl.ItemTemplate>
 					</ItemsControl>
 
-					<CheckBox IsChecked="{Binding Overwrite.IsChecked}" Content="上書きする" />
+					<CheckBox IsChecked="{Binding S1Overwrite.IsChecked}" Content="上書きする" />
 				</UniformGrid>
 			</DockPanel>
 		</GroupBox>
 
-		<GroupBox Header="STEP2: データ分析" DockPanel.Dock="Top">
-		</GroupBox>
+		<StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+
+			<GroupBox Header="STEP2: データ格納">
+				<DockPanel>
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S2Overwrite.IsChecked}" Content="上書きする" />
+					<Button Width="200" Content="実行" Command="{Binding S2EXEC}" />
+				</DockPanel>
+			</GroupBox>
+
+			<GroupBox Header="STEP3: 詳細データ収集">
+				<DockPanel>
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S3KisyuOverwrite.IsChecked}" Content="騎手情報を上書きする" />
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S3TyokyoOverwrite.IsChecked}" Content="調教師情報を上書きする" />
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S3BanushiOverwrite.IsChecked}" Content="馬主情報を上書きする" />
+					<Button Width="200" Content="実行" Command="{Binding S3EXEC}" />
+				</DockPanel>
+			</GroupBox>
+
+			<GroupBox Header="STEP4: 馬データ収集">
+				<DockPanel>
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S4Overwrite.IsChecked}" Content="馬情報を上書きする" />
+					<Button Width="200" Content="実行" Command="{Binding S4EXEC}" />
+				</DockPanel>
+			</GroupBox>
+		</StackPanel>
 
 		<GroupBox Header="実行ログ">
 			<ListBox ItemsSource="{Binding Logs}">
