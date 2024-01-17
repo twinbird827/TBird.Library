@@ -127,6 +127,13 @@
 					<Button Width="200" Content="実行" Command="{Binding S4EXEC}" />
 				</DockPanel>
 			</GroupBox>
+
+			<GroupBox Header="STEP5: 学習用データ作成">
+				<DockPanel>
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S5Overwrite.IsChecked}" Content="学習用データを上書きする" />
+					<Button Width="200" Content="実行" Command="{Binding S5EXEC}" />
+				</DockPanel>
+			</GroupBox>
 		</StackPanel>
 
 		<GroupBox Header="実行ログ">

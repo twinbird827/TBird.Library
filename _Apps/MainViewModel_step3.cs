@@ -26,22 +26,27 @@ namespace Netkeiba
 
 			Progress.Value = 0;
 			Progress.Minimum = 0;
-			Progress.Maximum = 3;
+			Progress.Maximum = 4;
 
 			using (var conn = new SQLiteControl(dstfile, string.Empty, false, false, 65536, false))
 			{
 				// 騎手情報の追加
-				await CreateS3CommonTable(conn, S3KisyuOverwrite.IsChecked, "t_kisyu", "騎手", "https://db.netkeiba.com/jockey/result/{0}/");
+				await CreateS3CommonTableEX(conn, S3KisyuOverwrite.IsChecked, "t_kisyu", "騎手");
 
 				Progress.Value += 1;
 
 				// 調教師情報の追加
-				await CreateS3CommonTable(conn, S3KisyuOverwrite.IsChecked, "t_kisyu", "調教師", "https://db.netkeiba.com/trainer/result/{0}/");
+				await CreateS3CommonTableEX(conn, S3TyokyoOverwrite.IsChecked, "t_tyokyo", "調教師");
 
 				Progress.Value += 1;
 
 				// 馬主情報の追加
-				await CreateS3CommonTable(conn, S3KisyuOverwrite.IsChecked, "t_kisyu", "馬主", "https://db.netkeiba.com/owner/result/{0}/");
+				await CreateS3CommonTableEX(conn, S3BanushiOverwrite.IsChecked, "t_banushi", "馬主");
+
+				Progress.Value += 1;
+
+				// 馬情報の追加
+				await CreateS3CommonTableEX(conn, S3BanushiOverwrite.IsChecked, "t_uma", "馬");
 
 				Progress.Value += 1;
 			}
@@ -134,5 +139,123 @@ namespace Netkeiba
 			}
 		}
 
+		private async Task CreateS3CommonTableEX(SQLiteControl conn, bool overwrite, string table, string head)
+		{
+			var id = $"{head}ID";
+			var ﾗﾝｸ = new[] { "G1", "G2", "G3", "G4", "OP", "ｵｰﾌﾟﾝ", "3勝", "1600万下", "2勝", "1000万下", "1勝", "500万下", "未勝利", "新馬" };
+			var ﾃﾞｰﾀ = new[] { "累勝", "累連", "累複", "直勝", "直連", "直複" };
+			var allkeys = ﾃﾞｰﾀ.Select(x => $"{x}_全ﾗﾝｸ")
+					.Concat(ﾃﾞｰﾀ.SelectMany(x => ﾗﾝｸ.Select(y => $"{x}_{y}")));
+
+			if (overwrite)
+			{
+				// 上書き時はﾃｰﾌﾞﾙを削除する。
+				await conn.ExecuteNonQueryAsync($"DROP TABLE IF EXISTS {table}");
+			}
+			if (!await conn.ExistsColumn(table, $"{id}"))
+			{
+				var cresql = $"" +
+					$"CREATE TABLE IF NOT EXISTS {table} ( {id} TEXT, 開催日数 INTEGER, " +
+					allkeys.Select(x => $"{x} TEXT").GetString(",") + "," +
+					$"PRIMARY KEY ({id}, 開催日数))";
+
+				// 存在しない場合に作成
+				await conn.ExecuteNonQueryAsync(cresql);
+			}
+
+			var targets = await conn.GetRows($"SELECT DISTINCT {id}, 開催日数 FROM t_orig");
+
+			var basesql =
+				$" SELECT COUNT(1) 累全," +
+				$"        COUNT(CASE WHEN 着順 = '1' THEN 1 END) 累1着," +
+				$"        COUNT(CASE WHEN 着順 = '2' THEN 1 END) 累2着," +
+				$"        COUNT(CASE WHEN 着順 = '3' THEN 1 END) 累3着," +
+				$"        COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND TRUE       THEN 1 END) 直全," +
+				$"        COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND 着順 = '1' THEN 1 END) 直1着," +
+				$"        COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND 着順 = '2' THEN 1 END) 直2着," +
+				$"        COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND 着順 = '3' THEN 1 END) 直3着" +
+				$" FROM (SELECT ? X, 365 Y) X" +
+				$" INNER JOIN t_orig ON t_orig.開催日数 < X.X AND t_orig.{id} = ? AND t_orig.ﾗﾝｸ = ?";
+
+			await conn.BeginTransaction();
+			foreach (var row in targets)
+			{
+				var dic = new Dictionary<string, object>();
+
+				dic[id] = row[id];
+				dic["開催日数"] = row["開催日数"];
+
+				var 累0 = 0d;
+				var 累1 = 0d;
+				var 累2 = 0d;
+				var 累3 = 0d;
+				var 直0 = 0d;
+				var 直1 = 0d;
+				var 直2 = 0d;
+				var 直3 = 0d;
+
+				foreach (var r in ﾗﾝｸ)
+				{
+					var rrow = await conn.GetRows(basesql, new[]
+					{
+						SQLiteUtil.CreateParameter(System.Data.DbType.Int64, row["開催日数"]),
+						SQLiteUtil.CreateParameter(System.Data.DbType.String, row[id]),
+						SQLiteUtil.CreateParameter(System.Data.DbType.String, r),
+					}).ContinueWith(x => x.Result.First());
+
+					var _累0 = rrow["累全"].GetDouble(); 累0 += _累0;
+					var _累1 = rrow["累1着"].GetDouble(); 累1 += _累1;
+					var _累2 = rrow["累2着"].GetDouble(); 累2 += _累2;
+					var _累3 = rrow["累3着"].GetDouble(); 累3 += _累3;
+					var _直0 = rrow["直全"].GetDouble(); 直0 += 直0;
+					var _直1 = rrow["直1着"].GetDouble(); 直1 += 直1;
+					var _直2 = rrow["直2着"].GetDouble(); 直2 += 直2;
+					var _直3 = rrow["直3着"].GetDouble(); 直3 += 直3;
+
+					dic[$"累勝_{r}"] = $"{(_累1) / _累0}";
+					dic[$"累連_{r}"] = $"{(_累1 + _累2) / _累0}";
+					dic[$"累複_{r}"] = $"{(_累1 + _累2 + _累3) / _累0}";
+
+					dic[$"直勝_{r}"] = $"{(_直1) / _直0}";
+					dic[$"直連_{r}"] = $"{(_直1 + _直2) / _直0}";
+					dic[$"直複_{r}"] = $"{(_直1 + _直2 + _直3) / _直0}";
+				}
+
+				dic[$"累勝_全ﾗﾝｸ"] = $"{(累1) / 累0}";
+				dic[$"累連_全ﾗﾝｸ"] = $"{(累1 + 累2) / 累0}";
+				dic[$"累複_全ﾗﾝｸ"] = $"{(累1 + 累2 + 累3) / 累0}";
+
+				dic[$"直勝_全ﾗﾝｸ"] = $"{(直1) / 直0}";
+				dic[$"直連_全ﾗﾝｸ"] = $"{(直1 + 直2) / 直0}";
+				dic[$"直複_全ﾗﾝｸ"] = $"{(直1 + 直2 + 直3) / 直0}";
+
+				var inssql = $"" +
+					$"INSERT INTO {table} ( {id}, 開催日数, {allkeys.GetString(",")} ) VALUES ( ?, ?, {allkeys.Select(x => "?").GetString(",")} )";
+				var prm = new[]
+				{
+					SQLiteUtil.CreateParameter(System.Data.DbType.String, row[id]),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, row["開催日数"]),
+				}.Concat(
+					allkeys.Select(x => SQLiteUtil.CreateParameter(System.Data.DbType.String, dic[x]))
+				);
+
+				// ﾃﾞｰﾀ作成
+				await conn.ExecuteNonQueryAsync(inssql, prm.ToArray());
+			}
+			conn.Commit();
+
+			/*
+SELECT COUNT(1) 累全,
+       COUNT(CASE WHEN 着順 = '1' THEN 1 END) 累1着,
+       COUNT(CASE WHEN 着順 = '2' THEN 1 END) 累2着,
+       COUNT(CASE WHEN 着順 = '3' THEN 1 END) 累3着,
+       COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND TRUE       THEN 1 END) 直全,
+       COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND 着順 = '1' THEN 1 END) 直1着,
+       COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND 着順 = '2' THEN 1 END) 直2着,
+       COUNT(CASE WHEN (X.X - X.Y) < 開催日数 AND 着順 = '3' THEN 1 END) 直3着
+FROM (SELECT 12414 X, 60 Y) X
+INNER JOIN t_orig ON 調教師ID = '01141' AND t_orig.開催日数 < X.X
+			 */
+		}
 	}
 }

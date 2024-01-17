@@ -112,6 +112,8 @@ namespace Netkeiba
 
 		private async Task<List<Dictionary<string, string>>> GetRaces(string raceid)
 		{
+			var ﾗﾝｸ = new[] { "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "3勝", "1600万下", "2勝", "1000万下", "1勝", "500万下", "未勝利", "新馬" };
+
 			var arr = new List<Dictionary<string, string>>();
 
 			var raceurl = $"https://db.netkeiba.com/race/{raceid}";
@@ -146,7 +148,7 @@ namespace Netkeiba
 				// 「2014年7月26日 3回中京7日目 2歳未勝利  (混)[指](馬齢)」この部分を取得して分類する
 				var details = raceparser.GetElementsByClassName("smalltxt").First().GetInnerHtml().Split(' ');
 				// 開催日
-				var date = details[0];
+				var date = DateTime.Parse(details[0]);
 				// 詳細
 				var detail = details[1];
 				// ｸﾗｽ
@@ -168,9 +170,11 @@ namespace Netkeiba
 					// ﾍｯﾀﾞ情報を挿入
 					dic["ﾚｰｽID"] = raceid;
 					dic["ﾚｰｽ名"] = title;
-					dic["開催日"] = date;
+					dic["開催日"] = date.ToString("yyyy/MM/dd");
+					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["詳細"] = detail;
 					dic["ｸﾗｽ"] = clas;
+					dic["ﾗﾝｸ"] = ﾗﾝｸ.FirstOrDefault(dic["ｸﾗｽ"].Contains) ?? ﾗﾝｸ.FirstOrDefault(dic["ﾚｰｽ名"].Contains) ?? string.Empty;
 					dic["その他"] = sonota;
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
