@@ -121,6 +121,22 @@ namespace Netkeiba
 			using (var raceparser = await AppUtil.GetDocument(raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("race_table_01 nk_tb_common").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
+				var ﾗﾝｸ2 = new Dictionary<string, string>()
+				{
+					{ "G1", "RANK1" },
+					{ "G2", "RANK1" },
+					{ "G3", "RANK1" },
+					{ "G4", "RANK2" },
+					{ "OP", "RANK2" },
+					{ "3勝", "RANK3" },
+					{ "1600万下", "RANK3" },
+					{ "2勝", "RANK3" },
+					{ "1000万下", "RANK3" },
+					{ "1勝", "RANK4" },
+					{ "500万下", "RANK4" },
+					{ "未勝利", "RANK5" },
+					{ "新馬", "RANK5" },
+				};
 
 				if (racetable == null) return arr;
 
@@ -178,6 +194,8 @@ namespace Netkeiba
 					dic["開催場所"] = basyo;
 					dic["ｸﾗｽ"] = clas;
 					dic["ﾗﾝｸ"] = ﾗﾝｸ.FirstOrDefault(dic["ｸﾗｽ"].Contains) ?? ﾗﾝｸ.FirstOrDefault(dic["ﾚｰｽ名"].Contains) ?? string.Empty;
+					dic["ﾗﾝｸ1"] = dic["ﾗﾝｸ"].Replace("(G)", "G4").Replace("(L)", "OP").Replace("オープン", "OP").Replace(")", "");
+					dic["ﾗﾝｸ2"] = ﾗﾝｸ2[dic["ﾗﾝｸ1"]];
 					dic["その他"] = sonota;
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
