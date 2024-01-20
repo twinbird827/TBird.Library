@@ -2,6 +2,7 @@
 using System;
 using System.Data.Common;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace TBird.DB
 {
@@ -42,6 +43,19 @@ namespace TBird.DB
 			{
 				return await reader.GetRows(func);
 			}
+		}
+
+		public static Task<List<Dictionary<string, object>>> GetRows(this DbControl conn, string sql, params DbParameter[] parameters)
+		{
+			Func<DbDataReader, Dictionary<string, object>> func = r =>
+			{
+				var indexes = Enumerable.Range(0, r.FieldCount)
+					.Where(i => i == 0 || !Enumerable.Range(0, i - 1).Any(x => r.GetName(i) == r.GetName(x)))
+					.ToArray();
+				return indexes.ToDictionary(i => r.GetName(i), i => r.GetValue(i));
+			};
+
+			return conn.GetRows(func, sql, parameters);
 		}
 
 		/// <summary>
