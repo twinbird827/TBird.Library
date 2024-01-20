@@ -74,5 +74,11 @@ namespace TBird.DB
 			return default(T);
 		}
 
+		public static async Task<Dictionary<string, string>[]> ToStringRows(this Task<List<Dictionary<string, object>>> src)
+		{
+			return (await src)
+				.Select(y => y.Keys.ToDictionary(z => z, z => $"{y[z]}"))
+				.ToArray();
+		}
 	}
 }
