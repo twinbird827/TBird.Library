@@ -1,11 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace TBird.Core
 {
 	public static class DoubleExtension
 	{
+		public static double Average(this IEnumerable<double> arr, double def)
+		{
+			return arr.Any() ? arr.Average() : def;
+		}
+
 		/// <summary>
 		/// 指定した数の累乗を積算します。
 		/// </summary>

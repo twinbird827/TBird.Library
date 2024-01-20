@@ -65,7 +65,7 @@ namespace TBird.Core
 			return true;
 		}
 
-		public static double GetDouble(this object value)
+		public static double GetDoubleNaN(this object value)
 		{
 			decimal result;
 			if (value.TryDecimal(out result))
@@ -74,8 +74,15 @@ namespace TBird.Core
 			}
 			else
 			{
-				return 0d;
+				return double.NaN;
 			}
+		}
+
+		public static double GetDouble(this object value)
+		{
+			double x = GetDoubleNaN(value);
+
+			return double.IsNaN(x) ? 0d : x;
 		}
 
 		public static int GetInt32(this object value)
