@@ -151,6 +151,8 @@ namespace Netkeiba
 				var date = DateTime.Parse(details[0]);
 				// 詳細
 				var detail = details[1];
+				// 場所
+				var basyo = Regex.Match(detail, @"\d+回(?<basyo>.+)\d+日目").Groups["basyo"].Value;
 				// ｸﾗｽ
 				var clas = details[2];
 				// その他
@@ -173,6 +175,7 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["詳細"] = detail;
+					dic["開催場所"] = basyo;
 					dic["ｸﾗｽ"] = clas;
 					dic["ﾗﾝｸ"] = ﾗﾝｸ.FirstOrDefault(dic["ｸﾗｽ"].Contains) ?? ﾗﾝｸ.FirstOrDefault(dic["ﾚｰｽ名"].Contains) ?? string.Empty;
 					dic["その他"] = sonota;
