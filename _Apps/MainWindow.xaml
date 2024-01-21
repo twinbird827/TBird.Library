@@ -105,33 +105,16 @@
 
 		<StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
 
-			<GroupBox Header="STEP2: データ格納">
+			<GroupBox Header="STEP2: 学習用データ作成">
 				<DockPanel>
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S2Overwrite.IsChecked}" Content="上書きする" />
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S2Overwrite.IsChecked}" Content="学習用データを上書きする" />
 					<Button Width="200" Content="実行" Command="{Binding S2EXEC}" />
 				</DockPanel>
 			</GroupBox>
 
-			<GroupBox Header="STEP3: 詳細データ収集">
+			<GroupBox Header="STEP3: 学習実行">
 				<DockPanel>
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S3KisyuOverwrite.IsChecked}" Content="騎手情報を上書きする" />
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S3TyokyoOverwrite.IsChecked}" Content="調教師情報を上書きする" />
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S3BanushiOverwrite.IsChecked}" Content="馬主情報を上書きする" />
 					<Button Width="200" Content="実行" Command="{Binding S3EXEC}" />
-				</DockPanel>
-			</GroupBox>
-
-			<GroupBox Header="STEP4: 馬データ収集">
-				<DockPanel>
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S4Overwrite.IsChecked}" Content="馬情報を上書きする" />
-					<Button Width="200" Content="実行" Command="{Binding S4EXEC}" />
-				</DockPanel>
-			</GroupBox>
-
-			<GroupBox Header="STEP5: 学習用データ作成">
-				<DockPanel>
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S5Overwrite.IsChecked}" Content="学習用データを上書きする" />
-					<Button Width="200" Content="実行" Command="{Binding S5EXEC}" />
 				</DockPanel>
 			</GroupBox>
 		</StackPanel>

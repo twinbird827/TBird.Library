@@ -8,13 +8,14 @@ using TBird.Wpf.Collections;
 using TBird.Wpf;
 using TBird.Core;
 using System.IO;
+using TBird.DB.SQLite;
+using System.Data;
+using TBird.DB;
 
 namespace Netkeiba
 {
 	public partial class MainViewModel
 	{
-		private const string step1dir = @"step1";
-
 		public BindableCollection<ComboboxItemModel> LogSource { get; } = new BindableCollection<ComboboxItemModel>();
 
 		public BindableContextCollection<ComboboxItemModel> Logs { get; }
@@ -37,7 +38,7 @@ namespace Netkeiba
 		}
 		private int _EYear;
 
-		public CheckboxItemModel S1Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S1Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
 
 		public IRelayCommand S1EXEC => RelayCommand.Create(async _ =>
 		{
@@ -51,57 +52,88 @@ namespace Netkeiba
 			Progress.Minimum = 0;
 			Progress.Maximum = years.Length * counts.Length * days.Length;
 
-			foreach (var y in years)
+			bool create = S1Overwrite.IsChecked || !File.Exists(_sqlitepath);
+
+			if (create || File.Exists(_sqlitepath))
 			{
-				foreach (var c in counts)
+				FileUtil.BeforeCreate(_sqlitepath);
+			}
+
+			using (var conn = CreateSQLiteControl())
+			{
+				foreach (var y in years)
 				{
-					foreach (var d in days)
+					foreach (var c in counts)
 					{
-						Progress.Value += 1;
-
-						var filepath = Path.Combine(step1dir, y + c + d + ".csv");
-
-						if (!S1Overwrite.IsChecked && File.Exists(filepath))
+						foreach (var d in days)
 						{
-							AddLog($"skip -> year: {y}, count: {c}, day:{d}");
-							continue;
-						}
+							Progress.Value += 1;
 
-						var arr = new List<Dictionary<string, string>>();
-
-						foreach (var b in basyos)
-						{
-							foreach (var r in races)
+							foreach (var b in basyos)
 							{
-								// raceid = year + basyo + count + day + race
-								var raceid = $"{y}{b.Value}{c}{d}{r}";
-
-								try
+								foreach (var r in races)
 								{
-									var racearr = await GetRaces(raceid);
+									// raceid = year + basyo + count + day + race
+									var raceid = $"{y}{b.Value}{c}{d}{r}";
 
-									if (racearr.Count == 0) break;
+									if (await conn.ExistsColumn("t_orig", "ﾚｰｽID"))
+									{
+										var cnt = await conn.ExecuteScalarAsync(
+											$"SELECT COUNT(*) FROM t_orig WHERE ﾚｰｽID = ?",
+											SQLiteUtil.CreateParameter(DbType.String, raceid)
+										);
+										if (cnt.GetDouble() == 0) break;
+									}
 
-									arr.AddRange(racearr);
+									try
+									{
+										var racearr = await GetRaces(raceid);
 
-									AddLog($"year: {y}, count: {c}, day:{d}, basyo:{b.Display}, race: {r}R, raceid: {raceid}");
-								}
-								catch (Exception ex)
-								{
-									MessageService.Exception(ex);
+										if (racearr.Count == 0) break;
+
+										if (create)
+										{
+											create = false;
+
+											// ﾃｰﾌﾞﾙ作成
+											await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_orig (" + racearr.First().Keys.GetString(",") + ", PRIMARY KEY (開催日数, 着順))");
+
+											// ｲﾝﾃﾞｯｸｽ作成
+											var indexes = new Dictionary<string, string[]>()
+											{
+												{ "馬ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "天候", "馬場", "馬場状態" } },
+												{ "騎手ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "天候", "馬場", "馬場状態" } },
+												{ "調教師ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2" } },
+												{ "馬主ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2" } },
+											};
+											int index = 0;
+											foreach (var k in indexes)
+											{
+												await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数)");
+												foreach (var v in k.Value)
+												{
+													await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, {v}, 開催日数)");
+												}
+											}
+										}
+
+										await conn.BeginTransaction();
+										foreach (var x in racearr)
+										{
+											var sql = "INSERT INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
+											var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
+											await conn.ExecuteNonQueryAsync(sql, prm);
+										}
+										conn.Commit();
+
+										AddLog($"year: {y}, count: {c}, day:{d}, basyo:{b.Display}, race: {r}R, raceid: {raceid}");
+									}
+									catch (Exception ex)
+									{
+										MessageService.Exception(ex);
+									}
 								}
 							}
-						}
-
-						if (0 < arr.Count)
-						{
-							FileUtil.BeforeCreate(filepath);
-
-							var header = arr.Take(1).Select(x => x.Keys.ToArray());
-							var detail = arr.Select(x => x.Values.ToArray());
-							File.AppendAllLines(filepath, header.Concat(detail).Select(s => s.GetString("\t")));
-
-							AddLog($"file create: {filepath}");
 						}
 					}
 				}
@@ -124,18 +156,18 @@ namespace Netkeiba
 				var ﾗﾝｸ2 = new Dictionary<string, string>()
 				{
 					{ "G1", "RANK1" },
-					{ "G2", "RANK1" },
-					{ "G3", "RANK1" },
-					{ "G4", "RANK2" },
-					{ "OP", "RANK2" },
-					{ "3勝", "RANK3" },
-					{ "1600万下", "RANK3" },
-					{ "2勝", "RANK3" },
-					{ "1000万下", "RANK3" },
-					{ "1勝", "RANK4" },
-					{ "500万下", "RANK4" },
-					{ "未勝利", "RANK5" },
-					{ "新馬", "RANK5" },
+					{ "G2", "RANK2" },
+					{ "G3", "RANK2" },
+					{ "G4", "RANK3" },
+					{ "OP", "RANK3" },
+					{ "3勝", "RANK4" },
+					{ "1600万下", "RANK4" },
+					{ "2勝", "RANK5" },
+					{ "1000万下", "RANK5" },
+					{ "1勝", "RANK5" },
+					{ "500万下", "RANK5" },
+					{ "未勝利", "RANK6" },
+					{ "新馬", "RANK7" },
 				};
 
 				if (racetable == null) return arr;
@@ -231,7 +263,7 @@ namespace Netkeiba
 					// 着差
 					dic["着差"] = row.Cells[8].GetInnerHtml();
 					// ﾀｲﾑ指数(有料)
-					dic["ﾀｲﾑ指数(有料)"] = "**";
+					dic["ﾀｲﾑ指数_有料"] = "**";
 					// 通過
 					dic["通過"] = row.Cells[10].GetInnerHtml();
 					// 上り
@@ -245,11 +277,11 @@ namespace Netkeiba
 					// 増減 TODO 軽量不能時はｾﾞﾛ
 					dic["増減"] = row.Cells[14].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
 					// 調教ﾀｲﾑ(有料)
-					dic["調教ﾀｲﾑ(有料)"] = "**";
+					dic["調教ﾀｲﾑ_有料"] = "**";
 					// 厩舎ｺﾒﾝﾄ(有料)
-					dic["厩舎ｺﾒﾝﾄ(有料)"] = "**";
+					dic["厩舎ｺﾒﾝﾄ_有料"] = "**";
 					// 備考(有料)
-					dic["備考(有料)"] = "**";
+					dic["備考_有料"] = "**";
 					// 調教場所
 					dic["調教場所"] = row.Cells[18].GetInnerHtml().Split('[')[1].Split(']')[0];
 					// 調教師名

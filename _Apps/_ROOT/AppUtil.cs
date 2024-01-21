@@ -2,6 +2,7 @@
 using AngleSharp.Html.Parser;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -50,5 +51,21 @@ namespace Netkeiba
 		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
 		private static Encoding _dstenc = Encoding.UTF8;
 
+		public static async Task<IEnumerable<string>> GetFileHeaders(string path, string sepa)
+		{
+			var csvenum = File.ReadLinesAsync(path).GetAsyncEnumerator();
+			var csvheader = await csvenum.MoveNextAsync() ? csvenum.Current : string.Empty;
+			return csvheader.Split(sepa);
+		}
+
+		public static async Task<IEnumerable<T>> GetFileHeaders<T>(string path, string sepa, Func<string, T> func)
+		{
+			return await GetFileHeaders(path, sepa).ContinueWith(x => x.Result.Select(func));
+		}
+
+		public static async Task<IEnumerable<T>> GetFileHeaders<T>(string path, string sepa, Func<string, int, T> func)
+		{
+			return await GetFileHeaders(path, sepa).ContinueWith(x => x.Result.Select(func));
+		}
 	}
 }

@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using TBird.Core;
+using TBird.DB.SQLite;
 using TBird.Web;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
@@ -53,5 +54,10 @@ namespace Netkeiba
 		}
 
 		private const int _logmax = 1024;
+
+		private readonly string _sqlitepath = Path.Combine(@"database", "database.sqlite3");
+
+		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 65536, false);
+
 	}
 }
