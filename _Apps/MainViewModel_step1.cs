@@ -58,9 +58,17 @@ namespace Netkeiba
 			{
 				FileUtil.BeforeCreate(_sqlitepath);
 			}
-
+			
 			using (var conn = CreateSQLiteControl())
 			{
+				if (await conn.ExistsColumn("t_orig", "ﾚｰｽID"))
+				{
+					await conn.BeginTransaction();
+					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE 着順 IS NULL");
+					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE 着順 = ''");
+					conn.Commit();
+				}
+
 				foreach (var y in years)
 				{
 					foreach (var c in counts)
@@ -82,7 +90,7 @@ namespace Netkeiba
 											$"SELECT COUNT(*) FROM t_orig WHERE ﾚｰｽID = ?",
 											SQLiteUtil.CreateParameter(DbType.String, raceid)
 										);
-										if (cnt.GetDouble() == 0) break;
+										if (0 < cnt.GetDouble()) break;
 									}
 
 									try
@@ -96,7 +104,7 @@ namespace Netkeiba
 											create = false;
 
 											// ﾃｰﾌﾞﾙ作成
-											await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_orig (" + racearr.First().Keys.GetString(",") + ", PRIMARY KEY (開催日数, 着順))");
+											await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_orig (" + racearr.First().Keys.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
 
 											// ｲﾝﾃﾞｯｸｽ作成
 											var indexes = new Dictionary<string, string[]>()
@@ -153,6 +161,169 @@ namespace Netkeiba
 			using (var raceparser = await AppUtil.GetDocument(raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("race_table_01 nk_tb_common").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
+				var ﾗﾝｸ2 = new Dictionary<string, string>()
+				{
+					{ "G1", "RANK1" },
+					{ "G2", "RANK2" },
+					{ "G3", "RANK2" },
+					{ "G4", "RANK3" },
+					{ "OP", "RANK3" },
+					{ "3勝", "RANK4" },
+					{ "1600万下", "RANK4" },
+					{ "2勝", "RANK5" },
+					{ "1000万下", "RANK5" },
+					{ "1勝", "RANK5" },
+					{ "500万下", "RANK5" },
+					{ "未勝利", "RANK6" },
+					{ "新馬", "RANK7" },
+				};
+
+				if (racetable == null) return arr;
+
+				// 追切情報を取得する
+				var oikiris = await GetOikiris(raceid);
+
+				// *****
+				// 「ダ左1200m / 天候 : 晴 / ダート : 良 / 発走 : 10:01」この部分を取得して分類する
+				var spans = raceparser.GetElementsByTagName("span").Select(x => x.GetInnerHtml().Split('/')).First(x => 3 < x.Length);
+
+				// 1文字目(ダ or 芝 or 障)
+				var left = spans[0].Left(1);
+				// 2文字目(左 or 右) TODO 障害ﾚｰｽは1文字目が"障"になってる。
+				var mawari = left == "障" ? left : spans[0].Mid(1, 1);
+				// 距離
+				var kyori = Regex.Match(spans[0], @"\d+").Value;
+				// 天候
+				var tenki = spans[1].Split(":")[1].Trim();
+				// 馬場(芝 or ダート)
+				var baba = spans[2].Split(":")[0].Trim();
+				// 馬場状態
+				var cond = spans[2].Split(":")[1].Trim();
+
+				// *****
+				// 「2014年7月26日 3回中京7日目 2歳未勝利  (混)[指](馬齢)」この部分を取得して分類する
+				var details = raceparser.GetElementsByClassName("smalltxt").First().GetInnerHtml().Split(' ');
+				// 開催日
+				var date = DateTime.Parse(details[0]);
+				// 詳細
+				var detail = details[1];
+				// 場所
+				var basyo = Regex.Match(detail, @"\d+回(?<basyo>.+)\d+日目").Groups["basyo"].Value;
+				// ｸﾗｽ
+				var clas = details[2];
+				// その他
+				var sonota = details.Skip(3).GetString();
+
+				// *****
+				// ﾚｰｽ名を取得
+				var title = raceparser.GetElementsByClassName("mainrace_data fc").SelectMany(x => x.GetElementsByTagName("h1")).First().GetInnerHtml().Split("<")[0];
+
+				// *****
+				// 各行の処理
+				foreach (var row in racetable.Rows.Skip(1))
+				{
+					var dic = new Dictionary<string, string>();
+
+					// *****
+					// ﾍｯﾀﾞ情報を挿入
+					dic["ﾚｰｽID"] = raceid;
+					dic["ﾚｰｽ名"] = title;
+					dic["開催日"] = date.ToString("yyyy/MM/dd");
+					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
+					dic["詳細"] = detail;
+					dic["開催場所"] = basyo;
+					dic["ｸﾗｽ"] = clas;
+					dic["ﾗﾝｸ"] = ﾗﾝｸ.FirstOrDefault(dic["ｸﾗｽ"].Contains) ?? ﾗﾝｸ.FirstOrDefault(dic["ﾚｰｽ名"].Contains) ?? string.Empty;
+					dic["ﾗﾝｸ1"] = dic["ﾗﾝｸ"].Replace("(G)", "G4").Replace("(L)", "OP").Replace("オープン", "OP").Replace(")", "");
+					dic["ﾗﾝｸ2"] = ﾗﾝｸ2[dic["ﾗﾝｸ1"]];
+					dic["その他"] = sonota;
+					dic["回り"] = mawari;
+					dic["距離"] = kyori;
+					dic["天候"] = tenki;
+					dic["馬場"] = baba;
+					dic["馬場状態"] = cond;
+
+					// 着順
+					dic["着順"] = row.Cells[0].GetInnerHtml();
+					// 着順が数値ではない場合は出走取消
+					if (!int.TryParse(dic["着順"], out int def)) break;
+
+					// 枠番
+					dic["枠番"] = row.Cells[1].GetInnerHtml();
+					// 馬番
+					dic["馬番"] = row.Cells[2].GetInnerHtml();
+					// 馬名
+					dic["馬名"] = row.Cells[3].GetHrefAttribute("title");
+					// 馬ID
+					dic["馬ID"] = row.Cells[3].GetHrefAttribute("href").Split('/')[2];
+					// 性
+					dic["馬性"] = row.Cells[4].GetInnerHtml().Left(1);
+					// 齢
+					dic["馬齢"] = row.Cells[4].GetInnerHtml().Mid(1);
+					// 斤量
+					dic["斤量"] = row.Cells[5].GetInnerHtml();
+					// 騎手
+					dic["騎手名"] = row.Cells[6].GetHrefAttribute("title");
+					// 騎手ID
+					dic["騎手ID"] = row.Cells[6].GetHrefAttribute("href").Split('/')[4];
+					// ﾀｲﾑ
+					dic["ﾀｲﾑ"] = row.Cells[7].GetInnerHtml();
+					// 着差
+					dic["着差"] = row.Cells[8].GetInnerHtml();
+					// ﾀｲﾑ指数(有料)
+					dic["ﾀｲﾑ指数_有料"] = "**";
+					// 通過
+					dic["通過"] = row.Cells[10].GetInnerHtml();
+					// 上り
+					dic["上り"] = row.Cells[11].GetInnerHtml();
+					// 単勝
+					dic["単勝"] = row.Cells[12].GetInnerHtml();
+					// 人気
+					dic["人気"] = row.Cells[13].GetInnerHtml();
+					// 体重
+					dic["体重"] = row.Cells[14].GetInnerHtml().Split('(')[0];
+					// 増減 TODO 軽量不能時はｾﾞﾛ
+					dic["増減"] = row.Cells[14].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
+					// 調教ﾀｲﾑ(有料)
+					dic["調教ﾀｲﾑ_有料"] = "**";
+					// 厩舎ｺﾒﾝﾄ(有料)
+					dic["厩舎ｺﾒﾝﾄ_有料"] = "**";
+					// 備考(有料)
+					dic["備考_有料"] = "**";
+					// 調教場所
+					dic["調教場所"] = row.Cells[18].GetInnerHtml().Split('[')[1].Split(']')[0];
+					// 調教師名
+					dic["調教師名"] = row.Cells[18].GetHrefAttribute("title");
+					// 調教師ID
+					dic["調教師ID"] = row.Cells[18].GetHrefAttribute("href").Split('/')[4];
+					// 馬主名
+					dic["馬主名"] = row.Cells[19].GetHrefAttribute("title");
+					// 馬主ID
+					dic["馬主ID"] = row.Cells[19].GetHrefAttribute("href").Split('/')[4];
+
+					// 追切情報を追加
+					var oikiri = oikiris.Where(x => x["枠番"] == dic["枠番"] && x["馬番"] == dic["馬番"]).FirstOrDefault();
+					dic["一言"] = oikiri != null ? oikiri["一言"] : string.Empty;
+					dic["追切"] = oikiri != null ? oikiri["追切"] : string.Empty;
+
+					arr.Add(dic);
+				}
+			}
+
+			return arr;
+		}
+
+		private async Task<List<Dictionary<string, string>>> GetRaces2(string raceid)
+		{
+			var ﾗﾝｸ = new[] { "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "3勝", "1600万下", "2勝", "1000万下", "1勝", "500万下", "未勝利", "新馬" };
+
+			var arr = new List<Dictionary<string, string>>();
+
+			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
+
+			using (var raceparser = await AppUtil.GetDocument(raceurl))
+			{
+				var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
 				var ﾗﾝｸ2 = new Dictionary<string, string>()
 				{
 					{ "G1", "RANK1" },

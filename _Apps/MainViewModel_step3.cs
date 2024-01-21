@@ -27,13 +27,13 @@ namespace Netkeiba
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 
-			//// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
-			//var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
+			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
+			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
-			//// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			//await CreateModelInputData(dataPath);
+			// ﾃﾞｰﾀﾌｧｲﾙを作製する
+			await CreateModelInputData(dataPath);
 
-			var dataPath = @"C:\Work\GitHub\TBird.Library\_Apps\bin\Debug\net7.0-windows\step5\inputdata.csv";
+			//var dataPath = @"C:\Work\GitHub\TBird.Library\_Apps\bin\Debug\net7.0-windows\step5\inputdata.csv";
 
 			// Infer column information
 			var columnInference =
@@ -202,51 +202,5 @@ namespace Netkeiba
 				}
 			}
 		}
-	}
-
-	internal class Passenger
-	{
-		[LoadColumn(0)]
-		public float PassengerId;
-
-		[LoadColumn(1)]
-		public string Survived;
-
-		[LoadColumn(2)]
-		public float Pclass;
-
-		[LoadColumn(3)]
-		public string Name;
-
-		[LoadColumn(4)]
-		public string Sex;
-
-		[LoadColumn(5)]
-		public float Age;
-
-		[LoadColumn(6)]
-		public float SibSp;
-
-		[LoadColumn(7)]
-		public float Parch;
-
-		[LoadColumn(8)]
-		public string Ticket;
-
-		[LoadColumn(9)]
-		public float Fare;
-
-		[LoadColumn(10)]
-		public string Cabin;
-
-		[LoadColumn(11)]
-		public string Embarked;
-	}
-
-	public class TitanicPrediction
-	{
-		[ColumnName("PredictedLabel")]
-		// Predicted label from the trainer.
-		public bool PredictedSurvived { get; set; }
 	}
 }

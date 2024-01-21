@@ -63,7 +63,7 @@ namespace Netkeiba
 
 						// ﾃｰﾌﾞﾙ作成
 						await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
-						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_model (" + racarr.First().Keys.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 着順))");
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_model (" + racarr.First().Keys.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
 					}
 
 					await conn.BeginTransaction();
