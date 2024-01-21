@@ -78,39 +78,69 @@ namespace Netkeiba
 							var keyvalue = $"{src[keyname]}";
 							var headvalue = $"{src[headname]}";
 
-							var tgta = await conn.GetRows($"SELECT" +
-								$" COUNT(*)                             R0," +
-								$" COUNT(CASE WHEN 着順 = 1 THEN 1 END) R1," +
-								$" COUNT(CASE WHEN 着順 = 2 THEN 1 END) R2," +
-								$" COUNT(CASE WHEN 着順 = 3 THEN 1 END) R3" +
-								$" FROM t_orig" +
-								$" WHERE {keyname} = ? AND {headname} = ? AND 開催日数 < ?",
+							var tgt = await conn.GetRows($"" +
+								$" SELECT" +
+								$"   COUNT(*)                                    RA0," +
+								$"   COUNT(CASE WHEN t_orig.着順 = 1 THEN 1 END) RA1," +
+								$"   COUNT(CASE WHEN t_orig.着順 = 2 THEN 1 END) RA2," +
+								$"   COUNT(CASE WHEN t_orig.着順 = 3 THEN 1 END) RA3," +
+								$"" +
+								$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END)                      RN0," +
+								$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 AND t_orig.着順 = 1 THEN 1 END)  RN1," +
+								$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 AND t_orig.着順 = 2 THEN 1 END)  RN2," +
+								$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 AND t_orig.着順 = 3 THEN 1 END)  RN3" +
+								$" FROM" +
+								$"   (SELECT ? {keyname}, ? {headname}, ? 開催日数, 365 直近日数) t_where" +
+								$"   INNER JOIN t_orig" +
+								$"   ON t_orig.{keyname} = t_where.{keyname} AND t_orig.{headname} = t_where.{headname} AND t_orig.開催日数 < t_where.開催日数",
 								SQLiteUtil.CreateParameter(System.Data.DbType.String, keyvalue),
 								SQLiteUtil.CreateParameter(System.Data.DbType.String, headvalue),
 								SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now)
 							);
 
-							var ra0 = $"{tgta[0]["R0"]}".GetDouble();
-							var ra1 = $"{tgta[0]["R1"]}".GetDouble();
-							var ra2 = $"{tgta[0]["R2"]}".GetDouble();
-							var ra3 = $"{tgta[0]["R3"]}".GetDouble();
+							var ra0 = $"{tgt[0]["RA0"]}".GetDouble();
+							var ra1 = $"{tgt[0]["RA1"]}".GetDouble();
+							var ra2 = $"{tgt[0]["RA2"]}".GetDouble();
+							var ra3 = $"{tgt[0]["RA3"]}".GetDouble();
 
-							var tgtn = await conn.GetRows($"SELECT" +
-								$" COUNT(*)                             R0," +
-								$" COUNT(CASE WHEN 着順 = 1 THEN 1 END) R1," +
-								$" COUNT(CASE WHEN 着順 = 2 THEN 1 END) R2," +
-								$" COUNT(CASE WHEN 着順 = 3 THEN 1 END) R3" +
-								$" FROM t_orig" +
-								$" WHERE {keyname} = ? AND {headname} = ? AND ? < 開催日数 AND 開催日数 < ?",
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, keyvalue),
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, headvalue),
-								SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now - 365),
-								SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now)
-							);
-							var rn0 = $"{tgtn[0]["R0"]}".GetDouble();
-							var rn1 = $"{tgtn[0]["R1"]}".GetDouble();
-							var rn2 = $"{tgtn[0]["R2"]}".GetDouble();
-							var rn3 = $"{tgtn[0]["R3"]}".GetDouble();
+							var rn0 = $"{tgt[0]["RN0"]}".GetDouble();
+							var rn1 = $"{tgt[0]["RN1"]}".GetDouble();
+							var rn2 = $"{tgt[0]["RN2"]}".GetDouble();
+							var rn3 = $"{tgt[0]["RN3"]}".GetDouble();
+
+							//var tgta = await conn.GetRows($"SELECT" +
+							//	$" COUNT(*)                             R0," +
+							//	$" COUNT(CASE WHEN 着順 = 1 THEN 1 END) R1," +
+							//	$" COUNT(CASE WHEN 着順 = 2 THEN 1 END) R2," +
+							//	$" COUNT(CASE WHEN 着順 = 3 THEN 1 END) R3" +
+							//	$" FROM t_orig" +
+							//	$" WHERE {keyname} = ? AND {headname} = ? AND 開催日数 < ?",
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.String, keyvalue),
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.String, headvalue),
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now)
+							//);
+
+							//var ra0 = $"{tgta[0]["R0"]}".GetDouble();
+							//var ra1 = $"{tgta[0]["R1"]}".GetDouble();
+							//var ra2 = $"{tgta[0]["R2"]}".GetDouble();
+							//var ra3 = $"{tgta[0]["R3"]}".GetDouble();
+
+							//var tgtn = await conn.GetRows($"SELECT" +
+							//	$" COUNT(*)                             R0," +
+							//	$" COUNT(CASE WHEN 着順 = 1 THEN 1 END) R1," +
+							//	$" COUNT(CASE WHEN 着順 = 2 THEN 1 END) R2," +
+							//	$" COUNT(CASE WHEN 着順 = 3 THEN 1 END) R3" +
+							//	$" FROM t_orig" +
+							//	$" WHERE {keyname} = ? AND {headname} = ? AND ? < 開催日数 AND 開催日数 < ?",
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.String, keyvalue),
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.String, headvalue),
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now - 365),
+							//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now)
+							//);
+							//var rn0 = $"{tgtn[0]["R0"]}".GetDouble();
+							//var rn1 = $"{tgtn[0]["R1"]}".GetDouble();
+							//var rn2 = $"{tgtn[0]["R2"]}".GetDouble();
+							//var rn3 = $"{tgtn[0]["R3"]}".GetDouble();
 
 							var dic = new Dictionary<string, double>();
 
@@ -126,8 +156,6 @@ namespace Netkeiba
 						};
 
 						var dic = new Dictionary<string, double>();
-
-						MessageService.Debug($"ﾚｰｽ内 foreach:ﾍｯﾀﾞ情報:開始:{raceid}");
 
 						// ﾍｯﾀﾞ情報
 						dic["ﾚｰｽID"] = src["ﾚｰｽID"].GetDouble();
@@ -157,10 +185,6 @@ namespace Netkeiba
 						dic["一言"] = 一言.IndexOf(src["一言"]);
 						dic["追切"] = 追切.IndexOf(src["追切"]);
 
-						MessageService.Debug($"ﾚｰｽ内 foreach:ﾍｯﾀﾞ情報:終了:{raceid}");
-
-						MessageService.Debug($"ﾚｰｽ内 foreach:馬ID:開始:{raceid}");
-
 						// 馬の成績を追加する→過去ﾚｰｽから算出する
 						dic.AddRange(await func_getdata("馬ID", "馬ID"));
 						dic.AddRange(await func_getdata("馬ID", "開催場所"));
@@ -170,9 +194,6 @@ namespace Netkeiba
 						dic.AddRange(await func_getdata("馬ID", "天候"));
 						dic.AddRange(await func_getdata("馬ID", "馬場"));
 						dic.AddRange(await func_getdata("馬ID", "馬場状態"));
-
-						MessageService.Debug($"ﾚｰｽ内 foreach:馬ID:終了:{raceid}");
-						MessageService.Debug($"ﾚｰｽ内 foreach:騎手ID:開始:{raceid}");
 
 						// 騎手の成績を追加する→過去ﾚｰｽから算出する
 						dic.AddRange(await func_getdata("騎手ID", "騎手ID"));
@@ -184,17 +205,11 @@ namespace Netkeiba
 						dic.AddRange(await func_getdata("騎手ID", "馬場"));
 						dic.AddRange(await func_getdata("騎手ID", "馬場状態"));
 
-						MessageService.Debug($"ﾚｰｽ内 foreach:騎手ID:終了:{raceid}");
-						MessageService.Debug($"ﾚｰｽ内 foreach:調教師ID:開始:{raceid}");
-
 						// 調教師の成績を追加する→過去ﾚｰｽから算出する
 						dic.AddRange(await func_getdata("調教師ID", "調教師ID"));
 						dic.AddRange(await func_getdata("調教師ID", "開催場所"));
 						dic.AddRange(await func_getdata("調教師ID", "ﾗﾝｸ1"));
 						dic.AddRange(await func_getdata("調教師ID", "ﾗﾝｸ2"));
-
-						MessageService.Debug($"ﾚｰｽ内 foreach:調教師ID:終了:{raceid}");
-						MessageService.Debug($"ﾚｰｽ内 foreach:馬主情報:開始:{raceid}");
 
 						// 馬主の成績を追加する→過去ﾚｰｽから算出する
 						dic.AddRange(await func_getdata("馬主ID", "馬主ID"));
@@ -202,56 +217,51 @@ namespace Netkeiba
 						dic.AddRange(await func_getdata("馬主ID", "ﾗﾝｸ1"));
 						dic.AddRange(await func_getdata("馬主ID", "ﾗﾝｸ2"));
 
-						MessageService.Debug($"ﾚｰｽ内 foreach:馬主情報:終了:{raceid}");
-						MessageService.Debug($"ﾚｰｽ内 foreach:馬詳細:開始:{raceid}");
-
-						var 馬情報 = await conn.GetRows("SELECT * FROM t_orig WHERE 馬ID = ? AND 開催日数 < ?",
+						var 馬情報 = await conn.GetRows(
+								$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ" +
+								$" FROM t_orig" +
+								$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_orig.開催日数 = t_top.開催日数 AND t_top.着順 = 1" +
+								$" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ?",
 								SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
 								SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 						);
 
-						try
-						{
-							// 得意距離、及び今回のﾚｰｽ距離との差
-							dic["距離"] = src["距離"].GetDouble();
-							dic["馬_得意距離"] = 馬情報.Select(x => x["距離"].GetDouble()).Average(dic["距離"]);
-							dic["馬_距離差"] = dic["馬_得意距離"] - dic["距離"];
+						// 得意距離、及び今回のﾚｰｽ距離との差
+						dic["距離"] = src["距離"].GetDouble();
+						dic["馬_得意距離"] = 馬情報.Select(x => x["距離"].GetDouble()).Average(dic["距離"]);
+						dic["馬_距離差"] = dic["馬_得意距離"] - dic["距離"];
 
-							// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-							Func<object, double> func_tuka = v => $"{v}".Split('-').Select(x => x.GetDouble()).Average(同ﾚｰｽ.Count);
-							dic["通過"] = func_tuka(src["通過"]);
-							dic["通過平均"] = 馬情報.Select(x => func_tuka(x["通過"])).Average(同ﾚｰｽ.Count / 2.0);
+						// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+						Func<object, double> func_tuka = v => $"{v}".Split('-').Select(x => x.GetDouble()).Average(同ﾚｰｽ.Count);
+						dic["通過"] = func_tuka(src["通過"]);
+						dic["通過平均"] = 馬情報.Select(x => func_tuka(x["通過"])).Average(同ﾚｰｽ.Count / 2.0);
 
-							// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-							dic["上り"] = src["上り"].GetDouble();
-							dic["上り平均"] = 馬情報.Select(x => x["上り"].GetDouble()).Average(double.NaN);
+						// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+						dic["上り"] = src["上り"].GetDouble();
+						dic["上り平均"] = 馬情報.Select(x => x["上り"].GetDouble()).Average(double.NaN);
 
-							// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-							Func<object, double> func_time = v => $"{v}".Split(':')[0].GetDouble() * 60 + $"{v}".Split(':')[1].GetDouble();
-							dic["時間"] = src["距離"].GetDouble() / func_time(src["ﾀｲﾑ"]);
-							dic["時間平均"] = 馬情報.Select(x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"])).Average(double.NaN);
+						// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+						Func<object, double> func_time = v => $"{v}".Split(':')[0].GetDouble() * 60 + $"{v}".Split(':')[1].GetDouble();
+						dic["時間"] = src["距離"].GetDouble() / func_time(src["ﾀｲﾑ"]);
+						dic["時間平均"] = 馬情報.Select(x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"])).Average(double.NaN);
 
-							// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-							Func<object, double> func_tyaku = v => CoreUtil.Nvl(
-								$"{v}"
-								.Replace("ハナ", "0.05")
-								.Replace("アタマ", "0.10")
-								.Replace("クビ", "0.15")
-								.Replace("同着", "0")
-								.Replace("大", "15")
-								.Replace("1/4", "25")
-								.Replace("1/2", "50")
-								.Replace("3/4", "75"), "-0.25")
-								.Split('+').Sum(x => double.Parse(x));
-							dic["着差"] = func_tyaku(src["着差"]);
-							dic["着差平均"] = 馬情報.Select(x => func_tyaku(x["着差"])).Average(double.NaN);
-						}
-						catch (Exception ex)
-						{
-							MessageService.Debug($"ﾚｰｽ内 foreach:馬詳細:異常:{raceid}");
-						}
+						// 1着との差
+						dic["TOP時間差"] = 馬情報.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).Average(double.NaN);
 
-						MessageService.Debug($"ﾚｰｽ内 foreach:馬詳細:終了:{raceid}");
+						// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+						Func<object, double> func_tyaku = v => CoreUtil.Nvl(
+							$"{v}"
+							.Replace("ハナ", "0.05")
+							.Replace("アタマ", "0.10")
+							.Replace("クビ", "0.15")
+							.Replace("同着", "0")
+							.Replace("大", "15")
+							.Replace("1/4", "25")
+							.Replace("1/2", "50")
+							.Replace("3/4", "75"), "-0.25")
+							.Split('+').Sum(x => double.Parse(x));
+						dic["着差"] = func_tyaku(src["着差"]);
+						dic["着差平均"] = 馬情報.Select(x => func_tyaku(x["着差"])).Average(double.NaN);
 
 						racarr.Add(dic);
 
