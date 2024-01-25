@@ -17,6 +17,9 @@ using Microsoft.ML.AutoML;
 using ControlzEx.Standard;
 using System.Security.Cryptography;
 using System.Data.Common;
+using System.Text.RegularExpressions;
+using System.Reflection;
+using System.Windows.Media.TextFormatting;
 
 namespace Netkeiba
 {
@@ -32,8 +35,6 @@ namespace Netkeiba
 
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
 			await CreateModelInputData(dataPath);
-
-			//var dataPath = @"C:\Work\GitHub\TBird.Library\_Apps\bin\Debug\net7.0-windows\step5\inputdata.csv";
 
 			// Infer column information
 			var columnInference =
@@ -52,7 +53,7 @@ namespace Netkeiba
 			SweepablePipeline pipeline = mlContext
 					.Auto()
 					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-					.Append(mlContext.Auto().BinaryClassification(labelColumnName: columnInference.ColumnInformation.LabelColumnName, useFastForest: false, useLgbm: true));
+					.Append(mlContext.Auto().BinaryClassification(labelColumnName: columnInference.ColumnInformation.LabelColumnName));
 
 			// Create AutoML experiment
 			AutoMLExperiment experiment = mlContext.Auto().CreateExperiment();
@@ -61,12 +62,12 @@ namespace Netkeiba
 			experiment
 				.SetPipeline(pipeline)
 				.SetBinaryClassificationMetric(BinaryClassificationMetric.Accuracy, labelColumn: columnInference.ColumnInformation.LabelColumnName)
-				.SetTrainingTimeInSeconds(120)
+				.SetTrainingTimeInSeconds(240)
 				.SetEciCostFrugalTuner()
 				.SetDataset(trainValidationData);
 
 			// Log experiment trials
-			var monitor = new AutoMLMonitor(pipeline);
+			var monitor = new AutoMLMonitor(pipeline, this);
 			experiment.SetMonitor(monitor);
 
 			// Run experiment
@@ -85,122 +86,60 @@ namespace Netkeiba
 			IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
 
 			// Save model
-			mlContext.Model.Save(model, data.Schema, "model.zip");
-			using FileStream stream = File.Create("./onnx_model.onnx");
+			mlContext.Model.Save(model, data.Schema, @"model\model.zip");
 
 			var trainedModelMetrics = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: "着順");
 
-			Console.WriteLine();
-			Console.WriteLine("Model quality metrics evaluation");
-			Console.WriteLine("--------------------------------");
-			Console.WriteLine($"Accuracy: {trainedModelMetrics.Accuracy:P2}");
-			Console.WriteLine($"Auc: {trainedModelMetrics.AreaUnderRocCurve:P2}");
-			Console.WriteLine($"F1Score: {trainedModelMetrics.F1Score:P2}");
-			Console.WriteLine("=============== End of model evaluation ===============");
-
-			// Load Trained Model
-			DataViewSchema predictionPipelineSchema;
-			ITransformer predictionPipeline = model;
-
-			//// Create PredictionEngines
-			//PredictionEngine<Passenger, TitanicPrediction> predictionEngine = mlContext.Model.CreatePredictionEngine<Passenger, TitanicPrediction>(predictionPipeline);
-
-			//// Input Data
-			//var inputData = new List<Passenger>()
-			//{
-			//	new Passenger()
-			//	{
-			//		PassengerId = 1,
-			//		Pclass = 3,
-			//		Name = "Braund, Mr. Owen Harris",
-			//		Sex = "male",
-			//		Age = 22,
-			//		SibSp = 1,
-			//		Parch = 0,
-			//		Ticket = "A/5 21171",
-			//		Fare = 7.25f,
-			//		Cabin = "",
-			//		Embarked = "S"
-			//	},
-			//	new Passenger()
-			//	{
-			//		PassengerId = 2,
-			//		Pclass = 1,
-			//		Name = "Cumings, Mrs. John Bradley (Florence Briggs Thayer)",
-			//		Sex = "female",
-			//		Age = 38,
-			//		SibSp = 1,
-			//		Parch = 0,
-			//		Ticket = "PC 17599",
-			//		Fare = 71.2833f,
-			//		Cabin = "C85",
-			//		Embarked = "C"
-			//	},
-			//	new Passenger()
-			//	{
-			//		PassengerId = 3,
-			//		Pclass = 3,
-			//		Name = "Heikkinen, Miss. Laina",
-			//		Sex = "female",
-			//		Age = 26,
-			//		SibSp = 0,
-			//		Parch = 0,
-			//		Ticket = "STON/O2. 3101282",
-			//		Fare = 7.925f,
-			//		Cabin = "",
-			//		Embarked = "S"
-			//	},
-			//};
-
-			//// Get Prediction
-			//foreach (var input in inputData)
-			//{
-			//	var prediction = predictionEngine.Predict(input);
-
-			//	Console.WriteLine($"Id:{input.PassengerId} Name:{input.Name} Survived:{prediction.PredictedSurvived}");
-			//}
-
+			AddLog($"Accuracy: {trainedModelMetrics.Accuracy:P2}");
+			AddLog($"Auc: {trainedModelMetrics.AreaUnderRocCurve:P2}");
+			AddLog($"F1Score: {trainedModelMetrics.F1Score:P2}");
+			AddLog("=============== End of model evaluation ===============");
 		});
 
 		private async Task CreateModelInputData(string path)
 		{
 			FileUtil.BeforeCreate(path);
 
-			using (var sw = new StreamWriter(path, true, Encoding.UTF8, 5 * 1024 * 1024))
 			using (var conn = CreateSQLiteControl())
-			using (var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model ORDER BY ﾚｰｽID, 着順"))
 			{
-				Func<DbDataReader, Dictionary<string, object>> func = r =>
+				var mindate = await conn.ExecuteScalarAsync<int>("SELECT cast((MAX(開催日数) - MIN(開催日数)) * 0.2 as integer) + MIN(開催日数) FROM t_model");
+
+				using var reader = await conn.ExecuteReaderAsync(
+					"SELECT * FROM t_model WHERE 開催日数 >= ? ORDER BY ﾚｰｽID, 着順",
+					SQLiteUtil.CreateParameter(DbType.Int64, mindate)
+				);
+
+				var list = new List<string>();
+				var next = await reader.ReadAsync();
+
+				Func<DbDataReader, IEnumerable<int>> func = r =>
 				{
 					var indexes = Enumerable.Range(0, r.FieldCount)
-						.Where(i => i == 0 || !Enumerable.Range(0, i - 1).Any(x => r.GetName(i) == r.GetName(x)))
+						.Where(i => !new[] { "着順", "単勝", "人気" }.Contains(r.GetName(i)) && (i == 0 || !Enumerable.Range(0, i - 1).Any(x => r.GetName(i) == r.GetName(x))))
 						.ToArray();
-					return indexes.ToDictionary(i => r.GetName(i), i => r.GetValue(i));
+					return indexes;
 				};
 
-				// 不要なﾃﾞｰﾀ
-				var drops = new[] { "着順", "単勝", "人気", "上り", "時間", "通過", "着差", "ﾗﾝｸ1", "ﾗﾝｸ2" };
-
-				// 予測したい内容
-				Func<Dictionary<string, object>, bool> yoso = x => x["着順"].GetDouble() <= 3;
-
-				bool first = true;
-				while (await reader.ReadAsync())
+				if (next)
 				{
-					var dic = func(reader);
-					var withoutdrops = dic.Keys.Where(x => !drops.Contains(x));
+					list.Add(func(reader).Select(i => reader.GetName(i)).GetString(",") + ",着順");
+				}
 
-					if (first)
+				while (next)
+				{
+					list.Add(func(reader).Select(i => reader.GetValue(i)).GetString(",") + $",{reader.GetValue("着順").GetDouble() <= 3}");
+
+					if (10000 < list.Count)
 					{
-						first = false;
-						// 最初はﾍｯﾀﾞ行を追加
-						await sw.WriteLineAsync(withoutdrops.GetString(",") + ",着順");
+						await File.AppendAllLinesAsync(path, list);
+
+						list.Clear();
 					}
 
-					// 明細行を追加
-					await sw.WriteLineAsync(withoutdrops.Select(x => dic[x]).GetString(",") + $",{yoso(dic)}");
+					next = await reader.ReadAsync();
 				}
 			}
 		}
+
 	}
 }

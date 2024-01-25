@@ -11,11 +11,13 @@ namespace Netkeiba
 	public class AutoMLMonitor : IMonitor
 	{
 		private readonly SweepablePipeline _pipeline;
+		private readonly MainViewModel _vm;
 
-		public AutoMLMonitor(SweepablePipeline pipeline)
+		public AutoMLMonitor(SweepablePipeline pipeline, MainViewModel vm)
 		{
 			_completedTrials = new List<TrialResult>();
 			_pipeline = pipeline;
+			_vm = vm;
 		}
 
 		private readonly List<TrialResult> _completedTrials;
@@ -29,19 +31,21 @@ namespace Netkeiba
 
 		public void ReportCompletedTrial(TrialResult result)
 		{
-			var trialId = result.TrialSettings.TrialId;
-			var timeToTrain = result.DurationInMilliseconds;
-			var pipeline = _pipeline.ToString(result.TrialSettings.Parameter);
-			MessageService.Debug($"Trial {trialId} finished training in {timeToTrain}ms with pipeline {pipeline}");
+			var id = result.TrialSettings.TrialId;
+			var ms = result.DurationInMilliseconds;
+			var mc = result.Metric;
+			var pl = _pipeline.ToString(result.TrialSettings.Parameter);
+			_vm.AddLog($"Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
+			_completedTrials.Add(result);
 		}
 
 		public void ReportFailTrial(TrialSettings settings, Exception exception = null)
 		{
 			if (exception.Message.Contains("Operation was canceled."))
 			{
-				MessageService.Debug($"{settings.TrialId} cancelled. Time budget exceeded.");
+				_vm.AddLog($"{settings.TrialId} cancelled. Time budget exceeded.");
 			}
-			MessageService.Debug($"{settings.TrialId} failed with exception {exception.Message}");
+			_vm.AddLog($"{settings.TrialId} failed with exception {exception.Message}");
 		}
 
 		public void ReportRunningTrial(TrialSettings setting)

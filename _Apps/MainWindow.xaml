@@ -103,21 +103,38 @@
 			</DockPanel>
 		</GroupBox>
 
-		<StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+		<Grid DockPanel.Dock="Top">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="auto" />
+				<ColumnDefinition Width="auto" />
+				<ColumnDefinition Width="*" />
+			</Grid.ColumnDefinitions>
 
-			<GroupBox Header="STEP2: 学習用データ作成">
+			<GroupBox Grid.Column="0" Header="STEP2: 学習用データ作成">
 				<DockPanel>
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S2Overwrite.IsChecked}" Content="学習用データを上書きする" />
+					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S2Overwrite.IsChecked}" Content="上書きする" />
 					<Button Width="200" Content="実行" Command="{Binding S2EXEC}" />
 				</DockPanel>
 			</GroupBox>
 
-			<GroupBox Header="STEP3: 学習実行">
+			<GroupBox Grid.Column="1" Header="STEP3: 学習実行">
 				<DockPanel>
 					<Button Width="200" Content="実行" Command="{Binding S3EXEC}" />
 				</DockPanel>
 			</GroupBox>
-		</StackPanel>
+
+			<GroupBox Grid.Column="2" Header="STEP4: データ予測">
+				<DockPanel>
+					<Button DockPanel.Dock="Right" Width="200" Content="実行" Command="{Binding S4EXEC}" />
+					<TextBox AcceptsReturn="True"
+							 TextWrapping="Wrap"
+							 VerticalAlignment="Stretch"
+							 ScrollViewer.VerticalScrollBarVisibility="Visible"
+							 Text="{Binding S4Text}"  />
+				</DockPanel>
+			</GroupBox>
+
+		</Grid>
 
 		<GroupBox Header="実行ログ">
 			<ListBox ItemsSource="{Binding Logs}">

@@ -44,7 +44,7 @@ namespace Netkeiba
 
 		public ProgressViewModel Progress { get; } = new ProgressViewModel();
 
-		private void AddLog(string message)
+		public void AddLog(string message)
 		{
 			if (_logmax < LogSource.Count)
 			{
