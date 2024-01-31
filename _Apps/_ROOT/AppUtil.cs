@@ -17,6 +17,8 @@ namespace Netkeiba
 		{
 			var innerhtml = x.GetElementsByTagName("span").Any()
 				? x.GetElementsByTagName("span").First().InnerHtml
+				: x.GetElementsByTagName("div").Any()
+				? x.GetElementsByTagName("div").First().InnerHtml
 				: x.InnerHtml;
 			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
 		}

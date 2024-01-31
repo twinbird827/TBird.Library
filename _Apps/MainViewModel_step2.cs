@@ -22,12 +22,18 @@ namespace Netkeiba
 		{
 			using (var conn = CreateSQLiteControl())
 			{
+				var drops = await conn.ExistsColumn("t_model", "着順")
+					? await conn.GetRows(r => $"{r.GetValue(0)}", "SELECT DISTINCT ﾚｰｽID FROM t_model")
+					: Enumerable.Empty<string>();
+
 				// 新馬戦は除外
-				var rac = await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE ﾗﾝｸ2 <> 'RANK5' ORDER BY ﾚｰｽID DESC");
+				var rac = (await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE ﾗﾝｸ2 <> 'RANK5' ORDER BY ﾚｰｽID DESC"))
+					.Where(id => !drops.Contains(id))
+					.ToArray();
 
 				Progress.Value = 0;
 				Progress.Minimum = 0;
-				Progress.Maximum = rac.Count;
+				Progress.Maximum = rac.Length;
 
 				Func<string, Task<IEnumerable<string>>> get_distinct = async x => (await conn.GetRows($"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}")).Select(y => $"{y[x]}");
 
@@ -90,7 +96,14 @@ namespace Netkeiba
 
 			Func<IEnumerable<Dictionary<string, object>>, IEnumerable<Dictionary<string, object>>, Func<Dictionary<string, object>, double>, double, double> func_avg2 = (arr1, arr2, arr_func, def) =>
 			{
-				return arr1.Select(arr_func).Average(arr2.Select(arr_func).Average(def));
+				try
+				{
+					return arr1.Select(arr_func).Average(arr2.Select(arr_func).Average(def));
+				}
+				catch (Exception ex)
+				{
+					return def;
+				}
 			};
 
 			// ﾚｰｽ毎の纏まり
@@ -177,11 +190,11 @@ namespace Netkeiba
 				dic["斤量差"] = dic["斤量"] - func_avg1(同ﾚｰｽ, "斤量", dic["斤量"]);
 				dic["単勝"] = src["単勝"].GetDouble();
 				dic["人気"] = src["人気"].GetDouble();
-				dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : func_avg1(同ﾚｰｽ, "体重", 体重DEF);
+				dic["体重"] = 0;
 				dic["増減"] = src["増減"].GetDouble();
-				dic["体重差"] = dic["体重"] - func_avg1(同ﾚｰｽ, "体重", dic["体重"]);
-				dic["増減割"] = dic["増減"] / dic["体重"];
-				dic["斤量割"] = dic["斤量"] / dic["体重"];
+				dic["体重差"] = 0;
+				dic["増減割"] = 0;
+				dic["斤量割"] = 0;
 				dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
 				//dic["一言"] = 一言.IndexOf(src["一言"]);
 				dic["追切"] = 追切.IndexOf(src["追切"]);
@@ -284,6 +297,11 @@ namespace Netkeiba
 					}
 				}
 
+				dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報.Count ? 馬情報[0]["体重"].GetDouble() : func_avg1(同ﾚｰｽ, "体重", 体重DEF));
+				dic["体重差"] = dic["体重"] - func_avg1(同ﾚｰｽ, "体重", dic["体重"]);
+				dic["増減割"] = dic["増減"] / dic["体重"];
+				dic["斤量割"] = dic["斤量"] / dic["体重"];
+
 				racarr.Add(dic);
 
 				MessageService.Debug($"ﾚｰｽ内 foreach:終了:{raceid}");
@@ -300,6 +318,7 @@ namespace Netkeiba
 
 			return racarr;
 		}
+
 		private const double 着差DEF = 10;
 		private const double 体重DEF = 470;
 		private const double 着順DEF = 8;

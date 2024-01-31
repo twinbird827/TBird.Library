@@ -51,6 +51,8 @@ namespace Netkeiba
 				LogSource.RemoveAt(_logmax);
 			}
 			LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
+
+			MessageService.AppendLogfile(message);
 		}
 
 		private const int _logmax = 1024;

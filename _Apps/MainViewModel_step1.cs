@@ -58,7 +58,7 @@ namespace Netkeiba
 			{
 				FileUtil.BeforeCreate(_sqlitepath);
 			}
-			
+
 			using (var conn = CreateSQLiteControl())
 			{
 				if (await conn.ExistsColumn("t_orig", "ﾚｰｽID"))
@@ -372,6 +372,9 @@ namespace Netkeiba
 				// 追切情報を取得する
 				var oikiris = await GetOikiris(raceid);
 
+				// 着順情報を取得する
+				var tyakujun = await GetTyakujun(raceid);
+
 				// *****
 				// ﾚｰｽﾃﾞｰﾀを取得する
 				var racedata01 = raceparser.GetElementsByClassName("RaceData01").First();
@@ -427,13 +430,15 @@ namespace Netkeiba
 					dic["馬場"] = baba;
 					dic["馬場状態"] = cond;
 
-					// 着順(なし)
-					dic["着順"] = "0";
+					// 着順
+					var tyaku = tyakujun.Where(x => x["枠番"] == row.Cells[0].GetInnerHtml() && x["馬番"] == row.Cells[1].GetInnerHtml()).FirstOrDefault();
+					dic["着順"] = tyaku != null ? tyaku["着順"] : "0";
 
 					// 枠番
 					dic["枠番"] = row.Cells[0].GetInnerHtml();
 					// 馬番
 					dic["馬番"] = row.Cells[1].GetInnerHtml();
+
 					// 馬名
 					dic["馬名"] = row.Cells[3].GetHrefAttribute("title");
 					// 馬ID
@@ -516,6 +521,35 @@ namespace Netkeiba
 						dic["一言"] = row.Cells[4].GetInnerHtml();
 						// 評価
 						dic["追切"] = row.Cells[5].GetInnerHtml();
+
+						arr.Add(dic);
+					}
+				}
+			}
+
+			return arr;
+		}
+
+		private async Task<List<Dictionary<string, string>>> GetTyakujun(string raceid)
+		{
+			var arr = new List<Dictionary<string, string>>();
+
+			var url = $"https://race.netkeiba.com/race/result.html?race_id={raceid}";
+
+			using (var raceparser = await AppUtil.GetDocument(url))
+			{
+				if (raceparser.GetElementsByClassName("RaceTable01 RaceCommon_Table ResultRefund Table_Show_All").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+				{
+					foreach (var row in table.Rows.Skip(1))
+					{
+						var dic = new Dictionary<string, string>();
+
+						// 枠番
+						dic["枠番"] = row.Cells[1].GetInnerHtml();
+						// 馬番
+						dic["馬番"] = row.Cells[2].GetInnerHtml();
+						// 着順
+						dic["着順"] = row.Cells[0].GetInnerHtml();
 
 						arr.Add(dic);
 					}
