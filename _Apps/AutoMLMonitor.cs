@@ -26,6 +26,9 @@ namespace Netkeiba
 
 		public void ReportBestTrial(TrialResult result)
 		{
+			_vm.AddLog("Begin best trial report *******************************");
+			ReportCompletedTrial(result);
+			_vm.AddLog("End best trial report *******************************");
 			return;
 		}
 

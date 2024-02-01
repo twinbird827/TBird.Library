@@ -37,7 +37,10 @@ namespace Netkeiba
 
 		public static string[] GetHeaders(string head) => new[] { $"{head}_{nameof(Score)}" };
 
-		public string[] GetResults() => new[] { $"{Score}" };
+		public override string ToString()
+		{
+			return $"{Score}";
+		}
 
 	}
 
@@ -57,36 +60,9 @@ namespace Netkeiba
 
 		public static string[] GetHeaders(string head) => new[] { $"{head}_{nameof(Score)}" };
 
-		public string[] GetResults() => new[] { $"{Score}" };
-	}
-
-	public class ModelRow
-	{
-		[LoadColumn(1, 152)]
-		[VectorType(152)]
-		public float[] Features { get; set; }
-
-		[LoadColumn(153)]
-		public bool 着順 { get; set; }
-
-		internal Dictionary<string, double> Source { get; set; }
-		internal ModelRowPrediction Prediction { get; set; }
-	}
-
-	public class ModelRowPrediction
-	{
-		//[ColumnName("PredictedLabel")]
-		//// Predicted label from the trainer.
-		//public bool Predicted { get; set; }
-		[ColumnName("Label")]
-		// Predicted label from the trainer.
-		public float Predicted { get; set; }
-
-		[ColumnName("Score")]
-		// Predicted label from the trainer.
-		public float Score { get; set; }
-
-		//[ColumnName("Probability")]
-		public float Probability { get; set; }
+		public override string ToString()
+		{
+			return $"{Score}";
+		}
 	}
 }

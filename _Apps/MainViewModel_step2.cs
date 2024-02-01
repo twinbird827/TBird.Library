@@ -102,6 +102,7 @@ namespace Netkeiba
 				}
 				catch (Exception ex)
 				{
+					MessageService.Exception(ex);
 					return def;
 				}
 			};
