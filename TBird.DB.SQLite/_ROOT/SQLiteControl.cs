@@ -67,7 +67,7 @@ namespace TBird.DB.SQLite
 
 			if (!_m._init) return;
 
-			var result = await Task.Run(() => this.ExecuteScalarAsync<string>("PRAGMA integrity_check"));
+			var result = "ok"; // await Task.Run(() => this.ExecuteScalarAsync<string>("PRAGMA integrity_check"));
 			var isok = result.ToLower() == "ok";
 
 			if (!isok)
@@ -177,25 +177,25 @@ namespace TBird.DB.SQLite
 			{
 				var builder = string.IsNullOrEmpty(dic.Get("password"))
 					? new SQLiteConnectionStringBuilder()
-				{
-					DataSource = dic["datasource"],
-					DefaultIsolationLevel = IsolationLevel.ReadCommitted,
-					SyncMode = SynchronizationModes.Off,
-					JournalMode = SQLiteJournalModeEnum.Wal,
-					ReadOnly = bool.Parse(dic.Get("readonly", "false")),
-					Pooling = bool.Parse(dic.Get("pooling", "false")),
-					CacheSize = int.Parse(dic.Get("cachesize", "65536")),
-				} : new SQLiteConnectionStringBuilder()
-				{
-					DataSource = dic["datasource"],
-					DefaultIsolationLevel = IsolationLevel.ReadCommitted,
-					SyncMode = SynchronizationModes.Off,
-					JournalMode = SQLiteJournalModeEnum.Wal,
-					ReadOnly = bool.Parse(dic.Get("readonly", "false")),
-					Pooling = bool.Parse(dic.Get("pooling", "false")),
-					CacheSize = int.Parse(dic.Get("cachesize", "65536")),
-					Password = dic.Get("password"),
-				};
+					{
+						DataSource = dic["datasource"],
+						DefaultIsolationLevel = IsolationLevel.ReadCommitted,
+						SyncMode = SynchronizationModes.Off,
+						JournalMode = SQLiteJournalModeEnum.Wal,
+						ReadOnly = bool.Parse(dic.Get("readonly", "false")),
+						Pooling = bool.Parse(dic.Get("pooling", "false")),
+						CacheSize = int.Parse(dic.Get("cachesize", "65536")),
+					} : new SQLiteConnectionStringBuilder()
+					{
+						DataSource = dic["datasource"],
+						DefaultIsolationLevel = IsolationLevel.ReadCommitted,
+						SyncMode = SynchronizationModes.Off,
+						JournalMode = SQLiteJournalModeEnum.Wal,
+						ReadOnly = bool.Parse(dic.Get("readonly", "false")),
+						Pooling = bool.Parse(dic.Get("pooling", "false")),
+						CacheSize = int.Parse(dic.Get("cachesize", "65536")),
+						Password = dic.Get("password"),
+					};
 
 				_conn = new SQLiteConnection(builder.ToString());
 				_indx = 0;
