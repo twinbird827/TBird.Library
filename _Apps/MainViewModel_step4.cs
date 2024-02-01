@@ -189,10 +189,20 @@ namespace Netkeiba
 					for (var j = 9; j < 20; j++)
 					{
 						var n = 1;
-						arr
-							.OrderByDescending(x => x[j].ToString().GetDouble())
-							.ThenBy(x => x[17].ToString().GetDouble())
-							.ForEach(x => x.Add(n++));
+						if (14 <= j && j <= 17)
+						{
+							arr
+								.OrderBy(x => x[j].ToString().GetDouble())
+								.ThenBy(x => x[17].ToString().GetDouble())
+								.ForEach(x => x.Add(n++));
+						}
+						else
+						{
+							arr
+								.OrderByDescending(x => x[j].ToString().GetDouble())
+								.ThenBy(x => x[17].ToString().GetDouble())
+								.ForEach(x => x.Add(n++));
+						}
 					}
 
 					for (var j = 20; j < 31; j++)
