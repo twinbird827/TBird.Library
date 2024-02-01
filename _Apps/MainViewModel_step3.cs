@@ -25,15 +25,15 @@ namespace Netkeiba
 {
 	public partial class MainViewModel
 	{
-		private readonly int[] TrainingTimeSecond = new int[] { 128, 256, 512, 1024, 2048, 4096 };
+		private readonly int[] TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond;
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
 			//await MulticlassClassification().TryCatch();
 
-			//await BinaryClassification(1).TryCatch();
-			//await BinaryClassification(2).TryCatch();
-			//await BinaryClassification(3).TryCatch();
+			await BinaryClassification(1).TryCatch();
+			await BinaryClassification(2).TryCatch();
+			await BinaryClassification(3).TryCatch();
 			await BinaryClassification(4).TryCatch();
 			await BinaryClassification(5).TryCatch();
 			await BinaryClassification(6, r => r.GetValue("着順").GetDouble() > 3).TryCatch();
