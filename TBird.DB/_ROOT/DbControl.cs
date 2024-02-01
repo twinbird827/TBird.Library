@@ -53,7 +53,7 @@ namespace TBird.DB
 		{
 			if (_tran != null)
 			{
-				_tran.Commit();
+				_tran.Rollback();
 				_tran = null;
 			}
 		}
