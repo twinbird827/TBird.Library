@@ -105,13 +105,13 @@ namespace Netkeiba
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外5)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外7)))
 					.Concat(RegressionPrediction.GetHeaders(nameof(着順1)))
-					.Concat(new[] { "ｽｺｱ1", "ｽｺｱ2" })
+					.Concat(new[] { "ｽｺｱ1a", "ｽｺｱ2a", "ｽｺｱ3a", "ｽｺｱ4a", "ｽｺｱ1b", "ｽｺｱ2b", "ｽｺｱ3b", "ｽｺｱ4b" })
 					.ToArray();
 
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単", $"{x}_複" }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単7", $"{x}_単10", $"{x}_複3", $"{x}_複7" }))
 					.GetString(",")
 				);
 
@@ -143,6 +143,9 @@ namespace Netkeiba
 
 						var tmp = new List<object>();
 						var src = racearr.First(x => x["馬ID"].GetDouble() == m["馬ID"]);
+
+						if (src["ﾗﾝｸ1"] == "新馬") continue;
+
 						var binaryClassificationSource = new BinaryClassificationSource()
 						{
 							Features = m.Keys.Where(x => !drops.Contains(x)).Select(x => (float)m[x]).ToArray()
@@ -170,56 +173,120 @@ namespace Netkeiba
 						tmp.Add(着外5.Predict(binaryClassificationSource)); // 15
 						tmp.Add(着外7.Predict(binaryClassificationSource)); // 16
 						tmp.Add(着順1.Predict(regressionSource));            // 17
-																		   // 18 単純に足すだけ
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.Sum(x => ((BinaryClassificationPrediction)x).Score) -
-							new[] { tmp[14], tmp[15], tmp[16] }.Sum(x => ((BinaryClassificationPrediction)x).Score) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 200)
-						);
-						// Probabilityをかけてみる							// 19
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 100)
-						);
+                                                                           // 18 単純に足すだけ
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.Sum(x => ((BinaryClassificationPrediction)x).Score) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.Sum(x => ((BinaryClassificationPrediction)x).Score) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 200)
+                        );
+                        // Probabilityをかけてみる							// 19
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 100)
+                        );
+                        // 20 Labelの有無で倍率計算
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 200)
+                        );
+                        // Labelの有無で倍率計算 Probabilityをかけてみる							// 21
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 100)
+                        );
+                        // 18 単純に足すだけ
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.Sum(x => ((BinaryClassificationPrediction)x).Score) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.Sum(x => ((BinaryClassificationPrediction)x).Score) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 400)
+                        );
+                        // Probabilityをかけてみる							// 19
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 200)
+                        );
+                        // 20 Labelの有無で倍率計算
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 400)
+                        );
+                        // Labelの有無で倍率計算 Probabilityをかけてみる							// 21
+                        tmp.Add(
+                            new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) -
+                            new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) +
+                            (1 / ((RegressionPrediction)tmp[17]).Score * 200)
+                        );
 
-						arr.Add(tmp);
+                        arr.Add(tmp);
 					}
 
-					for (var j = 9; j < 20; j++)
+					if (arr.Any())
 					{
-						var n = 1;
-						if (14 <= j && j <= 17)
+						for (var j = 9; j < 26; j++)
 						{
-							arr
-								.OrderBy(x => x[j].ToString().GetDouble())
-								.ThenBy(x => x[17].ToString().GetDouble())
-								.ForEach(x => x.Add(n++));
+							var n = 1;
+							if (14 <= j && j <= 17)
+							{
+								arr
+									.OrderBy(x => x[j].ToString().GetDouble())
+									.ThenBy(x => x[17].ToString().GetDouble())
+									.ForEach(x => x.Add(n++));
+							}
+							else
+							{
+								arr
+									.OrderByDescending(x => x[j].ToString().GetDouble())
+									.ThenBy(x => x[17].ToString().GetDouble())
+									.ForEach(x => x.Add(n++));
+							}
 						}
-						else
+
+						for (var j = 26; j < 26 + (26-9); j++)
 						{
-							arr
-								.OrderByDescending(x => x[j].ToString().GetDouble())
-								.ThenBy(x => x[17].ToString().GetDouble())
-								.ForEach(x => x.Add(n++));
+							{
+								// 単6の予想結果
+								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
+								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
+								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
+								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
+							}
+							{
+								// 単7の予想結果
+								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1));
+								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
+								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
+								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
+							}
+							{
+								// 単10の予想結果
+								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
+								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
+								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
+								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
+							}
+							{
+								// 複3の予想結果
+								var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
+								var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
+								var b6 = arr.Any(x => x[8].GetInt32() <= 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
+								arr.First().Add(b4 && b5 && b6 ? 1 : 0);
+							}
+							{
+								// 複7の予想結果
+								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 3);
+								var b8 = arr.Count(x => x[8].GetInt32() <= 3 && 3 < x[j].GetInt32() && x[j].GetInt32() <= 5);
+								arr.First().Add(b7 == 3 || (b7 == 2 && b8 == 1) ? 1 : 0);
+							}
 						}
-					}
 
-					for (var j = 20; j < 31; j++)
-					{
-						// 単の予想結果
-						var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-						var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-						var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-						arr.First().Add(b1 && b2 && b3 ? 1 : 0);
-						// 複の予想結果
-						var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
-						var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
-						var b6 = arr.Any(x => x[8].GetInt32() <= 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-						arr.First().Add(b4 && b5 && b6 ? 1 : 0);
-					}
+						list.AddRange(arr.Select(x => x.GetString(",")));
 
-					list.AddRange(arr.Select(x => x.GetString(",")));
+					}
 
 					// 挿入したﾃﾞｰﾀは確定情報じゃないのでﾛｰﾙﾊﾞｯｸする
 					conn.Rollback();

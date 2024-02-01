@@ -130,6 +130,7 @@
 							 TextWrapping="Wrap"
 							 VerticalAlignment="Stretch"
 							 ScrollViewer.VerticalScrollBarVisibility="Visible"
+                             MaxHeight="100"
 							 Text="{Binding S4Text}"  />
 				</DockPanel>
 			</GroupBox>

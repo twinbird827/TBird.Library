@@ -58,7 +58,15 @@ namespace Netkeiba
 		[ColumnName("PredictedLabel")]
 		public bool PredictedLabel { get; set; }
 
-		public static string[] GetHeaders(string head) => new[] { $"{head}_{nameof(Score)}" };
+		public float Magnification { get; set; }
+
+		public BinaryClassificationPrediction SetMagnification(float magnification)
+		{
+			Magnification = magnification;
+			return this;
+		}
+
+        public static string[] GetHeaders(string head) => new[] { $"{head}_{nameof(Score)}" };
 
 		public override string ToString()
 		{
