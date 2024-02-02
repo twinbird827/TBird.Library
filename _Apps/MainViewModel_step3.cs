@@ -27,20 +27,30 @@ namespace Netkeiba
 	{
 		private readonly int[] TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond;
 
+		public CheckboxItemModel S3B01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B02 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B03 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B04 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B05 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B06 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B07 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3B08 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+		public CheckboxItemModel S3R01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
+
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
 			//await MulticlassClassification().TryCatch();
+			AppSetting.Instance.Save();
+			if (S3B01.IsChecked) await BinaryClassification(1).TryCatch();
+			if (S3B02.IsChecked) await BinaryClassification(2).TryCatch();
+			if (S3B03.IsChecked) await BinaryClassification(3).TryCatch();
+			if (S3B04.IsChecked) await BinaryClassification(4).TryCatch();
+			if (S3B05.IsChecked) await BinaryClassification(5).TryCatch();
+			if (S3B06.IsChecked) await BinaryClassification(6, r => r.GetValue("着順").GetDouble() > 3).TryCatch();
+			if (S3B07.IsChecked) await BinaryClassification(7, r => r.GetValue("着順").GetDouble() > 5).TryCatch();
+			if (S3B08.IsChecked) await BinaryClassification(8, r => r.GetValue("着順").GetDouble() > 7).TryCatch();
 
-			await BinaryClassification(1).TryCatch();
-			await BinaryClassification(2).TryCatch();
-			await BinaryClassification(3).TryCatch();
-			await BinaryClassification(4).TryCatch();
-			await BinaryClassification(5).TryCatch();
-			await BinaryClassification(6, r => r.GetValue("着順").GetDouble() > 3).TryCatch();
-			await BinaryClassification(7, r => r.GetValue("着順").GetDouble() > 5).TryCatch();
-			await BinaryClassification(8, r => r.GetValue("着順").GetDouble() > 7).TryCatch();
-
-			await Regression().TryCatch();
+			if (S3R01.IsChecked) await Regression().TryCatch();
 
 			DirectoryUtil.Copy("model", $"model_{DateTime.Now.ToString("yyyyMMddHHmmss")}");
 		});
