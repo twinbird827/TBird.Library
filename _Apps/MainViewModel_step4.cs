@@ -27,6 +27,8 @@ namespace Netkeiba
 
 		public IRelayCommand S4EXEC => RelayCommand.Create(async _ =>
 		{
+			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
+
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 
@@ -111,7 +113,7 @@ namespace Netkeiba
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単7", $"{x}_単10", $"{x}_複3", $"{x}_複7" }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単10", $"{x}_複3", $"{x}_複7" }))
 					.GetString(",")
 				);
 
@@ -252,13 +254,6 @@ namespace Netkeiba
 								// 単6の予想結果
 								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
 								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
-							}
-							{
-								// 単7の予想結果
-								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1));
-								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
 								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
 								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
 							}
