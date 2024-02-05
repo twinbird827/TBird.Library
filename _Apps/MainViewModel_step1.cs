@@ -401,7 +401,7 @@ namespace Netkeiba
 				// 開催日
 				var date = DateTime.Parse(Regex.Match(details, @"\d+年\d+月\d+日").Value);
 				// 場所
-				var basyo = Regex.Match(details, @"日 (?<basyo>.+)\d+R").Groups["basyo"].Value;
+				var basyo = Regex.Match(details, @"日 (?<basyo>[^\d]+)\d+R").Groups["basyo"].Value;
 				// ｸﾗｽ
 				var clas = raceparser.GetElementsByClassName("RaceData02").SelectMany(x => x.GetElementsByTagName("span")).Skip(4).First().GetInnerHtml();
 

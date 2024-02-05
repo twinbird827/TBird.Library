@@ -39,7 +39,7 @@ namespace Netkeiba
 			BasyoSources.ForEach(x => x.IsChecked = true);
 
 			EYear = DateTime.Now.Year;
-			SYear = EYear - 11;
+			SYear = EYear - 1;
 		}
 
 		public ProgressViewModel Progress { get; } = new ProgressViewModel();

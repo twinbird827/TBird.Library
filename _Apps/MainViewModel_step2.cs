@@ -94,17 +94,9 @@ namespace Netkeiba
 				return arr.Select(x => x[n].GetDoubleNaN()).Where(x => !double.IsNaN(x)).Average(def);
 			};
 
-			Func<IEnumerable<Dictionary<string, object>>, IEnumerable<Dictionary<string, object>>, Func<Dictionary<string, object>, double>, double, double> func_avg2 = (arr1, arr2, arr_func, def) =>
+			Func<IEnumerable<Dictionary<string, object>>, Func<Dictionary<string, object>, double>, double, double> func_avg2 = (arr1, arr_func, def) =>
 			{
-				try
-				{
-					return arr1.Select(arr_func).Average(arr2.Select(arr_func).Average(def));
-				}
-				catch (Exception ex)
-				{
-					MessageService.Exception(ex);
-					return def;
-				}
+				return arr1.Select(arr_func).Average(def);
 			};
 
 			// ﾚｰｽ毎の纏まり
@@ -119,6 +111,15 @@ namespace Netkeiba
 			{
 				MessageService.Debug($"ﾚｰｽ内 foreach:開始:{raceid}");
 
+				var 馬情報 = await conn.GetRows(
+						$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ" +
+						$" FROM t_orig" +
+						$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_orig.開催日数 = t_top.開催日数 AND t_top.着順 = 1" +
+						$" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
+						SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
+						SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
+				);
+
 				// 対象ﾘｽﾄから全件, 勝利, 連対, 複勝を取得
 				Func<string, string, Task<Dictionary<string, double>>> func_getdata = async (keyname, headname) =>
 				{
@@ -128,15 +129,61 @@ namespace Netkeiba
 
 					var tgt = await conn.GetRows($"" +
 						$" SELECT" +
-						$"   COUNT(*)                                     RA0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 THEN 1 END) RA1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 THEN 1 END) RA2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 THEN 1 END) RA3," +
-						$"" +
-						$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END)                       RN0," +
-						$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 AND t_orig.着順  = 1 THEN 1 END)  RN1," +
-						$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 AND t_orig.着順 <= 3 THEN 1 END)  RN2," +
-						$"   COUNT(CASE WHEN (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 AND t_orig.着順 <= 5 THEN 1 END)  RN3" +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N4," +
+
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N4," +
+
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N4," +
+
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N4," +
+
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N3," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N4" +
+
 						$" FROM" +
 						$"   (SELECT ? {keyname}1, ? {headname}2, ? 開催日数, 365 直近日数) t_where" +
 						$"   INNER JOIN t_orig" +
@@ -145,27 +192,21 @@ namespace Netkeiba
 						SQLiteUtil.CreateParameter(System.Data.DbType.String, headvalue),
 						SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now)
 					);
-
-					var ra0 = $"{tgt[0]["RA0"]}".GetDouble();
-					var ra1 = $"{tgt[0]["RA1"]}".GetDouble();
-					var ra2 = $"{tgt[0]["RA2"]}".GetDouble();
-					var ra3 = $"{tgt[0]["RA3"]}".GetDouble();
-
-					var rn0 = $"{tgt[0]["RN0"]}".GetDouble();
-					var rn1 = $"{tgt[0]["RN1"]}".GetDouble();
-					var rn2 = $"{tgt[0]["RN2"]}".GetDouble();
-					var rn3 = $"{tgt[0]["RN3"]}".GetDouble();
-
+					var tgt0 = tgt[0];
 					var dic = new Dictionary<string, double>();
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 
-					dic[$"全1_{key}"] = ra0 == 0 ? 0 : ra1 / ra0;
-					dic[$"全3_{key}"] = ra0 == 0 ? 0 : ra2 / ra0;
-					dic[$"全5_{key}"] = ra0 == 0 ? 0 : ra3 / ra0;
-
-					dic[$"直1_{key}"] = rn0 == 0 ? 0 : rn1 / rn0;
-					dic[$"直3_{key}"] = rn0 == 0 ? 0 : rn2 / rn0;
-					dic[$"直5_{key}"] = rn0 == 0 ? 0 : rn3 / rn0;
+					for (var i = 1; i <= 5; i++)
+					{
+						dic[$"R{i}A1_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A1"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
+						dic[$"R{i}A2_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A2"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
+						dic[$"R{i}A3_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A3"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
+						dic[$"R{i}A4_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A4"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
+						dic[$"R{i}N1_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N1"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
+						dic[$"R{i}N2_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N2"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
+						dic[$"R{i}N3_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N3"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
+						dic[$"R{i}N4_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N4"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
+					}
 
 					return dic;
 				};
@@ -191,11 +232,11 @@ namespace Netkeiba
 				dic["斤量差"] = dic["斤量"] - func_avg1(同ﾚｰｽ, "斤量", dic["斤量"]);
 				dic["単勝"] = src["単勝"].GetDouble();
 				dic["人気"] = src["人気"].GetDouble();
-				dic["体重"] = 0;
+				dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報.Count ? 馬情報[0]["体重"].GetDouble() : func_avg1(同ﾚｰｽ, "体重", 体重DEF));
 				dic["増減"] = src["増減"].GetDouble();
-				dic["体重差"] = 0;
-				dic["増減割"] = 0;
-				dic["斤量割"] = 0;
+				dic["体重差"] = dic["体重"] - func_avg1(同ﾚｰｽ, "体重", dic["体重"]);
+				dic["増減割"] = dic["増減"] / dic["体重"];
+				dic["斤量割"] = dic["斤量"] / dic["体重"];
 				dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
 				//dic["一言"] = 一言.IndexOf(src["一言"]);
 				dic["追切"] = 追切.IndexOf(src["追切"]);
@@ -232,36 +273,27 @@ namespace Netkeiba
 				//dic.AddRange(await func_getdata("馬主ID", "ﾗﾝｸ1"));
 				//dic.AddRange(await func_getdata("馬主ID", "ﾗﾝｸ2"));
 
-				var 馬情報 = await conn.GetRows(
-						$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ" +
-						$" FROM t_orig" +
-						$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_orig.開催日数 = t_top.開催日数 AND t_top.着順 = 1" +
-						$" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
-						SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-						SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
-				);
-
 				// 得意距離、及び今回のﾚｰｽ距離との差
 				dic["距離"] = src["距離"].GetDouble();
 				dic["馬_得意距離"] = 馬情報.Select(x => x["距離"].GetDouble()).Average(dic["距離"]);
 				dic["馬_距離差"] = dic["馬_得意距離"] - dic["距離"];
 
 				// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-				Func<object, double> func_tuka = v => $"{v}".Split('-').Select(x => x.GetDouble()).Average(同ﾚｰｽ.Count);
-				dic["通過平均"] = func_avg2(馬情報, 同ﾚｰｽ, x => func_tuka(x["通過"]), 着順DEF);
+				Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(同ﾚｰｽ.Count / 2D);
+				dic["通過平均"] = func_avg2(馬情報, x => func_tuka(x["通過"]), 着順DEF);
 
 				// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-				dic["上り平均"] = func_avg2(馬情報, 同ﾚｰｽ, x => x["上り"].GetDouble(), 上りDEF);
+				dic["上り平均"] = func_avg2(馬情報, x => x["上り"].GetDouble(), 上りDEF);
 
 				// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 				Func<object, double> func_time = v => $"{v}".Split(':')[0].GetDouble() * 60 + $"{v}".Split(':')[1].GetDouble();
-				dic["時間平均"] = func_avg2(馬情報, 同ﾚｰｽ, x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"]), 時間DEF);
+				dic["時間平均"] = func_avg2(馬情報, x => func_time(x["ﾀｲﾑ"]) / x["距離"].GetDouble(), 時間DEF);
 
 				// 1着との差
 				dic["勝馬時差"] = 馬情報.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).Average(時差DEF);
 
 				// 着順平均
-				dic["着順平均"] = func_avg1(馬情報, "着順", func_avg1(同ﾚｰｽ, "着順", 着順DEF));
+				dic["着順平均"] = func_avg1(馬情報, "着順", 着順DEF);
 
 				// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 				Func<object, double> func_tyaku = v => CoreUtil.Nvl(
@@ -276,7 +308,7 @@ namespace Netkeiba
 					.Replace("3/4", "75"), "-0.25")
 					.Split('+').Sum(x => double.Parse(x));
 				//dic["着差"] = func_tyaku(src["着差"]);
-				dic["着差平均"] = func_avg2(馬情報, 同ﾚｰｽ, x => func_tyaku(x["着差"]), 着差DEF);
+				dic["着差平均"] = func_avg2(馬情報, x => func_tyaku(x["着差"]), 着差DEF);
 
 				for (var i = 0; i < 5; i++)
 				{
@@ -298,11 +330,6 @@ namespace Netkeiba
 					}
 				}
 
-				dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報.Count ? 馬情報[0]["体重"].GetDouble() : func_avg1(同ﾚｰｽ, "体重", 体重DEF));
-				dic["体重差"] = dic["体重"] - func_avg1(同ﾚｰｽ, "体重", dic["体重"]);
-				dic["増減割"] = dic["増減"] / dic["体重"];
-				dic["斤量割"] = dic["斤量"] / dic["体重"];
-
 				racarr.Add(dic);
 
 				MessageService.Debug($"ﾚｰｽ内 foreach:終了:{raceid}");
@@ -316,6 +343,10 @@ namespace Netkeiba
 			racarr.ForEach(dic => dic["時間平均差"] = dic["時間平均"] - racarr.Average(x => x["時間平均"]));
 			racarr.ForEach(dic => dic["着差平均差"] = dic["着差平均"] - racarr.Average(x => x["着差平均"]));
 			racarr.ForEach(dic => dic["着順平均差"] = dic["着順平均"] - racarr.Average(x => x["着順平均"]));
+
+			// 成績の比較
+			var rankkeys = racarr.First().Keys.Where(x => x.StartsWith("R")).ToArray();
+			racarr.ForEach(dic => rankkeys.ForEach(key => dic[key + "平均差"] = dic[key] - racarr.Average(x => x[key])));
 
 			return racarr;
 		}

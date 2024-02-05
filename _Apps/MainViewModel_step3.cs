@@ -196,24 +196,38 @@ namespace Netkeiba
 				IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
 
 				// Save model
-				mlContext.Model.Save(model, data.Schema, $@"model\BinaryClassification{index.ToString(2)}_{second.ToString(4)}.zip");
+				var savepath = $@"model\BinaryClassification{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
 				var trainedModelMetrics = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: "着順");
+				var now = new BinaryClassificationResult(savepath, index, second, trainedModelMetrics);
+				var old = AppSetting.Instance.BinaryClassificationResults.FirstOrDefault(x => x.Index == index);
+				var bst = old == null || old.AreaUnderRocCurve < now.AreaUnderRocCurve ? now : old;
 
-				AddLog($"=============== Begin of BinaryClassification evaluation {index} {second} ===============");
-				AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
-				AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
-				AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
-				AddLog($"Entropy: {trainedModelMetrics.Entropy}");
-				AddLog($"F1Score: {trainedModelMetrics.F1Score}");
-				AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
-				AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
-				AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
-				AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
-				AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
-				AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
-				AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
-				AddLog($"=============== End of BinaryClassification evaluation {index} {second} ===============");
+				if (bst.AreaUnderRocCurve == now.AreaUnderRocCurve)
+				{
+					AddLog($"=============== Begin Update of BinaryClassification evaluation {index} {second} ===============");
+					AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
+					AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
+					AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
+					AddLog($"Entropy: {trainedModelMetrics.Entropy}");
+					AddLog($"F1Score: {trainedModelMetrics.F1Score}");
+					AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
+					AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
+					AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
+					AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
+					AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
+					AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
+					AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
+					AddLog($"=============== End Update of BinaryClassification evaluation {index} {second} ===============");
+
+					mlContext.Model.Save(model, data.Schema, savepath);
+
+					AppSetting.Instance.UpdateBinaryClassificationResults(bst);
+				}
+				else
+				{
+					AddLog($"=============== Can't Update of BinaryClassification evaluation {index} {second} ===============");
+				}
 			}
 
 			FileUtil.Delete(dataPath);
@@ -288,17 +302,32 @@ namespace Netkeiba
 				IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
 
 				// Save model
-				mlContext.Model.Save(model, data.Schema, @$"model\Regression01_{second.ToString(4)}.zip");
+				var savepath = $@"model\Regression{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
 				var trainedModelMetrics = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: "着順");
+				var now = new RegressionResult(savepath, 1, second, trainedModelMetrics);
+				var old = AppSetting.Instance.RegressionResults.FirstOrDefault(x => x.Index == 1);
+				var bst = old == null || old.RSquared < now.RSquared ? now : old;
 
-				AddLog($"=============== Begin of Regression evaluation {second} ===============");
-				AddLog($"RSquared: {trainedModelMetrics.RSquared}");
-				AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
-				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
-				AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
-				AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
-				AddLog($"=============== End of Regression evaluation {second} ===============");
+				if (bst.RSquared == now.RSquared)
+				{
+					AddLog($"=============== Begin of Regression evaluation {second} ===============");
+					AddLog($"RSquared: {trainedModelMetrics.RSquared}");
+					AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
+					AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
+					AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
+					AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
+					AddLog($"=============== End of Regression evaluation {second} ===============");
+
+					mlContext.Model.Save(model, data.Schema, savepath);
+
+					AppSetting.Instance.UpdateRegressionResults(bst);
+				}
+				else
+				{
+					AddLog($"=============== Can't Update of BinaryClassification evaluation {1} {second} ===============");
+				}
+
 			}
 
 			FileUtil.Delete(dataPath);
@@ -312,11 +341,12 @@ namespace Netkeiba
 
 			using (var conn = CreateSQLiteControl())
 			{
-				var mindate = await conn.ExecuteScalarAsync<int>("SELECT cast((MAX(開催日数) - MIN(開催日数)) * 0.2 as integer) + MIN(開催日数) FROM t_model");
-
+				var maxdate = await conn.ExecuteScalarAsync("SELECT MAX(開催日数) FROM t_model");
+				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_model");
+				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.4).Add(mindate.GetDouble());
 				using var reader = await conn.ExecuteReaderAsync(
 					"SELECT * FROM t_model WHERE 開催日数 >= ? ORDER BY ﾚｰｽID, 着順",
-					SQLiteUtil.CreateParameter(DbType.Int64, mindate)
+					SQLiteUtil.CreateParameter(DbType.Int64, (long)target)
 				);
 
 				var list = new List<string>();
