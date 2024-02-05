@@ -22,7 +22,9 @@ namespace Netkeiba
 		{
 			using (var conn = CreateSQLiteControl())
 			{
-				var drops = await conn.ExistsColumn("t_model", "着順")
+				var create = S2Overwrite.IsChecked || !await conn.ExistsColumn("t_model", "着順");
+
+				var drops = await conn.ExistsColumn("t_model", "着順") && !create
 					? await conn.GetRows(r => $"{r.GetValue(0)}", "SELECT DISTINCT ﾚｰｽID FROM t_model")
 					: Enumerable.Empty<string>();
 
@@ -49,8 +51,6 @@ namespace Netkeiba
 				var 一言 = new List<string>(await get_distinct("一言"));
 				var 追切 = new List<string>(await get_distinct("追切"));
 
-				var create = S2Overwrite.IsChecked || !await conn.ExistsColumn("t_model", "着順");
-
 				foreach (var raceid in rac)
 				{
 					MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
@@ -64,7 +64,7 @@ namespace Netkeiba
 
 						// ﾃｰﾌﾞﾙ作成
 						await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
-						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_model (" + racarr.First().Keys.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_model (" + racarr.First().Keys.Select(x => $"{x} INTEGER").GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
 						await conn.ExecuteNonQueryAsync("CREATE INDEX IF NOT EXISTS t_model_index_00 ON t_model (開催日数)");
 					}
 
@@ -129,61 +129,60 @@ namespace Netkeiba
 
 					var tgt = await conn.GetRows($"" +
 						$" SELECT" +
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                                         R1A4," +
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R1N4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                             R1A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                             R1A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                             R1A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                             R1A3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK1' THEN 1 END)                                                             R1A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R1N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R1N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R1N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R1N3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK1' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R1N4," +
 
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                                         R2A4," +
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R2N4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                             R2A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                             R2A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                             R2A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                             R2A3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK2' THEN 1 END)                                                             R2A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R2N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R2N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R2N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R2N3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK2' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R2N4," +
 
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                                         R3A4," +
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R3N4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                             R3A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                             R3A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                             R3A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                             R3A3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK3' THEN 1 END)                                                             R3A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R3N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R3N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R3N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R3N3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK3' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R3N4," +
 
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                                         R4A4," +
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R4N4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                             R4A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                             R4A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                             R4A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                             R4A3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK4' THEN 1 END)                                                             R4A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R4N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R4N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R4N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R4N3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK4' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R4N4," +
 
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                                         R5A4," +
-						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N0," +
-						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N1," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N2," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N3," +
-						$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) THEN 1 END) R5N4" +
-
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                             R5A0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                             R5A1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                             R5A2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                             R5A3," +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK5' THEN 1 END)                                                             R5A4," +
+						$"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R5N0," +
+						$"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R5N1," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R5N2," +
+						$"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R5N3" +
+						//$"   COUNT(CASE WHEN t_orig.着順 <= 7 AND t_orig.ﾗﾝｸ2 <= 'RANK5' AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R5N4" +
 						$" FROM" +
 						$"   (SELECT ? {keyname}1, ? {headname}2, ? 開催日数, 365 直近日数) t_where" +
 						$"   INNER JOIN t_orig" +
@@ -196,16 +195,16 @@ namespace Netkeiba
 					var dic = new Dictionary<string, double>();
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 
-					for (var i = 1; i <= 5; i++)
+					foreach (var i in new[] { 1, 3, 5 })
 					{
 						dic[$"R{i}A1_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A1"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
 						dic[$"R{i}A2_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A2"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
 						dic[$"R{i}A3_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A3"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
-						dic[$"R{i}A4_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A4"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
+						//dic[$"R{i}A4_{key}"] = $"{tgt0[$"R{i}A0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A4"]}".GetDouble() / $"{tgt0[$"R{i}A0"]}".GetDouble();
 						dic[$"R{i}N1_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N1"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
 						dic[$"R{i}N2_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N2"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
 						dic[$"R{i}N3_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N3"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
-						dic[$"R{i}N4_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N4"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
+						//dic[$"R{i}N4_{key}"] = $"{tgt0[$"R{i}N0"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N4"]}".GetDouble() / $"{tgt0[$"R{i}N0"]}".GetDouble();
 					}
 
 					return dic;
