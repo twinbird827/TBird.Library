@@ -341,13 +341,7 @@ namespace Netkeiba
 
 			using (var conn = CreateSQLiteControl())
 			{
-				var maxdate = await conn.ExecuteScalarAsync("SELECT MAX(開催日数) FROM t_model");
-				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_model");
-				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.4).Add(mindate.GetDouble());
-				using var reader = await conn.ExecuteReaderAsync(
-					"SELECT * FROM t_model WHERE 開催日数 >= ? ORDER BY ﾚｰｽID, 着順",
-					SQLiteUtil.CreateParameter(DbType.Int64, (long)target)
-				);
+				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model ORDER BY ﾚｰｽID, 着順");
 
 				var list = new List<string>();
 				var next = await reader.ReadAsync();
