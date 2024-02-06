@@ -346,22 +346,17 @@ namespace Netkeiba
 				var list = new List<string>();
 				var next = await reader.ReadAsync();
 
-				Func<DbDataReader, IEnumerable<int>> func = r =>
-				{
-					var indexes = Enumerable.Range(0, r.FieldCount)
-						.Where(i => !new[] { "着順", "単勝", "人気" }.Contains(r.GetName(i)) && (i == 0 || !Enumerable.Range(0, i - 1).Any(x => r.GetName(i) == r.GetName(x))))
-						.ToArray();
-					return indexes;
-				};
+				if (!next) return;
 
-				if (next)
-				{
-					list.Add(func(reader).Select(i => reader.GetName(i)).GetString(",") + ",着順");
-				}
+				var indexes = Enumerable.Range(0, reader.FieldCount)
+					.Where(i => !new[] { "着順", "単勝", "人気" }.Contains(reader.GetName(i)) && (i == 0 || !Enumerable.Range(0, i - 1).Any(x => reader.GetName(i) == reader.GetName(x))))
+					.ToArray();
+
+				list.Add(indexes.Select(i => reader.GetName(i)).GetString(",") + ",着順");
 
 				while (next)
 				{
-					list.Add(func(reader).Select(i => reader.GetValue(i)).GetString(",") + $",{func_target(reader)}");
+					list.Add(indexes.Select(i => reader.GetValue(i)).GetString(",") + $",{func_target(reader)}");
 
 					if (10000 < list.Count)
 					{
