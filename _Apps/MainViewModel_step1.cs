@@ -111,18 +111,18 @@ namespace Netkeiba
 											// ｲﾝﾃﾞｯｸｽ作成
 											var indexes = new Dictionary<string, string[]>()
 											{
-												{ "馬ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "天候", "馬場", "馬場状態" } },
-												{ "騎手ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "天候", "馬場", "馬場状態" } },
-												{ "調教師ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2" } },
-												{ "馬主ID", new[] { "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2" } },
+												{ "馬ID", new[] { "開催場所", "回り", "天候", "馬場", "馬場状態" } },
+												{ "騎手ID", new[] { "開催場所", "回り", "天候", "馬場", "馬場状態" } },
+												{ "調教師ID", new[] { "開催場所" } },
+												{ "馬主ID", new[] { "開催場所"} },
 											};
 											int index = 0;
 											foreach (var k in indexes)
 											{
-												await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数)");
+												await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順)");
 												foreach (var v in k.Value)
 												{
-													await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, {v}, 開催日数)");
+													await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順, {v})");
 												}
 											}
 										}
