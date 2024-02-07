@@ -1,5 +1,4 @@
 ﻿using AngleSharp.Html.Parser;
-using Netkeiba._ROOT;
 using System;
 using System.Collections;
 using System.Collections.Generic;

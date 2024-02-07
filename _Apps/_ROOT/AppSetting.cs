@@ -19,6 +19,55 @@ namespace Netkeiba
 			}
 		}
 
+		public bool UseFastForest
+		{
+			get => GetProperty(_UseFastForest);
+			set => SetProperty(ref _UseFastForest, value);
+		}
+		private bool _UseFastForest = true;
+
+		public bool UseFastTree
+		{
+			get => GetProperty(_UseFastTree);
+			set => SetProperty(ref _UseFastTree, value);
+		}
+		private bool _UseFastTree = true;
+
+		public bool UseLgbm
+		{
+			get => GetProperty(_UseLgbm);
+			set => SetProperty(ref _UseLgbm, value);
+		}
+		private bool _UseLgbm = true;
+
+		public bool UseLbfgsPoissonRegression
+		{
+			get => GetProperty(_UseLbfgsPoissonRegression);
+			set => SetProperty(ref _UseLbfgsPoissonRegression, value);
+		}
+		private bool _UseLbfgsPoissonRegression = true;
+
+		public bool UseSdca
+		{
+			get => GetProperty(_UseSdca);
+			set => SetProperty(ref _UseSdca, value);
+		}
+		private bool _UseSdca = true;
+
+		public bool UseSdcaLogisticRegression
+		{
+			get => GetProperty(_UseSdcaLogisticRegression);
+			set => SetProperty(ref _UseSdcaLogisticRegression, value);
+		}
+		private bool _UseSdcaLogisticRegression = true;
+
+		public bool UseLbfgsLogisticRegression
+		{
+			get => GetProperty(_UseLbfgsLogisticRegression);
+			set => SetProperty(ref _UseLbfgsLogisticRegression, value);
+		}
+		private bool _UseLbfgsLogisticRegression = true;
+
 		public int[] TrainingTimeSecond
 		{
 			get => GetProperty(_TrainingTimeSecond);

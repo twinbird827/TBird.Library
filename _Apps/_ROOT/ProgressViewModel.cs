@@ -5,10 +5,24 @@ using System.Text;
 using System.Threading.Tasks;
 using TBird.Wpf;
 
-namespace Netkeiba._ROOT
+namespace Netkeiba
 {
 	public class ProgressViewModel : BindableBase
 	{
+		public ProgressViewModel()
+		{
+			AddOnPropertyChanged(this, (sender, e) =>
+			{
+				switch (e.PropertyName)
+				{
+					case nameof(Value):
+					case nameof(Maximum):
+						OnPropertyChanged(nameof(Ratio));
+						return;
+				}
+			});
+		}
+
 		public double Value
 		{
 			get => _Value;
@@ -30,5 +44,6 @@ namespace Netkeiba._ROOT
 		}
 		private double _Maximum;
 
+		public double Ratio => 0 < Maximum ? Value / Maximum : 0;
 	}
 }

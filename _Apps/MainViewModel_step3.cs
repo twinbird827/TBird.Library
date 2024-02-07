@@ -163,7 +163,14 @@ namespace Netkeiba
 				SweepablePipeline pipeline = mlContext
 						.Auto()
 						.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-						.Append(mlContext.Auto().BinaryClassification(labelColumnName: columnInference.ColumnInformation.LabelColumnName));
+						.Append(mlContext.Auto().BinaryClassification(
+							labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+							useFastForest: AppSetting.Instance.UseFastForest,
+							useFastTree: AppSetting.Instance.UseFastTree,
+							useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
+							useLgbm: AppSetting.Instance.UseLgbm,
+							useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
+						));
 
 				// Create AutoML experiment
 				AutoMLExperiment experiment = mlContext.Auto().CreateExperiment();
@@ -268,7 +275,14 @@ namespace Netkeiba
 				SweepablePipeline pipeline = mlContext
 						.Auto()
 						.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-						.Append(mlContext.Auto().Regression(labelColumnName: columnInference.ColumnInformation.LabelColumnName));
+						.Append(mlContext.Auto().Regression(
+							labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+							useFastForest: AppSetting.Instance.UseFastForest,
+							useFastTree: AppSetting.Instance.UseFastTree,
+							useLbfgsPoissonRegression: AppSetting.Instance.UseLbfgsPoissonRegression,
+							useLgbm: AppSetting.Instance.UseLgbm,
+							useSdca: AppSetting.Instance.UseSdca
+						));
 
 				// Create AutoML experiment
 				AutoMLExperiment experiment = mlContext.Auto().CreateExperiment();
