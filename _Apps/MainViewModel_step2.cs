@@ -112,23 +112,13 @@ namespace Netkeiba
 
 		private async Task<IEnumerable<Dictionary<string, double>>> CreateRaceModel(SQLiteControl conn, string raceid, List<string> ﾗﾝｸ1, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 一言, List<string> 追切)
 		{
-			Func<IEnumerable<Dictionary<string, object>>, string, double, double> func_avg1 = (arr, n, def) =>
-			{
-				return arr.Select(x => x[n].GetDoubleNaN()).Where(x => !double.IsNaN(x)).Average(def);
-			};
-
-			Func<IEnumerable<Dictionary<string, object>>, Func<Dictionary<string, object>, double>, double, double> func_avg2 = (arr1, arr_func, def) =>
-			{
-				return arr1.Select(arr_func).Average(def);
-			};
-
 			// 同ﾚｰｽの平均を取りたいときに使用する
 			var 同ﾚｰｽ = await conn.GetRows("SELECT * FROM t_orig WHERE ﾚｰｽID = ?",
 				SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
 			);
 
 			// ﾚｰｽ毎の纏まり
-			var racarr = await 同ﾚｰｽ.Select(src => ToModel(conn, src, ﾗﾝｸ1, ﾗﾝｸ2, 馬性, 調教場所, 一言, 追切)).WhenAll();
+			var racarr = await 同ﾚｰｽ.Select(src => Task.Run(() => ToModel(conn, src, ﾗﾝｸ1, ﾗﾝｸ2, 馬性, 調教場所, 一言, 追切))).WhenAll();
 
 			// 他の馬との比較
 			racarr.ForEach(dic => dic["通過平均差"] = dic["通過平均"] - racarr.Average(x => x["通過平均"]));
@@ -143,6 +133,7 @@ namespace Netkeiba
 			var rackeys = racarr.First().Keys.ToArray();
 			racarr.ForEach(dic => rackeys.Where(x => Regex.IsMatch(x, @"R\d[AN]1")).ForEach(key => dic[key + "差"] = dic[key] - racarr.Average(x => x[key])));
 			racarr.ForEach(dic => rackeys.Where(x => Regex.IsMatch(x, @"R\d[AN]2")).ForEach(key => dic[key + "差"] = dic[key] - racarr.Select(x => x[key]).Median()));
+			racarr.ForEach(dic => rackeys.Where(x => Regex.IsMatch(x, @"R\d[AN]3")).ForEach(key => dic[key + "差"] = dic[key] - racarr.Average(x => x[key])));
 
 			return racarr;
 		}
@@ -297,10 +288,10 @@ namespace Netkeiba
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 					dic[$"R{i}A1_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A1_{key}"]}".GetDouble(), 着順DEF + (3 - i));
 					dic[$"R{i}A2_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A2_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}A3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A3_{key}"]}".GetDouble(), 着順偏差DEF);
+					dic[$"R{i}A3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A1_{key}"]}".GetDouble(), 着順DEF + (3 - i)) + CoreUtil.Nvl($"{tgt0[$"R{i}A3_{key}"]}".GetDouble(), 着順偏差DEF);
 					dic[$"R{i}N1_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N1_{key}"]}".GetDouble(), 着順DEF + (3 - i));
 					dic[$"R{i}N2_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N2_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}N3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N3_{key}"]}".GetDouble(), 着順偏差DEF);
+					dic[$"R{i}N3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N1_{key}"]}".GetDouble(), 着順DEF + (3 - i)) + CoreUtil.Nvl($"{tgt0[$"R{i}N3_{key}"]}".GetDouble(), 着順偏差DEF);
 				}
 			}
 
