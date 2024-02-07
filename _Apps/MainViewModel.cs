@@ -59,7 +59,7 @@ namespace Netkeiba
 
 		private readonly string _sqlitepath = Path.Combine(@"database", "database.sqlite3");
 
-		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 65536, false);
+		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 65536, true);
 
 	}
 }

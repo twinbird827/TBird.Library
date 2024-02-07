@@ -11,6 +11,8 @@ using TBird.DB;
 using System.Data.Common;
 using AngleSharp.Text;
 using System.Data.OleDb;
+using System.Text.RegularExpressions;
+using MathNet.Numerics.Statistics;
 
 namespace Netkeiba
 {
@@ -143,14 +145,12 @@ namespace Netkeiba
 						{
 							var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 							var and = keyname == headname ? string.Empty : $"AND t_orig.{headname} = t_where.{headname}1";
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} THEN 1 END)                                                             R{i}A0_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} THEN 1 END)                                                             R{i}A1_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} THEN 1 END)                                                             R{i}A2_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} THEN 1 END)                                                             R{i}A3_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順  > 0 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R{i}N0_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順  = 1 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R{i}N1_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順 <= 3 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R{i}N2_{key}");
-							sel.Add($"   COUNT(CASE WHEN t_orig.着順 <= 5 AND t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN 1 END) R{i}N3_{key}");
+							sel.Add($"        AVG(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A1_{key}");
+							sel.Add($"     MEDIAN(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A2_{key}");
+							sel.Add($"   VARIANCE(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A3_{key}");
+							sel.Add($"        AVG(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N1_{key}");
+							sel.Add($"     MEDIAN(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N2_{key}");
+							sel.Add($"   VARIANCE(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N3_{key}");
 						}
 					}
 					var tgt = await conn.GetRows($"SELECT " + sel.GetString(",") +
@@ -169,12 +169,12 @@ namespace Netkeiba
 						foreach (var headname in headnames)
 						{
 							var key = keyname == headname ? keyname : $"{keyname}_{headname}";
-							dic[$"R{i}A1_{key}"] = $"{tgt0[$"R{i}A0_{key}"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A1_{key}"]}".GetDouble() / $"{tgt0[$"R{i}A0_{key}"]}".GetDouble();
-							dic[$"R{i}A2_{key}"] = $"{tgt0[$"R{i}A0_{key}"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A2_{key}"]}".GetDouble() / $"{tgt0[$"R{i}A0_{key}"]}".GetDouble();
-							dic[$"R{i}A3_{key}"] = $"{tgt0[$"R{i}A0_{key}"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}A3_{key}"]}".GetDouble() / $"{tgt0[$"R{i}A0_{key}"]}".GetDouble();
-							dic[$"R{i}N1_{key}"] = $"{tgt0[$"R{i}N0_{key}"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N1_{key}"]}".GetDouble() / $"{tgt0[$"R{i}N0_{key}"]}".GetDouble();
-							dic[$"R{i}N2_{key}"] = $"{tgt0[$"R{i}N0_{key}"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N2_{key}"]}".GetDouble() / $"{tgt0[$"R{i}N0_{key}"]}".GetDouble();
-							dic[$"R{i}N3_{key}"] = $"{tgt0[$"R{i}N0_{key}"]}".GetDouble() == 0 ? 0 : $"{tgt0[$"R{i}N3_{key}"]}".GetDouble() / $"{tgt0[$"R{i}N0_{key}"]}".GetDouble();
+							dic[$"R{i}A1_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A1_{key}"]}".GetDouble(), 着順DEF + (3 - i));
+							dic[$"R{i}A2_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A2_{key}"]}".GetDouble(), 着順DEF + (3 - i));
+							dic[$"R{i}A3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A3_{key}"]}".GetDouble(), 着順偏差DEF);
+							dic[$"R{i}N1_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N1_{key}"]}".GetDouble(), 着順DEF + (3 - i));
+							dic[$"R{i}N2_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N2_{key}"]}".GetDouble(), 着順DEF + (3 - i));
+							dic[$"R{i}N3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N3_{key}"]}".GetDouble(), 着順偏差DEF);
 						}
 					}
 
@@ -202,9 +202,8 @@ namespace Netkeiba
 				dic["斤量差"] = dic["斤量"] - func_avg1(同ﾚｰｽ, "斤量", dic["斤量"]);
 				dic["単勝"] = src["単勝"].GetDouble();
 				dic["人気"] = src["人気"].GetDouble();
-				dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報.Count ? 馬情報[0]["体重"].GetDouble() : func_avg1(同ﾚｰｽ, "体重", 体重DEF));
+				dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報.Count ? 馬情報[0]["体重"].GetDouble() : 体重DEF);
 				dic["増減"] = src["増減"].GetDouble();
-				dic["体重差"] = dic["体重"] - func_avg1(同ﾚｰｽ, "体重", dic["体重"]);
 				dic["増減割"] = dic["増減"] / dic["体重"];
 				dic["斤量割"] = dic["斤量"] / dic["体重"];
 				dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
@@ -237,7 +236,7 @@ namespace Netkeiba
 
 				// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 				Func<object, double> func_time = v => $"{v}".Split(':')[0].GetDouble() * 60 + $"{v}".Split(':')[1].GetDouble();
-				dic["時間平均"] = func_avg2(馬情報, x => func_time(x["ﾀｲﾑ"]) / x["距離"].GetDouble(), 時間DEF);
+				dic["時間平均"] = func_avg2(馬情報, x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"]), 時間DEF);
 
 				// 1着との差
 				dic["勝馬時差"] = 馬情報.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).Average(時差DEF);
@@ -245,20 +244,20 @@ namespace Netkeiba
 				// 着順平均
 				dic["着順平均"] = func_avg1(馬情報, "着順", 着順DEF);
 
-				// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-				Func<object, double> func_tyaku = v => CoreUtil.Nvl(
-					$"{v}"
-					.Replace("ハナ", "0.05")
-					.Replace("アタマ", "0.10")
-					.Replace("クビ", "0.15")
-					.Replace("同着", "0")
-					.Replace("大", "15")
-					.Replace("1/4", "25")
-					.Replace("1/2", "50")
-					.Replace("3/4", "75"), "-0.25")
-					.Split('+').Sum(x => double.Parse(x));
-				//dic["着差"] = func_tyaku(src["着差"]);
-				dic["着差平均"] = func_avg2(馬情報, x => func_tyaku(x["着差"]), 着差DEF);
+				//// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+				//Func<object, double> func_tyaku = v => CoreUtil.Nvl(
+				//	$"{v}"
+				//	.Replace("ハナ", "0.05")
+				//	.Replace("アタマ", "0.10")
+				//	.Replace("クビ", "0.15")
+				//	.Replace("同着", "0")
+				//	.Replace("大", "15")
+				//	.Replace("1/4", "25")
+				//	.Replace("1/2", "50")
+				//	.Replace("3/4", "75"), "-0.25")
+				//	.Split('+').Sum(x => double.Parse(x));
+				////dic["着差"] = func_tyaku(src["着差"]);
+				//dic["着差平均"] = func_avg2(馬情報, x => func_tyaku(x["着差"]), 着差DEF);
 
 				for (var i = 0; i < 5; i++)
 				{
@@ -291,19 +290,23 @@ namespace Netkeiba
 			racarr.ForEach(dic => dic["通過平均差"] = dic["通過平均"] - racarr.Average(x => x["通過平均"]));
 			racarr.ForEach(dic => dic["上り平均差"] = dic["上り平均"] - racarr.Average(x => x["上り平均"]));
 			racarr.ForEach(dic => dic["時間平均差"] = dic["時間平均"] - racarr.Average(x => x["時間平均"]));
-			racarr.ForEach(dic => dic["着差平均差"] = dic["着差平均"] - racarr.Average(x => x["着差平均"]));
+			//racarr.ForEach(dic => dic["着差平均差"] = dic["着差平均"] - racarr.Average(x => x["着差平均"]));
 			racarr.ForEach(dic => dic["着順平均差"] = dic["着順平均"] - racarr.Average(x => x["着順平均"]));
+			racarr.ForEach(dic => dic["体重平均差"] = dic["体重"] - racarr.Average(x => x["体重"]));
 
 			// 成績の比較
-			var rankkeys = racarr.First().Keys.Where(x => x.StartsWith("R")).ToArray();
-			racarr.ForEach(dic => rankkeys.ForEach(key => dic[key + "平均差"] = dic[key] - racarr.Average(x => x[key])));
+			var rackeys = racarr.First().Keys.ToArray();
+			racarr.ForEach(dic => rackeys.Where(x => Regex.IsMatch(x, @"R\d[AN]1")).ForEach(key => dic[key + "差"] = dic[key] - racarr.Average(x => x[key])));
+			racarr.ForEach(dic => rackeys.Where(x => Regex.IsMatch(x, @"R\d[AN]2")).ForEach(key => dic[key + "差"] = dic[key] - racarr.Select(x => x[key]).Median()));
 
 			return racarr;
 		}
 
-		private const double 着差DEF = 10;
+		//private const double 着差DEF = 10;
 		private const double 体重DEF = 470;
+
 		private const double 着順DEF = 8;
+		private const double 着順偏差DEF = 4.5;
 		private const double 上りDEF = 36;
 		private const double 日数DEF = 30 * 3;
 		private const double 時間DEF = 15.78;
