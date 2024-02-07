@@ -39,6 +39,7 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
+			AppSetting.Instance.Save();
 			//await MulticlassClassification().TryCatch();
 			AppSetting.Instance.Save();
 			if (S3B01.IsChecked) await BinaryClassification(1).TryCatch();
