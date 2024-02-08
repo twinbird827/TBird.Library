@@ -86,7 +86,7 @@ namespace TBird.DB
 		{
 			await OpenAsync();
 
-			using (await Locker.LockAsync(Lock))
+			//using (await Locker.LockAsync(Lock))
 			{
 				_stopwatch.Restart();
 

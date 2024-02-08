@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using TBird.Core.Utils;
 
 namespace TBird.Core
@@ -121,6 +123,11 @@ namespace TBird.Core
 		public void ThrowIfDisposed()
 		{
 			if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+		}
+
+		protected IEnumerable<T> ArrMany<T>(IEnumerable<T>[] arr)
+		{
+			return arr.SelectMany(x => x);
 		}
 
 		protected T[] Arr<T>(params T[] arr)
