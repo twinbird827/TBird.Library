@@ -39,9 +39,10 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
+			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
+
 			AppSetting.Instance.Save();
 			//await MulticlassClassification().TryCatch();
-			AppSetting.Instance.Save();
 			if (S3B01.IsChecked) await BinaryClassification(1).TryCatch();
 			if (S3B02.IsChecked) await BinaryClassification(2).TryCatch();
 			if (S3B03.IsChecked) await BinaryClassification(3).TryCatch();
@@ -211,34 +212,33 @@ namespace Netkeiba
 				var old = AppSetting.Instance.BinaryClassificationResults.FirstOrDefault(x => x.Index == index);
 				var bst = old == null || old.AreaUnderRocCurve < now.AreaUnderRocCurve ? now : old;
 
+				AddLog($"=============== Begin Update of BinaryClassification evaluation {index} {second} ===============");
+				AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
+				AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
+				AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
+				AddLog($"Entropy: {trainedModelMetrics.Entropy}");
+				AddLog($"F1Score: {trainedModelMetrics.F1Score}");
+				AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
+				AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
+				AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
+				AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
+				AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
+				AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
+				AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
+
 				if (bst.AreaUnderRocCurve == now.AreaUnderRocCurve)
 				{
-					AddLog($"=============== Begin Update of BinaryClassification evaluation {index} {second} ===============");
-					AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
-					AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
-					AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
-					AddLog($"Entropy: {trainedModelMetrics.Entropy}");
-					AddLog($"F1Score: {trainedModelMetrics.F1Score}");
-					AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
-					AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
-					AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
-					AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
-					AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
-					AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
-					AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
-					AddLog($"=============== End Update of BinaryClassification evaluation {index} {second} ===============");
-
 					mlContext.Model.Save(model, data.Schema, savepath);
 
 					AppSetting.Instance.UpdateBinaryClassificationResults(bst);
+
+					AddLog($"=============== End Update of BinaryClassification evaluation {index} {second} ===============");
 				}
 				else
 				{
-					AddLog($"=============== Can't Update of BinaryClassification evaluation {index} {second} ===============");
+					AddLog($"!!!!!!!!!!!!!!! Can't Update of BinaryClassification evaluation {index} {second} !!!!!!!!!!!!!!!");
 				}
 			}
-
-			FileUtil.Delete(dataPath);
 		}
 
 		private Task BinaryClassification(int index)
@@ -324,28 +324,27 @@ namespace Netkeiba
 				var old = AppSetting.Instance.RegressionResults.FirstOrDefault(x => x.Index == 1);
 				var bst = old == null || old.RSquared < now.RSquared ? now : old;
 
+				AddLog($"=============== Begin of Regression evaluation {second} ===============");
+				AddLog($"RSquared: {trainedModelMetrics.RSquared}");
+				AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
+				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
+				AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
+				AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
+
 				if (bst.RSquared == now.RSquared)
 				{
-					AddLog($"=============== Begin of Regression evaluation {second} ===============");
-					AddLog($"RSquared: {trainedModelMetrics.RSquared}");
-					AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
-					AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
-					AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
-					AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
-					AddLog($"=============== End of Regression evaluation {second} ===============");
-
 					mlContext.Model.Save(model, data.Schema, savepath);
 
 					AppSetting.Instance.UpdateRegressionResults(bst);
+
+					AddLog($"=============== End of Regression evaluation {second} ===============");
 				}
 				else
 				{
-					AddLog($"=============== Can't Update of BinaryClassification evaluation {1} {second} ===============");
+					AddLog($"!!!!!!!!!!!!!!! Can't Update of BinaryClassification evaluation {1} {second} !!!!!!!!!!!!!!!");
 				}
 
 			}
-
-			FileUtil.Delete(dataPath);
 		}
 
 		private async Task CreateModelInputData(string path, Func<DbDataReader, object> func_target)
@@ -355,10 +354,10 @@ namespace Netkeiba
 			AddLog($"Before Create: {path}");
 
 			using (var conn = CreateSQLiteControl())
+			using (var file = new FileAppendWriter(path))
 			{
 				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model ORDER BY ﾚｰｽID, 着順");
 
-				var list = new List<string>();
 				var next = await reader.ReadAsync();
 
 				if (!next) return;
@@ -367,25 +366,12 @@ namespace Netkeiba
 					.Where(i => !new[] { "着順", "単勝", "人気" }.Contains(reader.GetName(i)) && (i == 0 || !Enumerable.Range(0, i - 1).Any(x => reader.GetName(i) == reader.GetName(x))))
 					.ToArray();
 
-				list.Add(indexes.Select(i => reader.GetName(i)).GetString(",") + ",着順");
+				await file.WriteLineAsync(indexes.Select(i => reader.GetName(i)).GetString(",") + ",着順");
 
 				while (next)
 				{
-					list.Add(indexes.Select(i => reader.GetValue(i)).GetString(",") + $",{func_target(reader)}");
-
-					if (10000 < list.Count)
-					{
-						await File.AppendAllTextAsync(path, list.GetString("\r\n") + "\r\n");
-
-						list.Clear();
-					}
-
+					await file.WriteLineAsync(indexes.Select(i => reader.GetValue(i)).GetString(",") + $",{func_target(reader)}");
 					next = await reader.ReadAsync();
-				}
-
-				if (list.Any())
-				{
-					await File.AppendAllTextAsync(path, list.GetString("\r\n") + "\r\n");
 				}
 			}
 

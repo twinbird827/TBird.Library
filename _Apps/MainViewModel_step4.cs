@@ -13,6 +13,7 @@ using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
 using TBird.DB;
 using System.IO;
+using System.Diagnostics.SymbolStore;
 
 namespace Netkeiba
 {
@@ -27,19 +28,17 @@ namespace Netkeiba
 
 		public IRelayCommand S4EXEC => RelayCommand.Create(async _ =>
 		{
-			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
-
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 
 			var BinaryClassification1 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification1Schema);
-			var BinaryClassification2 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification2Schema);
-			var BinaryClassification3 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification3Schema);
-			var BinaryClassification4 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification4Schema);
-			var BinaryClassification5 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification5Schema);
-			var BinaryClassification6 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification6Schema);
-			var BinaryClassification7 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification7Schema);
-			var BinaryClassification8 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification8Schema);
+			var BinaryClassification2 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(2).Path, out DataViewSchema BinaryClassification2Schema);
+			var BinaryClassification3 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(3).Path, out DataViewSchema BinaryClassification3Schema);
+			var BinaryClassification4 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(4).Path, out DataViewSchema BinaryClassification4Schema);
+			var BinaryClassification5 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(5).Path, out DataViewSchema BinaryClassification5Schema);
+			var BinaryClassification6 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(6).Path, out DataViewSchema BinaryClassification6Schema);
+			var BinaryClassification7 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(7).Path, out DataViewSchema BinaryClassification7Schema);
+			var BinaryClassification8 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(8).Path, out DataViewSchema BinaryClassification8Schema);
 			var Regression = mlContext.Model.Load(AppSetting.Instance.GetRegressionResult(1).Path, out DataViewSchema RegressionSchema);
 
 			await CreatePredictionFile("Best",
@@ -53,6 +52,8 @@ namespace Netkeiba
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification8),
 				mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(Regression)
 			).TryCatch();
+
+			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
 		});
 
 		private IEnumerable<string> GetRaceIds()
@@ -110,7 +111,7 @@ namespace Netkeiba
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単10", $"{x}_複3", $"{x}_複7" }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単10", $"{x}_複3", $"{x}_複7", $"{x}_複4", $"{x}_複10" }))
 					.GetString(",")
 				);
 				var raceids = GetRaceIds().ToArray();
@@ -138,6 +139,12 @@ namespace Netkeiba
 
 					var arr = new List<List<object>>();
 
+					var iHeaders = 0;
+					var iBinaries1 = 0;
+					var iBinaries2 = 0;
+					var iRegressions = 0;
+					var iScores = 0;
+
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
 					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ1, ﾗﾝｸ2, 馬性, 調教場所, 一言, 追切))
 					{
@@ -158,82 +165,85 @@ namespace Netkeiba
 							Features = m.Keys.Where(x => !drops.Contains(x)).Select(x => (float)m[x]).ToArray()
 						};
 
-						tmp.Add(src["ﾗﾝｸ1"]);                               // 0
-						tmp.Add(src["開催場所"]);                           // 1
-						tmp.Add(src["ﾚｰｽID"]);                              // 2
-						tmp.Add(src["ﾚｰｽID"].Right(2));                     // 3
-						tmp.Add(src["ﾚｰｽ名"]);                              // 4
-						tmp.Add(m["枠番"]);                                 // 5
-						tmp.Add(m["馬番"]);                                 // 6
-						tmp.Add(src["馬名"]);                               // 7
-						tmp.Add(src["着順"]);                               // 8
-						tmp.Add(以内1.Predict(binaryClassificationSource)); // 9
-						tmp.Add(以内2.Predict(binaryClassificationSource)); // 10
-						tmp.Add(以内3.Predict(binaryClassificationSource)); // 11
-						tmp.Add(以内4.Predict(binaryClassificationSource)); // 12
-						tmp.Add(以内5.Predict(binaryClassificationSource)); // 13
-						tmp.Add(着外3.Predict(binaryClassificationSource)); // 14
-						tmp.Add(着外5.Predict(binaryClassificationSource)); // 15
-						tmp.Add(着外7.Predict(binaryClassificationSource)); // 16
-						tmp.Add(着順1.Predict(regressionSource));            // 17
-																		   // 18 単純に足すだけ
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.Sum(x => ((BinaryClassificationPrediction)x).Score) -
-							new[] { tmp[14], tmp[15], tmp[16] }.Sum(x => ((BinaryClassificationPrediction)x).Score) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 200)
+						// 共通ﾍｯﾀﾞ
+						tmp.Add(src["ﾗﾝｸ1"]);
+						tmp.Add(src["開催場所"]);
+						tmp.Add(src["ﾚｰｽID"]);
+						tmp.Add(src["ﾚｰｽID"].Right(2));
+						tmp.Add(src["ﾚｰｽ名"]);
+						tmp.Add(m["枠番"]);
+						tmp.Add(m["馬番"]);
+						tmp.Add(src["馬名"]);
+						tmp.Add(src["着順"]);
+
+						iHeaders = tmp.Count;
+
+						var binaries1 = Arr(
+							以内1.Predict(binaryClassificationSource),
+							以内2.Predict(binaryClassificationSource),
+							以内3.Predict(binaryClassificationSource),
+							以内4.Predict(binaryClassificationSource),
+							以内5.Predict(binaryClassificationSource)
 						);
-						// Probabilityをかけてみる							// 19
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 100)
+						tmp.AddRange(binaries1);
+
+						iBinaries1 = binaries1.Length;
+
+						var binaries2 = Arr(
+							着外3.Predict(binaryClassificationSource),
+							着外5.Predict(binaryClassificationSource),
+							着外7.Predict(binaryClassificationSource)
 						);
-						// 20 Labelの有無で倍率計算
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 200)
+						tmp.AddRange(binaries2);
+
+						iBinaries2 = binaries2.Length;
+
+						var regressions = Arr(
+							着順1.Predict(regressionSource)
 						);
-						// Labelの有無で倍率計算 Probabilityをかけてみる							// 21
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 100)
+						tmp.AddRange(regressions);
+
+						iRegressions = regressions.Length;
+
+						Func<Func<BinaryClassificationPrediction, float>, Func<RegressionPrediction, float>, float> func_score = (bsum, rsum) =>
+						{
+							return binaries1.Sum(x => bsum(x)) - binaries2.Sum(x => bsum(x)) + regressions.Sum(x => rsum(x));
+						};
+
+						var scores = Arr(
+							// 着順の重み低め＝α
+							// 単純な加減算
+							func_score(x => x.Score, x => 1 / x.Score * 200),
+							// Probabilityをかけてみる
+							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 100),
+							// Labelの有無で倍率計算する
+							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 200),
+							// Probabilityをかけてみる
+							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 100),
+							// 着順の重み高め＝β
+							// 単純な加減算
+							func_score(x => x.Score, x => 1 / x.Score * 400),
+							// Probabilityをかけてみる
+							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 200),
+							// Labelの有無で倍率計算する
+							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 400),
+							// Probabilityをかけてみる
+							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 200)
 						);
-						// 18 単純に足すだけ
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.Sum(x => ((BinaryClassificationPrediction)x).Score) -
-							new[] { tmp[14], tmp[15], tmp[16] }.Sum(x => ((BinaryClassificationPrediction)x).Score) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 400)
-						);
-						// Probabilityをかけてみる							// 19
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 200)
-						);
-						// 20 Labelの有無で倍率計算
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * (x.PredictedLabel ? 2 : 1)) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 400)
-						);
-						// Labelの有無で倍率計算 Probabilityをかけてみる							// 21
-						tmp.Add(
-							new[] { tmp[9], tmp[10], tmp[11], tmp[12], tmp[13] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) -
-							new[] { tmp[14], tmp[15], tmp[16] }.OfType<BinaryClassificationPrediction>().Sum(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1)) +
-							(1 / ((RegressionPrediction)tmp[17]).Score * 200)
-						);
+						tmp.AddRange(scores.Select(x => (object)x));
+
+						iScores = scores.Length;
 
 						arr.Add(tmp);
 					}
 
 					if (arr.Any())
 					{
-						for (var j = 9; j < 26; j++)
+						var scoremaxlen = (iHeaders + iBinaries1 + iBinaries2 + iRegressions + iScores);
+						for (var j = iHeaders; j < scoremaxlen; j++)
 						{
 							var n = 1;
-							if (14 <= j && j <= 17)
+							if ((iHeaders + iBinaries1) <= j && j <= (iHeaders + iBinaries1 + iBinaries2))
 							{
 								arr
 									.OrderBy(x => x[j].ToString().GetDouble())
@@ -249,7 +259,7 @@ namespace Netkeiba
 							}
 						}
 
-						for (var j = 26; j < 26 + (26 - 9); j++)
+						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
 						{
 							{
 								// 単6の予想結果
@@ -277,6 +287,16 @@ namespace Netkeiba
 								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 3);
 								var b8 = arr.Count(x => x[8].GetInt32() <= 3 && 3 < x[j].GetInt32() && x[j].GetInt32() <= 5);
 								arr.First().Add(b7 == 3 || (b7 == 2 && b8 == 1) ? 1 : 0);
+							}
+							{
+								// 複4の予想結果
+								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 4);
+								arr.First().Add(b7 == 3 ? 1 : 0);
+							}
+							{
+								// 複10の予想結果
+								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 5);
+								arr.First().Add(b7 == 3 ? 1 : 0);
 							}
 						}
 

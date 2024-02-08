@@ -39,6 +39,8 @@ namespace Netkeiba
 
 			EYear = DateTime.Now.Year;
 			SYear = EYear - 1;
+
+			AppSetting.Instance.Save();
 		}
 
 		public ProgressViewModel Progress { get; } = new ProgressViewModel();
