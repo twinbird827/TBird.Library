@@ -161,7 +161,12 @@ namespace Netkeiba
 
 	public class RegressionResult : PredictionResult
 	{
-		public RegressionResult(string path, int index, int second, RegressionMetrics metrics)
+		public RegressionResult()
+		{
+
+		}
+
+        public RegressionResult(string path, int index, int second, RegressionMetrics metrics)
 		{
 			Path = path;
 			Index = index;
