@@ -95,7 +95,7 @@ namespace Netkeiba
 				var 追切 = new List<string>(await get_distinct("追切"));
 
 				var list = new List<string>();
-				var headers = new[] { "ﾗﾝｸ1", "開催場所", "ﾚｰｽID", "R", "ﾚｰｽ名", "枠番", "馬番", "馬名", "着順" }
+				var headers = new[] { "ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順" }
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内1)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内2)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内3)))
@@ -166,11 +166,11 @@ namespace Netkeiba
 						};
 
 						// 共通ﾍｯﾀﾞ
-						tmp.Add(src["ﾗﾝｸ1"]);
-						tmp.Add(src["開催場所"]);
 						tmp.Add(src["ﾚｰｽID"]);
-						tmp.Add(src["ﾚｰｽID"].Right(2));
+						tmp.Add(src["ﾗﾝｸ1"]);
 						tmp.Add(src["ﾚｰｽ名"]);
+						tmp.Add(src["開催場所"]);
+						tmp.Add(src["ﾚｰｽID"].Right(2));
 						tmp.Add(m["枠番"]);
 						tmp.Add(m["馬番"]);
 						tmp.Add(src["馬名"]);
@@ -247,14 +247,14 @@ namespace Netkeiba
 							{
 								arr
 									.OrderBy(x => x[j].ToString().GetDouble())
-									.ThenBy(x => x[17].ToString().GetDouble())
+									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].ToString().GetDouble())
 									.ForEach(x => x.Add(n++));
 							}
 							else
 							{
 								arr
 									.OrderByDescending(x => x[j].ToString().GetDouble())
-									.ThenBy(x => x[17].ToString().GetDouble())
+									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].ToString().GetDouble())
 									.ForEach(x => x.Add(n++));
 							}
 						}
