@@ -14,6 +14,7 @@ using System.Data.OleDb;
 using System.Text.RegularExpressions;
 using MathNet.Numerics.Statistics;
 using Tensorflow.Keras.Layers;
+using System.Windows.Forms;
 
 namespace Netkeiba
 {
@@ -120,7 +121,6 @@ namespace Netkeiba
 			// ﾚｰｽ毎の纏まり
 			var racarr = await 同ﾚｰｽ.Select(src => Task.Run(() => ToModel(conn, src, ﾗﾝｸ1, ﾗﾝｸ2, 馬性, 調教場所, 一言, 追切))).WhenAll();
 
-			MessageService.Debug(raceid + ":::1");
 			var drops = Arr("ﾚｰｽID", "開催日数", "ﾗﾝｸ2", "着順", "枠番", "馬番", "馬ID");
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
 
@@ -130,7 +130,6 @@ namespace Netkeiba
 				keys.ForEach(key => dic[$"{key}差"] = dic[key] - racarr.Select(x => x[key]).Median());
 			});
 
-			MessageService.Debug(raceid + ":::2");
 			return racarr;
 		}
 
@@ -174,15 +173,12 @@ namespace Netkeiba
 			//dic["一言"] = 一言.IndexOf(src["一言"]);
 			dic["追切"] = 追切.IndexOf(src["追切"]);
 
-			MessageService.Debug(src["ﾚｰｽID"] + ":::10");
 			var analysis = await Arr(
 				GetAnalysis(conn, 365, src, "馬ID", new[] { "馬ID", "開催場所" }),
-				//GetAnalysis(conn, 180, src, "騎手ID", new[] { "騎手ID", "開催場所", "回り", "天候", "馬場", "馬場状態" }),
 				GetAnalysis(conn, 180, src, "騎手ID", new[] { "騎手ID", "開催場所", "回り", "馬場", "馬場状態" }),
 				GetAnalysis(conn, 180, src, "調教師ID", new[] { "調教師ID", "開催場所" }),
 				GetAnalysis(conn, 180, src, "馬主ID", new[] { "馬主ID", "開催場所" })
 			).WhenAll();
-			MessageService.Debug(src["ﾚｰｽID"] + ":::11");
 
 			dic.AddRange(analysis.SelectMany(x => x));
 
@@ -251,55 +247,59 @@ namespace Netkeiba
 
 		private async Task<Dictionary<string, double>> GetAnalysis(SQLiteControl conn, int num, Dictionary<string, object> src, string keyname, string[] headnames)
 		{
-			// 対象ﾘｽﾄから全件, 勝利, 連対, 複勝を取得
+			var ranks = new[] { 1, 3, 5 };
+			var fieldCount = ranks.Length * headnames.Length * 10;
 			var now = $"{src["開催日数"]}".GetDouble();
 			var keyvalue = $"{src[keyname]}";
 
-			var sel = new List<string>();
-			foreach (var i in new[] { 1, 3, 5 })
+			var whe = new List<string>();
+			foreach (var i in ranks)
 			{
 				foreach (var headname in headnames)
 				{
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
-					var and = keyname == headname ? string.Empty : $"AND t_orig.{headname} = t_where.{headname}1";
-					sel.Add($"              AVG(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A1_{key}");
-					sel.Add($"           MEDIAN(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A2_{key}");
-					sel.Add($"         VARIANCE(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A3_{key}");
-					sel.Add($"   lower_quartile(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A4_{key}");
-					sel.Add($"   upper_quartile(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and}                                                             THEN t_orig.着順 END) R{i}A5_{key}");
-					sel.Add($"              AVG(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N1_{key}");
-					sel.Add($"           MEDIAN(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N2_{key}");
-					sel.Add($"         VARIANCE(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N3_{key}");
-					sel.Add($"   lower_quartile(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N4_{key}");
-					sel.Add($"   upper_quartile(CASE WHEN t_orig.ﾗﾝｸ2 <= 'RANK{i}' {and} AND (t_where.開催日数 - t_where.直近日数) < t_orig.開催日数 THEN t_orig.着順 END) R{i}N5_{key}");
+
+					whe.Add(Arr(
+						$"( SELECT",
+						$"                                    IFNULL(AVG(着順), {着順DEF})           R{i}A1_{key},",
+						$"                                 IFNULL(MEDIAN(着順), {着順DEF})           R{i}A2_{key},",
+						$"IFNULL(AVG(着順), {着順DEF}) + IFNULL(VARIANCE(着順), {着順偏差DEF}      ) R{i}A3_{key},",
+						$"                         IFNULL(LOWER_QUARTILE(着順), {着順DEF})           R{i}A4_{key},",
+						$"                         IFNULL(UPPER_QUARTILE(着順), {着順DEF})           R{i}A5_{key} ",
+						$"FROM t_orig WHERE",
+						$"t_orig.{keyname} = '{keyvalue}' AND",
+						$"t_orig.開催日数  < {now}        AND",
+						$"t_orig.ﾗﾝｸ2     <= 'RANK{i}'",
+						keyname == headname ? string.Empty : $"AND t_orig.{headname} = '{src[headname]}'",
+						$") R{i}A_{key} "
+					).GetString(" "));
+
+					whe.Add(Arr(
+						$"( SELECT",
+						$"                                    IFNULL(AVG(着順), {着順DEF})           R{i}N1_{key},",
+						$"                                 IFNULL(MEDIAN(着順), {着順DEF})           R{i}N2_{key},",
+						$"IFNULL(AVG(着順), {着順DEF}) + IFNULL(VARIANCE(着順), {着順偏差DEF}      ) R{i}N3_{key},",
+						$"                         IFNULL(LOWER_QUARTILE(着順), {着順DEF})           R{i}N4_{key},",
+						$"                         IFNULL(UPPER_QUARTILE(着順), {着順DEF})           R{i}N5_{key} ",
+						$"FROM t_orig WHERE",
+						$"t_orig.{keyname} = '{keyvalue}' AND",
+						$"t_orig.開催日数  < {now}        AND",
+						$"t_orig.開催日数  > {now - num}  AND",
+						$"t_orig.ﾗﾝｸ2     <= 'RANK{i}'",
+						keyname == headname ? string.Empty : $"AND t_orig.{headname} = '{src[headname]}'",
+						$") R{i}A_{key} "
+					).GetString(" "));
 				}
 			}
-			var tgt = await conn.GetRows($"SELECT " + sel.GetString(",") +
-				$" FROM" +
-				$"   (SELECT ? {keyname}, ? 開催日数, {num} 直近日数, {headnames.Select(x => $"'{src[x]}' {x}1").GetString(",")}) t_where" +
-				$"   INNER JOIN t_orig" +
-				$"   ON t_orig.{keyname} = t_where.{keyname} AND t_orig.開催日数 < t_where.開催日数",
-				SQLiteUtil.CreateParameter(System.Data.DbType.String, keyvalue),
-				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, now)
-			);
-			var tgt0 = tgt[0];
 			var dic = new Dictionary<string, double>();
-
-			foreach (var i in new[] { 1, 3, 5 })
+			using (var reader = await conn.ExecuteReaderAsync(Arr($"SELECT * FROM", whe.GetString("CROSS JOIN")).GetString(" ")))
 			{
-				foreach (var headname in headnames)
+				if (await reader.ReadAsync())
 				{
-					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
-					dic[$"R{i}A1_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A1_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}A2_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A2_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}A3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A1_{key}"]}".GetDouble(), 着順DEF + (3 - i)) + CoreUtil.Nvl($"{tgt0[$"R{i}A3_{key}"]}".GetDouble(), 着順偏差DEF);
-					dic[$"R{i}A4_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A4_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}A5_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}A5_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}N1_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N1_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}N2_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N2_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}N3_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N1_{key}"]}".GetDouble(), 着順DEF + (3 - i)) + CoreUtil.Nvl($"{tgt0[$"R{i}N3_{key}"]}".GetDouble(), 着順偏差DEF);
-					dic[$"R{i}N4_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N4_{key}"]}".GetDouble(), 着順DEF + (3 - i));
-					dic[$"R{i}N5_{key}"] = CoreUtil.Nvl($"{tgt0[$"R{i}N5_{key}"]}".GetDouble(), 着順DEF + (3 - i));
+					for (var i = 0; i < fieldCount; i++)
+					{
+						dic[reader.GetName(i)] = reader.GetDouble(i);
+					}
 				}
 			}
 
