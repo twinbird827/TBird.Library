@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.ML.AutoML;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -68,6 +69,20 @@ namespace Netkeiba
 		}
 		private bool _UseLbfgsLogisticRegression = true;
 
+		public BinaryClassificationMetric BinaryClassificationMetric
+		{
+			get => GetProperty(_BinaryClassificationMetric);
+			set => SetProperty(ref _BinaryClassificationMetric, value);
+		}
+		private BinaryClassificationMetric _BinaryClassificationMetric = BinaryClassificationMetric.F1Score;
+
+		public RegressionMetric RegressionMetric
+		{
+			get => GetProperty(_RegressionMetric);
+			set => SetProperty(ref _RegressionMetric, value);
+		}
+		private RegressionMetric _RegressionMetric = RegressionMetric.RSquared;
+
 		public int[] TrainingTimeSecond
 		{
 			get => GetProperty(_TrainingTimeSecond);
@@ -90,7 +105,30 @@ namespace Netkeiba
 
 		public BinaryClassificationResult GetBinaryClassificationResult(int index)
 		{
-			return BinaryClassificationResults.Where(x => x.Index == index).OrderByDescending(x => x.F1Score).First();
+			return BinaryClassificationResults.Where(x => x.Index == index).OrderByDescending(x =>
+			{
+				switch (BinaryClassificationMetric)
+				{
+					case BinaryClassificationMetric.Accuracy:
+						return x.Accuracy;
+					case BinaryClassificationMetric.AreaUnderRocCurve:
+						return x.AreaUnderRocCurve;
+					case BinaryClassificationMetric.F1Score:
+						return x.F1Score;
+					case BinaryClassificationMetric.AreaUnderPrecisionRecallCurve:
+						return x.AreaUnderPrecisionRecallCurve;
+					case BinaryClassificationMetric.NegativePrecision:
+						return x.NegativePrecision;
+					case BinaryClassificationMetric.NegativeRecall:
+						return x.NegativeRecall;
+					case BinaryClassificationMetric.PositivePrecision:
+						return x.PositivePrecision;
+					case BinaryClassificationMetric.PositiveRecall:
+						return x.PositiveRecall;
+					default:
+						return x.AreaUnderRocCurve;
+				}
+			}).First();
 		}
 
 		public RegressionResult[] RegressionResults
@@ -108,7 +146,22 @@ namespace Netkeiba
 
 		public RegressionResult GetRegressionResult(int index)
 		{
-			return RegressionResults.Where(x => x.Index == index).OrderByDescending(x => x.RSquared).First();
+			return RegressionResults.Where(x => x.Index == index).OrderByDescending(x =>
+			{
+				switch (RegressionMetric)
+				{
+					case RegressionMetric.MeanAbsoluteError:
+						return x.MeanAbsoluteError;
+					case RegressionMetric.MeanSquaredError:
+						return x.MeanSquaredError;
+					case RegressionMetric.RootMeanSquaredError:
+						return x.RootMeanSquaredError;
+					case RegressionMetric.RSquared:
+						return x.RSquared;
+					default:
+						return x.RSquared;
+				}
+			}).First();
 		}
 	}
 }

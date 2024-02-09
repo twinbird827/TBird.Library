@@ -41,6 +41,10 @@ namespace Netkeiba
 		{
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
+			Progress.Value = 0;
+			Progress.Minimum = 0;
+			Progress.Maximum = AppSetting.Instance.TrainingTimeSecond.Length * Arr(S3B01, S3B02, S3B03, S3B04, S3B05, S3B06, S3B07, S3B08, S3R01).Count(x => x.IsChecked);
+
 			AppSetting.Instance.Save();
 			//await MulticlassClassification().TryCatch();
 			if (S3B01.IsChecked) await BinaryClassification(1).TryCatch();
@@ -102,7 +106,7 @@ namespace Netkeiba
 				// Configure experiment
 				experiment
 					.SetPipeline(pipeline)
-					.SetBinaryClassificationMetric(BinaryClassificationMetric.F1Score, labelColumn: columnInference.ColumnInformation.LabelColumnName)
+					.SetBinaryClassificationMetric(AppSetting.Instance.BinaryClassificationMetric, labelColumn: columnInference.ColumnInformation.LabelColumnName)
 					.SetTrainingTimeInSeconds((uint)second)
 					.SetEciCostFrugalTuner()
 					.SetDataset(trainValidationData);
@@ -147,19 +151,13 @@ namespace Netkeiba
 				AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
 				AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
 				AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
+				AddLog($"=============== End Update of BinaryClassification evaluation {index} {second} ===============");
 
-				if (bst.AreaUnderRocCurve == now.AreaUnderRocCurve)
-				{
-					mlContext.Model.Save(model, data.Schema, savepath);
+				mlContext.Model.Save(model, data.Schema, savepath);
 
-					AppSetting.Instance.UpdateBinaryClassificationResults(bst);
+				AppSetting.Instance.UpdateBinaryClassificationResults(now);
 
-					AddLog($"=============== End Update of BinaryClassification evaluation {index} {second} ===============");
-				}
-				else
-				{
-					AddLog($"!!!!!!!!!!!!!!! Can't Update of BinaryClassification evaluation {index} {second} !!!!!!!!!!!!!!!");
-				}
+				Progress.Value += 1;
 			}
 		}
 
@@ -213,7 +211,7 @@ namespace Netkeiba
 				// Configure experiment
 				experiment
 					.SetPipeline(pipeline)
-					.SetRegressionMetric(RegressionMetric.RSquared, "着順")
+					.SetRegressionMetric(AppSetting.Instance.RegressionMetric, "着順")
 					//.SetBinaryClassificationMetric(BinaryClassificationMetric.Accuracy, labelColumn: columnInference.ColumnInformation.LabelColumnName)
 					.SetTrainingTimeInSeconds((uint)second)
 					.SetEciCostFrugalTuner()
@@ -252,20 +250,13 @@ namespace Netkeiba
 				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
 				AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
 				AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
+				AddLog($"=============== End of Regression evaluation {second} ===============");
 
-				if (bst.RSquared == now.RSquared)
-				{
-					mlContext.Model.Save(model, data.Schema, savepath);
+				mlContext.Model.Save(model, data.Schema, savepath);
 
-					AppSetting.Instance.UpdateRegressionResults(bst);
+				AppSetting.Instance.UpdateRegressionResults(now);
 
-					AddLog($"=============== End of Regression evaluation {second} ===============");
-				}
-				else
-				{
-					AddLog($"!!!!!!!!!!!!!!! Can't Update of BinaryClassification evaluation {1} {second} !!!!!!!!!!!!!!!");
-				}
-
+				Progress.Value += 1;
 			}
 		}
 
