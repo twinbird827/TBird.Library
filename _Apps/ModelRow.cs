@@ -10,20 +10,20 @@ namespace Netkeiba
 {
 	public class PredictionSource
 	{
-		[LoadColumn(1, 630)]
-		[VectorType(630)]
+		[LoadColumn(1, 764)]
+		[VectorType(764)]
 		public float[] Features { get; set; } = new float[0];
 	}
 
 	public class BinaryClassificationSource : PredictionSource
 	{
-		[LoadColumn(631)]
+		[LoadColumn(765)]
 		public bool 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource
 	{
-		[LoadColumn(631)]
+		[LoadColumn(765)]
 		public float 着順 { get; set; }
 	}
 
@@ -166,7 +166,7 @@ namespace Netkeiba
 
 		}
 
-        public RegressionResult(string path, int index, int second, RegressionMetrics metrics)
+		public RegressionResult(string path, int index, int second, RegressionMetrics metrics)
 		{
 			Path = path;
 			Index = index;

@@ -17,6 +17,8 @@ namespace Netkeiba
 			if (!Load())
 			{
 				TrainingTimeSecond = new[] { 1800, 2000, 2200 };
+				BinaryClassificationResults = new BinaryClassificationResult[] { };
+				RegressionResults = new RegressionResult[] { };
 			}
 		}
 

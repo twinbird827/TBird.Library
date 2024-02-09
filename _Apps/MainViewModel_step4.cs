@@ -75,9 +75,11 @@ namespace Netkeiba
 			)
 		{
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMddHHmmss") + "_" + tag + ".csv");
+			var payout = Path.Combine("result", DateTime.Now.ToString("yyyyMMddHHmmss") + "_" + tag + "_payout.csv");
 
 			FileUtil.BeforeCreate(path);
 
+			using (var pw = new FileAppendWriter(payout, Encoding.GetEncoding("Shift_JIS")))
 			using (var conn = CreateSQLiteControl())
 			{
 				Func<string, Task<IEnumerable<string>>> get_distinct = async x => (await conn.GetRows($"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}")).Select(y => $"{y[x]}");
@@ -108,6 +110,8 @@ namespace Netkeiba
 					.Concat(new[] { "ｽｺｱ1a", "ｽｺｱ2a", "ｽｺｱ3a", "ｽｺｱ4a", "ｽｺｱ1b", "ｽｺｱ2b", "ｽｺｱ3b", "ｽｺｱ4b" })
 					.ToArray();
 
+				await pw.WriteLineAsync("ﾚｰｽID,三連複,三連単");
+
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
@@ -127,6 +131,10 @@ namespace Netkeiba
 					// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
 					var racearr = await GetRaces2(raceid);
 					if (!racearr.Any()) continue;
+
+					// 三連単と三連複の支払情報を出力
+					var payoutDetail = await GetPayout(raceid);
+					await pw.WriteLineAsync(payoutDetail.Keys.Select(key => payoutDetail[key]).GetString(","));
 
 					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
 					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));

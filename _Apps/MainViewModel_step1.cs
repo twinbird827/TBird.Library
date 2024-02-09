@@ -11,6 +11,7 @@ using System.IO;
 using TBird.DB.SQLite;
 using System.Data;
 using TBird.DB;
+using AngleSharp.Html.Dom;
 
 namespace Netkeiba
 {
@@ -557,6 +558,28 @@ namespace Netkeiba
 			}
 
 			return arr;
+		}
+
+		private async Task<Dictionary<string, string>> GetPayout(string raceid)
+		{
+			var dic = new Dictionary<string, string>();
+
+			var url = $"https://race.netkeiba.com/race/result.html?race_id={raceid}";
+
+			using (var raceparser = await AppUtil.GetDocument(url))
+			{
+				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "ワイド") is AngleSharp.Html.Dom.IHtmlTableElement table)
+				{
+					// 着順
+					dic["ﾚｰｽID"] = raceid;
+					// 枠番
+					dic["三連複"] = table.GetElementsByClassName("Fuku3").OfType<IHtmlTableRowElement>().SelectMany(x => x.GetElementsByClassName("Payout")).Select(x => x.GetInnerHtml()).FirstOrDefault() ?? string.Empty;
+					// 馬番
+					dic["三連単"] = table.GetElementsByClassName("Tan3").OfType<IHtmlTableRowElement>().SelectMany(x => x.GetElementsByClassName("Payout")).Select(x => x.GetInnerHtml()).FirstOrDefault() ?? string.Empty;
+				}
+			}
+
+			return dic;
 		}
 	}
 }
