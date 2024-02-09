@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace TBird.Core
 {
-	public abstract class JsonBase
+	public abstract class JsonBase : TBirdObject
 	{
 		// 読み込みﾌﾗｸﾞ
 		internal static bool _load = false;
