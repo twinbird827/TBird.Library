@@ -84,13 +84,13 @@ namespace Netkeiba
 
 		public void UpdateBinaryClassificationResults(BinaryClassificationResult newResult)
 		{
-			BinaryClassificationResults = BinaryClassificationResults.Where(x => x.Index != newResult.Index).Concat(new[] { newResult }).ToArray();
+			BinaryClassificationResults = Arr(newResult).Concat(BinaryClassificationResults).ToArray();
 			Save();
 		}
 
 		public BinaryClassificationResult GetBinaryClassificationResult(int index)
 		{
-			return BinaryClassificationResults.First(x => x.Index == index);
+			return BinaryClassificationResults.Where(x => x.Index == index).OrderByDescending(x => x.F1Score).First();
 		}
 
 		public RegressionResult[] RegressionResults
@@ -102,13 +102,13 @@ namespace Netkeiba
 
 		public void UpdateRegressionResults(RegressionResult newResult)
 		{
-			RegressionResults = RegressionResults.Where(x => x.Index != newResult.Index).Concat(new[] { newResult }).ToArray();
+			RegressionResults = Arr(newResult).Concat(RegressionResults).ToArray();
 			Save();
 		}
 
 		public RegressionResult GetRegressionResult(int index)
 		{
-			return RegressionResults.First(x => x.Index == index);
+			return RegressionResults.Where(x => x.Index == index).OrderByDescending(x => x.RSquared).First();
 		}
 	}
 }

@@ -111,7 +111,7 @@ namespace Netkeiba
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単10", $"{x}_複3", $"{x}_複7", $"{x}_複4", $"{x}_複10" }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単10", $"{x}_単15", $"{x}_複3", $"{x}_複7", /*$"{x}_複4",*/ $"{x}_複10" }))
 					.GetString(",")
 				);
 				var raceids = GetRaceIds().ToArray();
@@ -276,6 +276,13 @@ namespace Netkeiba
 								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
 							}
 							{
+								// 単15の予想結果
+								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
+								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
+								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
+								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
+							}
+							{
 								// 複3の予想結果
 								var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
 								var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
@@ -288,11 +295,11 @@ namespace Netkeiba
 								var b8 = arr.Count(x => x[8].GetInt32() <= 3 && 3 < x[j].GetInt32() && x[j].GetInt32() <= 5);
 								arr.First().Add(b7 == 3 || (b7 == 2 && b8 == 1) ? 1 : 0);
 							}
-							{
-								// 複4の予想結果
-								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 4);
-								arr.First().Add(b7 == 3 ? 1 : 0);
-							}
+							//{
+							//	// 複4の予想結果
+							//	var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 4);
+							//	arr.First().Add(b7 == 3 ? 1 : 0);
+							//}
 							{
 								// 複10の予想結果
 								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 5);

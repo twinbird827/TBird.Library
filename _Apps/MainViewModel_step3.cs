@@ -57,84 +57,6 @@ namespace Netkeiba
 			DirectoryUtil.Copy("model", $"model_{DateTime.Now.ToString("yyyyMMddHHmmss")}");
 		});
 
-		private async Task MulticlassClassification()
-		{
-			// Initialize MLContext
-			MLContext mlContext = new MLContext();
-
-			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
-			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
-
-			// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			await CreateModelInputData(dataPath, reader => int.Parse($"{reader.GetValue("着順")}"));
-
-			// Infer column information
-			var columnInference =
-				mlContext.Auto().InferColumns(dataPath, labelColumnName: "着順", groupColumns: true);
-
-			// Create text loader
-			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
-
-			// Load data into IDataView
-			IDataView data = loader.Load(dataPath);
-
-			// Split into train (80%), validation (20%) sets
-			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
-
-			//Define pipeline
-			SweepablePipeline pipeline = mlContext
-					.Auto()
-					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-					.Append(mlContext.Auto().MultiClassification(labelColumnName: columnInference.ColumnInformation.LabelColumnName));
-
-			// Create AutoML experiment
-			AutoMLExperiment experiment = mlContext.Auto().CreateExperiment();
-
-			// Configure experiment
-			experiment
-				.SetPipeline(pipeline)
-				.SetMulticlassClassificationMetric(MulticlassClassificationMetric.LogLossReduction, labelColumn: columnInference.ColumnInformation.LabelColumnName)
-				.SetTrainingTimeInSeconds(240)
-				.SetEciCostFrugalTuner()
-				.SetDataset(trainValidationData);
-
-			// Log experiment trials
-			var monitor = new AutoMLMonitor(pipeline, this);
-			experiment.SetMonitor(monitor);
-
-			// Run experiment
-			var cts = new CancellationTokenSource();
-			TrialResult experimentResults = await experiment.RunAsync(cts.Token);
-
-			// Get best model
-			var model = experimentResults.Model;
-
-			// Get all completed trials
-			var completedTrials = monitor.GetCompletedTrials();
-
-			// Measure trained model performance
-			// Apply data prep transformer to test data
-			// Use trained model to make inferences on test data
-			IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
-
-			// Save model
-			mlContext.Model.Save(model, data.Schema, @"model\MulticlassClassification.zip");
-
-			var trainedModelMetrics = mlContext.MulticlassClassification.Evaluate(testDataPredictions, labelColumnName: "着順");
-
-			AddLog("=============== Begin of MulticlassClassification evaluation ===============");
-			AddLog($"ConfusionMatrix: {trainedModelMetrics.ConfusionMatrix}");
-			AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
-			AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
-			AddLog($"MacroAccuracy: {trainedModelMetrics.MacroAccuracy}");
-			AddLog($"MicroAccuracy: {trainedModelMetrics.MicroAccuracy}");
-			AddLog($"PerClassLogLoss: {trainedModelMetrics.PerClassLogLoss}");
-			AddLog($"TopKAccuracy: {trainedModelMetrics.TopKAccuracy}");
-			AddLog($"TopKAccuracyForAllK: {trainedModelMetrics.TopKAccuracyForAllK}");
-			AddLog($"TopKPredictionCount: {trainedModelMetrics.TopKPredictionCount}");
-			AddLog("=============== End of MulticlassClassification evaluation ===============");
-		}
-
 		private async Task BinaryClassification(int index, Func<DbDataReader, object> func_yoso)
 		{
 			// Initialize MLContext
@@ -146,7 +68,7 @@ namespace Netkeiba
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
 			await CreateModelInputData(dataPath, func_yoso);
 
-			foreach (var second in TrainingTimeSecond)
+			foreach (var second in AppSetting.Instance.TrainingTimeSecond)
 			{
 				// Infer column information
 				var columnInference =
@@ -180,7 +102,7 @@ namespace Netkeiba
 				// Configure experiment
 				experiment
 					.SetPipeline(pipeline)
-					.SetBinaryClassificationMetric(BinaryClassificationMetric.Accuracy, labelColumn: columnInference.ColumnInformation.LabelColumnName)
+					.SetBinaryClassificationMetric(BinaryClassificationMetric.F1Score, labelColumn: columnInference.ColumnInformation.LabelColumnName)
 					.SetTrainingTimeInSeconds((uint)second)
 					.SetEciCostFrugalTuner()
 					.SetDataset(trainValidationData);
