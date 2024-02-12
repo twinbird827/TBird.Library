@@ -51,26 +51,17 @@ namespace Netkeiba
 				Progress.Minimum = 0;
 				Progress.Maximum = rac.Length;
 
-				Func<string, Task<IEnumerable<string>>> get_distinct = async x => (await conn.GetRows($"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}")).Select(y => $"{y[x]}");
-
-				//var ｸﾗｽ = new List<string>(await get_distinct("ｸﾗｽ"));
-				//var ﾗﾝｸ1 = new List<string>(await get_distinct("ﾗﾝｸ1"));
-				var ﾗﾝｸ2 = new List<string>(await get_distinct("ﾗﾝｸ2"));
-				//var 回り = new List<string>(await get_distinct("回り"));
-				//var 天候 = new List<string>(await get_distinct("天候"));
-				//var 馬場 = new List<string>(await get_distinct("馬場"));
-				//var 馬場状態 = new List<string>(await get_distinct("馬場状態"));
-				var 馬性 = new List<string>(await get_distinct("馬性"));
-				var 調教場所 = new List<string>(await get_distinct("調教場所"));
-				//var 一言 = new List<string>(await get_distinct("一言"));
-				var 追切 = new List<string>(Arr("", "E", "D", "C", "B", "A"));
+				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
+				var 馬性 = await AppUtil.Get馬性(conn);
+				var 調教場所 = await AppUtil.Get調教場所(conn);
+				var 追切 = await AppUtil.Get追切(conn);
 
 				foreach (var raceid in rac)
 				{
 					MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
 					// ﾚｰｽ毎の纏まり
-					var racarr = await CreateRaceModel(conn, raceid, new List<string>(), ﾗﾝｸ2, 馬性, 調教場所, new List<string>(), 追切);
+					var racarr = await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
 
 					if (create)
 					{
@@ -111,7 +102,7 @@ namespace Netkeiba
 			return arr1.Select(arr_func).Average(def);
 		}
 
-		private async Task<IEnumerable<Dictionary<string, double>>> CreateRaceModel(SQLiteControl conn, string raceid, List<string> ﾗﾝｸ1, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 一言, List<string> 追切)
+		private async Task<IEnumerable<Dictionary<string, double>>> CreateRaceModel(SQLiteControl conn, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			// 同ﾚｰｽの平均を取りたいときに使用する
 			var 同ﾚｰｽ = await conn.GetRows("SELECT * FROM t_orig WHERE ﾚｰｽID = ?",
@@ -119,7 +110,7 @@ namespace Netkeiba
 			);
 
 			// ﾚｰｽ毎の纏まり
-			var racarr = await 同ﾚｰｽ.Select(src => Task.Run(() => ToModel(conn, src, ﾗﾝｸ1, ﾗﾝｸ2, 馬性, 調教場所, 一言, 追切))).WhenAll();
+			var racarr = await 同ﾚｰｽ.Select(src => Task.Run(() => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切))).WhenAll();
 
 			var drops = Arr("ﾚｰｽID", "開催日数", "ﾗﾝｸ2", "着順", "枠番", "馬番", "馬ID");
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
@@ -133,7 +124,7 @@ namespace Netkeiba
 			return racarr;
 		}
 
-		private async Task<Dictionary<string, double>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ1, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 一言, List<string> 追切)
+		private async Task<Dictionary<string, double>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			var 馬情報 = await conn.GetRows(
 					$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ, t_top.上り TOP上り" +

@@ -334,7 +334,7 @@ namespace Netkeiba
 
 			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(raceurl))
+			using (var raceparser = await AppUtil.GetDocument(false, @$"html\shutuba\{raceid}.html", raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
 				var ﾗﾝｸ1 = new Dictionary<string, string>()
@@ -477,7 +477,7 @@ namespace Netkeiba
 					// 調教師ID
 					dic["調教師ID"] = row.Cells[7].GetHrefAttribute("href").Split('/').Reverse().ToArray()[1];
 
-					using (var umaparser = await AppUtil.GetDocument($"https://db.netkeiba.com/horse/{dic["馬ID"]}/"))
+					using (var umaparser = await AppUtil.GetDocument(false, $@"html\horse\{dic["馬ID"]}.html", $"https://db.netkeiba.com/horse/{dic["馬ID"]}/"))
 					{
 						if (umaparser.GetElementsByClassName("db_prof_table no_OwnerUnit").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement umatable)
 						{
@@ -506,7 +506,7 @@ namespace Netkeiba
 
 			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(url))
+			using (var raceparser = await AppUtil.GetDocument(false, $@"html\oikiri\{raceid}.html", url))
 			{
 				if (raceparser.GetElementById("All_Oikiri_Table") is AngleSharp.Html.Dom.IHtmlTableElement table)
 				{
@@ -568,18 +568,36 @@ namespace Netkeiba
 
 			using (var raceparser = await AppUtil.GetDocument(url))
 			{
-				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "ワイド") is AngleSharp.Html.Dom.IHtmlTableElement table)
+				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "ワイド") is AngleSharp.Html.Dom.IHtmlTableElement table1)
 				{
-					// 着順
+					// ﾚｰｽID
 					dic["ﾚｰｽID"] = raceid;
-					// 枠番
-					dic["三連複"] = table.GetElementsByClassName("Fuku3").OfType<IHtmlTableRowElement>().SelectMany(x => x.GetElementsByClassName("Payout")).Select(x => x.GetInnerHtml()).FirstOrDefault() ?? string.Empty;
-					// 馬番
-					dic["三連単"] = table.GetElementsByClassName("Tan3").OfType<IHtmlTableRowElement>().SelectMany(x => x.GetElementsByClassName("Payout")).Select(x => x.GetInnerHtml()).FirstOrDefault() ?? string.Empty;
+					// 三連複
+					dic["三連複"] = GetPayout(table1, "Fuku3");
+					// 三連単
+					dic["三連単"] = GetPayout(table1, "Tan3");
+					// 馬単
+					dic["馬単"] = GetPayout(table1, "Umatan");
+				}
+
+				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "払戻し") is AngleSharp.Html.Dom.IHtmlTableElement table2)
+				{
+					// 馬連
+					dic["馬連"] = GetPayout(table2, "Umaren");
 				}
 			}
 
 			return dic;
+		}
+
+		private string GetPayout(IHtmlTableElement table, string tag)
+		{
+			return table.GetElementsByClassName(tag)
+				.OfType<IHtmlTableRowElement>()
+				.SelectMany(x => x.GetElementsByClassName("Payout"))
+				.Select(x => x.GetInnerHtml())
+				.Select(x => x.Split("<br>")[0].Replace("円", "").Replace(",", ""))
+				.FirstOrDefault() ?? string.Empty;
 		}
 	}
 }

@@ -7,7 +7,11 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using TBird.Core;
+using TBird.DB.SQLite;
 using TBird.Web;
+using TBird.DB;
+using System.Windows.Forms;
 
 namespace Netkeiba
 {
@@ -49,6 +53,26 @@ namespace Netkeiba
 			return doc;
 		}
 
+		public static async Task<IHtmlDocument> GetDocument(bool overwrite, string path, string url)
+		{
+			if (overwrite || !File.Exists(path)) FileUtil.BeforeCreate(path);
+
+			if (File.Exists(path))
+			{
+				return await _parser.ParseDocumentAsync(File.ReadAllText(path));
+			}
+			else
+			{
+				var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+
+				await File.WriteAllTextAsync(path, res);
+
+				var doc = await _parser.ParseDocumentAsync(res);
+
+				return doc;
+			}
+		}
+
 		private static HtmlParser _parser = new HtmlParser();
 		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
 		private static Encoding _dstenc = Encoding.UTF8;
@@ -69,5 +93,31 @@ namespace Netkeiba
 		{
 			return await GetFileHeaders(path, sepa).ContinueWith(x => x.Result.Select(func));
 		}
+
+		private static Task<List<string>> GetDistinct(SQLiteControl conn, string x)
+		{
+			return conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}");
+		}
+
+		public static Task<List<string>> Getﾗﾝｸ2(SQLiteControl conn)
+		{
+			return GetDistinct(conn, "ﾗﾝｸ2");
+		}
+
+		public static Task<List<string>> Get馬性(SQLiteControl conn)
+		{
+			return GetDistinct(conn, "馬性");
+		}
+
+		public static Task<List<string>> Get調教場所(SQLiteControl conn)
+		{
+			return GetDistinct(conn, "調教場所");
+		}
+
+		public static Task<List<string>> Get追切(SQLiteControl conn)
+		{
+			return Task.Run(() => new List<string>(new[] { "", "E", "D", "C", "B", "A" }));
+		}
+
 	}
 }

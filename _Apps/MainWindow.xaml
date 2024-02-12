@@ -133,8 +133,6 @@
 							<CheckBox IsChecked="{Binding S3B01.IsChecked}" Content="B01" />
 							<CheckBox IsChecked="{Binding S3B02.IsChecked}" Content="B02" />
 							<CheckBox IsChecked="{Binding S3B03.IsChecked}" Content="B03" />
-							<CheckBox IsChecked="{Binding S3B04.IsChecked}" Content="B04" />
-							<CheckBox IsChecked="{Binding S3B05.IsChecked}" Content="B05" />
 							<CheckBox IsChecked="{Binding S3B06.IsChecked}" Content="B06" />
 							<CheckBox IsChecked="{Binding S3B07.IsChecked}" Content="B07" />
 							<CheckBox IsChecked="{Binding S3B08.IsChecked}" Content="B08" />

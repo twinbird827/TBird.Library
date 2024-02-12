@@ -30,8 +30,6 @@ namespace Netkeiba
 		public CheckboxItemModel S3B01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B02 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B03 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B04 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B05 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B06 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B07 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B08 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
@@ -43,18 +41,16 @@ namespace Netkeiba
 
 			Progress.Value = 0;
 			Progress.Minimum = 0;
-			Progress.Maximum = AppSetting.Instance.TrainingTimeSecond.Length * Arr(S3B01, S3B02, S3B03, S3B04, S3B05, S3B06, S3B07, S3B08, S3R01).Count(x => x.IsChecked);
+			Progress.Maximum = AppSetting.Instance.TrainingTimeSecond.Length * Arr(S3B01, S3B02, S3B03, S3B06, S3B07, S3B08, S3R01).Count(x => x.IsChecked);
 
 			AppSetting.Instance.Save();
-			//await MulticlassClassification().TryCatch();
+
 			if (S3B01.IsChecked) await BinaryClassification(1).TryCatch();
 			if (S3B02.IsChecked) await BinaryClassification(2).TryCatch();
 			if (S3B03.IsChecked) await BinaryClassification(3).TryCatch();
-			if (S3B04.IsChecked) await BinaryClassification(4).TryCatch();
-			if (S3B05.IsChecked) await BinaryClassification(5).TryCatch();
 			if (S3B06.IsChecked) await BinaryClassification(6, r => r.GetValue("着順").GetDouble() > 3).TryCatch();
-			if (S3B07.IsChecked) await BinaryClassification(7, r => r.GetValue("着順").GetDouble() > 5).TryCatch();
-			if (S3B08.IsChecked) await BinaryClassification(8, r => r.GetValue("着順").GetDouble() > 7).TryCatch();
+			if (S3B07.IsChecked) await BinaryClassification(7, r => r.GetValue("着順").GetDouble() > 2).TryCatch();
+			if (S3B08.IsChecked) await BinaryClassification(8, r => r.GetValue("着順").GetDouble() > 1).TryCatch();
 
 			if (S3R01.IsChecked) await Regression().TryCatch();
 

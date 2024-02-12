@@ -34,8 +34,6 @@ namespace Netkeiba
 			var BinaryClassification1 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification1Schema);
 			var BinaryClassification2 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(2).Path, out DataViewSchema BinaryClassification2Schema);
 			var BinaryClassification3 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(3).Path, out DataViewSchema BinaryClassification3Schema);
-			var BinaryClassification4 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(4).Path, out DataViewSchema BinaryClassification4Schema);
-			var BinaryClassification5 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(5).Path, out DataViewSchema BinaryClassification5Schema);
 			var BinaryClassification6 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(6).Path, out DataViewSchema BinaryClassification6Schema);
 			var BinaryClassification7 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(7).Path, out DataViewSchema BinaryClassification7Schema);
 			var BinaryClassification8 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(8).Path, out DataViewSchema BinaryClassification8Schema);
@@ -45,8 +43,6 @@ namespace Netkeiba
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification1),
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification2),
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification3),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification4),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification5),
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification6),
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification7),
 				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification8),
@@ -66,56 +62,38 @@ namespace Netkeiba
 				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内1,
 				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内2,
 				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内3,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内4,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内5,
 				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外3,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外5,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外7,
+				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外2,
+				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外1,
 				PredictionEngine<RegressionSource, RegressionPrediction> 着順1
 			)
 		{
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMddHHmmss") + "_" + tag + ".csv");
-			var payout = Path.Combine("result", DateTime.Now.ToString("yyyyMMddHHmmss") + "_" + tag + "_payout.csv");
 
 			FileUtil.BeforeCreate(path);
-
-			using (var pw = new FileAppendWriter(payout, Encoding.GetEncoding("Shift_JIS")))
 			using (var conn = CreateSQLiteControl())
 			{
-				Func<string, Task<IEnumerable<string>>> get_distinct = async x => (await conn.GetRows($"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}")).Select(y => $"{y[x]}");
-
-				//var ｸﾗｽ = new List<string>(await get_distinct("ｸﾗｽ"));
-				var ﾗﾝｸ1 = new List<string>(await get_distinct("ﾗﾝｸ1"));
-				var ﾗﾝｸ2 = new List<string>(await get_distinct("ﾗﾝｸ2"));
-				//var 回り = new List<string>(await get_distinct("回り"));
-				//var 天候 = new List<string>(await get_distinct("天候"));
-				//var 馬場 = new List<string>(await get_distinct("馬場"));
-				//var 馬場状態 = new List<string>(await get_distinct("馬場状態"));
-				var 馬性 = new List<string>(await get_distinct("馬性"));
-				var 調教場所 = new List<string>(await get_distinct("調教場所"));
-				var 一言 = new List<string>(await get_distinct("一言"));
-				var 追切 = new List<string>(await get_distinct("追切"));
+				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
+				var 馬性 = await AppUtil.Get馬性(conn);
+				var 調教場所 = await AppUtil.Get調教場所(conn);
+				var 追切 = await AppUtil.Get追切(conn);
 
 				var list = new List<string>();
 				var headers = new[] { "ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順" }
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内1)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内2)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内3)))
-					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内4)))
-					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内5)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外3)))
-					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外5)))
-					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外7)))
+					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外2)))
+					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外1)))
 					.Concat(RegressionPrediction.GetHeaders(nameof(着順1)))
 					.Concat(new[] { "ｽｺｱ1a", "ｽｺｱ2a", "ｽｺｱ3a", "ｽｺｱ4a", "ｽｺｱ1b", "ｽｺｱ2b", "ｽｺｱ3b", "ｽｺｱ4b" })
 					.ToArray();
 
-				await pw.WriteLineAsync("ﾚｰｽID,三連複,三連単");
-
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_単10", $"{x}_単15", $"{x}_複3", $"{x}_複7", /*$"{x}_複4",*/ $"{x}_複10" }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_複3", $"{x}_馬連"/*, $"{x}_馬単"*/ }))
 					.GetString(",")
 				);
 				var raceids = GetRaceIds().ToArray();
@@ -131,10 +109,6 @@ namespace Netkeiba
 					// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
 					var racearr = await GetRaces2(raceid);
 					if (!racearr.Any()) continue;
-
-					// 三連単と三連複の支払情報を出力
-					var payoutDetail = await GetPayout(raceid);
-					await pw.WriteLineAsync(payoutDetail.Keys.Select(key => payoutDetail[key]).GetString(","));
 
 					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
 					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));
@@ -154,7 +128,7 @@ namespace Netkeiba
 					var iScores = 0;
 
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
-					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ1, ﾗﾝｸ2, 馬性, 調教場所, 一言, 追切))
+					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
 					{
 						// 不要なﾃﾞｰﾀ
 						var drops = new[] { "着順", "単勝", "人気" };
@@ -189,9 +163,7 @@ namespace Netkeiba
 						var binaries1 = Arr(
 							以内1.Predict(binaryClassificationSource),
 							以内2.Predict(binaryClassificationSource),
-							以内3.Predict(binaryClassificationSource),
-							以内4.Predict(binaryClassificationSource),
-							以内5.Predict(binaryClassificationSource)
+							以内3.Predict(binaryClassificationSource)
 						);
 						tmp.AddRange(binaries1);
 
@@ -199,8 +171,8 @@ namespace Netkeiba
 
 						var binaries2 = Arr(
 							着外3.Predict(binaryClassificationSource),
-							着外5.Predict(binaryClassificationSource),
-							着外7.Predict(binaryClassificationSource)
+							着外2.Predict(binaryClassificationSource),
+							着外1.Predict(binaryClassificationSource)
 						);
 						tmp.AddRange(binaries2);
 
@@ -221,22 +193,22 @@ namespace Netkeiba
 						var scores = Arr(
 							// 着順の重み低め＝α
 							// 単純な加減算
-							func_score(x => x.Score, x => 1 / x.Score * 200),
+							func_score(x => x.Score, x => 1 / x.Score * 20),
 							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 100),
+							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 10),
 							// Labelの有無で倍率計算する
-							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 200),
+							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 20),
 							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 100),
+							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 10),
 							// 着順の重み高め＝β
 							// 単純な加減算
-							func_score(x => x.Score, x => 1 / x.Score * 400),
+							func_score(x => x.Score, x => 1 / x.Score * 40),
 							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 200),
+							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 20),
 							// Labelの有無で倍率計算する
-							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 400),
+							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 40),
 							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 200)
+							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 20)
 						);
 						tmp.AddRange(scores.Select(x => (object)x));
 
@@ -267,6 +239,9 @@ namespace Netkeiba
 							}
 						}
 
+						// 三連単と三連複の支払情報を出力
+						var payoutDetail = await GetPayout(raceid);
+
 						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
 						{
 							{
@@ -274,45 +249,26 @@ namespace Netkeiba
 								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
 								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
 								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
-							}
-							{
-								// 単10の予想結果
-								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
-								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
-							}
-							{
-								// 単15の予想結果
-								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
-								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3));
-								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2 || x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b1 && b2 && b3 ? 1 : 0);
+								arr.First().Add(b1 && b2 && b3 ? payoutDetail["三連単"] : 0);
 							}
 							{
 								// 複3の予想結果
 								var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
 								var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
 								var b6 = arr.Any(x => x[8].GetInt32() <= 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b4 && b5 && b6 ? 1 : 0);
+								arr.First().Add(b4 && b5 && b6 ? payoutDetail["三連複"] : 0);
 							}
 							{
-								// 複7の予想結果
-								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 3);
-								var b8 = arr.Count(x => x[8].GetInt32() <= 3 && 3 < x[j].GetInt32() && x[j].GetInt32() <= 5);
-								arr.First().Add(b7 == 3 || (b7 == 2 && b8 == 1) ? 1 : 0);
+								// 馬連の予想結果
+								var b7 = arr.Count(x => x[8].GetInt32() <= 2 && x[j].GetInt32() <= 2);
+								arr.First().Add(b7 == 2 ? payoutDetail["馬連"] : 0);
 							}
 							//{
-							//	// 複4の予想結果
-							//	var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 4);
-							//	arr.First().Add(b7 == 3 ? 1 : 0);
+							//	// 馬単の予想結果
+							//	var b7 = arr.Any(x => x[8].GetInt32() == 1 && x[j].GetInt32() == 1);
+							//	var b8 = arr.Any(x => x[8].GetInt32() == 2 && x[j].GetInt32() == 2);
+							//	arr.First().Add(b7 && b8 ? payoutDetail["馬単"] : 0);
 							//}
-							{
-								// 複10の予想結果
-								var b7 = arr.Count(x => x[8].GetInt32() <= 3 && x[j].GetInt32() <= 5);
-								arr.First().Add(b7 == 3 ? 1 : 0);
-							}
 						}
 
 						list.AddRange(arr.Select(x => x.GetString(",")));
