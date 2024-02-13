@@ -118,7 +118,11 @@ namespace Netkeiba
 			// 他の馬との比較
 			racarr.ForEach(dic =>
 			{
-				keys.ForEach(key => dic[$"{key}差"] = dic[key] - racarr.Select(x => x[key]).Median());
+				keys.ForEach(key =>
+				{
+					dic[$"{key}平"] = dic[key] - racarr.Select(x => x[key]).Average();
+					dic[$"{key}中"] = dic[key] - racarr.Select(x => x[key]).Median();
+				});
 			});
 
 			return racarr;
@@ -165,10 +169,10 @@ namespace Netkeiba
 			dic["追切"] = 追切.IndexOf(src["追切"]);
 
 			var analysis = await Arr(
-				GetAnalysis(conn, 365, src, "馬ID", new[] { "馬ID", "開催場所" }),
-				GetAnalysis(conn, 180, src, "騎手ID", new[] { "騎手ID", "開催場所", "回り", "馬場", "馬場状態" }),
-				GetAnalysis(conn, 180, src, "調教師ID", new[] { "調教師ID", "開催場所" }),
-				GetAnalysis(conn, 180, src, "馬主ID", new[] { "馬主ID", "開催場所" })
+				GetAnalysis(conn, 365, src, "馬ID", new[] { "馬ID", "馬場", "馬場状態" }),
+				GetAnalysis(conn, 180, src, "騎手ID", new[] { "騎手ID", "馬場", "馬場状態" }),
+				GetAnalysis(conn, 180, src, "調教師ID", new[] { "調教師ID" }),
+				GetAnalysis(conn, 180, src, "馬主ID", new[] { "馬主ID" })
 			).WhenAll();
 
 			dic.AddRange(analysis.SelectMany(x => x));
@@ -211,7 +215,7 @@ namespace Netkeiba
 			////dic["着差"] = func_tyaku(src["着差"]);
 			//dic["着差平均"] = func_avg2(馬情報, x => func_tyaku(x["着差"]), 着差DEF);
 
-			for (var i = 0; i < 5; i++)
+			for (var i = 0; i < 4; i++)
 			{
 				if (i < 馬情報.Count)
 				{
@@ -221,6 +225,7 @@ namespace Netkeiba
 					dic[$"前{i + 1}_日数"] = dic["開催日数"] - 馬情報[i]["開催日数"].GetDouble();
 					dic[$"前{i + 1}_時間"] = 馬情報[i]["距離"].GetDouble() / func_time(馬情報[i]["ﾀｲﾑ"]);
 					dic[$"前{i + 1}_時差"] = func_time(馬情報[i]["ﾀｲﾑ"]) - func_time(馬情報[i]["TOPﾀｲﾑ"]);
+					dic[$"前{i + 1}_上差"] = 馬情報[i]["上り"].GetDouble() - 馬情報[i]["TOP上り"].GetDouble();
 				}
 				else
 				{
@@ -249,14 +254,19 @@ namespace Netkeiba
 				foreach (var headname in headnames)
 				{
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
+					var val = i == 1
+						? "着順 * 0.50"
+						: i == 2
+						? "着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 ELSE 1.00 END)"
+						: "着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 WHEN ﾗﾝｸ2 = 'RANK3' THEN 1.00 WHEN ﾗﾝｸ2 = 'RANK4' THEN 1.25 ELSE 1.50 END)";
 
 					whe.Add(Arr(
 						$"( SELECT",
-						$"                                    IFNULL(AVG(着順), {着順DEF})           R{i}A1_{key},",
-						$"                                 IFNULL(MEDIAN(着順), {着順DEF})           R{i}A2_{key},",
-						$"IFNULL(AVG(着順), {着順DEF}) + IFNULL(VARIANCE(着順), {着順偏差DEF}      ) R{i}A3_{key},",
-						$"                         IFNULL(LOWER_QUARTILE(着順), {着順DEF})           R{i}A4_{key},",
-						$"                         IFNULL(UPPER_QUARTILE(着順), {着順DEF})           R{i}A5_{key} ",
+						$"                                  IFNULL(MEDIAN({val}), {着順DEF})           R{i}A1_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) + IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}A2_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) - IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}A3_{key},",
+						$"                          IFNULL(LOWER_QUARTILE({val}), {着順DEF})           R{i}A4_{key},",
+						$"                          IFNULL(UPPER_QUARTILE({val}), {着順DEF})           R{i}A5_{key} ",
 						$"FROM t_orig WHERE",
 						$"t_orig.{keyname} = '{keyvalue}' AND",
 						$"t_orig.開催日数  < {now}        AND",
@@ -267,11 +277,11 @@ namespace Netkeiba
 
 					whe.Add(Arr(
 						$"( SELECT",
-						$"                                    IFNULL(AVG(着順), {着順DEF})           R{i}N1_{key},",
-						$"                                 IFNULL(MEDIAN(着順), {着順DEF})           R{i}N2_{key},",
-						$"IFNULL(AVG(着順), {着順DEF}) + IFNULL(VARIANCE(着順), {着順偏差DEF}      ) R{i}N3_{key},",
-						$"                         IFNULL(LOWER_QUARTILE(着順), {着順DEF})           R{i}N4_{key},",
-						$"                         IFNULL(UPPER_QUARTILE(着順), {着順DEF})           R{i}N5_{key} ",
+						$"                                  IFNULL(MEDIAN({val}), {着順DEF})           R{i}N1_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) + IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}N2_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) - IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}N3_{key},",
+						$"                          IFNULL(LOWER_QUARTILE({val}), {着順DEF})           R{i}N4_{key},",
+						$"                          IFNULL(UPPER_QUARTILE({val}), {着順DEF})           R{i}N5_{key} ",
 						$"FROM t_orig WHERE",
 						$"t_orig.{keyname} = '{keyvalue}' AND",
 						$"t_orig.開催日数  < {now}        AND",

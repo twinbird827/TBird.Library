@@ -288,7 +288,7 @@ namespace Netkeiba
 					// 通過
 					dic["通過"] = row.Cells[10].GetInnerHtml();
 					// 上り
-					dic["上り"] = row.Cells[11].GetInnerHtml();
+					dic["上り"] = GetAgari(dic["距離"], dic["馬場"], dic["回り"] == "障", row.Cells[11].GetInnerHtml());
 					// 単勝
 					dic["単勝"] = row.Cells[12].GetInnerHtml();
 					// 人気
@@ -598,6 +598,15 @@ namespace Netkeiba
 				.Select(x => x.GetInnerHtml())
 				.Select(x => x.Split("<br>")[0].Replace("円", "").Replace(",", ""))
 				.FirstOrDefault() ?? string.Empty;
+		}
+
+		private string GetAgari(string 距離, string 馬場, bool 障害, string 上り)
+		{
+			return 障害
+				? 上り.GetDouble().Divide(0.36 + 距離.GetDouble().Multiply(1.5).Divide(100000)).ToString()
+				: 馬場 == "芝"
+				? 上り.GetDouble().Divide(0.94 + 距離.GetDouble().Divide(20000)).ToString()
+				: 上り.GetDouble().Divide(1.01 + 距離.GetDouble().Divide(20000)).ToString();
 		}
 	}
 }
