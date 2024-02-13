@@ -215,7 +215,7 @@ namespace Netkeiba
 				// 馬場(芝 or ダート)
 				var baba = spans[2].Split(":")[0].Trim();
 				// 馬場状態
-				var cond = spans[2].Split(":")[1].Trim();
+				var cond = spans[2].Split(":")[1].Trim().Replace(" ダート", "");
 
 				// *****
 				// 「2014年7月26日 3回中京7日目 2歳未勝利  (混)[指](馬齢)」この部分を取得して分類する

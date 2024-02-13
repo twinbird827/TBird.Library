@@ -188,6 +188,7 @@ namespace Netkeiba
 
 			// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 			dic["上り平均"] = Avg2(馬情報, x => x["上り"].GetDouble(), 上りDEF);
+			dic["上り最小"] = 馬情報.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
 
 			// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 			Func<object, double> func_time = v => $"{v}".Split(':')[0].GetDouble() * 60 + $"{v}".Split(':')[1].GetDouble();
@@ -198,7 +199,7 @@ namespace Netkeiba
 			dic["勝馬上差"] = 馬情報.Select(x => x["上り"].GetDouble() - x["TOP上り"].GetDouble()).Average(時差DEF);
 
 			// 着順平均
-			dic["着順平均"] = Avg1(馬情報, "着順", 着順DEF);
+			dic["着順平均"] = Avg2(馬情報, x => GET着順(x), 着順DEF);
 
 			//// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 			//Func<object, double> func_tyaku = v => CoreUtil.Nvl(
@@ -219,7 +220,7 @@ namespace Netkeiba
 			{
 				if (i < 馬情報.Count)
 				{
-					dic[$"前{i + 1}_着順"] = 馬情報[i]["着順"].GetDouble();
+					dic[$"前{i + 1}_着順"] = GET着順(馬情報[i]);
 					dic[$"前{i + 1}_上り"] = 馬情報[i]["上り"].GetDouble();
 					dic[$"前{i + 1}_斤量"] = 馬情報[i]["斤量"].GetDouble();
 					dic[$"前{i + 1}_日数"] = dic["開催日数"] - 馬情報[i]["開催日数"].GetDouble();
@@ -242,6 +243,24 @@ namespace Netkeiba
 			return dic;
 		}
 
+		private double GET着順(Dictionary<string, object> x)
+		{
+			var 着順 = x["着順"].GetDouble();
+			switch ($"{x["ﾗﾝｸ2"]}")
+			{
+				case "RANK1":
+					return 着順 * 0.50;
+				case "RANK2":
+					return 着順 * 0.75;
+				case "RANK3":
+					return 着順 * 1.00;
+				case "RANK4":
+					return 着順 * 1.25;
+				default:
+					return 着順 * 1.50;
+			}
+		}
+
 		private async Task<Dictionary<string, double>> GetAnalysis(SQLiteControl conn, int num, Dictionary<string, object> src, string keyname, string[] headnames)
 		{
 			var ranks = new[] { 1, 3, 5 };
@@ -257,7 +276,7 @@ namespace Netkeiba
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 					var val = i == 1
 						? "着順 * 0.50"
-						: i == 2
+						: i == 3
 						? "着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 ELSE 1.00 END)"
 						: "着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 WHEN ﾗﾝｸ2 = 'RANK3' THEN 1.00 WHEN ﾗﾝｸ2 = 'RANK4' THEN 1.25 ELSE 1.50 END)";
 
