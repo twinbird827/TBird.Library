@@ -93,7 +93,7 @@ namespace Netkeiba
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単6", $"{x}_複3", $"{x}_馬連"/*, $"{x}_馬単"*/ }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単4", $"{x}_単6", $"{x}_複2", $"{x}_複3", $"{x}_馬連"/*, $"{x}_馬単"*/ }))
 					.GetString(",")
 				);
 				var raceids = GetRaceIds().ToArray();
@@ -245,11 +245,25 @@ namespace Netkeiba
 						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
 						{
 							{
+								// 単4の予想結果
+								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
+								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
+								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4));
+								arr.First().Add(b1 && b2 && b3 ? payoutDetail["三連単"] : 0);
+							}
+							{
 								// 単6の予想結果
 								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
 								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
 								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
 								arr.First().Add(b1 && b2 && b3 ? payoutDetail["三連単"] : 0);
+							}
+							{
+								// 複2の予想結果
+								var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
+								var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
+								var b6 = arr.Any(x => x[8].GetInt32() <= 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4));
+								arr.First().Add(b4 && b5 && b6 ? payoutDetail["三連複"] : 0);
 							}
 							{
 								// 複3の予想結果
