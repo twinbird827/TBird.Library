@@ -235,8 +235,9 @@ namespace Netkeiba
 					dic[$"前{i + 1}_日数"] = i == 0 ? 日数DEF : dic[$"前{i}_日数"] * 2;
 					dic[$"前{i + 1}_時間"] = i == 0 ? 時間DEF : dic[$"前{i}_時間"];
 					dic[$"前{i + 1}_時差"] = i == 0 ? 時差DEF : dic[$"前{i}_時差"];
-				}
-			}
+                    dic[$"前{i + 1}_上差"] = i == 0 ? 時差DEF : dic[$"前{i}_上差"];
+                }
+            }
 
 			return dic;
 		}
