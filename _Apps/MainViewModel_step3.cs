@@ -53,8 +53,6 @@ namespace Netkeiba
 			if (S3B08.IsChecked) await BinaryClassification(8, r => r.GetValue("着順").GetDouble() > 1).TryCatch();
 
 			if (S3R01.IsChecked) await Regression().TryCatch();
-
-			DirectoryUtil.Copy("model", $"model_{DateTime.Now.ToString("yyyyMMddHHmmss")}");
 		});
 
 		private async Task BinaryClassification(int index, Func<DbDataReader, object> func_yoso)
