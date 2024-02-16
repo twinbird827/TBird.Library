@@ -153,6 +153,8 @@ namespace Netkeiba
 
 				Progress.Value += 1;
 			}
+
+			AppUtil.DeleteEndress(dataPath);
 		}
 
 		private Task BinaryClassification(int index)
@@ -252,6 +254,8 @@ namespace Netkeiba
 
 				Progress.Value += 1;
 			}
+
+			AppUtil.DeleteEndress(dataPath);
 		}
 
 		private async Task CreateModelInputData(string path, Func<DbDataReader, object> func_target)

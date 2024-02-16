@@ -12,6 +12,7 @@ using TBird.DB.SQLite;
 using TBird.Web;
 using TBird.DB;
 using System.Windows.Forms;
+using TBird.Wpf;
 
 namespace Netkeiba
 {
@@ -119,5 +120,17 @@ namespace Netkeiba
 			return Task.Run(() => new List<string>(new[] { "", "E", "D", "C", "B", "A" }));
 		}
 
+		public static void DeleteEndress(string path)
+		{
+			_ = WpfUtil.ExecuteOnBackground(async () =>
+			{
+				while (File.Exists(path))
+				{
+					await Task.Delay(1000);
+
+					FileUtil.Delete(path);
+				}
+			}).ConfigureAwait(false);
+		}
 	}
 }
