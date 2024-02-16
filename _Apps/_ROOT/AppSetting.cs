@@ -76,7 +76,7 @@ namespace Netkeiba
 			get => GetProperty(_BinaryClassificationMetric);
 			set => SetProperty(ref _BinaryClassificationMetric, value);
 		}
-		private BinaryClassificationMetric _BinaryClassificationMetric = BinaryClassificationMetric.F1Score;
+		private BinaryClassificationMetric _BinaryClassificationMetric = BinaryClassificationMetric.AreaUnderRocCurve;
 
 		public RegressionMetric RegressionMetric
 		{
