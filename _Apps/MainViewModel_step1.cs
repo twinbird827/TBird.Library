@@ -576,6 +576,8 @@ namespace Netkeiba
 					dic["三連複"] = GetPayout(table1, "Fuku3");
 					// 三連単
 					dic["三連単"] = GetPayout(table1, "Tan3");
+					// ワイド
+					dic["ワイド"] = GetPayout(table1, "Wide");
 					// 馬単
 					dic["馬単"] = GetPayout(table1, "Umatan");
 				}
@@ -592,12 +594,24 @@ namespace Netkeiba
 
 		private string GetPayout(IHtmlTableElement table, string tag)
 		{
-			return table.GetElementsByClassName(tag)
+			var result = table.GetElementsByClassName(tag)
+				.OfType<IHtmlTableRowElement>()
+				.SelectMany(x => x.GetElementsByClassName("Result"))
+				.SelectMany(x => x.GetElementsByTagName("ul"))
+				.Select(x => x.GetElementsByTagName("li").Select(y => y.GetInnerHtml()).GetString("-"))
+				.ToArray();
+
+			var payout = table.GetElementsByClassName(tag)
 				.OfType<IHtmlTableRowElement>()
 				.SelectMany(x => x.GetElementsByClassName("Payout"))
 				.Select(x => x.GetInnerHtml())
-				.Select(x => x.Split("<br>")[0].Replace("円", "").Replace(",", ""))
-				.FirstOrDefault() ?? string.Empty;
+				.SelectMany(x => x.Split("<br />"))
+				.Select(x => x.Replace("円", "").Replace(",", ""))
+				.ToArray();
+
+			return Enumerable.Range(0, Arr(result.Length, payout.Length).Min())
+				.Select(i => $"{result[i]},{payout[i]}")
+				.GetString(";");
 		}
 
 		private string GetAgari(string 距離, string 馬場, bool 障害, string 上り)

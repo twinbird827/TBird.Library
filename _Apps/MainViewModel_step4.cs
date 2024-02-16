@@ -83,17 +83,17 @@ namespace Netkeiba
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内1)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内2)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内3)))
-					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外3)))
-					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外2)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外1)))
+					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外2)))
+					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外3)))
 					.Concat(RegressionPrediction.GetHeaders(nameof(着順1)))
-					.Concat(new[] { "ｽｺｱ1a", "ｽｺｱ2a", "ｽｺｱ3a", "ｽｺｱ4a", "ｽｺｱ1b", "ｽｺｱ2b", "ｽｺｱ3b", "ｽｺｱ4b" })
+					.Concat(new[] { "高1a", "高1b", "高1c", "高1d", "高2a", "高2b", "高2c", "高2d", "高3a", "高3b", "高3c", "高3d", "加a", "加b", "加c", "加d", "全a", "全b", "全c", "全d" })
 					.ToArray();
 
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単4", $"{x}_単6", $"{x}_複2", $"{x}_複3", $"{x}_馬連"/*, $"{x}_馬単"*/ }))
+					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単4", $"{x}_単6", $"{x}_複2", $"{x}_複3", $"{x}_ワ", $"{x}_馬連" }))
 					.GetString(",")
 				);
 				var raceids = GetRaceIds().ToArray();
@@ -170,10 +170,10 @@ namespace Netkeiba
 						iBinaries1 = binaries1.Length;
 
 						var binaries2 = Arr(
-							着外3.Predict(binaryClassificationSource),
+							着外1.Predict(binaryClassificationSource),
 							着外2.Predict(binaryClassificationSource),
-							着外1.Predict(binaryClassificationSource)
-						);
+							着外3.Predict(binaryClassificationSource)
+						).Select(x => { x.Score *= -1; return x; }).ToArray();
 						tmp.AddRange(binaries2);
 
 						iBinaries2 = binaries2.Length;
@@ -185,30 +185,32 @@ namespace Netkeiba
 
 						iRegressions = regressions.Length;
 
-						Func<Func<BinaryClassificationPrediction, float>, Func<RegressionPrediction, float>, float> func_score = (bsum, rsum) =>
-						{
-							return binaries1.Sum(x => bsum(x)) - binaries2.Sum(x => bsum(x)) + regressions.Sum(x => rsum(x));
-						};
-
 						var scores = Arr(
-							// 着順の重み低め＝α
-							// 単純な加減算
-							func_score(x => x.Score, x => 1 / x.Score * 20),
-							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 10),
-							// Labelの有無で倍率計算する
-							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 20),
-							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 10),
-							// 着順の重み高め＝β
-							// 単純な加減算
-							func_score(x => x.Score, x => 1 / x.Score * 40),
-							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability, x => 1 / x.Score * 20),
-							// Labelの有無で倍率計算する
-							func_score(x => x.Score * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 40),
-							// Probabilityをかけてみる
-							func_score(x => x.Score * x.Probability * (x.PredictedLabel ? 2 : 1), x => 1 / x.Score * 20)
+							// 以1着1の高い方
+							Math.Max(binaries1[0].GetScore1(), binaries2[0].GetScore1()),
+							Math.Max(binaries1[0].GetScore2(), binaries2[0].GetScore2()),
+							Math.Max(binaries1[0].GetScore3(), binaries2[0].GetScore3()),
+							Math.Max(binaries1[0].GetScore4(), binaries2[0].GetScore4()),
+							// 以2着2の高い方
+							Math.Max(binaries1[1].GetScore1(), binaries2[1].GetScore1()),
+							Math.Max(binaries1[1].GetScore2(), binaries2[1].GetScore2()),
+							Math.Max(binaries1[1].GetScore3(), binaries2[1].GetScore3()),
+							Math.Max(binaries1[1].GetScore4(), binaries2[1].GetScore4()),
+							// 以3着3の高い方
+							Math.Max(binaries1[2].GetScore1(), binaries2[2].GetScore1()),
+							Math.Max(binaries1[2].GetScore2(), binaries2[2].GetScore2()),
+							Math.Max(binaries1[2].GetScore3(), binaries2[2].GetScore3()),
+							Math.Max(binaries1[2].GetScore4(), binaries2[2].GetScore4()),
+							// 合計値
+							binaries1.Concat(binaries2).Sum(x => x.GetScore1()),
+							binaries1.Concat(binaries2).Sum(x => x.GetScore2()),
+							binaries1.Concat(binaries2).Sum(x => x.GetScore3()),
+							binaries1.Concat(binaries2).Sum(x => x.GetScore4()),
+							// 着順付き
+							binaries1.Concat(binaries2).Sum(x => x.GetScore1()) + regressions.Sum(x => 1 / x.Score * 16),
+							binaries1.Concat(binaries2).Sum(x => x.GetScore2()) + regressions.Sum(x => 1 / x.Score * 16),
+							binaries1.Concat(binaries2).Sum(x => x.GetScore3()) + regressions.Sum(x => 1 / x.Score * 16),
+							binaries1.Concat(binaries2).Sum(x => x.GetScore4()) + regressions.Sum(x => 1 / x.Score * 16)
 						);
 						tmp.AddRange(scores.Select(x => (object)x));
 
@@ -244,45 +246,38 @@ namespace Netkeiba
 
 						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
 						{
-							{
-								// 単4の予想結果
-								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4));
-								arr.First().Add(b1 && b2 && b3 ? payoutDetail["三連単"] : 0);
-							}
-							{
-								// 単6の予想結果
-								var b1 = arr.Any(x => x[8].GetInt32() == 1 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-								var b2 = arr.Any(x => x[8].GetInt32() == 2 && (x[j].GetInt32() == 1 || x[j].GetInt32() == 2));
-								var b3 = arr.Any(x => x[8].GetInt32() == 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b1 && b2 && b3 ? payoutDetail["三連単"] : 0);
-							}
-							{
-								// 複2の予想結果
-								var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
-								var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
-								var b6 = arr.Any(x => x[8].GetInt32() <= 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4));
-								arr.First().Add(b4 && b5 && b6 ? payoutDetail["三連複"] : 0);
-							}
-							{
-								// 複3の予想結果
-								var b4 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 1);
-								var b5 = arr.Any(x => x[8].GetInt32() <= 3 && x[j].GetInt32() == 2);
-								var b6 = arr.Any(x => x[8].GetInt32() <= 3 && (x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5));
-								arr.First().Add(b4 && b5 && b6 ? payoutDetail["三連複"] : 0);
-							}
-							{
-								// 馬連の予想結果
-								var b7 = arr.Count(x => x[8].GetInt32() <= 2 && x[j].GetInt32() <= 2);
-								arr.First().Add(b7 == 2 ? payoutDetail["馬連"] : 0);
-							}
-							//{
-							//	// 馬単の予想結果
-							//	var b7 = arr.Any(x => x[8].GetInt32() == 1 && x[j].GetInt32() == 1);
-							//	var b8 = arr.Any(x => x[8].GetInt32() == 2 && x[j].GetInt32() == 2);
-							//	arr.First().Add(b7 && b8 ? payoutDetail["馬単"] : 0);
-							//}
+							// 単4の予想結果
+							arr.First().Add(Get三連単(payoutDetail,
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4))
+							);
+							// 単6の予想結果
+							arr.First().Add(Get三連単(payoutDetail,
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5))
+							);
+							// 複2の予想結果
+							arr.First().Add(Get三連複(payoutDetail,
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4))
+							);
+							// 複3の予想結果
+							arr.First().Add(Get三連複(payoutDetail,
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() <= 2),
+								arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5))
+							);
+							// ワイドの予想結果
+							arr.First().Add(Getワイド(payoutDetail,
+								arr.Where(x => x[j].GetInt32() <= 3)
+							));
+							// 馬連の予想結果
+							arr.First().Add(Get馬連(payoutDetail,
+								arr.Where(x => x[j].GetInt32() <= 2)
+							));
 						}
 
 						list.AddRange(arr.Select(x => x.GetString(",")));
@@ -302,5 +297,83 @@ namespace Netkeiba
 			}
 
 		}
+
+		private object Get三連単(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2, IEnumerable<List<object>> arr3)
+		{
+			var iarr = arr1.Select(x => x[6].GetInt32());
+			var jarr = arr2.Select(x => x[6].GetInt32());
+			var karr = arr3.Select(x => x[6].GetInt32());
+
+			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j => karr.Where(k => k != i && j != k).Select(k => $"{i}-{j}-{k}"))).ToArray();
+
+			return Arr(0).Concat(payoutDetail["三連単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+		}
+
+		private object Get三連複(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2, IEnumerable<List<object>> arr3)
+		{
+			var iarr = arr1.Select(x => x[6].GetInt32());
+			var jarr = arr2.Select(x => x[6].GetInt32());
+			var karr = arr3.Select(x => x[6].GetInt32());
+
+			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j => karr.Where(k => k != i && j != k).SelectMany(k =>
+			{
+				return new[]
+				{
+					$"{i}-{j}-{k}",
+					$"{i}-{k}-{j}",
+					$"{j}-{i}-{k}",
+					$"{j}-{k}-{i}",
+					$"{k}-{j}-{i}",
+					$"{k}-{i}-{j}",
+				};
+			}))).ToArray();
+
+			return Arr(0).Concat(payoutDetail["三連複"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+		}
+
+		private object Getワイド(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
+		{
+			var iarr = arr1.Select(x => x[6].GetInt32());
+			var jarr = arr1.Select(x => x[6].GetInt32());
+
+			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j =>
+			{
+				return new[]
+				{
+					$"{i}-{j}",
+					$"{j}-{i}",
+				};
+			})).ToArray();
+
+			return Arr(0).Concat(payoutDetail["ワイド"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+		}
+
+		private object Get馬連(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
+		{
+			var iarr = arr1.Select(x => x[6].GetInt32());
+			var jarr = arr1.Select(x => x[6].GetInt32());
+
+			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j =>
+			{
+				return new[]
+				{
+					$"{i}-{j}",
+					$"{j}-{i}",
+				};
+			})).ToArray();
+
+			return Arr(0).Concat(payoutDetail["馬連"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+		}
+
+		private object Get馬単(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2)
+		{
+			var iarr = arr1.Select(x => x[6].GetInt32());
+			var jarr = arr2.Select(x => x[6].GetInt32());
+
+			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).Select(j => $"{i}-{j}")).ToArray();
+
+			return Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+		}
+
 	}
 }

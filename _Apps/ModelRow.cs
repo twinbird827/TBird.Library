@@ -72,6 +72,14 @@ namespace Netkeiba
 		{
 			return $"{Score}";
 		}
+
+		public float GetScore1() => Score;
+
+		public float GetScore2() => Score * Probability;
+
+		public float GetScore3() => Score * (PredictedLabel ? 2 : 1);
+
+		public float GetScore4() => Score * Probability * (PredictedLabel ? 2 : 1);
 	}
 
 	public class PredictionResult
