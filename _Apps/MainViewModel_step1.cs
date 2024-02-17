@@ -598,7 +598,7 @@ namespace Netkeiba
 				.OfType<IHtmlTableRowElement>()
 				.SelectMany(x => x.GetElementsByClassName("Result"))
 				.SelectMany(x => x.GetElementsByTagName("ul"))
-				.Select(x => x.GetElementsByTagName("li").Select(y => y.GetInnerHtml()).GetString("-"))
+				.Select(x => x.GetElementsByTagName("li").Select(y => y.GetInnerHtml()).Where(x => !string.IsNullOrEmpty(x)).GetString("-"))
 				.ToArray();
 
 			var payout = table.GetElementsByClassName(tag)
@@ -606,6 +606,7 @@ namespace Netkeiba
 				.SelectMany(x => x.GetElementsByClassName("Payout"))
 				.Select(x => x.GetInnerHtml())
 				.SelectMany(x => x.Split("<br />"))
+				.SelectMany(x => x.Split("<br>"))
 				.Select(x => x.Replace("円", "").Replace(",", ""))
 				.ToArray();
 

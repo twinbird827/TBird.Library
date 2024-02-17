@@ -14,6 +14,7 @@ using Microsoft.ML.Data;
 using TBird.DB;
 using System.IO;
 using System.Diagnostics.SymbolStore;
+using Tensorflow;
 
 namespace Netkeiba
 {
@@ -78,7 +79,7 @@ namespace Netkeiba
 				var 調教場所 = await AppUtil.Get調教場所(conn);
 				var 追切 = await AppUtil.Get追切(conn);
 
-				var list = new List<string>();
+				var list = new List<List<object>>();
 				var headers = new[] { "ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順" }
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内1)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(以内2)))
@@ -87,20 +88,27 @@ namespace Netkeiba
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外2)))
 					.Concat(BinaryClassificationPrediction.GetHeaders(nameof(着外3)))
 					.Concat(RegressionPrediction.GetHeaders(nameof(着順1)))
-					.Concat(new[] { "高1a", "高1b", "高1c", "高1d", "高2a", "高2b", "高2c", "高2d", "高3a", "高3b", "高3c", "高3d", "加a", "加b", "加c", "加d", "全a", "全b", "全c", "全d" })
+					.Concat(new[] { "加1a", "加1b", "加2a", "加2b", "全a", "全b" })
 					.ToArray();
 
 				// 各列のﾍｯﾀﾞを挿入
 				list.Add(headers
 					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
 					.Concat(headers.Skip(9).SelectMany(x => new[] { $"{x}_単4", $"{x}_単6", $"{x}_複2", $"{x}_複3", $"{x}_ワ", $"{x}_馬連" }))
-					.GetString(",")
+					.Select(x => (object)x)
+					.ToList()
 				);
 				var raceids = GetRaceIds().ToArray();
 
 				Progress.Value = 0;
 				Progress.Minimum = 0;
 				Progress.Maximum = raceids.Length;
+
+				var iHeaders = 0;
+				var iBinaries1 = 0;
+				var iBinaries2 = 0;
+				var iRegressions = 0;
+				var iScores = 0;
 
 				foreach (var raceid in raceids)
 				{
@@ -120,12 +128,6 @@ namespace Netkeiba
 					}
 
 					var arr = new List<List<object>>();
-
-					var iHeaders = 0;
-					var iBinaries1 = 0;
-					var iBinaries2 = 0;
-					var iRegressions = 0;
-					var iScores = 0;
 
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
 					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
@@ -173,7 +175,7 @@ namespace Netkeiba
 							着外1.Predict(binaryClassificationSource),
 							着外2.Predict(binaryClassificationSource),
 							着外3.Predict(binaryClassificationSource)
-						).Select(x => { x.Score *= -1; return x; }).ToArray();
+						).Select(x => { x.Score = x.Score * -1; return x; }).ToArray();
 						tmp.AddRange(binaries2);
 
 						iBinaries2 = binaries2.Length;
@@ -186,31 +188,15 @@ namespace Netkeiba
 						iRegressions = regressions.Length;
 
 						var scores = Arr(
-							// 以1着1の高い方
-							Math.Max(binaries1[0].GetScore1(), binaries2[0].GetScore1()),
-							Math.Max(binaries1[0].GetScore2(), binaries2[0].GetScore2()),
-							Math.Max(binaries1[0].GetScore3(), binaries2[0].GetScore3()),
-							Math.Max(binaries1[0].GetScore4(), binaries2[0].GetScore4()),
-							// 以2着2の高い方
-							Math.Max(binaries1[1].GetScore1(), binaries2[1].GetScore1()),
-							Math.Max(binaries1[1].GetScore2(), binaries2[1].GetScore2()),
-							Math.Max(binaries1[1].GetScore3(), binaries2[1].GetScore3()),
-							Math.Max(binaries1[1].GetScore4(), binaries2[1].GetScore4()),
-							// 以3着3の高い方
-							Math.Max(binaries1[2].GetScore1(), binaries2[2].GetScore1()),
-							Math.Max(binaries1[2].GetScore2(), binaries2[2].GetScore2()),
-							Math.Max(binaries1[2].GetScore3(), binaries2[2].GetScore3()),
-							Math.Max(binaries1[2].GetScore4(), binaries2[2].GetScore4()),
-							// 合計値
+							// 合計値1
 							binaries1.Concat(binaries2).Sum(x => x.GetScore1()),
 							binaries1.Concat(binaries2).Sum(x => x.GetScore2()),
-							binaries1.Concat(binaries2).Sum(x => x.GetScore3()),
-							binaries1.Concat(binaries2).Sum(x => x.GetScore4()),
+							// 合計値2
+							Enumerable.Range(0, 3).Sum(i => Math.Max(binaries1[i].GetScore1(), binaries2[i].GetScore1())),
+							Enumerable.Range(0, 3).Sum(i => Math.Max(binaries1[i].GetScore1(), binaries2[i].GetScore2())),
 							// 着順付き
 							binaries1.Concat(binaries2).Sum(x => x.GetScore1()) + regressions.Sum(x => 1 / x.Score * 16),
-							binaries1.Concat(binaries2).Sum(x => x.GetScore2()) + regressions.Sum(x => 1 / x.Score * 16),
-							binaries1.Concat(binaries2).Sum(x => x.GetScore3()) + regressions.Sum(x => 1 / x.Score * 16),
-							binaries1.Concat(binaries2).Sum(x => x.GetScore4()) + regressions.Sum(x => 1 / x.Score * 16)
+							binaries1.Concat(binaries2).Sum(x => x.GetScore2()) + regressions.Sum(x => 1 / x.Score * 16)
 						);
 						tmp.AddRange(scores.Select(x => (object)x));
 
@@ -225,7 +211,7 @@ namespace Netkeiba
 						for (var j = iHeaders; j < scoremaxlen; j++)
 						{
 							var n = 1;
-							if ((iHeaders + iBinaries1) <= j && j <= (iHeaders + iBinaries1 + iBinaries2))
+							if ((iHeaders + iBinaries1 + iBinaries2) <= j && j <= (iHeaders + iBinaries1 + iBinaries2))
 							{
 								arr
 									.OrderBy(x => x[j].ToString().GetDouble())
@@ -280,7 +266,7 @@ namespace Netkeiba
 							));
 						}
 
-						list.AddRange(arr.Select(x => x.GetString(",")));
+						list.AddRange(arr);
 
 					}
 
@@ -292,8 +278,33 @@ namespace Netkeiba
 					Progress.Value += 1;
 				}
 
+				var result1 = Enumerable.Repeat("", iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2).OfType<object>()
+					.Concat(Enumerable.Range(iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2, (iBinaries1 + iBinaries2 + iRegressions + iScores) * 6)
+					.Select(i => (double)list.Where(x => i < x.Count && 0 < x[i].GetInt32()).Count() / (double)list.Where(x => i < x.Count).Count()).OfType<object>())
+					.ToList();
+
+				var result2 = Enumerable.Repeat("", iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2).OfType<object>()
+					.Concat(Enumerable.Range(iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2, (iBinaries1 + iBinaries2 + iRegressions + iScores) * 6)
+					.Select((i, idx) => (idx % 6) == 0
+						? (list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => 400d)).ToString()
+						: (idx % 6) == 1
+						? (list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => 600d)).ToString()
+						: (idx % 6) == 2
+						? (list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => 200d)).ToString()
+						: (idx % 6) == 3
+						? (list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => 300d)).ToString()
+						: (idx % 6) == 4
+						? (list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => 300d)).ToString()
+						: (idx % 6) == 5
+						? (list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => 100d)).ToString()
+						: "").OfType<object>()
+					).ToList();
+
+				list.add(result1);
+				list.add(result2);
+
 				// ﾌｧｲﾙ書き込み
-				await File.AppendAllLinesAsync(path, list, Encoding.GetEncoding("Shift_JIS")); ;
+				await File.AppendAllLinesAsync(path, list.Select(x => x.GetString(",")), Encoding.GetEncoding("Shift_JIS")); ;
 			}
 
 		}
@@ -306,7 +317,9 @@ namespace Netkeiba
 
 			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j => karr.Where(k => k != i && j != k).Select(k => $"{i}-{j}-{k}"))).ToArray();
 
-			return Arr(0).Concat(payoutDetail["三連単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+			return payoutDetail.ContainsKey("三連単")
+				? Arr(0).Concat(payoutDetail["三連単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+				: 0;
 		}
 
 		private object Get三連複(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2, IEnumerable<List<object>> arr3)
@@ -328,7 +341,9 @@ namespace Netkeiba
 				};
 			}))).ToArray();
 
-			return Arr(0).Concat(payoutDetail["三連複"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+			return payoutDetail.ContainsKey("三連複") 
+				? Arr(0).Concat(payoutDetail["三連複"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+				: 0;
 		}
 
 		private object Getワイド(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
@@ -345,7 +360,9 @@ namespace Netkeiba
 				};
 			})).ToArray();
 
-			return Arr(0).Concat(payoutDetail["ワイド"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+			return payoutDetail.ContainsKey("ワイド") 
+				? Arr(0).Concat(payoutDetail["ワイド"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+				: 0;
 		}
 
 		private object Get馬連(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
@@ -362,7 +379,9 @@ namespace Netkeiba
 				};
 			})).ToArray();
 
-			return Arr(0).Concat(payoutDetail["馬連"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+			return payoutDetail.ContainsKey("馬連") 
+				? Arr(0).Concat(payoutDetail["馬連"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+				: 0;
 		}
 
 		private object Get馬単(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2)
@@ -372,7 +391,9 @@ namespace Netkeiba
 
 			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).Select(j => $"{i}-{j}")).ToArray();
 
-			return Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum();
+			return payoutDetail.ContainsKey("馬単") 
+				? Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+				: 0;
 		}
 
 	}
