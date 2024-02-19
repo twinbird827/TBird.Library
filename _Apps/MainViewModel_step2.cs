@@ -69,16 +69,23 @@ namespace Netkeiba
 
 						// ﾃｰﾌﾞﾙ作成
 						await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
-						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_model (" + racarr.First().Keys.Select(x => $"{x} REAL").GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
-						await conn.ExecuteNonQueryAsync("CREATE INDEX IF NOT EXISTS t_model_index_00 ON t_model (開催日数)");
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_model (ﾚｰｽID INTEGER,開催日数 INTEGER,枠番 INTEGER,馬番 INTEGER,着順 INTEGER,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))");
 					}
 
+					string[]? keys = null;
 					await conn.BeginTransaction();
 					foreach (var ins in racarr)
 					{
+						keys = keys ?? ins.Keys.Where(x => !new[] { "ﾚｰｽID", "開催日数", "枠番", "馬番", "着順" }.Contains(x)).ToArray();
+
 						await conn.ExecuteNonQueryAsync(
-							$"INSERT INTO t_model ({ins.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", ins.Keys.Count).GetString(",")})",
-							ins.Keys.Select(k => SQLiteUtil.CreateParameter(System.Data.DbType.Double, ins[k])).ToArray()
+							$"INSERT INTO t_model (ﾚｰｽID,開催日数,枠番,馬番,着順,Features) VALUES (?, ?, ?, ?, ?, ?)",
+							SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins["ﾚｰｽID"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins["開催日数"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins["枠番"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins["馬番"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins["着順"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.Binary, keys.SelectMany(x => BitConverter.GetBytes((float)ins[x])).ToArray())
 						);
 					}
 					conn.Commit();
@@ -120,8 +127,13 @@ namespace Netkeiba
 			{
 				keys.ForEach(key =>
 				{
-					dic[$"{key}平"] = dic[key] - racarr.Select(x => x[key]).Average();
-					dic[$"{key}中"] = dic[key] - racarr.Select(x => x[key]).Median();
+					dic[$"{key}S1"] = dic[key] - racarr.Select(x => x[key]).Average();
+					dic[$"{key}S2"] = dic[key] - racarr.Select(x => x[key]).Minimum();
+					dic[$"{key}S3"] = dic[key] - racarr.Select(x => x[key]).Maximum();
+					dic[$"{key}S4"] = dic[key] - racarr.Select(x => x[key]).Variance();
+					dic[$"{key}S5"] = dic[key] - racarr.Select(x => x[key]).Percentile(25);
+					dic[$"{key}S6"] = dic[key] - racarr.Select(x => x[key]).Percentile(50);
+					dic[$"{key}S7"] = dic[key] - racarr.Select(x => x[key]).Percentile(75);
 				});
 			});
 
@@ -130,7 +142,7 @@ namespace Netkeiba
 
 		private async Task<Dictionary<string, double>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
-			var 馬情報 = await conn.GetRows(
+			var 馬情報全 = await conn.GetRows(
 					$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ, t_top.上り TOP上り" +
 					$" FROM t_orig" +
 					$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_orig.開催日数 = t_top.開催日数 AND t_top.着順 = 1" +
@@ -138,6 +150,8 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 			);
+
+			var 馬情報直 = 馬情報全.Take(3).ToArray();
 
 			var dic = new Dictionary<string, double>();
 			// ﾍｯﾀﾞ情報
@@ -156,11 +170,12 @@ namespace Netkeiba
 			dic["馬性"] = 馬性.IndexOf(src["馬性"]);
 			dic["馬齢"] = src["馬齢"].GetDouble();
 			dic["斤量"] = src["斤量"].GetDouble();
-			dic["斤量平均"] = Avg1(馬情報, "斤量", 斤量DEF);
+			dic["斤量平全"] = Avg1(馬情報全, "斤量", 斤量DEF);
+			dic["斤量平直"] = Avg1(馬情報直, "斤量", 斤量DEF);
 
 			//dic["単勝"] = src["単勝"].GetDouble();
 			//dic["人気"] = src["人気"].GetDouble();
-			dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報.Count ? 馬情報[0]["体重"].GetDouble() : 体重DEF);
+			dic["体重"] = double.TryParse($"{src["体重"]}", out double tmp_taiju) ? tmp_taiju : (0 < 馬情報直.Length ? 馬情報直[0]["体重"].GetDouble() : 体重DEF);
 			dic["増減"] = src["増減"].GetDouble();
 			dic["増減割"] = dic["増減"] / dic["体重"];
 			dic["斤量割"] = dic["斤量"] / dic["体重"];
@@ -179,54 +194,51 @@ namespace Netkeiba
 
 			// 得意距離、及び今回のﾚｰｽ距離との差
 			dic["距離"] = src["距離"].GetDouble();
-			dic["馬_得意距離"] = 馬情報.Select(x => x["距離"].GetDouble()).Average(dic["距離"]);
-			dic["馬_距離差"] = dic["馬_得意距離"] - dic["距離"];
+			dic["得意距離全"] = 馬情報全.Select(x => x["距離"].GetDouble()).Average(dic["距離"]);
+			dic["得意距離直"] = 馬情報直.Select(x => x["距離"].GetDouble()).Average(dic["距離"]);
+			dic["距離差全"] = dic["得意距離全"] - dic["距離"];
+			dic["距離差直"] = dic["得意距離直"] - dic["距離"];
 
 			// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 			Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(通過DEF);
-			dic["通過平均"] = Avg2(馬情報, x => func_tuka(x["通過"]), 着順DEF);
+			dic["通過全"] = Avg2(馬情報全, x => func_tuka(x["通過"]), 着順DEF);
+			dic["通過直"] = Avg2(馬情報直, x => func_tuka(x["通過"]), 着順DEF);
 
 			// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-			dic["上り平均"] = Avg2(馬情報, x => x["上り"].GetDouble(), 上りDEF);
-			dic["上り最小"] = 馬情報.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			dic["上り全"] = Avg2(馬情報全, x => x["上り"].GetDouble(), 上りDEF);
+			dic["上り直"] = Avg2(馬情報直, x => x["上り"].GetDouble(), 上りDEF);
+			dic["上小全"] = 馬情報全.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			dic["上小直"] = 馬情報直.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			dic["上大全"] = 馬情報全.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			dic["上大直"] = 馬情報直.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
 
 			// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 			Func<object, double> func_time = v => $"{v}".Split(':')[0].GetDouble() * 60 + $"{v}".Split(':')[1].GetDouble();
-			dic["時間平均"] = Avg2(馬情報, x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"]), 時間DEF);
+			dic["時間全"] = Avg2(馬情報全, x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"]), 時間DEF);
+			dic["時間直"] = Avg2(馬情報直, x => x["距離"].GetDouble() / func_time(x["ﾀｲﾑ"]), 時間DEF);
 
-			// 1着との差
-			dic["勝馬時差"] = 馬情報.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).Average(時差DEF);
-			dic["勝馬上差"] = 馬情報.Select(x => x["上り"].GetDouble() - x["TOP上り"].GetDouble()).Average(時差DEF);
+			// 1着との差(時間)
+			dic["勝馬時差全"] = 馬情報全.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).Average(時差DEF);
+			dic["勝馬時差直"] = 馬情報直.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).Average(時差DEF);
+
+			dic["勝馬上り差全"] = 馬情報全.Select(x => x["上り"].GetDouble() - x["TOP上り"].GetDouble()).Average(時差DEF);
+			dic["勝馬上り差直"] = 馬情報直.Select(x => x["上り"].GetDouble() - x["TOP上り"].GetDouble()).Average(時差DEF);
 
 			// 着順平均
-			dic["着順平均"] = Avg2(馬情報, x => GET着順(x), 着順DEF);
-
-			//// 着差の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-			//Func<object, double> func_tyaku = v => CoreUtil.Nvl(
-			//	$"{v}"
-			//	.Replace("ハナ", "0.05")
-			//	.Replace("アタマ", "0.10")
-			//	.Replace("クビ", "0.15")
-			//	.Replace("同着", "0")
-			//	.Replace("大", "15")
-			//	.Replace("1/4", "25")
-			//	.Replace("1/2", "50")
-			//	.Replace("3/4", "75"), "-0.25")
-			//	.Split('+').Sum(x => double.Parse(x));
-			////dic["着差"] = func_tyaku(src["着差"]);
-			//dic["着差平均"] = func_avg2(馬情報, x => func_tyaku(x["着差"]), 着差DEF);
+			dic["着順全"] = Avg2(馬情報全, x => GET着順(x), 着順DEF);
+			dic["着順直"] = Avg2(馬情報直, x => GET着順(x), 着順DEF);
 
 			for (var i = 0; i < 4; i++)
 			{
-				if (i < 馬情報.Count)
+				if (i < 馬情報直.Length)
 				{
-					dic[$"前{i + 1}_着順"] = GET着順(馬情報[i]);
-					dic[$"前{i + 1}_上り"] = 馬情報[i]["上り"].GetDouble();
-					dic[$"前{i + 1}_斤量"] = 馬情報[i]["斤量"].GetDouble();
-					dic[$"前{i + 1}_日数"] = dic["開催日数"] - 馬情報[i]["開催日数"].GetDouble();
-					dic[$"前{i + 1}_時間"] = 馬情報[i]["距離"].GetDouble() / func_time(馬情報[i]["ﾀｲﾑ"]);
-					dic[$"前{i + 1}_時差"] = func_time(馬情報[i]["ﾀｲﾑ"]) - func_time(馬情報[i]["TOPﾀｲﾑ"]);
-					dic[$"前{i + 1}_上差"] = 馬情報[i]["上り"].GetDouble() - 馬情報[i]["TOP上り"].GetDouble();
+					dic[$"前{i + 1}_着順"] = GET着順(馬情報直[i]);
+					dic[$"前{i + 1}_上り"] = 馬情報直[i]["上り"].GetDouble();
+					dic[$"前{i + 1}_斤量"] = 馬情報直[i]["斤量"].GetDouble();
+					dic[$"前{i + 1}_日数"] = dic["開催日数"] - 馬情報直[i]["開催日数"].GetDouble();
+					dic[$"前{i + 1}_時間"] = 馬情報直[i]["距離"].GetDouble() / func_time(馬情報直[i]["ﾀｲﾑ"]);
+					dic[$"前{i + 1}_時差"] = func_time(馬情報直[i]["ﾀｲﾑ"]) - func_time(馬情報直[i]["TOPﾀｲﾑ"]);
+					dic[$"前{i + 1}_上差"] = 馬情報直[i]["上り"].GetDouble() - 馬情報直[i]["TOP上り"].GetDouble();
 				}
 				else
 				{
@@ -236,9 +248,9 @@ namespace Netkeiba
 					dic[$"前{i + 1}_日数"] = i == 0 ? 日数DEF : dic[$"前{i}_日数"] * 2;
 					dic[$"前{i + 1}_時間"] = i == 0 ? 時間DEF : dic[$"前{i}_時間"];
 					dic[$"前{i + 1}_時差"] = i == 0 ? 時差DEF : dic[$"前{i}_時差"];
-                    dic[$"前{i + 1}_上差"] = i == 0 ? 時差DEF : dic[$"前{i}_上差"];
-                }
-            }
+					dic[$"前{i + 1}_上差"] = i == 0 ? 時差DEF : dic[$"前{i}_上差"];
+				}
+			}
 
 			return dic;
 		}
@@ -282,11 +294,13 @@ namespace Netkeiba
 
 					whe.Add(Arr(
 						$"( SELECT",
-						$"                                  IFNULL(MEDIAN({val}), {着順DEF})           R{i}A1_{key},",
-						$"IFNULL(AVG({val}), {着順DEF}) + IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}A2_{key},",
-						$"IFNULL(AVG({val}), {着順DEF}) - IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}A3_{key},",
-						$"                          IFNULL(LOWER_QUARTILE({val}), {着順DEF})           R{i}A4_{key},",
-						$"                          IFNULL(UPPER_QUARTILE({val}), {着順DEF})           R{i}A5_{key} ",
+						$"                                     IFNULL(AVG({val}), {着順DEF})           R{i}A1_{key},",
+						$"                                  IFNULL(MEDIAN({val}), {着順DEF})           R{i}A2_{key},",
+						$"                                IFNULL(VARIANCE({val}), {着順偏差DEF})       R{i}A3_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) + IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}A4_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) - IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}A5_{key},",
+						$"                          IFNULL(LOWER_QUARTILE({val}), {着順DEF})           R{i}A6_{key},",
+						$"                          IFNULL(UPPER_QUARTILE({val}), {着順DEF})           R{i}A7_{key} ",
 						$"FROM t_orig WHERE",
 						$"t_orig.{keyname} = '{keyvalue}' AND",
 						$"t_orig.開催日数  < {now}        AND",
@@ -297,11 +311,13 @@ namespace Netkeiba
 
 					whe.Add(Arr(
 						$"( SELECT",
-						$"                                  IFNULL(MEDIAN({val}), {着順DEF})           R{i}N1_{key},",
-						$"IFNULL(AVG({val}), {着順DEF}) + IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}N2_{key},",
-						$"IFNULL(AVG({val}), {着順DEF}) - IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}N3_{key},",
-						$"                          IFNULL(LOWER_QUARTILE({val}), {着順DEF})           R{i}N4_{key},",
-						$"                          IFNULL(UPPER_QUARTILE({val}), {着順DEF})           R{i}N5_{key} ",
+						$"                                     IFNULL(AVG({val}), {着順DEF})           R{i}N1_{key},",
+						$"                                  IFNULL(MEDIAN({val}), {着順DEF})           R{i}N2_{key},",
+						$"                                IFNULL(VARIANCE({val}), {着順偏差DEF})       R{i}N3_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) + IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}N4_{key},",
+						$"IFNULL(AVG({val}), {着順DEF}) - IFNULL(VARIANCE({val}), {着順偏差DEF}      ) R{i}N5_{key},",
+						$"                          IFNULL(LOWER_QUARTILE({val}), {着順DEF})           R{i}N6_{key},",
+						$"                          IFNULL(UPPER_QUARTILE({val}), {着順DEF})           R{i}N7_{key} ",
 						$"FROM t_orig WHERE",
 						$"t_orig.{keyname} = '{keyvalue}' AND",
 						$"t_orig.開催日数  < {now}        AND",

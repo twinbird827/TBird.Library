@@ -267,21 +267,20 @@ namespace Netkeiba
 			using (var conn = CreateSQLiteControl())
 			using (var file = new FileAppendWriter(path))
 			{
-				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model ORDER BY ﾚｰｽID, 着順");
+				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model ORDER BY ﾚｰｽID, 馬番");
 
 				var next = await reader.ReadAsync();
 
 				if (!next) return;
 
-				var indexes = Enumerable.Range(0, reader.FieldCount)
-					.Where(i => !new[] { "着順", "単勝", "人気" }.Contains(reader.GetName(i)) && (i == 0 || !Enumerable.Range(0, i - 1).Any(x => reader.GetName(i) == reader.GetName(x))))
-					.ToArray();
+				var first = GetReaderRows(reader, func_target).ToArray();
 
-				await file.WriteLineAsync(indexes.Select(i => reader.GetName(i)).GetString(",") + ",着順");
+				await file.WriteLineAsync(Enumerable.Range(0, first.Length - 1).Select(i => $"COL{i.ToString(4)}").GetString(",") + ",着順");
+				await file.WriteLineAsync(first.GetString(","));
 
 				while (next)
 				{
-					await file.WriteLineAsync(indexes.Select(i => reader.GetValue(i)).GetString(",") + $",{func_target(reader)}");
+					await file.WriteLineAsync(GetReaderRows(reader, func_target).GetString(","));
 					next = await reader.ReadAsync();
 				}
 			}
@@ -289,5 +288,15 @@ namespace Netkeiba
 			AddLog($"After Create: {path}");
 		}
 
+		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => Arr(
+			reader.GetValue("ﾚｰｽID"),
+			reader.GetValue("開催日数"),
+			reader.GetValue("枠番"),
+			reader.GetValue("馬番")
+		).Concat(
+			GetFeatures((byte[])reader.GetValue("Features"))
+		).Concat(Arr(func_target(reader)));
+
+		private IEnumerable<object> GetFeatures(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => (object)BitConverter.ToSingle(bytes, i * 4));
 	}
 }

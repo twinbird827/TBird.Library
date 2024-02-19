@@ -209,7 +209,7 @@ namespace Netkeiba
 				// 2文字目(左 or 右) TODO 障害ﾚｰｽは1文字目が"障"になってる。
 				var mawari = left == "障" ? left : spans[0].Mid(1, 1);
 				// 距離
-				var kyori = Regex.Match(spans[0], @"\d+").Value;
+				var kyori = Regex.Match(spans[0], @"\d{3,}").Value;
 				// 天候
 				var tenki = spans[1].Split(":")[1].Trim();
 				// 馬場(芝 or ダート)
