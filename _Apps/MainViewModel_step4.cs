@@ -74,6 +74,9 @@ namespace Netkeiba
 			FileUtil.BeforeCreate(path);
 			using (var conn = CreateSQLiteControl())
 			{
+				// 血統情報の更新
+				await RefreshKetto(conn, false);
+
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
@@ -162,27 +165,24 @@ namespace Netkeiba
 
 						iHeaders = tmp.Count;
 
-						var binaries1 = Arr(
-							以内1.Predict(binaryClassificationSource),
-							以内2.Predict(binaryClassificationSource),
-							以内3.Predict(binaryClassificationSource)
-						);
+						var binaries1 = Arr(以内1, 以内2, 以内3)
+							.Select(x => x.Predict(binaryClassificationSource))
+							.ToArray();
 						tmp.AddRange(binaries1);
 
 						iBinaries1 = binaries1.Length;
 
-						var binaries2 = Arr(
-							着外1.Predict(binaryClassificationSource),
-							着外2.Predict(binaryClassificationSource),
-							着外3.Predict(binaryClassificationSource)
-						).Select(x => { x.Score = x.Score * -1; return x; }).ToArray();
+						var binaries2 = Arr(着外1, 着外2, 着外3)
+							.Select(x => x.Predict(binaryClassificationSource))
+							.Select(x => { x.Score = x.Score * -1; return x; })
+							.ToArray();
 						tmp.AddRange(binaries2);
 
 						iBinaries2 = binaries2.Length;
 
-						var regressions = Arr(
-							着順1.Predict(regressionSource)
-						);
+						var regressions = Arr(着順1)
+							.Select(x => x.Predict(regressionSource))
+							.ToArray();
 						tmp.AddRange(regressions);
 
 						iRegressions = regressions.Length;
@@ -341,7 +341,7 @@ namespace Netkeiba
 				};
 			}))).ToArray();
 
-			return payoutDetail.ContainsKey("三連複") 
+			return payoutDetail.ContainsKey("三連複")
 				? Arr(0).Concat(payoutDetail["三連複"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
 				: 0;
 		}
@@ -360,7 +360,7 @@ namespace Netkeiba
 				};
 			})).ToArray();
 
-			return payoutDetail.ContainsKey("ワイド") 
+			return payoutDetail.ContainsKey("ワイド")
 				? Arr(0).Concat(payoutDetail["ワイド"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
 				: 0;
 		}
@@ -379,7 +379,7 @@ namespace Netkeiba
 				};
 			})).ToArray();
 
-			return payoutDetail.ContainsKey("馬連") 
+			return payoutDetail.ContainsKey("馬連")
 				? Arr(0).Concat(payoutDetail["馬連"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
 				: 0;
 		}
@@ -391,7 +391,7 @@ namespace Netkeiba
 
 			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).Select(j => $"{i}-{j}")).ToArray();
 
-			return payoutDetail.ContainsKey("馬単") 
+			return payoutDetail.ContainsKey("馬単")
 				? Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
 				: 0;
 		}
