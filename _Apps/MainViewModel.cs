@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Forms;
 using TBird.Core;
 using TBird.DB.SQLite;
 using TBird.Web;
@@ -62,5 +63,12 @@ namespace Netkeiba
 
 		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 65536, true);
 
+		public IRelayCommand ClickSetting { get; } = RelayCommand.Create(_ =>
+		{
+			using (var vm = new ModelViewModel())
+			{
+				vm.ShowDialog(() => new ModelWindow());
+			}
+		});
 	}
 }

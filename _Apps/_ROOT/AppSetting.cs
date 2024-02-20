@@ -12,7 +12,7 @@ namespace Netkeiba
 	{
 		public static AppSetting Instance { get; } = new AppSetting();
 
-		public AppSetting() : base(@"lib\app-setting.json")
+		public AppSetting(string path) : base(path)
 		{
 			if (!Load())
 			{
@@ -20,6 +20,11 @@ namespace Netkeiba
 				BinaryClassificationResults = new BinaryClassificationResult[] { };
 				RegressionResults = new RegressionResult[] { };
 			}
+		}
+
+		public AppSetting() : this(@"lib\app-setting.json")
+		{
+
 		}
 
 		public bool UseFastForest

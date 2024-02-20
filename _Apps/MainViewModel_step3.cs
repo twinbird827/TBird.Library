@@ -25,8 +25,6 @@ namespace Netkeiba
 {
 	public partial class MainViewModel
 	{
-		private readonly int[] TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond;
-
 		public CheckboxItemModel S3B01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B02 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B03 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
@@ -173,7 +171,7 @@ namespace Netkeiba
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
 			await CreateModelInputData(dataPath, reader => reader.GetValue("着順").GetDouble());
 
-			foreach (var second in TrainingTimeSecond)
+			foreach (var second in AppSetting.Instance.TrainingTimeSecond)
 			{
 				// Infer column information
 				var columnInference =

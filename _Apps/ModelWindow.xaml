@@ -1,0 +1,165 @@
+﻿<Controls:MetroWindow x:Class="Netkeiba.ModelWindow"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                      xmlns:local="clr-namespace:Netkeiba"
+		              xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+					  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                      mc:Ignorable="d">
+	<Controls:MetroWindow.DataContext>
+		<local:ModelViewModel />
+	</Controls:MetroWindow.DataContext>
+	<Controls:MetroWindow.Resources>
+
+		<Style TargetType="GroupBox">
+			<Setter Property="Margin" Value="10" />
+		</Style>
+
+		<Style TargetType="TextBlock">
+			<Setter Property="Margin" Value="3" />
+			<Setter Property="MinWidth" Value="60" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+
+		<Style TargetType="TextBox">
+			<Setter Property="Margin" Value="3" />
+			<Setter Property="Padding" Value="3" />
+			<Setter Property="MinWidth" Value="60" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+		</Style>
+
+		<Style TargetType="CheckBox">
+			<Setter Property="Margin" Value="10" />
+			<Setter Property="MinWidth" Value="175" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+
+		<Style TargetType="Button">
+			<Setter Property="Margin" Value="3" />
+			<Setter Property="MinWidth" Value="40" />
+			<Setter Property="MinHeight" Value="40" />
+		</Style>
+
+		<Style TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBox}">
+			<Setter Property="Margin" Value="5" />
+		</Style>
+
+		<Style TargetType="ListView">
+			<Setter Property="Margin" Value="5" />
+		</Style>
+	</Controls:MetroWindow.Resources>
+	<DockPanel>
+		<GroupBox DockPanel.Dock="Top" Header="Merge">
+			<DockPanel>
+				<Button DockPanel.Dock="Right"
+						Content="{iconPacks:Material Kind=Download}"
+						Command="{Binding ClickMerge}" />
+
+				<TextBox Text="{Binding MergePath}" />
+			</DockPanel>
+		</GroupBox>
+
+		<GroupBox DockPanel.Dock="Top" Header="Check">
+			<WrapPanel Orientation="Horizontal">
+				<CheckBox Content="UseFastForest"
+						  IsChecked="{Binding UseFastForest}" />
+				<CheckBox Content="UseFastTree"
+						  IsChecked="{Binding UseFastTree}" />
+				<CheckBox Content="UseLbfgsLogisticRegression"
+						  IsChecked="{Binding UseLbfgsLogisticRegression}" />
+				<CheckBox Content="UseLbfgsPoissonRegression"
+						  IsChecked="{Binding UseLbfgsPoissonRegression}" />
+				<CheckBox Content="UseLgbm"
+						  IsChecked="{Binding UseLgbm}" />
+				<CheckBox Content="UseSdca"
+						  IsChecked="{Binding UseSdca}" />
+				<CheckBox Content="UseSdcaLogisticRegression"
+						  IsChecked="{Binding UseSdcaLogisticRegression}" />
+			</WrapPanel>
+		</GroupBox>
+
+		<GroupBox DockPanel.Dock="Top" Header="BinaryClassification" MinHeight="150" MaxHeight="350">
+			<DockPanel>
+				<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" />
+				<ListView ItemsSource="{Binding BinaryClassificationResultViews}">
+					<ListView.View>
+						<GridView>
+							<GridViewColumn Header="Index"
+											DisplayMemberBinding="{Binding Index}" />
+							<GridViewColumn Header="Second"
+											DisplayMemberBinding="{Binding Second}" />
+							<GridViewColumn Header="Path"
+											DisplayMemberBinding="{Binding Path}" />
+							<GridViewColumn Header="Accuracy"
+											DisplayMemberBinding="{Binding Accuracy}" />
+							<GridViewColumn Header="AreaUnderPrecisionRecallCurve"
+											DisplayMemberBinding="{Binding AreaUnderPrecisionRecallCurve}" />
+							<GridViewColumn Header="AreaUnderRocCurve"
+											DisplayMemberBinding="{Binding AreaUnderRocCurve}" />
+							<GridViewColumn Header="Entropy"
+											DisplayMemberBinding="{Binding Entropy}" />
+							<GridViewColumn Header="F1Score"
+											DisplayMemberBinding="{Binding F1Score}" />
+							<GridViewColumn Header="LogLoss"
+											DisplayMemberBinding="{Binding LogLoss}" />
+							<GridViewColumn Header="LogLossReduction"
+											DisplayMemberBinding="{Binding LogLossReduction}" />
+							<GridViewColumn Header="NegativePrecision"
+											DisplayMemberBinding="{Binding NegativePrecision}" />
+							<GridViewColumn Header="NegativeRecall"
+											DisplayMemberBinding="{Binding NegativeRecall}" />
+							<GridViewColumn Header="PositivePrecision"
+											DisplayMemberBinding="{Binding PositivePrecision}" />
+							<GridViewColumn Header="PositiveRecall"
+											DisplayMemberBinding="{Binding PositiveRecall}" />
+							<GridViewColumn Header="削除">
+								<GridViewColumn.CellTemplate>
+									<DataTemplate>
+										<Button Content="削除" Command="{Binding ClickDelete}" />
+									</DataTemplate>
+								</GridViewColumn.CellTemplate>
+							</GridViewColumn>
+						</GridView>
+					</ListView.View>
+				</ListView>
+			</DockPanel>
+		</GroupBox>
+
+		<GroupBox DockPanel.Dock="Top" Header="Regression" MinHeight="150" MaxHeight="350">
+			<DockPanel>
+				<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding RegressionMetrics.Items}" SelectedItem="{Binding RegressionMetrics.SelectedItem}" />
+				<ListView ItemsSource="{Binding RegressionResultViews}">
+					<ListView.View>
+						<GridView>
+							<GridViewColumn Header="Index"
+											DisplayMemberBinding="{Binding Index}" />
+							<GridViewColumn Header="Second"
+											DisplayMemberBinding="{Binding Second}" />
+							<GridViewColumn Header="Path"
+											DisplayMemberBinding="{Binding Path}" />
+							<GridViewColumn Header="RSquared"
+											DisplayMemberBinding="{Binding RSquared}" />
+							<GridViewColumn Header="MeanSquaredError"
+											DisplayMemberBinding="{Binding MeanSquaredError}" />
+							<GridViewColumn Header="RootMeanSquaredError"
+											DisplayMemberBinding="{Binding RootMeanSquaredError}" />
+							<GridViewColumn Header="LossFunction"
+											DisplayMemberBinding="{Binding LossFunction}" />
+							<GridViewColumn Header="MeanAbsoluteError"
+											DisplayMemberBinding="{Binding MeanAbsoluteError}" />
+							<GridViewColumn Header="削除">
+								<GridViewColumn.CellTemplate>
+									<DataTemplate>
+										<Button Content="削除" Command="{Binding ClickDelete}" />
+									</DataTemplate>
+								</GridViewColumn.CellTemplate>
+							</GridViewColumn>
+						</GridView>
+					</ListView.View>
+				</ListView>
+			</DockPanel>
+		</GroupBox>
+	</DockPanel>
+</Controls:MetroWindow>

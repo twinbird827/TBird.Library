@@ -5,6 +5,7 @@
                       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                       xmlns:local="clr-namespace:Netkeiba"
 		              xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+					  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                       mc:Ignorable="d"
                       Title="Netkeiba">
 	<Controls:MetroWindow.DataContext>
@@ -42,6 +43,7 @@
 
 		<Style TargetType="Button">
 			<Setter Property="Margin" Value="3" />
+			<Setter Property="MinWidth" Value="40" />
 			<Setter Property="MinHeight" Value="40" />
 		</Style>
 
@@ -53,6 +55,11 @@
 	<DockPanel>
 
 		<StatusBar DockPanel.Dock="Bottom">
+
+			<Button DockPanel.Dock="Right"
+                    Content="{iconPacks:Material Kind=Cog}"
+					Command="{Binding ClickSetting}" />
+
 			<Controls:MetroProgressBar Width="300"
 									   Margin="5,0"
 									   VerticalAlignment="Stretch"
