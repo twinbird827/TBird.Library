@@ -155,8 +155,6 @@ namespace Netkeiba
 
 		private async Task<List<Dictionary<string, string>>> GetRaces(string raceid)
 		{
-			var ﾗﾝｸ = new[] { "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "3勝", "1600万下", "2勝", "1000万下", "1勝", "500万下", "未勝利", "新馬" };
-
 			var arr = new List<Dictionary<string, string>>();
 
 			var raceurl = $"https://db.netkeiba.com/race/{raceid}";
@@ -164,36 +162,6 @@ namespace Netkeiba
 			using (var raceparser = await AppUtil.GetDocument(raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("race_table_01 nk_tb_common").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
-				var ﾗﾝｸ1 = new Dictionary<string, string>()
-				{
-					{ "G1)", "G1" },
-					{ "G2)", "G2" },
-					{ "G3)", "G3" },
-					{ "(G)", "オープン" },
-					{ "(L)", "オープン" },
-					{ "オープン", "オープン" },
-					{ "3勝", "3勝" },
-					{ "1600万下", "3勝" },
-					{ "2勝", "2勝" },
-					{ "1000万下", "2勝" },
-					{ "1勝", "1勝" },
-					{ "500万下", "1勝" },
-					{ "未勝利", "未勝利" },
-					{ "新馬", "新馬" },
-					{ "", "2勝" },
-				};
-				var ﾗﾝｸ2 = new Dictionary<string, string>()
-				{
-					{ "G1", "RANK1" },
-					{ "G2", "RANK1" },
-					{ "G3", "RANK1" },
-					{ "オープン", "RANK2" },
-					{ "3勝", "RANK3" },
-					{ "2勝", "RANK3" },
-					{ "1勝", "RANK3" },
-					{ "未勝利", "RANK4" },
-					{ "新馬", "RANK5" },
-				};
 
 				if (racetable == null) return arr;
 
@@ -248,8 +216,8 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["開催場所"] = basyo;
-					dic["ﾗﾝｸ1"] = ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(clas.Contains) ?? ﾗﾝｸ.FirstOrDefault(dic["ﾚｰｽ名"].Contains) ?? string.Empty];
-					dic["ﾗﾝｸ2"] = ﾗﾝｸ2[dic["ﾗﾝｸ1"]];
+					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
+					dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;
@@ -328,8 +296,6 @@ namespace Netkeiba
 
 		private async Task<List<Dictionary<string, string>>> GetRaces2(string raceid)
 		{
-			var ﾗﾝｸ = new[] { "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "1600万下", "２勝クラス", "1000万下", "１勝クラス", "500万下", "未勝利", "新馬" };
-
 			var arr = new List<Dictionary<string, string>>();
 
 			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
@@ -337,36 +303,6 @@ namespace Netkeiba
 			using (var raceparser = await AppUtil.GetDocument(false, @$"html\shutuba\{raceid}.html", raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
-				var ﾗﾝｸ1 = new Dictionary<string, string>()
-				{
-					{ "G1)", "G1" },
-					{ "G2)", "G2" },
-					{ "G3)", "G3" },
-					{ "(G)", "オープン" },
-					{ "(L)", "オープン" },
-					{ "オープン", "オープン" },
-					{ "３勝クラス", "3勝" },
-					{ "1600万下", "3勝" },
-					{ "２勝クラス", "2勝" },
-					{ "1000万下", "2勝" },
-					{ "１勝クラス", "1勝" },
-					{ "500万下", "1勝" },
-					{ "未勝利", "未勝利" },
-					{ "新馬", "新馬" },
-					{ "", "2勝" },
-				};
-				var ﾗﾝｸ2 = new Dictionary<string, string>()
-				{
-					{ "G1", "RANK1" },
-					{ "G2", "RANK1" },
-					{ "G3", "RANK1" },
-					{ "オープン", "RANK2" },
-					{ "3勝", "RANK3" },
-					{ "2勝", "RANK3" },
-					{ "1勝", "RANK3" },
-					{ "未勝利", "RANK4" },
-					{ "新馬", "RANK5" },
-				};
 
 				if (racetable == null) return arr;
 
@@ -423,8 +359,8 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["開催場所"] = basyo;
-					dic["ﾗﾝｸ1"] = ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(dic["ﾚｰｽ名"].Contains) ?? ﾗﾝｸ.FirstOrDefault(clas.Contains) ?? string.Empty];
-					dic["ﾗﾝｸ2"] = ﾗﾝｸ2[dic["ﾗﾝｸ1"]];
+					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
+					dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;

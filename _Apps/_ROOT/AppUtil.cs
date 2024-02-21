@@ -120,6 +120,53 @@ namespace Netkeiba
 			return Task.Run(() => new List<string>(new[] { "", "E", "D", "C", "B", "A" }));
 		}
 
+		private static readonly string[] ﾗﾝｸ = new[]
+		{
+			"G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "1600万下", "２勝クラス", "1000万下", "１勝クラス", "500万下", "未勝利", "新馬"
+		};
+
+		private static readonly Dictionary<string, string> ﾗﾝｸ1 = new()
+		{
+			{ "G1)", "G1" },
+			{ "G2)", "G2" },
+			{ "G3)", "G3" },
+			{ "(G)", "オープン" },
+			{ "(L)", "オープン" },
+			{ "オープン", "オープン" },
+			{ "３勝クラス", "3勝" },
+			{ "1600万下", "3勝" },
+			{ "２勝クラス", "2勝" },
+			{ "1000万下", "2勝" },
+			{ "１勝クラス", "1勝" },
+			{ "500万下", "1勝" },
+			{ "未勝利", "未勝利" },
+			{ "新馬", "新馬" },
+			{ "", "2勝" },
+		};
+
+		public static string Getﾗﾝｸ1(string ﾚｰｽ名, string ｸﾗｽ)
+		{
+			return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? string.Empty];
+		}
+
+		private static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
+		{
+			{ "G1", "RANK1" },
+			{ "G2", "RANK1" },
+			{ "G3", "RANK1" },
+			{ "オープン", "RANK2" },
+			{ "3勝", "RANK3" },
+			{ "2勝", "RANK3" },
+			{ "1勝", "RANK3" },
+			{ "未勝利", "RANK4" },
+			{ "新馬", "RANK5" },
+		};
+
+		public static string Getﾗﾝｸ2(string ﾗﾝｸ1)
+		{
+			return ﾗﾝｸ2[ﾗﾝｸ1];
+		}
+
 		public static void DeleteEndress(string path)
 		{
 			_ = WpfUtil.ExecuteOnBackground(async () =>
