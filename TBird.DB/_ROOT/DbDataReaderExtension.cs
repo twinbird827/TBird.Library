@@ -60,34 +60,52 @@ namespace TBird.DB
 			}
 		}
 
-		/// <summary>
-		/// SELECT文を実行し、KeyValuePairﾘｽﾄとして取得します。
-		/// </summary>
-		/// <param name="conn">DbControl</param>
-		/// <param name="sql">SELECT文</param>
-		/// <param name="parameters">SQL文の引数</param>
-		/// <returns></returns>
-		public static Task<List<Dictionary<string, object>>> GetRows(this DbControl conn, string sql, params DbParameter[] parameters)
-		{
-			(string Column, int Index)[] columns = null;
+        /// <summary>
+        /// SELECT文を実行し、KeyValuePairﾘｽﾄとして取得します。
+        /// </summary>
+        /// <param name="conn">DbControl</param>
+        /// <param name="sql">SELECT文</param>
+        /// <param name="parameters">SQL文の引数</param>
+        /// <returns></returns>
+        public static Task<List<Dictionary<string, object>>> GetRows(this DbControl conn, string sql, params DbParameter[] parameters)
+        {
+            (string Column, int Index)[] columns = null;
 
-			return conn.GetRows(r =>
-			{
-				return (columns = columns ?? r.GetColumns())
-					.ToDictionary(x => x.Column, x => r.Get<object>(x.Index));
-			}, sql, parameters);
-		}
+            return conn.GetRows(r =>
+            {
+                return (columns = columns ?? r.GetColumns())
+                    .ToDictionary(x => x.Column, x => r.Get<object>(x.Index));
+            }, sql, parameters);
+        }
 
-		/// <summary>
-		/// SELECT文を実行し、1行目のﾃﾞｰﾀを取得します。
-		/// </summary>
-		/// <typeparam name="T">1行の型</typeparam>
-		/// <param name="conn">DbControl</param>
-		/// <param name="func">1行読み出し用の処理内容</param>
-		/// <param name="sql">SELECT文</param>
-		/// <param name="parameters">SQL文の引数</param>
-		/// <returns></returns>
-		public static async Task<T> GetRow<T>(this DbControl conn, Func<DbDataReader, T> func, string sql, params DbParameter[] parameters)
+        /// <summary>
+        /// SELECT文を実行し、KeyValuePairﾘｽﾄとして取得します。
+        /// </summary>
+        /// <param name="conn">DbControl</param>
+        /// <param name="sql">SELECT文</param>
+        /// <param name="parameters">SQL文の引数</param>
+        /// <returns></returns>
+        public static Task<List<Dictionary<string, T>>> GetRows<T>(this DbControl conn, string sql, params DbParameter[] parameters)
+        {
+            (string Column, int Index)[] columns = null;
+
+            return conn.GetRows(r =>
+            {
+                return (columns = columns ?? r.GetColumns())
+                    .ToDictionary(x => x.Column, x => r.Get<T>(x.Index));
+            }, sql, parameters);
+        }
+
+        /// <summary>
+        /// SELECT文を実行し、1行目のﾃﾞｰﾀを取得します。
+        /// </summary>
+        /// <typeparam name="T">1行の型</typeparam>
+        /// <param name="conn">DbControl</param>
+        /// <param name="func">1行読み出し用の処理内容</param>
+        /// <param name="sql">SELECT文</param>
+        /// <param name="parameters">SQL文の引数</param>
+        /// <returns></returns>
+        public static async Task<T> GetRow<T>(this DbControl conn, Func<DbDataReader, T> func, string sql, params DbParameter[] parameters)
 		{
 			using (var reader = await conn.ExecuteReaderAsync(sql, parameters))
 			{
@@ -99,22 +117,27 @@ namespace TBird.DB
 			}
 		}
 
-		/// <summary>
-		/// SELECT文を実行し、1行目のKeyValuePairを取得します。
-		/// </summary>
-		/// <param name="conn">DbControl</param>
-		/// <param name="sql">SELECT文</param>
-		/// <param name="parameters">SQL文の引数</param>
-		/// <returns></returns>
-		public static Task<Dictionary<string, object>> GetRow(this DbControl conn, string sql, params DbParameter[] parameters)
-		{
-			(string Column, int Index)[] columns = null;
+        /// <summary>
+        /// SELECT文を実行し、1行目のKeyValuePairを取得します。
+        /// </summary>
+        /// <param name="conn">DbControl</param>
+        /// <param name="sql">SELECT文</param>
+        /// <param name="parameters">SQL文の引数</param>
+        /// <returns></returns>
+        public static Task<Dictionary<string, object>> GetRow(this DbControl conn, string sql, params DbParameter[] parameters)
+        {
+			return GetRow<object>(conn, sql, parameters);
+        }
 
-			return conn.GetRow(r =>
-			{
-				return (columns = columns ?? r.GetColumns())
-					.ToDictionary(x => x.Column, x => r.Get<object>(x.Index));
-			}, sql, parameters);
-		}
-	}
+        public static Task<Dictionary<string, T>> GetRow<T>(this DbControl conn, string sql, params DbParameter[] parameters)
+        {
+            (string Column, int Index)[] columns = null;
+
+            return conn.GetRow(r =>
+            {
+                return (columns = columns ?? r.GetColumns())
+                    .ToDictionary(x => x.Column, x => r.Get<T>(x.Index));
+            }, sql, parameters);
+        }
+    }
 }
