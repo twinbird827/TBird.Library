@@ -118,6 +118,10 @@ namespace Netkeiba
                         arr.Where(x => x[j].GetInt32() <= 4),
                         arr.Where(x => x[j].GetInt32() <= 4))
                     ),
+                    // ワ1の予想結果
+                    (100, "ワ1", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+                        arr.Where(x => x[j].GetInt32() <= 2))
+                    ),
                     // ワ3の予想結果
                     (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
                         arr.Where(x => x[j].GetInt32() <= 3))
@@ -135,7 +139,6 @@ namespace Netkeiba
                         arr.Where(x => x[j].GetInt32() <= 3))
                     )
 				};
-
 
                 var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
@@ -202,7 +205,7 @@ namespace Netkeiba
 						var drops = new[] { "着順", "単勝", "人気", "ﾗﾝｸ2" };
 
 						var tmp = new List<object>();
-						var src = racearr.First(x => x["馬ID"].GetDouble() == m["馬ID"]);
+						var src = racearr.First(x => x["馬ID"].GetSingle() == (float)m["馬ID"]);
 
 						if (src["ﾗﾝｸ1"] == "新馬") continue;
 

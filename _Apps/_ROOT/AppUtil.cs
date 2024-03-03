@@ -163,7 +163,7 @@ namespace Netkeiba
 			{ "G2", "RANK1" },
 			{ "G3", "RANK1" },
 			{ "オープン", "RANK2" },
-			{ "3勝", "RANK3" },
+			{ "3勝", "RANK2" },
 			{ "2勝", "RANK3" },
 			{ "1勝", "RANK3" },
 			{ "未勝利", "RANK4" },
