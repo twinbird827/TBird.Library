@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 
 namespace TBird.Core
 {
@@ -65,27 +66,55 @@ namespace TBird.Core
 			return true;
 		}
 
-		public static double GetDoubleNaN(this object value)
-		{
-			decimal result;
-			if (value.TryDecimal(out result))
+        public static double GetDoubleNaN(this object value)
+        {
+			if (value is double val)
 			{
-				return (double)result;
+				return val;
 			}
-			else
+            decimal result;
+            if (value.TryDecimal(out result))
+            {
+                return (double)result;
+            }
+            else
+            {
+                return double.NaN;
+            }
+        }
+
+        public static double GetDouble(this object value)
+        {
+            double x = GetDoubleNaN(value);
+
+            return double.IsNaN(x) ? 0d : x;
+        }
+
+        public static float GetSingleNaN(this object value)
+        {
+			if (value is float val)
 			{
-				return double.NaN;
+				return val;
 			}
-		}
+            decimal result;
+            if (value.TryDecimal(out result))
+            {
+                return (float)result;
+            }
+            else
+            {
+                return float.NaN;
+            }
+        }
 
-		public static double GetDouble(this object value)
-		{
-			double x = GetDoubleNaN(value);
+        public static float GetSingle(this object value)
+        {
+            float x = GetSingleNaN(value);
 
-			return double.IsNaN(x) ? 0d : x;
-		}
+            return float.IsNaN(x) ? 0F : x;
+        }
 
-		public static int GetInt32(this object value)
+        public static int GetInt32(this object value)
 		{
 			decimal result;
 			if (value.TryDecimal(out result))
@@ -97,5 +126,19 @@ namespace TBird.Core
 				return 0;
 			}
 		}
-	}
+
+        public static long GetInt64(this object value)
+        {
+            decimal result;
+            if (value.TryDecimal(out result))
+            {
+                return (long)result;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+    }
 }
