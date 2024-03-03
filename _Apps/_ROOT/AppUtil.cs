@@ -28,12 +28,20 @@ namespace Netkeiba
 			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
 		}
 
-		public static string GetHrefAttribute(this AngleSharp.Dom.IElement x, string attribute)
-		{
-			return $"{x.GetElementsByTagName("a").Select(a => a.GetAttribute(attribute)).First()}";
-		}
+        public static string GetHrefAttribute(this AngleSharp.Dom.IElement x, string attribute)
+        {
+            return $"{x.GetElementsByTagName("a").Select(a => a.GetAttribute(attribute)).FirstOrDefault() ?? string.Empty}";
+        }
 
-		public static string GetTryCatch(this AngleSharp.Dom.IElement x, Func<string, string> func)
+        public static string GetHrefInnerHtml(this AngleSharp.Dom.IElement x)
+        {
+            var innerhtml = x.GetElementsByTagName("a").Any()
+                ? x.GetElementsByTagName("a").First().InnerHtml
+                : x.InnerHtml;
+            return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
+        }
+
+        public static string GetTryCatch(this AngleSharp.Dom.IElement x, Func<string, string> func)
 		{
 			try
 			{

@@ -61,7 +61,7 @@ namespace Netkeiba
 
 		private readonly string _sqlitepath = Path.Combine(@"database", "database.sqlite3");
 
-		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 65536, true);
+		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 1024 * 1024, true);
 
 		public IRelayCommand ClickSetting { get; } = RelayCommand.Create(_ =>
 		{

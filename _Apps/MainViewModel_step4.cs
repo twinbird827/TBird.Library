@@ -121,6 +121,9 @@ namespace Netkeiba
 					var racearr = await GetRaces2(raceid);
 					if (!racearr.Any()) continue;
 
+					// 産駒成績の更新
+					await RefreshSanku(conn, false, racearr.Select(x => x["馬ID"]));
+
 					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
 					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));
 					foreach (var x in racearr)
@@ -136,7 +139,7 @@ namespace Netkeiba
 					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
 					{
 						// 不要なﾃﾞｰﾀ
-						var drops = new[] { "着順", "単勝", "人気" };
+						var drops = new[] { "着順", "単勝", "人気", "ﾗﾝｸ2" };
 
 						var tmp = new List<object>();
 						var src = racearr.First(x => x["馬ID"].GetDouble() == m["馬ID"]);
