@@ -108,6 +108,11 @@ namespace Netkeiba
 			}
 		});
 
+        private float GetSingle(float x, float y, Func<float, float, float> func)
+        {
+            return !float.IsNaN(x) && !float.IsNaN(y) ? func(x, y) : float.NaN;
+        }
+
         private float GetSingle(IEnumerable<float> arr, Func<IEnumerable<float>, float> func)
         {
             return arr.Where(x => !float.IsNaN(x)).Any() ? func(arr.Where(x => !float.IsNaN(x))) : float.NaN;
@@ -115,7 +120,7 @@ namespace Netkeiba
 
         private float Median(IEnumerable<float> arr)
         {
-			return GetSingle(arr, ret => ret.Median());
+			return GetSingle(arr, ret => ret.Average());
         }
 
         private float Median(IEnumerable<Dictionary<string, object>> arr, string n)
@@ -146,7 +151,7 @@ namespace Netkeiba
 			{
 				keys.ForEach(key =>
 				{
-                    dic[$"{key}S1"] = 他馬比較(dic, racarr, key, ret => ret.Median());
+                    dic[$"{key}S1"] = 他馬比較(dic, racarr, key, ret => ret.Average());
                     dic[$"{key}S2"] = 他馬比較(dic, racarr, key, ret => ret.Percentile(25));
                     dic[$"{key}S3"] = 他馬比較(dic, racarr, key, ret => ret.Percentile(75));
                 });
@@ -159,7 +164,7 @@ namespace Netkeiba
 		{
             var x1 = dic[key].GetSingleNaN();
             var x2 = GetSingle(racarr.Select(x => x[key].GetSingleNaN()), func);
-            return !float.IsNaN(x1) && !float.IsNaN(x2) ? x1 - x2 : float.NaN;
+            return GetSingle(x1, x2, (x, y) => x - y);
         }
 
         private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
@@ -198,7 +203,7 @@ namespace Netkeiba
             dic["体重"] = float.TryParse($"{src["体重"]}", out float tmp_taiju) ? tmp_taiju : Median(馬情報直, "体重");
             //dic["増減"] = src["増減"].GetDouble();
             //dic["増減割"] = dic["増減"] / dic["体重"];
-            dic["斤量割"] = !float.IsNaN(dic["体重"].GetSingle()) ? dic["斤量"].GetSingle() / dic["体重"].GetSingle() : float.NaN;
+            dic["斤量割"] = GetSingle(dic["斤量"].GetSingle(), dic["体重"].GetSingle(), (x, y) => x / y);
             dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
             //dic["一言"] = 一言.IndexOf(src["一言"]);
             dic["追切"] = 追切.IndexOf(src["追切"]);
@@ -215,7 +220,7 @@ namespace Netkeiba
             // 得意距離、及び今回のﾚｰｽ距離との差
             dic["距離"] = src["距離"].GetSingle();
             dic["距離得"] = Median(馬情報全, "距離");
-            dic["距離差"] = !float.IsNaN(dic["距離得"].GetSingle()) ? dic["距離得"].GetSingle() - dic["距離"].GetSingle() : float.NaN;
+            dic["距離差"] = GetSingle(dic["距離得"].GetSingle(), dic["距離得"].GetSingle(), (x, y) => x - y);
 
             // 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
             Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(6F);
@@ -242,6 +247,9 @@ namespace Netkeiba
             dic["時間全"] = Median(馬情報全, x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"]));
             dic["時間直"] = Median(馬情報直, x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"]));
 
+            dic["斤時全"] = GetSingle(dic["斤上り全"].GetSingle(), dic["時間全"].GetSingle(), (x, y) => x * y);
+            dic["斤時直"] = GetSingle(dic["斤上り直"].GetSingle(), dic["時間直"].GetSingle(), (x, y) => x * y);
+
             // 1着との差(時間)
             dic["勝時差全"] = GetSingle(馬情報全.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), ret => ret.Median());
             dic["勝時差直"] = GetSingle(馬情報直.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), ret => ret.Median());
@@ -264,6 +272,7 @@ namespace Netkeiba
                     dic[$"前{i + 1}_時間"] = 馬情報直[i]["距離"].GetSingle() / func_time(馬情報直[i]["ﾀｲﾑ"]);
                     dic[$"前{i + 1}_時差"] = func_time(馬情報直[i]["ﾀｲﾑ"]) - func_time(馬情報直[i]["TOPﾀｲﾑ"]);
                     dic[$"前{i + 1}_斤上差"] = Get斤上(馬情報直[i]) - Get斤上(馬情報直[i], "TOP上り", "TOP斤量");
+                    dic[$"前{i + 1}_斤時"] = GetSingle(dic[$"前{i + 1}_斤上"].GetSingle(), dic[$"前{i + 1}_時間"].GetSingle(), (x, y) => x * y);
                 }
                 else
                 {
@@ -274,6 +283,7 @@ namespace Netkeiba
                     dic[$"前{i + 1}_時間"] = float.NaN;
                     dic[$"前{i + 1}_時差"] = float.NaN;
                     dic[$"前{i + 1}_斤上差"] = float.NaN;
+                    dic[$"前{i + 1}_斤時"] = float.NaN;
                 }
             }
 
@@ -392,8 +402,6 @@ namespace Netkeiba
                         $"LOWER_QUARTILE({val})",
                         $"UPPER_QUARTILE({val})"
 					);
-					var wherea = "";
-					var wheren = $"開催日数  > {now - num}  AND";
 					var where = Arr(
                         $"FROM t_orig WHERE",
                         $"{keyname} = '{keyvalue}' AND",
@@ -404,11 +412,11 @@ namespace Netkeiba
                     ).GetString(" ");
 
                     whe.AddRange(select.Select(x => Arr(
-						$"( SELECT {x}", string.Format(where, wherea), $") R{i}A1_{key}"
+						$"( SELECT {x}", string.Format(where, $"                            "), $") R{i}A1_{key}"
 					).GetString(" ")));
 
                     whe.AddRange(select.Select(x => Arr(
-						$"( SELECT {x}", string.Format(where, wheren), $") R{i}N1_{key}"
+						$"( SELECT {x}", string.Format(where, $"開催日数  > {now - num}  AND"), $") R{i}N1_{key}"
 					).GetString(" ")));
                 }
             }

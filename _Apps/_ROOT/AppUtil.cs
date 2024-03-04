@@ -154,7 +154,7 @@ namespace Netkeiba
 
 		public static string Getﾗﾝｸ1(string ﾚｰｽ名, string ｸﾗｽ)
 		{
-			return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? string.Empty];
+			return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
 		}
 
 		private static readonly Dictionary<string, string> ﾗﾝｸ2 = new()

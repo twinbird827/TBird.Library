@@ -87,6 +87,7 @@ namespace Netkeiba
 		public PredictionResult()
 		{
 			Path = string.Empty;
+			Rank = string.Empty;
 		}
 
 		public int Index { get; set; }
@@ -95,7 +96,9 @@ namespace Netkeiba
 
 		public string Path { get; set; }
 
-		public override string ToString()
+        public string Rank { get; set; }
+
+        public override string ToString()
 		{
 			return Path;
 		}
@@ -125,10 +128,11 @@ namespace Netkeiba
 
 		}
 
-		public BinaryClassificationResult(string path, int index, int second, CalibratedBinaryClassificationMetrics metrics)
+		public BinaryClassificationResult(string path, string rank, int index, int second, CalibratedBinaryClassificationMetrics metrics)
 		{
 			Index = index;
-			Second = second;
+            Rank = rank;
+            Second = second;
 			Path = path;
 			Accuracy = metrics.Accuracy;
 			AreaUnderPrecisionRecallCurve = metrics.AreaUnderPrecisionRecallCurve;
@@ -174,9 +178,10 @@ namespace Netkeiba
 
 		}
 
-		public RegressionResult(string path, int index, int second, RegressionMetrics metrics)
+		public RegressionResult(string path, string rank, int index, int second, RegressionMetrics metrics)
 		{
 			Path = path;
+			Rank = rank;
 			Index = index;
 			Second = second;
 			RSquared = metrics.RSquared;
