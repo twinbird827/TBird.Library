@@ -384,8 +384,16 @@ namespace Netkeiba
 			var ranks = new[] { 1, 3, 5 };
 			var now = $"{src["開催日数"]}".GetSingle();
 			var keyvalue = $"{src[keyname]}";
-
+            var select = Arr(
+                $"MEDIAN(着順)",
+                $"LOWER_QUARTILE(着順)",
+                $"UPPER_QUARTILE(着順)"
+            );
+            var count = ranks.Length * select.Length * headnames.Length;
+            var index = 0;
+            var with = new List<string>();
 			var whe = new List<string>();
+
 			foreach (var i in ranks)
 			{
 				foreach (var headname in headnames)
@@ -397,35 +405,34 @@ namespace Netkeiba
 						? "着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 ELSE 1.00 END)"
 						: "着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 WHEN ﾗﾝｸ2 = 'RANK3' THEN 1.00 WHEN ﾗﾝｸ2 = 'RANK4' THEN 1.25 ELSE 1.50 END)";
 
-                    var select = Arr(
-                        $"MEDIAN({val})",
-                        $"LOWER_QUARTILE({val})",
-                        $"UPPER_QUARTILE({val})"
-					);
-					var where = Arr(
+                    var where = Arr(
                         $"FROM t_orig WHERE",
                         $"{keyname} = '{keyvalue}' AND",
                         $"開催日数  < {now}        AND",
-						$"{{0}}",
+                        $"{{0}}",
                         $"ﾗﾝｸ2     <= 'RANK{i}'",
                         keyname == headname ? string.Empty : $"AND {headname} = '{src[headname]}'"
                     ).GetString(" ");
 
-                    whe.AddRange(select.Select(x => Arr(
-						$"( SELECT {x}", string.Format(where, $"                            "), $") R{i}A1_{key}"
-					).GetString(" ")));
+                    with.Add($"TA{index.ToString(5)} AS (SELECT ({val}) 着順 {string.Format(where, $"                            ")})");
+                    with.Add($"TN{index.ToString(5)} AS (SELECT ({val}) 着順 {string.Format(where, $"開催日数  > {now - num}  AND")})");
 
-                    whe.AddRange(select.Select(x => Arr(
-						$"( SELECT {x}", string.Format(where, $"開催日数  > {now - num}  AND"), $") R{i}N1_{key}"
-					).GetString(" ")));
+                    whe.Add(Arr($"(SELECT", select.Select((x, j) => $"{x} A_{key}_{index.ToString(5)}_{j.ToString(2)}").GetString(","), $"FROM TA{index.ToString(5)})").GetString(" "));
+                    whe.Add(Arr($"(SELECT", select.Select((x, j) => $"{x} N_{key}_{index.ToString(5)}_{j.ToString(2)}").GetString(","), $"FROM TN{index.ToString(5)})").GetString(" "));
+
+                    index += 1;
                 }
             }
 
-            return await conn.GetRow(r =>
-            {
-                return r.GetColumns()
-                    .ToDictionary(x => x.Item1, x => (object)r.Get<object>(x.Item2).GetSingleNaN());
-            }, Arr($"SELECT", whe.GetString(",")).GetString(" "));
+            return await conn.GetRow(
+                r => Enumerable.Range(0, count).ToDictionary(i => r.GetName(i), i => (object)r.Get<object>(i).GetSingleNaN()),
+                Arr($"WITH", with.GetString(","), "SELECT * FROM", whe.GetString(" CROSS JOIN ")).GetString(" ")
+            );
+            //return await conn.GetRow(r =>
+            //{
+            //    return r.GetColumns()
+            //        .ToDictionary(x => x.Item1, x => (object)r.Get<object>(x.Item2).GetSingleNaN());
+            //}, Arr($"WITH", with.GetString(","), $"SELECT", whe.GetString(",")).GetString(" "));
 		}
 
 		private async Task RefreshKetto(SQLiteControl conn, bool ischecked)
