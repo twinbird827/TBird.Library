@@ -295,6 +295,6 @@ namespace Netkeiba
 			GetFeatures((byte[])reader.GetValue("Features"))
 		).Concat(Arr(func_target(reader)));
 
-		private IEnumerable<object> GetFeatures(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => (object)BitConverter.ToSingle(bytes, i * 4));
+		private IEnumerable<object> GetFeatures(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).Select(x => !float.IsNaN(x) ? (object)x : (object)"");
 	}
 }
