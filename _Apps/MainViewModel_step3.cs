@@ -88,29 +88,18 @@ namespace Netkeiba
                 // Split into train (80%), validation (20%) sets
                 TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
 
-                // Configure Search Space
-                var searchSpace = new SearchSpace<LgbmOption>();
-
                 //Define pipeline
                 SweepablePipeline pipeline = mlContext
                         .Auto()
                         .Featurizer(data, columnInformation: columnInference.ColumnInformation)
-                        .Append(mlContext.Auto().CreateSweepableEstimator((context, param) =>
-                        {
-                            var option = new LightGbmBinaryTrainer.Options()
-                            {
-                                NumberOfLeaves = param.NumberOfLeaves,
-                                NumberOfIterations = param.NumberOfTrees,
-                                MinimumExampleCountPerLeaf = param.MinimumExampleCountPerLeaf,
-                                LearningRate = param.LearningRate,
-                                LabelColumnName = Label,
-                                FeatureColumnName = "Features",
-                                HandleMissingValue = true,
-                                UseZeroAsMissingValue = false
-                            };
-
-                            return context.BinaryClassification.Trainers.LightGbm(option);
-                        }, searchSpace));
+                        .Append(mlContext.Auto().BinaryClassification(
+                            labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+                            useFastForest: AppSetting.Instance.UseFastForest,
+                            useFastTree: AppSetting.Instance.UseFastTree,
+                            useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
+                            useLgbm: AppSetting.Instance.UseLgbm,
+                            useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
+                        ));
 
                 // Log experiment trials
                 var monitor = new AutoMLMonitor(pipeline, this);
@@ -203,29 +192,18 @@ namespace Netkeiba
                 // Split into train (80%), validation (20%) sets
                 TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
 
-                // Configure Search Space
-                var searchSpace = new SearchSpace<LgbmOption>();
-
                 //Define pipeline
                 SweepablePipeline pipeline = mlContext
                         .Auto()
                         .Featurizer(data, columnInformation: columnInference.ColumnInformation)
-                        .Append(mlContext.Auto().CreateSweepableEstimator((context, param) =>
-                        {
-                            var option = new LightGbmRegressionTrainer.Options()
-                            {
-                                NumberOfLeaves = param.NumberOfLeaves,
-                                NumberOfIterations = param.NumberOfTrees,
-                                MinimumExampleCountPerLeaf = param.MinimumExampleCountPerLeaf,
-                                LearningRate = param.LearningRate,
-                                LabelColumnName = Label,
-                                FeatureColumnName = "Features",
-                                HandleMissingValue = true,
-                                UseZeroAsMissingValue = false
-                            };
-
-                            return context.Regression.Trainers.LightGbm(option);
-                        }, searchSpace));
+                        .Append(mlContext.Auto().Regression(
+                            labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+                            useFastForest: AppSetting.Instance.UseFastForest,
+                            useFastTree: AppSetting.Instance.UseFastTree,
+                            useLbfgsPoissonRegression: AppSetting.Instance.UseLbfgsPoissonRegression,
+                            useLgbm: AppSetting.Instance.UseLgbm,
+                            useSdca: AppSetting.Instance.UseSdca
+                        ));
 
                 // Log experiment trials
                 var monitor = new AutoMLMonitor(pipeline, this);
