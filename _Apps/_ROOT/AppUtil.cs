@@ -110,7 +110,7 @@ namespace Netkeiba
 
 		public static Task<List<string>> Getﾗﾝｸ2(SQLiteControl conn)
 		{
-			return GetDistinct(conn, "ﾗﾝｸ2");
+			return Task.Run(() => new[] {"RANK5", "RANK4" , "RANK3" , "RANK2" , "RANK1" }.ToList());
 		}
 
 		public static Task<List<string>> Get馬性(SQLiteControl conn)
