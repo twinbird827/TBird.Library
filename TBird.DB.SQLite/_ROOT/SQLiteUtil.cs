@@ -58,5 +58,27 @@ namespace TBird.DB.SQLite
 		{
 			return value.Replace(escape, $"{EscapeString}{escape}");
 		}
+
+		/// <summary>
+		/// 指定したﾃｰﾌﾞﾙに指定した列が存在するか確認します。
+		/// </summary>
+		/// <param name="conn">ｺﾏﾝﾄﾞ</param>
+		/// <param name="table">ﾃｰﾌﾞﾙ</param>
+		/// <param name="column">列</param>
+		/// <returns>存在する: true / しない: false</returns>
+		public static async Task<bool> ExistsColumn(this SQLiteControl conn, string table, string column)
+		{
+			var parameters = new[]
+			{
+				CreateParameter(DbType.String, table),
+				CreateParameter(DbType.String, column),
+			};
+			var count = await conn.ExecuteScalarAsync<long>(
+				$"SELECT COUNT(*) FROM PRAGMA_TABLE_INFO(?) WHERE NAME=?",
+				parameters
+			);
+			return 0 < count;
+		}
+
 	}
 }

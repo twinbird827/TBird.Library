@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 
 namespace TBird.Core
 {
@@ -65,20 +66,55 @@ namespace TBird.Core
 			return true;
 		}
 
-		public static double GetDouble(this object value)
-		{
-			decimal result;
-			if (value.TryDecimal(out result))
+        public static double GetDoubleNaN(this object value)
+        {
+			if (value is double val)
 			{
-				return (double)result;
+				return val;
 			}
-			else
-			{
-				return 0d;
-			}
-		}
+            decimal result;
+            if (value.TryDecimal(out result))
+            {
+                return (double)result;
+            }
+            else
+            {
+                return double.NaN;
+            }
+        }
 
-		public static int GetInt32(this object value)
+        public static double GetDouble(this object value)
+        {
+            double x = GetDoubleNaN(value);
+
+            return double.IsNaN(x) ? 0d : x;
+        }
+
+        public static float GetSingleNaN(this object value)
+        {
+			if (value is float val)
+			{
+				return val;
+			}
+            decimal result;
+            if (value.TryDecimal(out result))
+            {
+                return (float)result;
+            }
+            else
+            {
+                return float.NaN;
+            }
+        }
+
+        public static float GetSingle(this object value)
+        {
+            float x = GetSingleNaN(value);
+
+            return float.IsNaN(x) ? 0F : x;
+        }
+
+        public static int GetInt32(this object value)
 		{
 			decimal result;
 			if (value.TryDecimal(out result))
@@ -90,5 +126,19 @@ namespace TBird.Core
 				return 0;
 			}
 		}
-	}
+
+        public static long GetInt64(this object value)
+        {
+            decimal result;
+            if (value.TryDecimal(out result))
+            {
+                return (long)result;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+    }
 }

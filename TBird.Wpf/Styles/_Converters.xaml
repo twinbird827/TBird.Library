@@ -5,6 +5,7 @@
 	<!-- **************************************************
     **** ｺﾝﾊﾞｰﾀ定義
     **** ************************************************** -->
+	<converter:Int2StringConverter x:Key="Int2StringConverter" />
 	<converter:Boolean2VisibilityHiddenConverter x:Key="Boolean2VisibilityHiddenConverter" />
 	<converter:Boolean2VisibilityCollapsedConverter x:Key="Boolean2VisibilityCollapsedConverter" />
 	<converter:BooleanReverseConverter x:Key="BooleanReverseConverter" />

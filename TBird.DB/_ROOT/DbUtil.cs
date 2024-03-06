@@ -1,4 +1,6 @@
 ﻿using System;
+using System.CodeDom;
+using System.Collections.Generic;
 
 namespace TBird.DB
 {
@@ -12,70 +14,50 @@ namespace TBird.DB
 		/// <returns></returns>
 		public static T GetValue<T>(object value)
 		{
-			if (value is null || value is DBNull)
+			if (value != null)
 			{
-				return default(T);
-			}
-			else if (value is long l)
-			{
-				return (T)LongConvert<T>(l);
-			}
-			else if (value is double d)
-			{
-				return (T)DoubleConvert<T>(d);
+				switch (value)
+				{
+					case DBNull _:
+						return default;
+					case T x:
+						return x;
+				}
+
+				return (T)_typeconverters[typeof(T)](value);
 			}
 			else
 			{
-				return (T)value;
+				return default;
 			}
 		}
 
-		/// <summary>
-		/// DBから取得した数値を指定した型に変換して取得します。
-		/// </summary>
-		/// <typeparam name="T">変換後の型</typeparam>
-		/// <param name="value">DBから取得した数値</param>
-		/// <returns></returns>
-		private static object LongConvert<T>(long value)
-		{
-			if (typeof(T) == typeof(long))
-			{
-				return value;
-			}
-			else if (typeof(T) == typeof(int))
-			{
-				return (int)value;
-			}
-			else if (typeof(T) == typeof(short))
-			{
-				return (short)value;
-			}
-			else
-			{
-				return value;
-			}
-		}
+		private static object ToInt16(object value) => value is short x ? x : short.Parse(value.ToString());
 
-		/// <summary>
-		/// DBから取得した浮動小数点数を指定した型に変換して取得します。
-		/// </summary>
-		/// <typeparam name="T">変換後の型</typeparam>
-		/// <param name="value">DBから取得した浮動小数点数</param>
-		/// <returns></returns>
-		private static object DoubleConvert<T>(double value)
+		private static object ToInt32(object value) => value is int x ? x : int.Parse(value.ToString());
+
+		private static object ToInt64(object value) => value is long x ? x : long.Parse(value.ToString());
+
+		private static object ToByte(object value) => value is byte x ? x : byte.Parse(value.ToString());
+
+		private static object ToBytes(object value) => value is byte[] x ? x : value;
+
+		private static object ToSingle(object value) => value is float x ? x : float.Parse(value.ToString());
+
+		private static object ToDouble(object value) => value is double x ? x : double.Parse(value.ToString());
+
+		private static object ToDecimal(object value) => value is decimal x ? x : decimal.Parse(value.ToString());
+
+		private static readonly Dictionary<Type, Func<object, object>> _typeconverters = new Dictionary<Type, Func<object, object>>()
 		{
-			if (typeof(T) == typeof(double))
-			{
-				return value;
-			}
-			else if (typeof(T) == typeof(float))
-			{
-				return (float)value;
-			}
-			else
-			{
-				return LongConvert<T>((long)value);
-			}
-		}
+			{ typeof(short), ToInt16 },
+			{ typeof(int), ToInt32 },
+			{ typeof(long), ToInt64 },
+			{ typeof(byte), ToByte },
+			{ typeof(byte[]), ToBytes },
+			{ typeof(float), ToSingle },
+			{ typeof(double), ToDouble },
+			{ typeof(decimal), ToDecimal }
+		};
 	}
 }
