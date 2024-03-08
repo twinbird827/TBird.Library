@@ -10,20 +10,22 @@ namespace Netkeiba
 {
 	public class PredictionSource
 	{
-		[LoadColumn(1, 245)]
-		[VectorType(245)]
+		protected const int Count = 594;
+
+		[LoadColumn(1, Count)]
+		[VectorType(Count)]
 		public float[] Features { get; set; } = new float[0];
 	}
 
 	public class BinaryClassificationSource : PredictionSource
 	{
-		[LoadColumn(246)]
+		[LoadColumn(Count+1)]
 		public bool 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource
 	{
-		[LoadColumn(246)]
+		[LoadColumn(Count + 1)]
 		public float 着順 { get; set; }
 	}
 

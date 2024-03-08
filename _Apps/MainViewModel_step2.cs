@@ -10,6 +10,7 @@ using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Wpf;
+using Tensorflow.Keras.Layers;
 
 namespace Netkeiba
 {
@@ -57,26 +58,8 @@ namespace Netkeiba
 				// 産駒成績の更新
 				await RefreshSanku(conn, true, await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_sanku)"));
 
-				// ﾃﾞﾌｫﾙﾄ値の作製
-				DEF = await conn.GetRow<float>(Arr(
-					//"WITH v_tou AS (SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
-					"SELECT",
-					"AVG(着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 WHEN ﾗﾝｸ2 = 'RANK3' THEN 1.00 WHEN ﾗﾝｸ2 = 'RANK4' THEN 1.25 ELSE 1.50 END)) 着順,",
-					"AVG(体重) 体重,",
-					"AVG(距離) 距離,",
-					"AVG(上り) 上り,",
-					"AVG(斤量) 斤量",
-					"FROM t_orig"
-				).GetString(" "));
-
-				DEF["斤上"] = Get斤上(DEF["上り"], DEF["斤量"]);
-				DEF["時間"] = 16.237541F;
-				DEF["勝時差"] = 1.0F;
-				DEF["勝上差"] = DEF["斤上"] - DEF["斤上"] * 0.9F;
-				DEF["出走間隔"] = 40F;
-				DEF.AddRange(await conn.GetRow<float>(
-					"SELECT AVG(EI) EI, AVG(賞金) 賞金 FROM (SELECT 馬ID, AVG(EI) EI, AVG(賞金) 賞金 FROM t_sanku GROUP BY 馬ID)"
-				));
+				// ﾚｰｽ情報の初期化
+				await InitializeStep2(conn);
 
 				foreach (var raceid in rac)
 				{
@@ -126,7 +109,31 @@ namespace Netkeiba
 		});
 		private Dictionary<string, float> DEF;
 
-		private float GetSingle(float x, float y, float def, Func<float, float, float> func)
+		private async Task InitializeStep2(SQLiteControl conn)
+		{
+            // ﾃﾞﾌｫﾙﾄ値の作製
+            DEF = await conn.GetRow<float>(Arr(
+                //"WITH v_tou AS (SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
+                "SELECT",
+                "AVG(着順 * (CASE WHEN ﾗﾝｸ2 = 'RANK1' THEN 0.50 WHEN ﾗﾝｸ2 = 'RANK2' THEN 0.75 WHEN ﾗﾝｸ2 = 'RANK3' THEN 1.00 WHEN ﾗﾝｸ2 = 'RANK4' THEN 1.25 ELSE 1.50 END)) 着順,",
+                "AVG(体重) 体重,",
+                "AVG(距離) 距離,",
+                "AVG(上り) 上り,",
+                "AVG(斤量) 斤量",
+                "FROM t_orig"
+            ).GetString(" "));
+
+            DEF["斤上"] = Get斤上(DEF["上り"], DEF["斤量"]);
+            DEF["時間"] = 16.237541F;
+            DEF["勝時差"] = 1.0F;
+            DEF["勝上差"] = DEF["斤上"] - DEF["斤上"] * 0.9F;
+            DEF["出走間隔"] = 40F;
+            DEF.AddRange(await conn.GetRow<float>(
+                "SELECT AVG(EI) EI, AVG(賞金) 賞金 FROM (SELECT 馬ID, AVG(EI) EI, AVG(賞金) 賞金 FROM t_sanku GROUP BY 馬ID)"
+            ));
+        }
+
+        private float GetSingle(float x, float y, float def, Func<float, float, float> func)
 		{
 			return !float.IsNaN(x) && !float.IsNaN(y) ? func(x, y) : def;
 		}

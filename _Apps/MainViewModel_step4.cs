@@ -189,7 +189,10 @@ namespace Netkeiba
 				var iRegressions = 0;
 				var iScores = 0;
 
-				foreach (var raceid in raceids)
+				// ﾚｰｽ情報の初期化
+				await InitializeStep2(conn);
+
+                foreach (var raceid in raceids)
 				{
 					await conn.BeginTransaction();
 
@@ -214,21 +217,22 @@ namespace Netkeiba
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
 					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
 					{
-						// 不要なﾃﾞｰﾀ
-						var drops = new[] { "着順", "単勝", "人気", "ﾗﾝｸ2" };
+                        // 不要なﾃﾞｰﾀ
+                        var head1 = new[] { "ﾚｰｽID", "開催日数", "枠番", "馬番" };
+                        var head2 = new[] { "ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID" };
 
-						var tmp = new List<object>();
-						var src = racearr.First(x => x["馬ID"].GetSingle() == (float)m["馬ID"]);
+                        var tmp = new List<object>();
+						var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
 
 						if (src["ﾗﾝｸ1"] == "新馬") continue;
 
 						var binaryClassificationSource = new BinaryClassificationSource()
 						{
-							Features = m.Keys.Where(x => !drops.Contains(x)).Select(x => (float)m[x]).ToArray()
+							Features = head1.Select(x => m[x].GetSingle()).Concat(m.Keys.Where(x => !head2.Contains(x)).Select(x => m[x].GetSingle())).ToArray()
 						};
 						var regressionSource = new RegressionSource()
 						{
-							Features = m.Keys.Where(x => !drops.Contains(x)).Select(x => (float)m[x]).ToArray()
+							Features = binaryClassificationSource.Features
 						};
 
 						// 共通ﾍｯﾀﾞ
