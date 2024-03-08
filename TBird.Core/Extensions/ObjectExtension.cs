@@ -1,5 +1,9 @@
 ﻿using System;
 using System.CodeDom;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace TBird.Core
 {
@@ -18,127 +22,99 @@ namespace TBird.Core
 		}
 
 		/// <summary>
-		/// ｵﾌﾞｼﾞｪｸﾄを倍精度浮動小数点数に変換し、変換できたかどうかを取得します。
+		///
 		/// </summary>
-		/// <param name="value">対象ｵﾌﾞｼﾞｪｸﾄ</param>
-		/// <param name="result">変換できた場合は変換値を格納する参照変数</param>
-		public static bool TryDecimal(this object value, out decimal result)
+		/// <typeparam name="T"></typeparam>
+		/// <param name="value"></param>
+		/// <param name="def"></param>
+		/// <param name="func"></param>
+		/// <returns></returns>
+		private static T Get<T>(this object value, T def, Func<object, T> func)
 		{
-			decimal x;
-			if (value is double)
-			{
-				result = (decimal)(double)value;
-			}
-			else if (value is float)
-			{
-				result = (decimal)(float)value;
-			}
-			else if (value is int)
-			{
-				result = (int)value;
-			}
-			else if (value is long)
-			{
-				result = (long)value;
-			}
-			else if (value is short)
-			{
-				result = (short)value;
-			}
-			else if (value is uint)
-			{
-				result = (short)value;
-			}
-			else if (value is string && decimal.TryParse((string)value, out x))
-			{
-				result = x;
-			}
-			else if (value != null && decimal.TryParse(value.ToString(), out x))
-			{
-				result = x;
-			}
-			else
-			{
-				result = 0;
-				return false;
-			}
-
-			return true;
-		}
-
-        public static double GetDoubleNaN(this object value)
-        {
-			if (value is double val)
+			if (value is T val)
 			{
 				return val;
 			}
-            decimal result;
-            if (value.TryDecimal(out result))
-            {
-                return (double)result;
-            }
-            else
-            {
-                return double.NaN;
-            }
-        }
 
-        public static double GetDouble(this object value)
-        {
-            double x = GetDoubleNaN(value);
-
-            return double.IsNaN(x) ? 0d : x;
-        }
-
-        public static float GetSingleNaN(this object value)
-        {
-			if (value is float val)
+			if (value is double x1)
 			{
-				return val;
+				return func(x1);
 			}
-            decimal result;
-            if (value.TryDecimal(out result))
-            {
-                return (float)result;
-            }
-            else
-            {
-                return float.NaN;
-            }
-        }
-
-        public static float GetSingle(this object value)
-        {
-            float x = GetSingleNaN(value);
-
-            return float.IsNaN(x) ? 0F : x;
-        }
-
-        public static int GetInt32(this object value)
-		{
-			decimal result;
-			if (value.TryDecimal(out result))
+			else if (value is float x2)
 			{
-				return (int)result;
+				return func(x2);
+			}
+			else if (value is int x3)
+			{
+				return func(x3);
+			}
+			else if (value is long x4)
+			{
+				return func(x4);
+			}
+			else if (value is short x5)
+			{
+				return func(x5);
+			}
+			else if (value is uint x6)
+			{
+				return func(x6);
+			}
+			else if (value is string && decimal.TryParse((string)value, out decimal x7))
+			{
+				return func(x7);
+			}
+			else if (value != null && decimal.TryParse(value.ToString(), out decimal x8))
+			{
+				return func(x8);
 			}
 			else
 			{
-				return 0;
+				return def;
 			}
 		}
 
-        public static long GetInt64(this object value)
-        {
-            decimal result;
-            if (value.TryDecimal(out result))
-            {
-                return (long)result;
-            }
-            else
-            {
-                return 0;
-            }
-        }
+		public static double GetDouble(this object value, double def = 0D)
+		{
+			return value.Get(def, x => (double)x);
+		}
 
-    }
+		public static float GetSingle(this object value, float def = 0F)
+		{
+			return value.Get(def, x => (float)x);
+		}
+
+		public static int GetInt32(this object value, int def = 0)
+		{
+			return value.Get(def, x => (int)x);
+		}
+
+		public static long GetInt64(this object value, long def = 0L)
+		{
+			return value.Get(def, x => (long)x);
+		}
+
+		public static T Run<T>(this T target, Action<T> action)
+		{
+			action(target);
+			return target;
+		}
+
+		public static TResult Run<T, TResult>(this T target, Func<T, TResult> action)
+		{
+			return action(target);
+		}
+
+		public static async Task<T> RunAsync<T>(this Task<T> target, Action<T> action)
+		{
+			var x = await target;
+			action(x);
+			return x;
+		}
+
+		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, TResult> action)
+		{
+			return action(await target);
+		}
+	}
 }
