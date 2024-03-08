@@ -27,9 +27,9 @@ namespace TBird.Core
 		/// <typeparam name="T"></typeparam>
 		/// <param name="value"></param>
 		/// <param name="def"></param>
-		/// <param name="func"></param>
+		/// <param name="func1"></param>
 		/// <returns></returns>
-		private static T Get<T>(this object value, T def, Func<object, T> func)
+		private static T Get<T>(this object value, T def, Func<decimal, T> func1)
 		{
 			if (value is T val)
 			{
@@ -38,35 +38,35 @@ namespace TBird.Core
 
 			if (value is double x1)
 			{
-				return func(x1);
+				return func1((decimal)x1);
 			}
 			else if (value is float x2)
 			{
-				return func(x2);
+				return func1((decimal)x2);
 			}
 			else if (value is int x3)
 			{
-				return func(x3);
+				return func1((decimal)x3);
 			}
 			else if (value is long x4)
 			{
-				return func(x4);
+				return func1((decimal)x4);
 			}
 			else if (value is short x5)
 			{
-				return func(x5);
+				return func1((decimal)x5);
 			}
 			else if (value is uint x6)
 			{
-				return func(x6);
+				return func1((decimal)x6);
 			}
 			else if (value is string && decimal.TryParse((string)value, out decimal x7))
 			{
-				return func(x7);
+				return func1(x7);
 			}
 			else if (value != null && decimal.TryParse(value.ToString(), out decimal x8))
 			{
-				return func(x8);
+				return func1(x8);
 			}
 			else
 			{
@@ -81,20 +81,20 @@ namespace TBird.Core
 
 		public static float GetSingle(this object value, float def = 0F)
 		{
-			return value.Get(def, x => (float)x);
-		}
+            return value.Get(def, x => (float)x);
+        }
 
-		public static int GetInt32(this object value, int def = 0)
+        public static int GetInt32(this object value, int def = 0)
 		{
-			return value.Get(def, x => (int)x);
-		}
+            return value.Get(def, x => (int)x);
+        }
 
-		public static long GetInt64(this object value, long def = 0L)
+        public static long GetInt64(this object value, long def = 0L)
 		{
-			return value.Get(def, x => (long)x);
-		}
+            return value.Get(def, x => (long)x);
+        }
 
-		public static T Run<T>(this T target, Action<T> action)
+        public static T Run<T>(this T target, Action<T> action)
 		{
 			action(target);
 			return target;
