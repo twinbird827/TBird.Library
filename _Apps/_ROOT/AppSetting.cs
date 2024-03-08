@@ -110,9 +110,9 @@ namespace Netkeiba
 			Save();
 		}
 
-		public BinaryClassificationResult GetBinaryClassificationResult(int index)
+		public BinaryClassificationResult GetBinaryClassificationResult(int index, string rank)
 		{
-			return BinaryClassificationResults.Where(x => x.Index == index).OrderByDescending(x =>
+			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).OrderByDescending(x =>
 			{
 				switch (BinaryClassificationMetric)
 				{
@@ -151,9 +151,9 @@ namespace Netkeiba
 			Save();
 		}
 
-		public RegressionResult GetRegressionResult(int index)
+		public RegressionResult GetRegressionResult(int index, string rank)
 		{
-			return RegressionResults.Where(x => x.Index == index).OrderByDescending(x =>
+			return RegressionResults.Where(x => x.Index == index && x.Rank == rank).OrderByDescending(x =>
 			{
 				switch (RegressionMetric)
 				{

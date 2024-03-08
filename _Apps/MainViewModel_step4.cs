@@ -15,6 +15,7 @@ using TBird.DB;
 using System.IO;
 using System.Diagnostics.SymbolStore;
 using Tensorflow;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Netkeiba
 {
@@ -32,26 +33,38 @@ namespace Netkeiba
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 
-			var BinaryClassification1 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(1).Path, out DataViewSchema BinaryClassification1Schema);
-			var BinaryClassification2 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(2).Path, out DataViewSchema BinaryClassification2Schema);
-			var BinaryClassification3 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(3).Path, out DataViewSchema BinaryClassification3Schema);
-			var BinaryClassification6 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(6).Path, out DataViewSchema BinaryClassification6Schema);
-			var BinaryClassification7 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(7).Path, out DataViewSchema BinaryClassification7Schema);
-			var BinaryClassification8 = mlContext.Model.Load(AppSetting.Instance.GetBinaryClassificationResult(8).Path, out DataViewSchema BinaryClassification8Schema);
-			var Regression = mlContext.Model.Load(AppSetting.Instance.GetRegressionResult(1).Path, out DataViewSchema RegressionSchema);
+			var ranks = new[] { "RANK1", "RANK2", "RANK3", "RANK4" };
 
 			await CreatePredictionFile("Best",
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification1),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification2),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification3),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification6),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification7),
-				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(BinaryClassification8),
-				mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(Regression)
+				ranks.ToDictionary(rank => rank, rank => CreateBinaryClassificationPredictionEngine(mlContext, 1, rank)),
+				ranks.ToDictionary(rank => rank, rank => CreateBinaryClassificationPredictionEngine(mlContext, 2, rank)),
+				ranks.ToDictionary(rank => rank, rank => CreateBinaryClassificationPredictionEngine(mlContext, 3, rank)),
+				ranks.ToDictionary(rank => rank, rank => CreateBinaryClassificationPredictionEngine(mlContext, 8, rank)),
+				ranks.ToDictionary(rank => rank, rank => CreateBinaryClassificationPredictionEngine(mlContext, 7, rank)),
+				ranks.ToDictionary(rank => rank, rank => CreateBinaryClassificationPredictionEngine(mlContext, 6, rank)),
+				ranks.ToDictionary(rank => rank, rank => CreateRegressionPredictionEngine(mlContext, 1, rank))
 			).TryCatch();
 
 			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
 		});
+
+		private PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> CreateBinaryClassificationPredictionEngine(MLContext mlContext, int index, string rank)
+		{
+			return mlContext.Model.Load(
+				AppSetting.Instance.GetBinaryClassificationResult(index, rank).Path, out DataViewSchema schema
+			).Run(x =>
+				mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(x)
+			);
+		}
+
+		private PredictionEngine<RegressionSource, RegressionPrediction> CreateRegressionPredictionEngine(MLContext mlContext, int index, string rank)
+		{
+			return mlContext.Model.Load(
+				AppSetting.Instance.GetRegressionResult(index, rank).Path, out DataViewSchema schema
+			).Run(x =>
+				mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(x)
+			);
+		}
 
 		private IEnumerable<string> GetRaceIds()
 		{
@@ -60,13 +73,13 @@ namespace Netkeiba
 		}
 
 		private async Task CreatePredictionFile(string tag,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内1,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内2,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 以内3,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外3,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外2,
-				PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction> 着外1,
-				PredictionEngine<RegressionSource, RegressionPrediction> 着順1
+				Dictionary<string, PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>> 以内1,
+				Dictionary<string, PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>> 以内2,
+				Dictionary<string, PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>> 以内3,
+				Dictionary<string, PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>> 着外1,
+				Dictionary<string, PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>> 着外2,
+				Dictionary<string, PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>> 着外3,
+				Dictionary<string, PredictionEngine<RegressionSource, RegressionPrediction>> 着順1
 			)
 		{
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMddHHmmss") + "_" + tag + ".csv");
@@ -74,73 +87,73 @@ namespace Netkeiba
 			FileUtil.BeforeCreate(path);
 			using (var conn = CreateSQLiteControl())
 			{
-                (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
+				(int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
 				{
                     // 単1の予想結果
 					(100, "単1", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() == 1),
-                        arr.Where(x => x[j].GetInt32() == 2),
-                        arr.Where(x => x[j].GetInt32() == 3))
-                    ),
+						arr.Where(x => x[j].GetInt32() == 1),
+						arr.Where(x => x[j].GetInt32() == 2),
+						arr.Where(x => x[j].GetInt32() == 3))
+					),
                     // 単4の予想結果
                     (400, "単4", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4))
+					),
                     // 単6の予想結果
                     (600, "単6", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5))
+					),
                     // 複1の予想結果
                     (100, "複1", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 3),
-                        arr.Where(x => x[j].GetInt32() <= 3),
-                        arr.Where(x => x[j].GetInt32() <= 3))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 3),
+						arr.Where(x => x[j].GetInt32() <= 3),
+						arr.Where(x => x[j].GetInt32() <= 3))
+					),
                     // 複2の予想結果
                     (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 4))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
                     // 複3aの予想結果
                     (300, "複3a", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 5))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 5))
+					),
                     // 複3bの予想結果
                     (300, "複3b", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 4),
-                        arr.Where(x => x[j].GetInt32() <= 4),
-                        arr.Where(x => x[j].GetInt32() <= 4))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
                     // ワ1の予想結果
                     (100, "ワ1", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2))
+					),
                     // ワ3の予想結果
                     (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 3))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 3))
+					),
                     // ワ6の予想結果
                     (600, "ワ6", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 4))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
                     // 連1の予想結果
                     (100, "連1", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2))
+					),
                     // 連3の予想結果
                     (300, "連3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 3))
-                    )
+						arr.Where(x => x[j].GetInt32() <= 3))
+					)
 				};
 
-                var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
+				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
 				var 追切 = await AppUtil.Get追切(conn);
@@ -232,22 +245,22 @@ namespace Netkeiba
 						iHeaders = tmp.Count;
 
 						var binaries1 = Arr(以内1, 以内2, 以内3)
-							.Select(x => x.Predict(binaryClassificationSource))
+							.Select(x => x[src["ﾗﾝｸ2"]].Predict(binaryClassificationSource))
 							.ToArray();
 						tmp.AddRange(binaries1);
 
 						iBinaries1 = binaries1.Length;
 
 						var binaries2 = Arr(着外1, 着外2, 着外3)
-                            .Select(x => x.Predict(binaryClassificationSource))
-                            .Select(x => { x.Score = x.Score * -1; return x; })
-                            .ToArray();
+							.Select(x => x[src["ﾗﾝｸ2"]].Predict(binaryClassificationSource))
+							.Select(x => { x.Score = x.Score * -1; return x; })
+							.ToArray();
 						tmp.AddRange(binaries2);
 
 						iBinaries2 = binaries2.Length;
 
 						var regressions = Arr(着順1)
-							.Select(x => x.Predict(regressionSource))
+							.Select(x => x[src["ﾗﾝｸ2"]].Predict(regressionSource))
 							.ToArray();
 						tmp.AddRange(regressions);
 
@@ -296,7 +309,7 @@ namespace Netkeiba
 						// 支払情報を出力
 						var payoutDetail = await GetPayout(raceid);
 
-                        for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
+						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
 						{
 							arr.First().AddRange(pays.Select(x => x.func(arr, payoutDetail, j)));
 						}
@@ -313,9 +326,9 @@ namespace Netkeiba
 					Progress.Value += 1;
 				}
 
-                var payouts = pays.Select(x => x.pay).ToArray();
-                var retidx = payouts.Length;
-                var result1 = Enumerable.Repeat("", iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2).OfType<object>()
+				var payouts = pays.Select(x => x.pay).ToArray();
+				var retidx = payouts.Length;
+				var result1 = Enumerable.Repeat("", iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2).OfType<object>()
 					.Concat(Enumerable.Range(iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2, (iBinaries1 + iBinaries2 + iRegressions + iScores) * retidx)
 					.Select(i => (double)list.Where(x => i < x.Count && 0 < x[i].GetInt32()).Count() / (double)list.Where(x => i < x.Count).Count()).OfType<object>())
 					.ToList();
