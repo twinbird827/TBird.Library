@@ -81,20 +81,20 @@ namespace TBird.Core
 
 		public static float GetSingle(this object value, float def = 0F)
 		{
-            return value.Get(def, x => (float)x);
-        }
+			return value.Get(def, x => (float)x);
+		}
 
-        public static int GetInt32(this object value, int def = 0)
+		public static int GetInt32(this object value, int def = 0)
 		{
-            return value.Get(def, x => (int)x);
-        }
+			return value.Get(def, x => (int)x);
+		}
 
-        public static long GetInt64(this object value, long def = 0L)
+		public static long GetInt64(this object value, long def = 0L)
 		{
-            return value.Get(def, x => (long)x);
-        }
+			return value.Get(def, x => (long)x);
+		}
 
-        public static T Run<T>(this T target, Action<T> action)
+		public static T Run<T>(this T target, Action<T> action)
 		{
 			action(target);
 			return target;
@@ -112,9 +112,21 @@ namespace TBird.Core
 			return x;
 		}
 
+		public static async Task<T> RunAsync<T>(this Task<T> target, Func<T, Task> action)
+		{
+			var x = await target;
+			await action(x);
+			return x;
+		}
+
 		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, TResult> action)
 		{
 			return action(await target);
+		}
+
+		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, Task<TResult>> action)
+		{
+			return await action(await target);
 		}
 	}
 }
