@@ -133,18 +133,19 @@
 
 			<GroupBox Grid.Column="1" Header="STEP3: 学習実行">
 				<DockPanel>
-					<ScrollViewer DockPanel.Dock="Left"
-								  MaxHeight="100"
-								  VerticalScrollBarVisibility="Visible">
-						<StackPanel Orientation="Vertical">
-							<CheckBox IsChecked="{Binding S3B01.IsChecked}" Content="B01" />
-							<CheckBox IsChecked="{Binding S3B02.IsChecked}" Content="B02" />
-							<CheckBox IsChecked="{Binding S3B03.IsChecked}" Content="B03" />
-							<CheckBox IsChecked="{Binding S3B06.IsChecked}" Content="B06" />
-							<CheckBox IsChecked="{Binding S3B07.IsChecked}" Content="B07" />
-							<CheckBox IsChecked="{Binding S3B08.IsChecked}" Content="B08" />
-							<CheckBox IsChecked="{Binding S3R01.IsChecked}" Content="R01" />
-						</StackPanel>
+					<ScrollViewer DockPanel.Dock="Left" MaxHeight="150" VerticalScrollBarVisibility="Visible">
+						<ItemsControl ItemsSource="{Binding CreateModels}">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<StackPanel Orientation="Vertical" />
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate>
+									<CheckBox IsChecked="{Binding IsChecked}" Content="{Binding Display}" />
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
 					</ScrollViewer>
 					<Button Width="200" Content="実行" Command="{Binding S3EXEC}" />
 				</DockPanel>
@@ -157,7 +158,7 @@
 							 TextWrapping="Wrap"
 							 VerticalAlignment="Stretch"
 							 ScrollViewer.VerticalScrollBarVisibility="Visible"
-                             MaxHeight="100"
+                             MaxHeight="150"
 							 Text="{Binding S4Text}" />
 				</DockPanel>
 			</GroupBox>

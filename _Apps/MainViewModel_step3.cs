@@ -24,12 +24,17 @@ using Microsoft.ML.Trainers.LightGbm;
 using Microsoft.ML.AutoML.CodeGen;
 using Microsoft.ML.SearchSpace;
 using Microsoft.ML.SearchSpace.Option;
+using TBird.Wpf.Collections;
 
 namespace Netkeiba
 {
 	public partial class MainViewModel
 	{
 		private const string Label = "着順";
+
+		public BindableCollection<CheckboxItemModel> CreateModelSources { get; } = new BindableCollection<CheckboxItemModel>();
+
+		public BindableContextCollection<CheckboxItemModel> CreateModels { get; }
 
 		public CheckboxItemModel S3B01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 		public CheckboxItemModel S3B02 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
@@ -45,21 +50,34 @@ namespace Netkeiba
 
 			Progress.Value = 0;
 			Progress.Minimum = 0;
-			Progress.Maximum = AppSetting.Instance.TrainingTimeSecond.Length * Arr(S3B01, S3B02, S3B03, S3B06, S3B07, S3B08, S3R01).Count(x => x.IsChecked);
+			Progress.Maximum = AppSetting.Instance.TrainingTimeSecond.Length * CreateModels.Count(x => x.IsChecked);
 
 			AppSetting.Instance.Save();
 
-			foreach (var rank in Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5"))
+			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				if (S3B01.IsChecked) await BinaryClassification(1, rank).TryCatch();
-				if (S3B02.IsChecked) await BinaryClassification(2, rank).TryCatch();
-				if (S3B03.IsChecked) await BinaryClassification(3, rank).TryCatch();
-				if (S3B06.IsChecked) await BinaryClassification(6, rank, r => r.GetValue("着順").GetDouble() > 3).TryCatch();
-				if (S3B07.IsChecked) await BinaryClassification(7, rank, r => r.GetValue("着順").GetDouble() > 2).TryCatch();
-				if (S3B08.IsChecked) await BinaryClassification(8, rank, r => r.GetValue("着順").GetDouble() > 1).TryCatch();
+				{ 1, r => r.GetValue("着順").GetDouble() <= 1 },
+				{ 2, r => r.GetValue("着順").GetDouble() <= 2 },
+				{ 3, r => r.GetValue("着順").GetDouble() <= 3 },
+				{ 6, r => r.GetValue("着順").GetDouble() > 1 },
+				{ 7, r => r.GetValue("着順").GetDouble() > 2 },
+				{ 8, r => r.GetValue("着順").GetDouble() > 3 }
+			};
 
-				if (S3R01.IsChecked) await Regression(rank).TryCatch();
-			}
+			CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")).ForEach(async x =>
+			{
+				var args = x.Value.Split("-");
+				var index = args[2].GetInt32();
+				var rank = args[1];
+
+				await BinaryClassification(index, rank, dic[index]).TryCatch();
+			});
+
+			CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")).ForEach(async x =>
+			{
+				var args = x.Value.Split("-");
+				await Regression(args[1]).TryCatch();
+			});
 		});
 
 		private async Task BinaryClassification(int index, string rank, Func<DbDataReader, object> func_yoso)
