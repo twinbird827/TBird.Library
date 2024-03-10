@@ -186,8 +186,8 @@ namespace Netkeiba
 				keys.ForEach(key =>
 				{
 					dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
-					dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 0.75F, ret => ret.Percentile(25));
-					dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 1.25F, ret => ret.Percentile(75));
+					dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
+					dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
 				});
 			});
 
@@ -406,8 +406,8 @@ namespace Netkeiba
 			var keyvalue = $"{src[keyname]}";
 			var select = Arr(
 				$"IFNULL(AVG(着順), {DEF["着順"]})",
-				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 0.50})",
-				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 2.00})"
+				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
+				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
 			);
 			var count = ranks.Length * select.Length * headnames.Length;
 			var index = 0;
@@ -592,5 +592,9 @@ namespace Netkeiba
 		private const float 着順RANK4 = 1.00F;
 		private const float 着順RANK5 = 1.00F;
 		private readonly string 着順CASE = $"(CASE ﾗﾝｸ2 WHEN 'RANK1' THEN {着順RANK1} WHEN 'RANK2' THEN {着順RANK2} WHEN 'RANK3' THEN {着順RANK3} WHEN 'RANK4' THEN {着順RANK4} ELSE {着順RANK5} END)";
-	}
+
+        private const float 着順LQ = 0.50F;
+        private const float 着順UQ = 2.00F;
+
+    }
 }
