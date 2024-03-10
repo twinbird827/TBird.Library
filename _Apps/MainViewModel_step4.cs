@@ -131,12 +131,6 @@ namespace Netkeiba
 						arr.Where(x => x[j].GetInt32() <= 4),
 						arr.Where(x => x[j].GetInt32() <= 4))
 					),
-                    // 複3bの予想結果
-                    (300, "複3c", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 3),
-						arr.Where(x => x[j].GetInt32() <= 3),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
                     // ワ1の予想結果
                     (100, "ワ1", (arr, payoutDetail, j) => Getワイド(payoutDetail,
 						arr.Where(x => x[j].GetInt32() <= 2))
