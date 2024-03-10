@@ -64,20 +64,20 @@ namespace Netkeiba
 				{ 8, r => r.GetValue("着順").GetDouble() > 3 }
 			};
 
-			CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")).ForEach(async x =>
+			foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")))
 			{
 				var args = x.Value.Split("-");
 				var index = args[2].GetInt32();
 				var rank = args[1];
 
 				await BinaryClassification(index, rank, dic[index]).TryCatch();
-			});
+			}
 
-			CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")).ForEach(async x =>
+            foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")))
 			{
 				var args = x.Value.Split("-");
 				await Regression(args[1]).TryCatch();
-			});
+			};
 		});
 
 		private async Task BinaryClassification(int index, string rank, Func<DbDataReader, object> func_yoso)

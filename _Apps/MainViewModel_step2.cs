@@ -107,13 +107,13 @@ namespace Netkeiba
 			}
 		});
 		private Dictionary<string, float> DEF;
-		private Dictionary<long, int> TOU;
+		private Dictionary<long, float> TOU;
 
 		private async Task InitializeModelBase(SQLiteControl conn)
 		{
 			TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
 			{
-				return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x["頭数"].GetInt32());
+				return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x["頭数"].GetSingle());
 			});
 
 			// ﾃﾞﾌｫﾙﾄ値の作製
@@ -169,6 +169,8 @@ namespace Netkeiba
 			var 同ﾚｰｽ = await conn.GetRows("SELECT * FROM t_orig WHERE ﾚｰｽID = ?",
 				SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
 			);
+
+			TOU[raceid.GetInt64()] = 同ﾚｰｽ.Count;
 
 			// ﾚｰｽ毎の纏まり
 			var racarr = await 同ﾚｰｽ.Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切).TryCatch()).WhenAll();
@@ -420,10 +422,10 @@ namespace Netkeiba
 				{
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 
-					var val = "頭数 / 着順 * (CASE ﾗﾝｸ2 WHEN 'RANK1' THEN 4.00 WHEN 'RANK2' THEN 3.00 WHEN 'RANK3' THEN 2.00 ELSE 1.00 END)";
+					var val = $"{TOU[src["ﾚｰｽID"].GetInt64()]} / 着順 * (CASE ﾗﾝｸ2 WHEN 'RANK1' THEN 4.00 WHEN 'RANK2' THEN 3.00 WHEN 'RANK3' THEN 2.00 ELSE 1.00 END)";
 
 					var where = Arr(
-						$"FROM t_orig LEFT JOIN w_tou ON w_tou.ﾚｰｽID = t_orig.ﾚｰｽID WHERE",
+						$"FROM t_orig WHERE",
 						$"{keyname} = '{keyvalue}' AND",
 						$"開催日数  < {now}        AND",
 						$"{{0}}",

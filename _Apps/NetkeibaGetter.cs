@@ -321,16 +321,23 @@ namespace Netkeiba
 
 			using (var umaparser = await AppUtil.GetDocument($"https://db.netkeiba.com/horse/{umaid}/"))
 			{
-				if (umaparser.GetElementsByClassName("db_prof_table no_OwnerUnit").FirstOrDefault() is IHtmlTableElement umatable)
+				if (umaparser.GetElementsByClassName("db_prof_table no_OwnerUnit").FirstOrDefault() is IHtmlTableElement umatable1)
 				{
 					// 馬主名
-					dic["馬主名"] = umatable.Rows[2].Cells[1].GetHrefAttribute("title");
+					dic["馬主名"] = umatable1.Rows[2].Cells[1].GetHrefAttribute("title");
 					// 馬主ID
-					dic["馬主ID"] = umatable.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
+					dic["馬主ID"] = umatable1.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
 				}
-			}
+                else if (umaparser.GetElementsByClassName("db_prof_table ").FirstOrDefault() is IHtmlTableElement umatable2)
+                {
+                    // 馬主名
+                    dic["馬主名"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("title");
+                    // 馬主ID
+                    dic["馬主ID"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
+                }
+            }
 
-			return dic;
+            return dic;
 		}
 
 		private async Task<List<Dictionary<string, string>>> GetTyakujun(string raceid)
