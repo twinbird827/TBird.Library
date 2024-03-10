@@ -32,14 +32,14 @@ namespace Netkeiba
 			get => GetProperty(_UseFastForest);
 			set => SetProperty(ref _UseFastForest, value);
 		}
-		private bool _UseFastForest = true;
+		private bool _UseFastForest = false;
 
 		public bool UseFastTree
 		{
 			get => GetProperty(_UseFastTree);
 			set => SetProperty(ref _UseFastTree, value);
 		}
-		private bool _UseFastTree = true;
+		private bool _UseFastTree = false;
 
 		public bool UseLgbm
 		{
@@ -53,28 +53,28 @@ namespace Netkeiba
 			get => GetProperty(_UseLbfgsPoissonRegression);
 			set => SetProperty(ref _UseLbfgsPoissonRegression, value);
 		}
-		private bool _UseLbfgsPoissonRegression = true;
+		private bool _UseLbfgsPoissonRegression = false;
 
 		public bool UseSdca
 		{
 			get => GetProperty(_UseSdca);
 			set => SetProperty(ref _UseSdca, value);
 		}
-		private bool _UseSdca = true;
+		private bool _UseSdca = false;
 
 		public bool UseSdcaLogisticRegression
 		{
 			get => GetProperty(_UseSdcaLogisticRegression);
 			set => SetProperty(ref _UseSdcaLogisticRegression, value);
 		}
-		private bool _UseSdcaLogisticRegression = true;
+		private bool _UseSdcaLogisticRegression = false;
 
 		public bool UseLbfgsLogisticRegression
 		{
 			get => GetProperty(_UseLbfgsLogisticRegression);
 			set => SetProperty(ref _UseLbfgsLogisticRegression, value);
 		}
-		private bool _UseLbfgsLogisticRegression = true;
+		private bool _UseLbfgsLogisticRegression = false;
 
 		public BinaryClassificationMetric BinaryClassificationMetric
 		{
@@ -96,6 +96,13 @@ namespace Netkeiba
 			set => SetProperty(ref _TrainingTimeSecond, value);
 		}
 		private int[] _TrainingTimeSecond = new int[] { };
+
+		public string[]? Features
+		{
+			get => GetProperty(_Features);
+			set => SetProperty(ref _Features, value);
+		}
+		private string[]? _Features;
 
 		public BinaryClassificationResult[] BinaryClassificationResults
 		{

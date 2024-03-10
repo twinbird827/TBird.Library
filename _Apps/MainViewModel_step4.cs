@@ -183,54 +183,60 @@ namespace Netkeiba
 				var iRegressions = 0;
 				var iScores = 0;
 
-				// ﾚｰｽ情報の初期化
-				await InitializeModelBase(conn);
-
-				foreach (var raceid in raceids)
+				// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
+				var racearrs = await raceids.Select(raceid => GetRaceShutubas(raceid).RunAsync(async arr =>
 				{
-					await conn.BeginTransaction();
+					if (arr.Count == 0) return;
 
-					// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
-					var racearr = await GetRaceShutubas(raceid).RunAsync(async arr =>
+					// 着順情報取得
+					var tyaku = await GetTyakujun(raceid);
+
+					// 追切情報取得
+					var oikiri = await GetOikiris(raceid);
+
+					await arr.Select(async row =>
 					{
-						if (arr.Count == 0) return;
+						var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+						row["着順"] = tya != null ? tya["着順"] : string.Empty;
 
-						// 着順情報取得
-						var tyaku = await GetTyakujun(raceid);
+						var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+						row["一言"] = oik != null ? oik["一言"] : string.Empty;
+						row["追切"] = oik != null ? oik["追切"] : string.Empty;
 
-						// 追切情報取得
-						var oikiri = await GetOikiris(raceid);
-
-						await arr.Select(async row =>
-						{
-							var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-							row["着順"] = tya != null ? tya["着順"] : string.Empty;
-
-							var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-							row["一言"] = oik != null ? oik["一言"] : string.Empty;
-							row["追切"] = oik != null ? oik["追切"] : string.Empty;
-
-							var ban = await conn
-								.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
-								.RunAsync(async tmp =>
+						var ban = await conn
+							.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
+							.RunAsync(async tmp =>
+							{
+								if (0 < tmp.Count)
 								{
-									if (0 < tmp.Count)
-									{
-										return tmp[0];
-									}
-									else
-									{
-										return await GetBanushi(row["馬ID"]);
-									}
-								});
-							row["馬主名"] = ban["馬主名"];
-							row["馬主ID"] = ban["馬主ID"];
-						}).WhenAll();
-					});
+									return tmp[0];
+								}
+								else
+								{
+									return await GetBanushi(row["馬ID"]);
+								}
+							});
+						row["馬主名"] = ban["馬主名"];
+						row["馬主ID"] = ban["馬主ID"];
+					}).WhenAll();
+				})).WhenAll();
+
+				// 馬ID
+				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"]).Distinct());
+
+				// 血統情報の作成
+				await RefreshKetto(conn, 馬IDs);
+
+				// 産駒成績の更新
+				await RefreshSanku(conn, true, 馬IDs);
+
+				foreach (var racearr in racearrs)
+				{
 					if (!racearr.Any()) continue;
 
-					// 産駒成績の更新
-					await RefreshSanku(conn, false, racearr.Select(x => x["馬ID"]));
+					var raceid = racearr.First()["ﾚｰｽID"];
+
+					await conn.BeginTransaction();
 
 					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
 					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));
@@ -243,18 +249,18 @@ namespace Netkeiba
 
 					var arr = new List<List<object>>();
 
+					// ﾚｰｽ情報の初期化
+					await InitializeModelBase(conn);
+
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
 					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
 					{
-						// 不要なﾃﾞｰﾀ
-						var head2 = Arr("着順", "単勝", "人気");
-
 						var tmp = new List<object>();
 						var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
 
 						var binaryClassificationSource = new BinaryClassificationSource()
 						{
-							Features = m.Keys.Where(x => !head2.Contains(x)).Select(x => m[x].GetSingle()).ToArray()
+							Features = (AppSetting.Instance.Features ?? throw new ArgumentNullException()).Select(x => m[x].GetSingle()).ToArray()
 						};
 						var regressionSource = new RegressionSource()
 						{
@@ -320,15 +326,15 @@ namespace Netkeiba
 							if ((iHeaders + iBinaries1 + iBinaries2) <= j && j <= (iHeaders + iBinaries1 + iBinaries2))
 							{
 								arr
-									.OrderBy(x => x[j].ToString().GetDouble())
-									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].ToString().GetDouble())
+									.OrderBy(x => x[j].GetDouble())
+									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].GetDouble())
 									.ForEach(x => x.Add(n++));
 							}
 							else
 							{
 								arr
-									.OrderByDescending(x => x[j].ToString().GetDouble())
-									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].ToString().GetDouble())
+									.OrderByDescending(x => x[j].GetDouble())
+									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].GetDouble())
 									.ForEach(x => x.Add(n++));
 							}
 						}
@@ -345,7 +351,6 @@ namespace Netkeiba
 
 					}
 
-					// 挿入したﾃﾞｰﾀは確定情報じゃないのでﾛｰﾙﾊﾞｯｸする
 					conn.Rollback();
 
 					AddLog($"End Step4 Race: {raceid}");

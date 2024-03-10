@@ -67,6 +67,7 @@ namespace Netkeiba
 					await conn.BeginTransaction();
 					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE 着順 IS NULL");
 					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE 着順 = ''");
+					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE 着順 = 0");
 					conn.Commit();
 				}
 

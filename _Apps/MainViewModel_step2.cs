@@ -51,7 +51,7 @@ namespace Netkeiba
 				var 追切 = await AppUtil.Get追切(conn);
 
 				// 血統情報の作成
-				await RefreshKetto(conn, S2Overwrite.IsChecked);
+				await RefreshKetto(conn);
 
 				// 産駒成績の更新
 				await RefreshSanku(conn, true, await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_sanku)"));
@@ -72,6 +72,8 @@ namespace Netkeiba
 					{
 						create = false;
 
+						AppSetting.Instance.Features = null;
+
 						// ﾃｰﾌﾞﾙ作成
 						await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
 						await conn.ExecuteNonQueryAsync(Arr(
@@ -80,15 +82,14 @@ namespace Netkeiba
 							",Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
 					}
 
-					string[]? keys = null;
 					await conn.BeginTransaction();
 					foreach (var ins in racarr)
 					{
-						keys = keys ?? ins.Keys.Where(x => !head2.Contains(x)).ToArray();
+						AppSetting.Instance.Features = AppSetting.Instance.Features ?? ins.Keys.Where(x => !head2.Contains(x)).ToArray();
 
 						var prms1 = head1.Select(x => SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins[x]));
 						var prms2 = SQLiteUtil.CreateParameter(System.Data.DbType.Binary,
-							keys.SelectMany(x => BitConverter.GetBytes(ins[x].GetSingle())).ToArray()
+							AppSetting.Instance.Features.SelectMany(x => BitConverter.GetBytes(ins[x].GetSingle())).ToArray()
 						);
 
 						await conn.ExecuteNonQueryAsync(
@@ -102,6 +103,7 @@ namespace Netkeiba
 
 					Progress.Value += 1;
 				}
+				AppSetting.Instance.Save();
 
 				MessageService.Info("Step5 Completed!!");
 			}
@@ -118,14 +120,14 @@ namespace Netkeiba
 
 			// ﾃﾞﾌｫﾙﾄ値の作製
 			DEF = await conn.GetRow<float>(Arr(
-				"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
-				"SELECT",
-				"AVG(頭数 / 着順 * (CASE ﾗﾝｸ2 WHEN 'RANK1' THEN 4.00 WHEN 'RANK2' THEN 3.00 WHEN 'RANK3' THEN 2.00 ELSE 1.00 END)) 着順,",
-				"AVG(体重) 体重,",
-				"AVG(距離) 距離,",
-				"AVG(上り) 上り,",
-				"AVG(斤量) 斤量",
-				"FROM t_orig LEFT JOIN w_tou ON w_tou.ﾚｰｽID = t_orig.ﾚｰｽID"
+				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
+				$"SELECT",
+				$"AVG((頭数 / 着順) * {着順CASE}) 着順,",
+				$"AVG(体重) 体重,",
+				$"AVG(距離) 距離,",
+				$"AVG(上り) 上り,",
+				$"AVG(斤量) 斤量",
+				$"FROM t_orig LEFT JOIN w_tou ON w_tou.ﾚｰｽID = t_orig.ﾚｰｽID"
 			).GetString(" "));
 
 			DEF["斤上"] = Get斤上(DEF["上り"], DEF["斤量"]);
@@ -212,7 +214,7 @@ namespace Netkeiba
 						SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 				).RunAsync(arr =>
 				{
-					return Arr(arr).Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i).ToList())).ToArray();
+					return Arr(arr).Concat(Enumerable.Range(1, 4).Select(i => arr.Take(i).ToList())).ToArray();
 				});
 
 				var dic = new Dictionary<string, object>();
@@ -235,7 +237,7 @@ namespace Netkeiba
 
 				馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
 
-				dic["体重"] = float.TryParse($"{src["体重"]}", out float tmp_taiju) ? tmp_taiju : Median(馬情報[0], "体重");
+				dic["体重"] = Median(馬情報[0], "体重");
 				//dic["増減"] = src["増減"].GetDouble();
 				//dic["増減割"] = dic["増減"] / dic["体重"];
 				dic["斤量割"] = dic["斤量"].GetSingle() / dic["体重"].GetSingle();
@@ -378,19 +380,17 @@ namespace Netkeiba
 		{
 			var 頭数 = TOU[x["ﾚｰｽID"].GetInt64()];
 			var 着順 = x["着順"].GetSingle();
-			switch ($"{x["ﾗﾝｸ2"]}")
+			var RANK = $"{x["ﾗﾝｸ2"]}" switch
 			{
-				case "RANK1":
-					return 頭数 / 着順 * 4.00F;
-				case "RANK2":
-					return 頭数 / 着順 * 3.00F;
-				case "RANK3":
-					return 頭数 / 着順 * 2.00F;
-				case "RANK4":
-					return 頭数 / 着順 * 1.00F;
-				default:
-					return 頭数 / 着順 * 1.00F;
-			}
+				"RANK1" => 着順RANK1,
+				"RANK2" => 着順RANK2,
+				"RANK3" => 着順RANK3,
+				"RANK4" => 着順RANK4,
+				"RANK5" => 着順RANK5,
+				_ => 着順RANK5
+			};
+
+			return (頭数 / 着順) * RANK;
 		}
 
 		private float Get斤上(float 上り, float 斤量) => 上り.GetSingle() * 600F / (斤量.GetSingle() + 545F);
@@ -414,15 +414,13 @@ namespace Netkeiba
 			var with = new List<string>();
 			var whe = new List<string>();
 
-			with.Add($"w_tou AS (SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID)");
-
 			foreach (var i in ranks)
 			{
 				foreach (var headname in headnames)
 				{
 					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
 
-					var val = $"{TOU[src["ﾚｰｽID"].GetInt64()]} / 着順 * (CASE ﾗﾝｸ2 WHEN 'RANK1' THEN 4.00 WHEN 'RANK2' THEN 3.00 WHEN 'RANK3' THEN 2.00 ELSE 1.00 END)";
+					var val = $"({TOU[src["ﾚｰｽID"].GetInt64()]} / 着順) * {着順CASE}";
 
 					var where = Arr(
 						$"FROM t_orig WHERE",
@@ -449,7 +447,15 @@ namespace Netkeiba
 			);
 		}
 
-		private async Task RefreshKetto(SQLiteControl conn, bool ischecked)
+		private async Task RefreshKetto(SQLiteControl conn)
+		{
+			// ﾃｰﾌﾞﾙ作成
+			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID,父ID,母ID, PRIMARY KEY (馬ID))");
+
+			await RefreshKetto(conn, await conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_ketto)"));
+		}
+
+		private async Task RefreshKetto(SQLiteControl conn, IEnumerable<string> keys)
 		{
 			// ﾃｰﾌﾞﾙ作成
 			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID,父ID,母ID, PRIMARY KEY (馬ID))");
@@ -457,7 +463,7 @@ namespace Netkeiba
 			var count = 0;
 
 			await conn.BeginTransaction();
-			foreach (var key in await conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_ketto)"))
+			foreach (var key in keys)
 			{
 				var url = $"https://db.netkeiba.com/horse/ped/{key}/";
 
@@ -514,7 +520,6 @@ namespace Netkeiba
 				}
 			}
 			conn.Commit();
-
 		}
 
 		private async Task RefreshSanku(SQLiteControl conn, bool transaction, IEnumerable<string> keys)
@@ -580,5 +585,12 @@ namespace Netkeiba
 				}
 			}
 		}
+
+		private const float 着順RANK1 = 4.00F;
+		private const float 着順RANK2 = 3.00F;
+		private const float 着順RANK3 = 2.00F;
+		private const float 着順RANK4 = 1.00F;
+		private const float 着順RANK5 = 1.00F;
+		private readonly string 着順CASE = $"(CASE ﾗﾝｸ2 WHEN 'RANK1' THEN {着順RANK1} WHEN 'RANK2' THEN {着順RANK2} WHEN 'RANK3' THEN {着順RANK3} WHEN 'RANK4' THEN {着順RANK4} ELSE {着順RANK5} END)";
 	}
 }

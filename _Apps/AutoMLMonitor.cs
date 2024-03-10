@@ -26,19 +26,16 @@ namespace Netkeiba
 
 		public void ReportBestTrial(TrialResult result)
 		{
-			_vm.AddLog("Begin best trial report *******************************");
-			ReportCompletedTrial(result);
-			_vm.AddLog("End best trial report *******************************");
+			var id = result.TrialSettings.TrialId;
+			var ms = result.DurationInMilliseconds;
+			var mc = result.Metric;
+			var pl = _pipeline.ToString(result.TrialSettings.Parameter);
+			_vm.AddLog($"Best Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
 			return;
 		}
 
 		public void ReportCompletedTrial(TrialResult result)
 		{
-			var id = result.TrialSettings.TrialId;
-			var ms = result.DurationInMilliseconds;
-			var mc = result.Metric;
-			var pl = _pipeline.ToString(result.TrialSettings.Parameter);
-			_vm.AddLog($"Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
 			_completedTrials.Add(result);
 		}
 

@@ -73,7 +73,7 @@ namespace Netkeiba
 				await BinaryClassification(index, rank, dic[index]).TryCatch();
 			}
 
-            foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")))
+			foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")))
 			{
 				var args = x.Value.Split("-");
 				await Regression(args[1]).TryCatch();
@@ -93,6 +93,8 @@ namespace Netkeiba
 
 			foreach (var second in AppSetting.Instance.TrainingTimeSecond)
 			{
+				AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+
 				// Infer column information
 				var columnInference =
 					mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
@@ -154,7 +156,7 @@ namespace Netkeiba
 				var old = AppSetting.Instance.BinaryClassificationResults.FirstOrDefault(x => x.Index == index);
 				var bst = old == null || old.AreaUnderRocCurve < now.AreaUnderRocCurve ? now : old;
 
-				AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+				AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
 				AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
 				AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
 				AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
@@ -197,6 +199,8 @@ namespace Netkeiba
 
 			foreach (var second in AppSetting.Instance.TrainingTimeSecond)
 			{
+				AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
+
 				// Infer column information
 				var columnInference =
 					mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
@@ -258,7 +262,7 @@ namespace Netkeiba
 				var old = AppSetting.Instance.RegressionResults.FirstOrDefault(x => x.Index == 1);
 				var bst = old == null || old.RSquared < now.RSquared ? now : old;
 
-				AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
+				AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
 				AddLog($"RSquared: {trainedModelMetrics.RSquared}");
 				AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
 				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
