@@ -28,20 +28,20 @@ namespace Netkeiba
 			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
 		}
 
-        public static string GetHrefAttribute(this AngleSharp.Dom.IElement x, string attribute)
-        {
-            return $"{x.GetElementsByTagName("a").Select(a => a.GetAttribute(attribute)).FirstOrDefault() ?? string.Empty}";
-        }
+		public static string GetHrefAttribute(this AngleSharp.Dom.IElement x, string attribute)
+		{
+			return $"{x.GetElementsByTagName("a").Select(a => a.GetAttribute(attribute)).FirstOrDefault() ?? string.Empty}";
+		}
 
-        public static string GetHrefInnerHtml(this AngleSharp.Dom.IElement x)
-        {
-            var innerhtml = x.GetElementsByTagName("a").Any()
-                ? x.GetElementsByTagName("a").First().InnerHtml
-                : x.InnerHtml;
-            return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
-        }
+		public static string GetHrefInnerHtml(this AngleSharp.Dom.IElement x)
+		{
+			var innerhtml = x.GetElementsByTagName("a").Any()
+				? x.GetElementsByTagName("a").First().InnerHtml
+				: x.InnerHtml;
+			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
+		}
 
-        public static string GetTryCatch(this AngleSharp.Dom.IElement x, Func<string, string> func)
+		public static string GetTryCatch(this AngleSharp.Dom.IElement x, Func<string, string> func)
 		{
 			try
 			{
@@ -110,7 +110,7 @@ namespace Netkeiba
 
 		public static Task<List<string>> Getﾗﾝｸ2(SQLiteControl conn)
 		{
-			return Task.Run(() => new[] {"RANK5", "RANK4" , "RANK3" , "RANK2" , "RANK1" }.ToList());
+			return Task.Run(() => new[] { "RANK5", "RANK4", "RANK3", "RANK2", "RANK1" }.ToList());
 		}
 
 		public static Task<List<string>> Get馬性(SQLiteControl conn)
@@ -177,7 +177,7 @@ namespace Netkeiba
 
 		public static void DeleteEndress(string path)
 		{
-			_ = WpfUtil.ExecuteOnBackground(async () =>
+			_ = WpfUtil.BackgroundAsync(async () =>
 			{
 				while (File.Exists(path))
 				{
