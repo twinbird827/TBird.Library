@@ -25,6 +25,7 @@ using Microsoft.ML.AutoML.CodeGen;
 using Microsoft.ML.SearchSpace;
 using Microsoft.ML.SearchSpace.Option;
 using TBird.Wpf.Collections;
+using ICSharpCode.SharpZipLib.Core;
 
 namespace Netkeiba
 {
@@ -280,7 +281,12 @@ namespace Netkeiba
 			AppUtil.DeleteEndress(dataPath);
 		}
 
-		private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
+		private Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
+		{
+			return CreateModelInputData(path, rank, func_target, head => head.Concat(Arr(Label)), (x, r) => x);
+		}
+
+		private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target, Func<IEnumerable<string>, IEnumerable<string>> func_head, Func<IEnumerable<object>, DbDataReader, IEnumerable<object>> func_row)
 		{
 			FileUtil.BeforeCreate(path);
 
@@ -296,15 +302,15 @@ namespace Netkeiba
 
 				if (!next) return;
 
-				var first = GetReaderRows(reader, func_target).ToArray();
+				var first = func_row(GetReaderRows(reader, func_target), reader).ToArray();
 				var headers = Enumerable.Repeat("COL", first.Length - 1).Select((c, i) => $"{c}{i.ToString(4)}");
 
-				await file.WriteLineAsync(headers.Concat(Arr(Label)).GetString(","));
+				await file.WriteLineAsync(func_head(headers).GetString(","));
 				await file.WriteLineAsync(first.GetString(","));
 
 				while (next)
 				{
-					await file.WriteLineAsync(GetReaderRows(reader, func_target).GetString(","));
+					await file.WriteLineAsync(func_row(GetReaderRows(reader, func_target), reader).GetString(","));
 					next = await reader.ReadAsync();
 				}
 			}
