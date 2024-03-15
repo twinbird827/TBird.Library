@@ -10,22 +10,22 @@ namespace Netkeiba
 {
 	public class PredictionSource
 	{
-		protected const int Count = 748;
+		public const int Count = 748;
 
-		[LoadColumn(1, Count)]
+		[LoadColumn(0, Count)]
 		[VectorType(Count)]
 		public float[] Features { get; set; } = new float[0];
 	}
 
 	public class BinaryClassificationSource : PredictionSource
 	{
-		[LoadColumn(Count+1)]
+		[LoadColumn(Count)]
 		public bool 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource
 	{
-		[LoadColumn(Count + 1)]
+		[LoadColumn(Count)]
 		public float 着順 { get; set; }
 	}
 
@@ -98,9 +98,9 @@ namespace Netkeiba
 
 		public string Path { get; set; }
 
-        public string Rank { get; set; }
+		public string Rank { get; set; }
 
-        public override string ToString()
+		public override string ToString()
 		{
 			return Path;
 		}
@@ -133,8 +133,8 @@ namespace Netkeiba
 		public BinaryClassificationResult(string path, string rank, int index, int second, CalibratedBinaryClassificationMetrics metrics)
 		{
 			Index = index;
-            Rank = rank;
-            Second = second;
+			Rank = rank;
+			Second = second;
 			Path = path;
 			Accuracy = metrics.Accuracy;
 			AreaUnderPrecisionRecallCurve = metrics.AreaUnderPrecisionRecallCurve;
