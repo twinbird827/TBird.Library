@@ -82,9 +82,6 @@ namespace Netkeiba
 				Dictionary<string, PredictionEngine<RegressionSource, RegressionPrediction>> 着順1
 			)
 		{
-			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMddHHmmss") + "_" + tag + ".csv");
-
-			FileUtil.BeforeCreate(path);
 			using (var conn = CreateSQLiteControl())
 			{
 				(int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
@@ -158,19 +155,25 @@ namespace Netkeiba
 				var 調教場所 = await AppUtil.Get調教場所(conn);
 				var 追切 = await AppUtil.Get追切(conn);
 
-				var list = new List<List<object>>();
+				var lists = Arr(tag, "RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
+					.ToDictionary(x => x, x => new List<List<object>>());
+
 				var headers = Arr("ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順")
 					.Concat(Arr(nameof(以内1), nameof(以内2), nameof(以内3), nameof(着外1), nameof(着外2), nameof(着外3), nameof(着順1)))
 					.Concat(Arr("加1", "加2", "全"))
 					.ToArray();
 
 				// 各列のﾍｯﾀﾞを挿入
-				list.Add(headers
-					.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-					.Concat(headers.Skip(9).SelectMany(x => pays.Select(p => $"{x}_{p.head}")))
-					.Select(x => (object)x)
-					.ToList()
-				);
+				lists.ForEach(x =>
+				{
+					x.Value.Add(headers
+						.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
+						.Concat(headers.Skip(9).SelectMany(x => pays.Select(p => $"{x}_{p.head}")))
+						.Select(x => (object)x)
+						.ToList()
+					);
+				});
+
 				var raceids = GetRaceIds().ToArray();
 
 				Progress.Value = 0;
@@ -347,8 +350,9 @@ namespace Netkeiba
 							arr.First().AddRange(pays.Select(x => x.func(arr, payoutDetail, j)));
 						}
 
-						list.AddRange(arr);
-
+						var rnk = racearr.Select(x => x["ﾗﾝｸ2"]).First();
+						lists[tag].AddRange(arr);
+						lists[rnk].AddRange(arr);
 					}
 
 					conn.Rollback();
@@ -358,26 +362,53 @@ namespace Netkeiba
 					Progress.Value += 1;
 				}
 
-				var payouts = pays.Select(x => x.pay).ToArray();
-				var retidx = payouts.Length;
-				var result1 = Enumerable.Repeat("", iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2).OfType<object>()
-					.Concat(Enumerable.Range(iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2, (iBinaries1 + iBinaries2 + iRegressions + iScores) * retidx)
-					.Select(i => (double)list.Where(x => i < x.Count && 0 < x[i].GetInt32()).Count() / (double)list.Where(x => i < x.Count).Count()).OfType<object>())
-					.ToList();
+				await lists.Select(async x =>
+				{
+					var list = x.Value;
+					Func<int, IEnumerable<List<object>>> func = i => list.Where(x => i < x.Count);
 
-				var result2 = Enumerable.Repeat("", iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2).OfType<object>()
-					.Concat(Enumerable.Range(iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2, (iBinaries1 + iBinaries2 + iRegressions + iScores) * retidx)
-						.Select((i, idx) => list.Where(x => i < x.Count).Sum(x => x[i].GetDouble()) / list.Where(x => i < x.Count).Sum(x => payouts[(idx % retidx)]))
-						.OfType<object>()
-					).ToList();
+					var payouts = pays.Select(x => x.pay).ToArray();
+					var retidx = payouts.Length;
+					var minidx = iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2;
+					var maxidx = (iBinaries1 + iBinaries2 + iRegressions + iScores) * retidx;
 
-				list.add(result1);
-				list.add(result2);
+					// 勝率
+					var result1 = Arr(
+						Enumerable.Repeat("", minidx)
+							.OfType<object>(),
+						Enumerable.Range(minidx, maxidx)
+							.Select(i => Calc(func(i).Count(x => 0 < x[i].GetInt32()), func(i).Count(), (x, y) => x / y))
+							.OfType<object>()
+					).SelectMany(obj => obj).ToList();
 
-				// ﾌｧｲﾙ書き込み
-				await File.AppendAllLinesAsync(path, list.Select(x => x.GetString(",")), Encoding.GetEncoding("Shift_JIS")); ;
+					// 回収率
+					var result2 = Arr(
+						Enumerable.Repeat("", minidx)
+							.OfType<object>(),
+						Enumerable.Range(minidx, maxidx)
+							.Select((i, idx) => Calc(func(i).Sum(x => x[i].GetDouble()), func(i).Sum(x => payouts[(idx % retidx)]), (x, y) => x / y))
+							.OfType<object>()
+					).SelectMany(obj => obj).ToList();
+
+					// 回収率
+					var result3 = Arr(
+						Enumerable.Repeat("", minidx)
+							.OfType<object>(),
+						Enumerable.Range(minidx, maxidx)
+							.Select((i, idx) => Calc(func(i).Average(x => x[i].GetDouble()), payouts[(idx % retidx)], (x, y) => x / y))
+							.OfType<object>()
+					).SelectMany(obj => obj).ToList();
+
+					list.add(result1);
+					list.add(result2);
+					list.add(result3);
+
+					// ﾌｧｲﾙ書き込み
+					var path = Path.Combine("result", $"{DateTime.Now.ToString("yyyyMMddHHmmss")}_{x.Key}.csv");
+					FileUtil.BeforeCreate(path);
+					await File.AppendAllLinesAsync(path, list.Select(x => x.GetString(",")), Encoding.GetEncoding("Shift_JIS")); ;
+				}).WhenAll();
 			}
-
 		}
 
 		private object Get三連単(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2, IEnumerable<List<object>> arr3)
