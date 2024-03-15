@@ -18,36 +18,37 @@ namespace Netkeiba
 	{
 		public ModelViewModel()
 		{
+			// BinaryClassificationﾘｽﾄ及び初期選択
 			BinaryClassificationMetrics = new ComboboxViewModel(
 				EnumUtil.GetValues<BinaryClassificationMetric>().Select(x => new ComboboxItemModel(x.ToString(), x.ToString()))
 			);
 			BinaryClassificationMetrics.SelectedItem = BinaryClassificationMetrics.GetItem(AppSetting.Instance.BinaryClassificationMetric.ToString());
-			BinaryClassificationMetrics.AddOnPropertyChanged(this, (sender, e) =>
-			{
-				AppSetting.Instance.BinaryClassificationMetric = EnumUtil.ToEnum<BinaryClassificationMetric>(BinaryClassificationMetrics.SelectedItem.Value);
-			}, nameof(BinaryClassificationMetrics.SelectedItem), true);
 
+			// Regressionﾘｽﾄ及び初期選択
 			RegressionMetrics = new ComboboxViewModel(
 				EnumUtil.GetValues<RegressionMetric>().Select(x => new ComboboxItemModel(x.ToString(), x.ToString()))
 			);
 			RegressionMetrics.SelectedItem = RegressionMetrics.GetItem(AppSetting.Instance.RegressionMetric.ToString());
-			RegressionMetrics.AddOnPropertyChanged(this, (sender, e) =>
-			{
-				AppSetting.Instance.RegressionMetric = EnumUtil.ToEnum<RegressionMetric>(RegressionMetrics.SelectedItem.Value);
-			}, nameof(RegressionMetrics.SelectedItem), true);
 
-			BinaryClassificationResults = new BindableCollection<BinaryClassificationViewModel>(
-				AppSetting.Instance.BinaryClassificationResults.Select(x => new BinaryClassificationViewModel(this, x))
+			// BinaryClassificationResultsﾘｽﾄ
+			BinaryClassificationResults = new BindableCollection<BinaryClassificationViewModel>(AppSetting.Instance.BinaryClassificationResults
+				.OrderBy(x => x.Rank)
+				.ThenBy(x => x.Index)
+				.ThenBy(x => GetBinaryClassificationSortedValue(x))
+				.ToArray()
+				.Select(x => new BinaryClassificationViewModel(this, x))
 			);
 			BinaryClassificationResultViews = BinaryClassificationResults
-				.ToBindableSortedCollection(x => GetBinaryClassificationSortedValue(x), false)
 				.ToBindableContextCollection();
 
-			RegressionResults = new BindableCollection<RegressionViewModel>(
-				AppSetting.Instance.RegressionResults.Select(x => new RegressionViewModel(this, x))
+			RegressionResults = new BindableCollection<RegressionViewModel>(AppSetting.Instance.RegressionResults
+				.OrderBy(x => x.Rank)
+				.ThenBy(x => x.Index)
+				.ThenBy(x => GetRegressionResultSortedValue(x))
+				.ToArray()
+				.Select(x => new RegressionViewModel(this, x))
 			);
 			RegressionResultViews = RegressionResults
-				.ToBindableSortedCollection(x => GetRegressionResultSortedValue(x), false)
 				.ToBindableContextCollection();
 
 			ClickMerge = RelayCommand.Create(async _ =>
@@ -57,15 +58,31 @@ namespace Netkeiba
 				// ﾓﾃﾞﾙのｺﾋﾟｰ
 				DirectoryUtil.Copy("model", Path.Combine(MergePath, "model"));
 				// 設定情報のｺﾋﾟｰ
-				var setting = new AppSetting(Path.Combine(MergePath, @"lib\app-setting.json"));
+				using (var setting = new AppSetting(Path.Combine(MergePath, @"lib\app-setting.json")))
+				{
+					BinaryClassificationResults.AddRange(setting.BinaryClassificationResults.Select(x => new BinaryClassificationViewModel(this, x)));
 
-				BinaryClassificationResults.AddRange(setting.BinaryClassificationResults.Select(x => new BinaryClassificationViewModel(this, x)));
-
-				RegressionResults.AddRange(setting.RegressionResults.Select(x => new RegressionViewModel(this, x)));
+					RegressionResults.AddRange(setting.RegressionResults.Select(x => new RegressionViewModel(this, x)));
+				}
 			});
 
 			AddDisposed((sender, e) =>
 			{
+				AppSetting.Instance.BinaryClassificationMetric = EnumUtil.ToEnum<BinaryClassificationMetric>(BinaryClassificationMetrics.SelectedItem.Value);
+				AppSetting.Instance.RegressionMetric = EnumUtil.ToEnum<RegressionMetric>(RegressionMetrics.SelectedItem.Value);
+
+				if (TrainingTimeSecond.Split(',').All(i => int.TryParse(i, out int tmp) && 0 < tmp))
+				{
+					AppSetting.Instance.TrainingTimeSecond = TrainingTimeSecond.Split(',').Select(i => i.GetInt32()).ToArray();
+				}
+
+				AppSetting.Instance.UseFastForest = UseFastForest;
+				AppSetting.Instance.UseFastTree = UseFastTree;
+				AppSetting.Instance.UseLgbm = UseLgbm;
+				AppSetting.Instance.UseLbfgsPoissonRegression = UseLbfgsPoissonRegression;
+				AppSetting.Instance.UseSdca = UseSdca;
+				AppSetting.Instance.UseSdcaLogisticRegression = UseSdcaLogisticRegression;
+				AppSetting.Instance.UseLbfgsLogisticRegression = UseLbfgsLogisticRegression;
 				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.ToArray();
 				AppSetting.Instance.RegressionResults = RegressionResults.ToArray();
 				AppSetting.Instance.Save();
@@ -75,49 +92,49 @@ namespace Netkeiba
 		public bool UseFastForest
 		{
 			get => _UseFastForest;
-			set => SetProperty(ref _UseFastForest, AppSetting.Instance.UseFastForest = value);
+			set => SetProperty(ref _UseFastForest, value);
 		}
 		private bool _UseFastForest = AppSetting.Instance.UseFastForest;
 
 		public bool UseFastTree
 		{
 			get => _UseFastTree;
-			set => SetProperty(ref _UseFastTree, AppSetting.Instance.UseFastTree = value);
+			set => SetProperty(ref _UseFastTree, value);
 		}
 		private bool _UseFastTree = AppSetting.Instance.UseFastTree;
 
 		public bool UseLgbm
 		{
 			get => _UseLgbm;
-			set => SetProperty(ref _UseLgbm, AppSetting.Instance.UseLgbm = value);
+			set => SetProperty(ref _UseLgbm, value);
 		}
 		private bool _UseLgbm = AppSetting.Instance.UseLgbm;
 
 		public bool UseLbfgsPoissonRegression
 		{
 			get => _UseLbfgsPoissonRegression;
-			set => SetProperty(ref _UseLbfgsPoissonRegression, AppSetting.Instance.UseLbfgsPoissonRegression = value);
+			set => SetProperty(ref _UseLbfgsPoissonRegression, value);
 		}
 		private bool _UseLbfgsPoissonRegression = AppSetting.Instance.UseLbfgsPoissonRegression;
 
 		public bool UseSdca
 		{
 			get => _UseSdca;
-			set => SetProperty(ref _UseSdca, AppSetting.Instance.UseSdca = value);
+			set => SetProperty(ref _UseSdca, value);
 		}
 		private bool _UseSdca = AppSetting.Instance.UseSdca;
 
 		public bool UseSdcaLogisticRegression
 		{
 			get => _UseSdcaLogisticRegression;
-			set => SetProperty(ref _UseSdcaLogisticRegression, AppSetting.Instance.UseSdcaLogisticRegression = value);
+			set => SetProperty(ref _UseSdcaLogisticRegression, value);
 		}
 		private bool _UseSdcaLogisticRegression = AppSetting.Instance.UseSdcaLogisticRegression;
 
 		public bool UseLbfgsLogisticRegression
 		{
 			get => _UseLbfgsLogisticRegression;
-			set => SetProperty(ref _UseLbfgsLogisticRegression, AppSetting.Instance.UseLbfgsLogisticRegression = value);
+			set => SetProperty(ref _UseLbfgsLogisticRegression, value);
 		}
 		private bool _UseLbfgsLogisticRegression = AppSetting.Instance.UseLbfgsLogisticRegression;
 
@@ -128,13 +145,7 @@ namespace Netkeiba
 		public string TrainingTimeSecond
 		{
 			get => _TrainingTimeSecond;
-			set
-			{
-				if (SetProperty(ref _TrainingTimeSecond, value) && value.Split(',').All(i => int.TryParse(i, out int tmp) && 0 < tmp))
-				{
-					AppSetting.Instance.TrainingTimeSecond = value.Split(',').Select(i => i.GetInt32()).ToArray();
-				}
-			}
+			set => SetProperty(ref _TrainingTimeSecond, value);
 		}
 		private string _TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond.GetString(",");
 
@@ -204,6 +215,7 @@ namespace Netkeiba
 			Parent = m;
 
 			Index = source.Index;
+			Rank = source.Rank;
 			Second = source.Second;
 			Path = source.Path;
 			Accuracy = source.Accuracy;
@@ -237,6 +249,7 @@ namespace Netkeiba
 			Parent = m;
 
 			Index = source.Index;
+			Rank = Rank;
 			Second = source.Second;
 			Path = source.Path;
 			RSquared = source.RSquared;
