@@ -39,7 +39,10 @@ namespace Netkeiba
 			_completedTrials.Add(result);
 		}
 
+#pragma warning disable CS8625 // null リテラルを null 非許容参照型に変換できません。
+
 		public void ReportFailTrial(TrialSettings settings, Exception exception = null)
+#pragma warning restore CS8625 // null リテラルを null 非許容参照型に変換できません。
 		{
 			if (exception.Message.Contains("Operation was canceled."))
 			{
