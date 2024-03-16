@@ -386,22 +386,12 @@ namespace Netkeiba
 						Enumerable.Repeat("", minidx)
 							.OfType<object>(),
 						Enumerable.Range(minidx, maxidx)
-							.Select((i, idx) => Calc(func(i).Sum(x => x[i].GetDouble()), func(i).Sum(x => payouts[(idx % retidx)]), (x, y) => x / y))
-							.OfType<object>()
-					).SelectMany(obj => obj).ToList();
-
-					// 回収率
-					var result3 = Arr(
-						Enumerable.Repeat("", minidx)
-							.OfType<object>(),
-						Enumerable.Range(minidx, maxidx)
 							.Select((i, idx) => Calc(func(i).Average(x => x[i].GetDouble()), payouts[(idx % retidx)], (x, y) => x / y))
 							.OfType<object>()
 					).SelectMany(obj => obj).ToList();
 
 					list.add(result1);
 					list.add(result2);
-					list.add(result3);
 
 					// ﾌｧｲﾙ書き込み
 					var path = Path.Combine("result", $"{DateTime.Now.ToString("yyyyMMddHHmmss")}_{x.Key}.csv");
