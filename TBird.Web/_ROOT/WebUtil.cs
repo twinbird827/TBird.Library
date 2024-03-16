@@ -117,7 +117,7 @@ namespace TBird.Web
 			}
 			else
 			{
-				return null;
+				return await GetBytesAsync(url);
 			}
 		}
 
