@@ -26,6 +26,7 @@ using Microsoft.ML.SearchSpace;
 using Microsoft.ML.SearchSpace.Option;
 using TBird.Wpf.Collections;
 using ICSharpCode.SharpZipLib.Core;
+using Tensorflow;
 
 namespace Netkeiba
 {
@@ -36,14 +37,6 @@ namespace Netkeiba
 		public BindableCollection<CheckboxItemModel> CreateModelSources { get; } = new BindableCollection<CheckboxItemModel>();
 
 		public BindableContextCollection<CheckboxItemModel> CreateModels { get; }
-
-		public CheckboxItemModel S3B01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B02 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B03 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B06 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B07 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3B08 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
-		public CheckboxItemModel S3R01 { get; } = new CheckboxItemModel("", "") { IsChecked = true };
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
@@ -153,9 +146,15 @@ namespace Netkeiba
 				var savepath = $@"model\BinaryClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
 				var trainedModelMetrics = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
-				var now = new BinaryClassificationResult(savepath, rank, index, second, trainedModelMetrics);
+				var now = new BinaryClassificationResult(savepath, rank, index, second, trainedModelMetrics,
+					await PredictionModel(rank,
+						index < 5 ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
+						4 < index ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
+						null
+					)
+				);
 				var old = AppSetting.Instance.BinaryClassificationResults.FirstOrDefault(x => x.Index == index);
-				var bst = old == null || old.AreaUnderRocCurve < now.AreaUnderRocCurve ? now : old;
+				var bst = old == null || old.Score < now.Score ? now : old;
 
 				AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
 				AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
@@ -174,7 +173,7 @@ namespace Netkeiba
 
 				mlContext.Model.Save(model, data.Schema, savepath);
 
-				AppSetting.Instance.UpdateBinaryClassificationResults(now);
+				AppSetting.Instance.UpdateBinaryClassificationResults(now, old);
 
 				Progress.Value += 1;
 			}
@@ -259,9 +258,11 @@ namespace Netkeiba
 				var savepath = $@"model\Regression_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
 				var trainedModelMetrics = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: Label);
-				var now = new RegressionResult(savepath, rank, 1, second, trainedModelMetrics);
+				var now = new RegressionResult(savepath, rank, 1, second, trainedModelMetrics,
+					await PredictionModel(rank, null, null, mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model))
+				);
 				var old = AppSetting.Instance.RegressionResults.FirstOrDefault(x => x.Index == 1);
-				var bst = old == null || old.RSquared < now.RSquared ? now : old;
+				var bst = old == null || old.Score < now.Score ? now : old;
 
 				AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
 				AddLog($"RSquared: {trainedModelMetrics.RSquared}");
@@ -273,7 +274,7 @@ namespace Netkeiba
 
 				mlContext.Model.Save(model, data.Schema, savepath);
 
-				AppSetting.Instance.UpdateRegressionResults(now);
+				AppSetting.Instance.UpdateRegressionResults(now, old);
 
 				Progress.Value += 1;
 			}
@@ -321,5 +322,184 @@ namespace Netkeiba
 		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => ((byte[])reader.GetValue("Features"))
 			.Run(bytes => Enumerable.Range(0, bytes.Length / 4).Select(i => (object)BitConverter.ToSingle(bytes, i * 4)))
 			.Concat(Arr(func_target(reader)));
+
+		private async Task<float> PredictionModel(string rank,
+			PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>? bin,
+			PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>? tya,
+			PredictionEngine<RegressionSource, RegressionPrediction>? reg)
+		{
+			using (var conn = CreateSQLiteControl())
+			{
+				(int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
+				{
+                    // 複1の予想結果
+                    (100, "複1", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 3),
+						arr.Where(x => x[j].GetInt32() <= 3),
+						arr.Where(x => x[j].GetInt32() <= 3))
+					),
+                    // 複2の予想結果
+                    (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
+                    // 複4aの予想結果
+                    (400, "複4a", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
+                    // ワ1の予想結果
+                    (100, "ワ1", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 2))
+					),
+                    // ワ3の予想結果
+                    (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 3))
+					),
+                    // 連1の予想結果
+                    (100, "連1", (arr, payoutDetail, j) => Get馬連(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 2))
+					),
+                    // 単勝1の予想結果
+                    (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
+						arr.Where(x => x[j].GetInt32() == 1))
+					),
+				};
+
+				var rets = new List<float>();
+				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
+				var 馬性 = await AppUtil.Get馬性(conn);
+				var 調教場所 = await AppUtil.Get調教場所(conn);
+				var 追切 = await AppUtil.Get追切(conn);
+
+				var raceids = GetRaceIds().ToArray();
+
+				// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
+				var racearrs = await raceids.Select(raceid => GetRaceShutubas(raceid).RunAsync(async arr =>
+				{
+					if (arr.Count == 0) return;
+
+					if (arr.First()["ﾗﾝｸ2"] != rank) return;
+
+					// 着順情報取得
+					var tyaku = await GetTyakujun(raceid);
+
+					// 追切情報取得
+					var oikiri = await GetOikiris(raceid);
+
+					await arr.Select(async row =>
+					{
+						var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+						row["着順"] = tya != null ? tya["着順"] : string.Empty;
+
+						var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+						row["一言"] = oik != null ? oik["一言"] : string.Empty;
+						row["追切"] = oik != null ? oik["追切"] : string.Empty;
+
+						var ban = await conn
+							.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
+							.RunAsync(async tmp =>
+							{
+								if (0 < tmp.Count)
+								{
+									return tmp[0];
+								}
+								else
+								{
+									return await GetBanushi(row["馬ID"]);
+								}
+							});
+						row["馬主名"] = ban["馬主名"];
+						row["馬主ID"] = ban["馬主ID"];
+					}).WhenAll();
+				})).WhenAll();
+
+				// 馬ID
+				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"]).Distinct());
+
+				// 血統情報の作成
+				await RefreshKetto(conn, 馬IDs);
+
+				// 産駒成績の更新
+				await RefreshSanku(conn, true, 馬IDs);
+
+				foreach (var racearr in racearrs)
+				{
+					if (!racearr.Any()) continue;
+					if (racearr.First()["ﾗﾝｸ2"] != rank) continue;
+
+					var raceid = racearr.First()["ﾚｰｽID"];
+
+					await conn.BeginTransaction();
+
+					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
+					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));
+					foreach (var x in racearr)
+					{
+						var sql = "INSERT INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
+						var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
+						await conn.ExecuteNonQueryAsync(sql, prm);
+					}
+
+					var arr = new List<List<object>>();
+
+					// ﾚｰｽ情報の初期化
+					await InitializeModelBase(conn);
+
+					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
+					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
+					{
+						var tmp = new List<object>();
+						var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
+
+						var binaryClassificationSource = new BinaryClassificationSource()
+						{
+							Features = (AppSetting.Instance.Features ?? throw new ArgumentNullException()).Select(x => m[x].GetSingle()).ToArray()
+						};
+						var regressionSource = new RegressionSource()
+						{
+							Features = binaryClassificationSource.Features
+						};
+
+						// ｽｺｱ算出
+						var score = bin != null
+							? bin.Predict(binaryClassificationSource).GetScore2()
+							: tya != null
+							? tya.Predict(binaryClassificationSource).Run(x => { x.Score = x.Score * -1; }).GetScore2()
+							: reg.Predict(regressionSource).Score * -1;
+						tmp.Add(score);
+
+						// 共通ﾍｯﾀﾞ
+						tmp.Add(string.Empty);
+						tmp.Add(string.Empty);
+						tmp.Add(string.Empty);
+						tmp.Add(string.Empty);
+						tmp.Add(string.Empty);
+						tmp.Add(src["着順"]);
+
+						arr.Add(tmp);
+					}
+
+					// ｽｺｱで順位付けをする
+					if (arr.Any())
+					{
+						var n = 1;
+						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+
+						// 支払情報を出力
+						var payoutDetail = await GetPayout(raceid);
+
+						// 結果の平均を結果に詰める
+						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle() - x.pay).Average());
+					}
+
+					conn.Rollback();
+				}
+
+				return rets.Any() ? rets.Average() : 0F;
+			}
+		}
 	}
 }

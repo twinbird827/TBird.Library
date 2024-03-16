@@ -5,6 +5,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Netkeiba
 {
@@ -92,6 +93,8 @@ namespace Netkeiba
 			Rank = string.Empty;
 		}
 
+		public float Score { get; set; }
+
 		public int Index { get; set; }
 
 		public int Second { get; set; }
@@ -130,12 +133,13 @@ namespace Netkeiba
 
 		}
 
-		public BinaryClassificationResult(string path, string rank, int index, int second, CalibratedBinaryClassificationMetrics metrics)
+		public BinaryClassificationResult(string path, string rank, int index, int second, CalibratedBinaryClassificationMetrics metrics, float score)
 		{
 			Index = index;
 			Rank = rank;
 			Second = second;
 			Path = path;
+			Score = score;
 			Accuracy = metrics.Accuracy;
 			AreaUnderPrecisionRecallCurve = metrics.AreaUnderPrecisionRecallCurve;
 			AreaUnderRocCurve = metrics.AreaUnderRocCurve;
@@ -180,12 +184,13 @@ namespace Netkeiba
 
 		}
 
-		public RegressionResult(string path, string rank, int index, int second, RegressionMetrics metrics)
+		public RegressionResult(string path, string rank, int index, int second, RegressionMetrics metrics, float score)
 		{
 			Path = path;
 			Rank = rank;
 			Index = index;
 			Second = second;
+			Score = score;
 			RSquared = metrics.RSquared;
 			MeanSquaredError = metrics.MeanSquaredError;
 			RootMeanSquaredError = metrics.RootMeanSquaredError;

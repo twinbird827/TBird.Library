@@ -1,4 +1,5 @@
 ﻿using Microsoft.ML.AutoML;
+using NumSharp.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -111,38 +112,18 @@ namespace Netkeiba
 		}
 		public BinaryClassificationResult[] _BinaryClassificationResults = new BinaryClassificationResult[] { };
 
-		public void UpdateBinaryClassificationResults(BinaryClassificationResult newResult)
+		public void UpdateBinaryClassificationResults(BinaryClassificationResult now, BinaryClassificationResult? old)
 		{
-			BinaryClassificationResults = Arr(newResult).Concat(BinaryClassificationResults).ToArray();
+			BinaryClassificationResults = Arr(now).Concat(BinaryClassificationResults.Where(x => !x.Equals(old))).ToArray();
 			Save();
 		}
 
 		public BinaryClassificationResult GetBinaryClassificationResult(int index, string rank)
 		{
-			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).OrderByDescending(x =>
+			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
 			{
-				switch (BinaryClassificationMetric)
-				{
-					case BinaryClassificationMetric.Accuracy:
-						return x.Accuracy;
-					case BinaryClassificationMetric.AreaUnderRocCurve:
-						return x.AreaUnderRocCurve;
-					case BinaryClassificationMetric.F1Score:
-						return x.F1Score;
-					case BinaryClassificationMetric.AreaUnderPrecisionRecallCurve:
-						return x.AreaUnderPrecisionRecallCurve;
-					case BinaryClassificationMetric.NegativePrecision:
-						return x.NegativePrecision;
-					case BinaryClassificationMetric.NegativeRecall:
-						return x.NegativeRecall;
-					case BinaryClassificationMetric.PositivePrecision:
-						return x.PositivePrecision;
-					case BinaryClassificationMetric.PositiveRecall:
-						return x.PositiveRecall;
-					default:
-						return x.AreaUnderRocCurve;
-				}
-			}).First();
+				return arr.First(x => x.Score == arr.Max(y => y.Score));
+			});
 		}
 
 		public RegressionResult[] RegressionResults
@@ -152,30 +133,18 @@ namespace Netkeiba
 		}
 		public RegressionResult[] _RegressionResults = new RegressionResult[] { };
 
-		public void UpdateRegressionResults(RegressionResult newResult)
+		public void UpdateRegressionResults(RegressionResult now, RegressionResult? old)
 		{
-			RegressionResults = Arr(newResult).Concat(RegressionResults).ToArray();
+			RegressionResults = Arr(now).Concat(RegressionResults.Where(x => !x.Equals(old))).ToArray();
 			Save();
 		}
 
 		public RegressionResult GetRegressionResult(int index, string rank)
 		{
-			return RegressionResults.Where(x => x.Index == index && x.Rank == rank).OrderByDescending(x =>
+			return RegressionResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
 			{
-				switch (RegressionMetric)
-				{
-					case RegressionMetric.MeanAbsoluteError:
-						return x.MeanAbsoluteError;
-					case RegressionMetric.MeanSquaredError:
-						return x.MeanSquaredError;
-					case RegressionMetric.RootMeanSquaredError:
-						return x.RootMeanSquaredError;
-					case RegressionMetric.RSquared:
-						return x.RSquared;
-					default:
-						return x.RSquared;
-				}
-			}).First();
+				return arr.First(x => x.Score == arr.Max(y => y.Score));
+			});
 		}
 	}
 }
