@@ -16,9 +16,9 @@ namespace Netkeiba
 		{
 			var arr = new List<Dictionary<string, string>>();
 
-			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
+			var raceurl = $"https://db.netkeiba.com/race/{raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(raceurl))
+            using (var raceparser = await AppUtil.GetDocument(raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("race_table_01 nk_tb_common").FirstOrDefault() as IHtmlTableElement;
 
@@ -164,7 +164,7 @@ namespace Netkeiba
 
 			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(false, $@"html\oikiri\{raceid}.html", url))
+			using (var raceparser = await AppUtil.GetDocument(url))
 			{
 				if (raceparser.GetElementById("All_Oikiri_Table") is IHtmlTableElement table)
 				{

@@ -55,32 +55,17 @@ namespace Netkeiba
 
 		public static async Task<IHtmlDocument> GetDocument(string url)
 		{
-			var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
-
-			var doc = await _parser.ParseDocumentAsync(res);
-
-			return doc;
-		}
-
-		public static async Task<IHtmlDocument> GetDocument(bool overwrite, string path, string url)
-		{
-			if (overwrite || !File.Exists(path)) FileUtil.BeforeCreate(path);
-
-			if (File.Exists(path))
+			using (await Locker.LockAsync(_guid))
 			{
-				return await _parser.ParseDocumentAsync(File.ReadAllText(path));
-			}
-			else
-			{
-				var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+				MainViewModel.AddLog($"req: {url}");
+                var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
 
-				await File.WriteAllTextAsync(path, res);
+                var doc = await _parser.ParseDocumentAsync(res);
 
-				var doc = await _parser.ParseDocumentAsync(res);
-
-				return doc;
-			}
-		}
+                return doc;
+            }
+        }
+		private static string _guid = Guid.NewGuid().ToString();
 
 		private static HtmlParser _parser = new HtmlParser();
 		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");

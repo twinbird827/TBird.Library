@@ -173,7 +173,7 @@ namespace Netkeiba
 
 			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(false, @$"html\shutuba\{raceid}.html", raceurl))
+			using (var raceparser = await AppUtil.GetDocument(raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as AngleSharp.Html.Dom.IHtmlTableElement;
 
@@ -286,7 +286,7 @@ namespace Netkeiba
 					// 調教師ID
 					dic["調教師ID"] = row.Cells[7].GetHrefAttribute("href").Split('/').Reverse().ToArray()[1];
 
-					using (var umaparser = await AppUtil.GetDocument(false, $@"html\horse\{dic["馬ID"]}.html", $"https://db.netkeiba.com/horse/{dic["馬ID"]}/"))
+					using (var umaparser = await AppUtil.GetDocument($"https://db.netkeiba.com/horse/{dic["馬ID"]}/"))
 					{
 						if (umaparser.GetElementsByClassName("db_prof_table no_OwnerUnit").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement umatable)
 						{

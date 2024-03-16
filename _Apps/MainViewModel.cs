@@ -22,6 +22,8 @@ namespace Netkeiba
 	{
 		public MainViewModel()
 		{
+			_this = this;
+
 			Basyos = BasyoSources.ToBindableContextCollection();
 
 			Logs = LogSource.ToBindableContextCollection();
@@ -57,13 +59,15 @@ namespace Netkeiba
 
 		public ProgressViewModel Progress { get; } = new ProgressViewModel();
 
-		public void AddLog(string message)
+		private static MainViewModel _this { get; set; }
+
+		public static void AddLog(string message)
 		{
-			if (_logmax < LogSource.Count)
+			if (_logmax < _this.LogSource.Count)
 			{
-				LogSource.RemoveAt(_logmax);
+                _this.LogSource.RemoveAt(_logmax);
 			}
-			LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
+            _this.LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
 
 			MessageService.AppendLogfile(message);
 		}

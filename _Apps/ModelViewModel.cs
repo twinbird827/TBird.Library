@@ -83,8 +83,8 @@ namespace Netkeiba
 				AppSetting.Instance.UseSdca = UseSdca;
 				AppSetting.Instance.UseSdcaLogisticRegression = UseSdcaLogisticRegression;
 				AppSetting.Instance.UseLbfgsLogisticRegression = UseLbfgsLogisticRegression;
-				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.ToArray();
-				AppSetting.Instance.RegressionResults = RegressionResults.ToArray();
+				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.Select(x => x.Source).ToArray();
+				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.Save();
 			});
 		}
@@ -210,9 +210,12 @@ namespace Netkeiba
 	{
 		public ModelViewModel Parent { get; }
 
+		public BinaryClassificationResult Source { get; }
+
 		public BinaryClassificationViewModel(ModelViewModel m, BinaryClassificationResult source)
 		{
 			Parent = m;
+			Source = source;
 
 			Index = source.Index;
 			Rank = source.Rank;
@@ -244,11 +247,14 @@ namespace Netkeiba
 	{
 		public ModelViewModel Parent { get; }
 
+        public RegressionResult Source { get; }
+       
 		public RegressionViewModel(ModelViewModel m, RegressionResult source)
 		{
 			Parent = m;
+            Source = source;
 
-			Index = source.Index;
+            Index = source.Index;
 			Rank = Rank;
 			Second = source.Second;
 			Path = source.Path;

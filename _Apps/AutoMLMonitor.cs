@@ -30,7 +30,7 @@ namespace Netkeiba
 			var ms = result.DurationInMilliseconds;
 			var mc = result.Metric;
 			var pl = _pipeline.ToString(result.TrialSettings.Parameter);
-			_vm.AddLog($"Best Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
+			MainViewModel.AddLog($"Best Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
 			return;
 		}
 
@@ -46,9 +46,9 @@ namespace Netkeiba
 		{
 			if (exception.Message.Contains("Operation was canceled."))
 			{
-				_vm.AddLog($"{settings.TrialId} cancelled. Time budget exceeded.");
+                MainViewModel.AddLog($"{settings.TrialId} cancelled. Time budget exceeded.");
 			}
-			_vm.AddLog($"{settings.TrialId} failed with exception {exception.Message}");
+            MainViewModel.AddLog($"{settings.TrialId} failed with exception {exception.Message}");
 		}
 
 		public void ReportRunningTrial(TrialSettings setting)

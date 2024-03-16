@@ -467,6 +467,11 @@ namespace Netkeiba
 			{
 				var url = $"https://db.netkeiba.com/horse/ped/{key}/";
 
+				if (await conn.GetRow("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(System.Data.DbType.String, key)).RunAsync(x => x["CNT"].GetInt32() > 0))
+				{
+					continue;
+				}
+
 				using (var ped = await AppUtil.GetDocument(url))
 				{
 					if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
