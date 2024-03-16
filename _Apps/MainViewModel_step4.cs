@@ -142,8 +142,12 @@ namespace Netkeiba
 					//),
                     // 連1の予想結果
                     (100, "連1", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2))
-					),
+                        arr.Where(x => x[j].GetInt32() <= 2))
+                    ),
+                    // 単勝1の予想結果
+                    (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
+                        arr.Where(x => x[j].GetInt32() == 1))
+                    ),
      //               // 連3の予想結果
      //               (300, "連3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
 					//	arr.Where(x => x[j].GetInt32() <= 3))
@@ -487,6 +491,14 @@ namespace Netkeiba
 				? Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
 				: 0;
 		}
+        private object Get単勝(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
+        {
+            var arr = arr1.Select(x => x[6].GetInt32().ToString());
 
-	}
+            return payoutDetail.ContainsKey("単勝")
+                ? Arr(0).Concat(payoutDetail["単勝"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+                : 0;
+        }
+
+    }
 }

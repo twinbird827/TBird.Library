@@ -393,21 +393,23 @@ namespace Netkeiba
 
 				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "払戻し") is IHtmlTableElement table2)
 				{
-					// 馬連
-					dic["馬連"] = GetPayout(table2, "Umaren");
-				}
-			}
+                    // 馬連
+                    dic["馬連"] = GetPayout(table2, "Umaren");
+                    // 単勝
+                    dic["単勝"] = GetPayout(table2, "Tansho", "div", "span");
+                }
+            }
 
 			return dic;
 		}
 
-		private string GetPayout(IHtmlTableElement table, string tag)
+		private string GetPayout(IHtmlTableElement table, string tag, string ul = "ul", string li = "li")
 		{
 			var result = table.GetElementsByClassName(tag)
 				.OfType<IHtmlTableRowElement>()
 				.SelectMany(x => x.GetElementsByClassName("Result"))
-				.SelectMany(x => x.GetElementsByTagName("ul"))
-				.Select(x => x.GetElementsByTagName("li").Select(y => y.GetInnerHtml()).Where(x => !string.IsNullOrEmpty(x)).GetString("-"))
+				.SelectMany(x => x.GetElementsByTagName(ul))
+				.Select(x => x.GetElementsByTagName(li).Select(y => y.GetInnerHtml()).Where(x => !string.IsNullOrEmpty(x)).GetString("-"))
 				.ToArray();
 
 			var payout = table.GetElementsByClassName(tag)
