@@ -27,6 +27,7 @@ using Microsoft.ML.SearchSpace.Option;
 using TBird.Wpf.Collections;
 using ICSharpCode.SharpZipLib.Core;
 using Tensorflow;
+using MathNet.Numerics.RootFinding;
 
 namespace Netkeiba
 {
@@ -40,41 +41,57 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
+			var seconds = 3;
+			var metrics = Arr(BinaryClassificationMetric.AreaUnderRocCurve, BinaryClassificationMetric.F1Score);
+
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
 			Progress.Value = 0;
 			Progress.Minimum = 0;
-			Progress.Maximum = AppSetting.Instance.TrainingTimeSecond.Length * CreateModels.Count(x => x.IsChecked);
+			Progress.Maximum =
+				seconds * CreateModels.Count(x => x.IsChecked && x.Value.StartsWith("B-")) * metrics.Length +
+				seconds * CreateModels.Count(x => x.IsChecked && x.Value.StartsWith("R-"));
 
 			AppSetting.Instance.Save();
 
+			Func<DbDataReader, (float 着順, float 単勝)> 着勝 = r => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
+
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => r.GetValue("着順").GetDouble() <= 1 },
-				{ 2, r => r.GetValue("着順").GetDouble() <= 2 },
-				{ 3, r => r.GetValue("着順").GetDouble() <= 3 },
-				{ 6, r => r.GetValue("着順").GetDouble() > 1 },
-				{ 7, r => r.GetValue("着順").GetDouble() > 2 },
-				{ 8, r => r.GetValue("着順").GetDouble() > 3 }
+				{ 1, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 <= 1) },
+				{ 2, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 <= 2) },
+				{ 3, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 <= 3) },
+				{ 6, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 > 1) },
+				{ 7, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 > 2) },
+				{ 8, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 > 3) },
 			};
 
-			foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")))
+			var random = new Random();
+			for (var tmp = 0; tmp < seconds; tmp++)
 			{
-				var args = x.Value.Split("-");
-				var index = args[2].GetInt32();
-				var rank = args[1];
+				var second = (uint)random.Next(600, 3600);
 
-				await BinaryClassification(index, rank, dic[index]).TryCatch();
+				foreach (var metric in metrics)
+				{
+					foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")))
+					{
+						var args = x.Value.Split("-");
+						var index = args[2].GetInt32();
+						var rank = args[1];
+
+						await BinaryClassification(index, rank, second, metric, dic[index]).TryCatch();
+					}
+				}
+
+				foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")))
+				{
+					var args = x.Value.Split("-");
+					await Regression(args[1], second).TryCatch();
+				};
 			}
-
-			foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")))
-			{
-				var args = x.Value.Split("-");
-				await Regression(args[1]).TryCatch();
-			};
 		});
 
-		private async Task BinaryClassification(int index, string rank, Func<DbDataReader, object> func_yoso)
+		private async Task BinaryClassification(int index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
 		{
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
@@ -85,109 +102,106 @@ namespace Netkeiba
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
 			await CreateModelInputData(dataPath, rank, func_yoso);
 
-			foreach (var second in AppSetting.Instance.TrainingTimeSecond)
+			AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+
+			// Infer column information
+			var columnInference =
+				mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
+
+			// Create text loader
+			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
+
+			// Load data into IDataView
+			IDataView data = loader.Load(dataPath);
+
+			// Split into train (80%), validation (20%) sets
+			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+
+			//Define pipeline
+			SweepablePipeline pipeline = mlContext
+					.Auto()
+					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
+					.Append(mlContext.Auto().BinaryClassification(
+						labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+						useFastForest: AppSetting.Instance.UseFastForest,
+						useFastTree: AppSetting.Instance.UseFastTree,
+						useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
+						useLgbm: AppSetting.Instance.UseLgbm,
+						useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
+					));
+
+			// Log experiment trials
+			var monitor = new AutoMLMonitor(pipeline, this);
+
+			// Create AutoML experiment
+			var experiment = mlContext.Auto().CreateExperiment()
+				.SetPipeline(pipeline)
+				.SetBinaryClassificationMetric(AppSetting.Instance.BinaryClassificationMetric, labelColumn: Label)
+				.SetTrainingTimeInSeconds((uint)second)
+				.SetEciCostFrugalTuner()
+				.SetDataset(trainValidationData)
+				.SetMonitor(monitor);
+
+			// Run experiment
+			var cts = new CancellationTokenSource();
+			TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+
+			// Get best model
+			var model = experimentResults.Model;
+
+			// Get all completed trials
+			var completedTrials = monitor.GetCompletedTrials();
+
+			// Measure trained model performance
+			// Apply data prep transformer to test data
+			// Use trained model to make inferences on test data
+			IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
+
+			// Save model
+			var savepath = $@"model\BinaryClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
+
+			var trainedModelMetrics = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
+			var now = new BinaryClassificationResult(savepath, rank, index, second, trainedModelMetrics,
+				await PredictionModel(rank,
+					index < 5 ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
+					4 < index ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
+					null
+				)
+			);
+			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
+			var bst = old == null || old.Score < now.Score ? now : old;
+
+			AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
+			AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
+			AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
+			AddLog($"Entropy: {trainedModelMetrics.Entropy}");
+			AddLog($"F1Score: {trainedModelMetrics.F1Score}");
+			AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
+			AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
+			AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
+			AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
+			AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
+			AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
+			AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
+			AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
+			AddLog($"Score: {now.Score}");
+			AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+
+			mlContext.Model.Save(model, data.Schema, savepath);
+
+			AppSetting.Instance.UpdateBinaryClassificationResults(bst, old);
+
+			if (old != null && !bst.Equals(old) && await FileUtil.Exists(old.Path))
 			{
-				AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
-
-				// Infer column information
-				var columnInference =
-					mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
-
-				// Create text loader
-				TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
-
-				// Load data into IDataView
-				IDataView data = loader.Load(dataPath);
-
-				// Split into train (80%), validation (20%) sets
-				TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
-
-				//Define pipeline
-				SweepablePipeline pipeline = mlContext
-						.Auto()
-						.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-						.Append(mlContext.Auto().BinaryClassification(
-							labelColumnName: columnInference.ColumnInformation.LabelColumnName,
-							useFastForest: AppSetting.Instance.UseFastForest,
-							useFastTree: AppSetting.Instance.UseFastTree,
-							useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
-							useLgbm: AppSetting.Instance.UseLgbm,
-							useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
-						));
-
-				// Log experiment trials
-				var monitor = new AutoMLMonitor(pipeline, this);
-
-				// Create AutoML experiment
-				var experiment = mlContext.Auto().CreateExperiment()
-					.SetPipeline(pipeline)
-					.SetBinaryClassificationMetric(AppSetting.Instance.BinaryClassificationMetric, labelColumn: Label)
-					.SetTrainingTimeInSeconds((uint)second)
-					.SetEciCostFrugalTuner()
-					.SetDataset(trainValidationData)
-					.SetMonitor(monitor);
-
-				// Run experiment
-				var cts = new CancellationTokenSource();
-				TrialResult experimentResults = await experiment.RunAsync(cts.Token);
-
-				// Get best model
-				var model = experimentResults.Model;
-
-				// Get all completed trials
-				var completedTrials = monitor.GetCompletedTrials();
-
-				// Measure trained model performance
-				// Apply data prep transformer to test data
-				// Use trained model to make inferences on test data
-				IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
-
-				// Save model
-				var savepath = $@"model\BinaryClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
-
-				var trainedModelMetrics = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
-				var now = new BinaryClassificationResult(savepath, rank, index, second, trainedModelMetrics,
-					await PredictionModel(rank,
-						index < 5 ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
-						4 < index ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
-						null
-					)
-				);
-				var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-				var bst = old == null || old.Score < now.Score ? now : old;
-
-				AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
-                AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
-				AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
-				AddLog($"Entropy: {trainedModelMetrics.Entropy}");
-				AddLog($"F1Score: {trainedModelMetrics.F1Score}");
-				AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
-				AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
-				AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
-				AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
-				AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
-				AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
-				AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
-                AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
-                AddLog($"Score: {now.Score}");
-                AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
-
-				mlContext.Model.Save(model, data.Schema, savepath);
-
-				AppSetting.Instance.UpdateBinaryClassificationResults(bst, old);
-
-				Progress.Value += 1;
+				FileUtil.Delete(old.Path);
 			}
+
+			Progress.Value += 1;
 
 			AppUtil.DeleteEndress(dataPath);
 		}
 
-		private Task BinaryClassification(int index, string rank)
-		{
-			return BinaryClassification(index, rank, reader => reader.GetValue("着順").GetDouble() <= index);
-		}
-
-		private async Task Regression(string rank)
+		private async Task Regression(string rank, uint second)
 		{
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
@@ -198,88 +212,90 @@ namespace Netkeiba
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
 			await CreateModelInputData(dataPath, rank, reader => reader.GetValue("着順").GetDouble());
 
-			foreach (var second in AppSetting.Instance.TrainingTimeSecond)
+			AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
+
+			// Infer column information
+			var columnInference =
+				mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
+
+			// Create text loader
+			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
+
+			// Load data into IDataView
+			IDataView data = loader.Load(dataPath);
+
+			// Split into train (80%), validation (20%) sets
+			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+
+			//Define pipeline
+			SweepablePipeline pipeline = mlContext
+					.Auto()
+					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
+					.Append(mlContext.Auto().Regression(
+						labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+						useFastForest: AppSetting.Instance.UseFastForest,
+						useFastTree: AppSetting.Instance.UseFastTree,
+						useLbfgsPoissonRegression: AppSetting.Instance.UseLbfgsPoissonRegression,
+						useLgbm: AppSetting.Instance.UseLgbm,
+						useSdca: AppSetting.Instance.UseSdca
+					));
+
+			// Log experiment trials
+			var monitor = new AutoMLMonitor(pipeline, this);
+
+			// Create AutoML experiment
+			var experiment = mlContext.Auto().CreateExperiment()
+				.SetPipeline(pipeline)
+				.SetRegressionMetric(AppSetting.Instance.RegressionMetric, Label)
+				.SetTrainingTimeInSeconds((uint)second)
+				.SetEciCostFrugalTuner()
+				.SetDataset(trainValidationData)
+				.SetMonitor(monitor);
+
+			// Run experiment
+			var cts = new CancellationTokenSource();
+			TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+
+			// Get best model
+			var model = experimentResults.Model;
+
+			// Get all completed trials
+			var completedTrials = monitor.GetCompletedTrials();
+
+			// Measure trained model performance
+			// Apply data prep transformer to test data
+			// Use trained model to make inferences on test data
+			IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
+
+			// Save model
+			var savepath = $@"model\Regression_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
+
+			var trainedModelMetrics = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: Label);
+			var now = new RegressionResult(savepath, rank, 1, second, trainedModelMetrics,
+				await PredictionModel(rank, null, null, mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model))
+			);
+			var old = AppSetting.Instance.GetRegressionResult(1, rank);
+			var bst = old == null || old.Score < now.Score ? now : old;
+
+			AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
+			AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
+			AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
+			AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
+			AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
+			AddLog($"RSquared: {trainedModelMetrics.RSquared}");
+			AddLog($"Score: {now.Score}");
+			AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
+
+			mlContext.Model.Save(model, data.Schema, savepath);
+
+			AppSetting.Instance.UpdateRegressionResults(bst, old);
+
+			if (old != null && !bst.Equals(old) && await FileUtil.Exists(old.Path))
 			{
-				AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
-
-				// Infer column information
-				var columnInference =
-					mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
-
-				// Create text loader
-				TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
-
-				// Load data into IDataView
-				IDataView data = loader.Load(dataPath);
-
-				// Split into train (80%), validation (20%) sets
-				TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
-
-				//Define pipeline
-				SweepablePipeline pipeline = mlContext
-						.Auto()
-						.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-						.Append(mlContext.Auto().Regression(
-							labelColumnName: columnInference.ColumnInformation.LabelColumnName,
-							useFastForest: AppSetting.Instance.UseFastForest,
-							useFastTree: AppSetting.Instance.UseFastTree,
-							useLbfgsPoissonRegression: AppSetting.Instance.UseLbfgsPoissonRegression,
-							useLgbm: AppSetting.Instance.UseLgbm,
-							useSdca: AppSetting.Instance.UseSdca
-						));
-
-				// Log experiment trials
-				var monitor = new AutoMLMonitor(pipeline, this);
-
-				// Create AutoML experiment
-				var experiment = mlContext.Auto().CreateExperiment()
-					.SetPipeline(pipeline)
-					.SetRegressionMetric(AppSetting.Instance.RegressionMetric, Label)
-					.SetTrainingTimeInSeconds((uint)second)
-					.SetEciCostFrugalTuner()
-					.SetDataset(trainValidationData)
-					.SetMonitor(monitor);
-
-				// Run experiment
-				var cts = new CancellationTokenSource();
-				TrialResult experimentResults = await experiment.RunAsync(cts.Token);
-
-				// Get best model
-				var model = experimentResults.Model;
-
-				// Get all completed trials
-				var completedTrials = monitor.GetCompletedTrials();
-
-				// Measure trained model performance
-				// Apply data prep transformer to test data
-				// Use trained model to make inferences on test data
-				IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
-
-				// Save model
-				var savepath = $@"model\Regression_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
-
-				var trainedModelMetrics = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: Label);
-				var now = new RegressionResult(savepath, rank, 1, second, trainedModelMetrics,
-					await PredictionModel(rank, null, null, mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model))
-				);
-				var old = AppSetting.Instance.GetRegressionResult(1, rank);
-				var bst = old == null || old.Score < now.Score ? now : old;
-
-				AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
-                AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
-				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
-				AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
-				AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
-                AddLog($"RSquared: {trainedModelMetrics.RSquared}");
-                AddLog($"Score: {now.Score}");
-                AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
-
-				mlContext.Model.Save(model, data.Schema, savepath);
-
-				AppSetting.Instance.UpdateRegressionResults(bst, old);
-
-				Progress.Value += 1;
+				FileUtil.Delete(old.Path);
 			}
+
+			Progress.Value += 1;
 
 			AppUtil.DeleteEndress(dataPath);
 		}
@@ -336,18 +352,18 @@ namespace Netkeiba
 				{
                     // 複2の予想結果
                     (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 2),
-                        arr.Where(x => x[j].GetInt32() <= 4))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
                     // 複2の予想結果
                     (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() == 1),
-                        arr.Where(x => x[j].GetInt32() <= 4),
-                        arr.Where(x => x[j].GetInt32() <= 4))
-                    ),
+						arr.Where(x => x[j].GetInt32() == 1),
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
                     // 複4aの予想結果
-                    (400, "複4a", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+                    (400, "複4", (arr, payoutDetail, j) => Get三連複(payoutDetail,
 						arr.Where(x => x[j].GetInt32() <= 4),
 						arr.Where(x => x[j].GetInt32() <= 4),
 						arr.Where(x => x[j].GetInt32() <= 4))

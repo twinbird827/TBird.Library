@@ -34,7 +34,7 @@ namespace Netkeiba
 			BinaryClassificationResults = new BindableCollection<BinaryClassificationViewModel>(AppSetting.Instance.BinaryClassificationResults
 				.OrderBy(x => x.Rank)
 				.ThenBy(x => x.Index)
-				.ThenBy(x => GetBinaryClassificationSortedValue(x))
+				.ThenBy(x => x.Score)
 				.ToArray()
 				.Select(x => new BinaryClassificationViewModel(this, x))
 			);
@@ -44,7 +44,7 @@ namespace Netkeiba
 			RegressionResults = new BindableCollection<RegressionViewModel>(AppSetting.Instance.RegressionResults
 				.OrderBy(x => x.Rank)
 				.ThenBy(x => x.Index)
-				.ThenBy(x => GetRegressionResultSortedValue(x))
+				.ThenBy(x => x.Score)
 				.ToArray()
 				.Select(x => new RegressionViewModel(this, x))
 			);
@@ -154,48 +154,6 @@ namespace Netkeiba
 		public BindableCollection<RegressionViewModel> RegressionResults { get; }
 		public BindableContextCollection<RegressionViewModel> RegressionResultViews { get; }
 
-		private double GetBinaryClassificationSortedValue(BinaryClassificationResult x)
-		{
-			switch (EnumUtil.ToEnum<BinaryClassificationMetric>(BinaryClassificationMetrics.SelectedItem.Value))
-			{
-				case BinaryClassificationMetric.Accuracy:
-					return x.Accuracy;
-				case BinaryClassificationMetric.AreaUnderPrecisionRecallCurve:
-					return x.AreaUnderPrecisionRecallCurve;
-				case BinaryClassificationMetric.AreaUnderRocCurve:
-					return x.AreaUnderRocCurve;
-				case BinaryClassificationMetric.F1Score:
-					return x.F1Score;
-				case BinaryClassificationMetric.NegativePrecision:
-					return x.NegativePrecision;
-				case BinaryClassificationMetric.NegativeRecall:
-					return x.NegativeRecall;
-				case BinaryClassificationMetric.PositivePrecision:
-					return x.PositivePrecision;
-				case BinaryClassificationMetric.PositiveRecall:
-					return x.PositiveRecall;
-				default:
-					return x.AreaUnderRocCurve;
-			}
-		}
-
-		private double GetRegressionResultSortedValue(RegressionResult x)
-		{
-			switch (EnumUtil.ToEnum<RegressionMetric>(RegressionMetrics.SelectedItem.Value))
-			{
-				case RegressionMetric.MeanAbsoluteError:
-					return x.MeanAbsoluteError;
-				case RegressionMetric.MeanSquaredError:
-					return x.MeanSquaredError;
-				case RegressionMetric.RootMeanSquaredError:
-					return x.RootMeanSquaredError;
-				case RegressionMetric.RSquared:
-					return x.RSquared;
-				default:
-					return x.RSquared;
-			}
-		}
-
 		public string MergePath
 		{
 			get => _MergePath;
@@ -219,6 +177,7 @@ namespace Netkeiba
 
 			Index = source.Index;
 			Rank = source.Rank;
+			Score = source.Score;
 			Second = source.Second;
 			Path = source.Path;
 			Accuracy = source.Accuracy;
@@ -247,15 +206,16 @@ namespace Netkeiba
 	{
 		public ModelViewModel Parent { get; }
 
-        public RegressionResult Source { get; }
-       
+		public RegressionResult Source { get; }
+
 		public RegressionViewModel(ModelViewModel m, RegressionResult source)
 		{
 			Parent = m;
-            Source = source;
+			Source = source;
 
-            Index = source.Index;
+			Index = source.Index;
 			Rank = Rank;
+			Score = source.Score;
 			Second = source.Second;
 			Path = source.Path;
 			RSquared = source.RSquared;

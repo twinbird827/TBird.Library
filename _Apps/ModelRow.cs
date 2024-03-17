@@ -97,7 +97,7 @@ namespace Netkeiba
 
 		public int Index { get; set; }
 
-		public int Second { get; set; }
+		public uint Second { get; set; }
 
 		public string Path { get; set; }
 
@@ -133,7 +133,7 @@ namespace Netkeiba
 
 		}
 
-		public BinaryClassificationResult(string path, string rank, int index, int second, CalibratedBinaryClassificationMetrics metrics, float score)
+		public BinaryClassificationResult(string path, string rank, int index, uint second, CalibratedBinaryClassificationMetrics metrics, float score)
 		{
 			Index = index;
 			Rank = rank;
@@ -184,7 +184,7 @@ namespace Netkeiba
 
 		}
 
-		public RegressionResult(string path, string rank, int index, int second, RegressionMetrics metrics, float score)
+		public RegressionResult(string path, string rank, int index, uint second, RegressionMetrics metrics, float score)
 		{
 			Path = path;
 			Rank = rank;

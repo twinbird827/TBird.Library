@@ -90,30 +90,34 @@
 											DisplayMemberBinding="{Binding Index}" />
 							<GridViewColumn Header="Second"
 											DisplayMemberBinding="{Binding Second}" />
+							<GridViewColumn Header="Rank"
+											DisplayMemberBinding="{Binding Rank}" />
+							<GridViewColumn Header="Score"
+											DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
 							<GridViewColumn Header="Path"
 											DisplayMemberBinding="{Binding Path}" />
 							<GridViewColumn Header="Accuracy"
-											DisplayMemberBinding="{Binding Accuracy}" />
-							<GridViewColumn Header="AreaUnderPrecisionRecallCurve"
-											DisplayMemberBinding="{Binding AreaUnderPrecisionRecallCurve}" />
-							<GridViewColumn Header="AreaUnderRocCurve"
-											DisplayMemberBinding="{Binding AreaUnderRocCurve}" />
+											DisplayMemberBinding="{Binding Accuracy, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="AUPRC"
+											DisplayMemberBinding="{Binding AreaUnderPrecisionRecallCurve, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="AURC"
+											DisplayMemberBinding="{Binding AreaUnderRocCurve, StringFormat={}{0:N4}}" />
 							<GridViewColumn Header="Entropy"
-											DisplayMemberBinding="{Binding Entropy}" />
+											DisplayMemberBinding="{Binding Entropy, StringFormat={}{0:N4}}" />
 							<GridViewColumn Header="F1Score"
-											DisplayMemberBinding="{Binding F1Score}" />
-							<GridViewColumn Header="LogLoss"
-											DisplayMemberBinding="{Binding LogLoss}" />
-							<GridViewColumn Header="LogLossReduction"
-											DisplayMemberBinding="{Binding LogLossReduction}" />
-							<GridViewColumn Header="NegativePrecision"
-											DisplayMemberBinding="{Binding NegativePrecision}" />
-							<GridViewColumn Header="NegativeRecall"
-											DisplayMemberBinding="{Binding NegativeRecall}" />
-							<GridViewColumn Header="PositivePrecision"
-											DisplayMemberBinding="{Binding PositivePrecision}" />
-							<GridViewColumn Header="PositiveRecall"
-											DisplayMemberBinding="{Binding PositiveRecall}" />
+											DisplayMemberBinding="{Binding F1Score, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="LL"
+											DisplayMemberBinding="{Binding LogLoss, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="LLR"
+											DisplayMemberBinding="{Binding LogLossReduction, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="NP"
+											DisplayMemberBinding="{Binding NegativePrecision, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="NR"
+											DisplayMemberBinding="{Binding NegativeRecall, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="PP"
+											DisplayMemberBinding="{Binding PositivePrecision, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="PR"
+											DisplayMemberBinding="{Binding PositiveRecall, StringFormat={}{0:N4}}" />
 							<GridViewColumn Header="削除">
 								<GridViewColumn.CellTemplate>
 									<DataTemplate>
@@ -137,18 +141,22 @@
 											DisplayMemberBinding="{Binding Index}" />
 							<GridViewColumn Header="Second"
 											DisplayMemberBinding="{Binding Second}" />
+							<GridViewColumn Header="Rank"
+											DisplayMemberBinding="{Binding Rank}" />
+							<GridViewColumn Header="Score"
+											DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
 							<GridViewColumn Header="Path"
 											DisplayMemberBinding="{Binding Path}" />
 							<GridViewColumn Header="RSquared"
-											DisplayMemberBinding="{Binding RSquared}" />
-							<GridViewColumn Header="MeanSquaredError"
-											DisplayMemberBinding="{Binding MeanSquaredError}" />
-							<GridViewColumn Header="RootMeanSquaredError"
-											DisplayMemberBinding="{Binding RootMeanSquaredError}" />
-							<GridViewColumn Header="LossFunction"
-											DisplayMemberBinding="{Binding LossFunction}" />
-							<GridViewColumn Header="MeanAbsoluteError"
-											DisplayMemberBinding="{Binding MeanAbsoluteError}" />
+											DisplayMemberBinding="{Binding RSquared, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="MSE"
+											DisplayMemberBinding="{Binding MeanSquaredError, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="RMSE"
+											DisplayMemberBinding="{Binding RootMeanSquaredError, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="LF"
+											DisplayMemberBinding="{Binding LossFunction, StringFormat={}{0:N4}}" />
+							<GridViewColumn Header="MAE"
+											DisplayMemberBinding="{Binding MeanAbsoluteError, StringFormat={}{0:N4}}" />
 							<GridViewColumn Header="削除">
 								<GridViewColumn.CellTemplate>
 									<DataTemplate>
