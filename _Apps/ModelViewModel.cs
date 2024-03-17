@@ -89,6 +89,20 @@ namespace Netkeiba
 				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.Save();
+
+				var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
+					.Concat(AppSetting.Instance.RegressionResults.Select(x => x.Path))
+					.Select(x => new FileInfo(x))
+					.ToArray();
+
+				foreach (var remove in DirectoryUtil.GetFiles("model").Select(x => new FileInfo(x)))
+				{
+					if (!files.Any(x => x.FullName == remove.FullName))
+					{
+						// 対象ではないﾌｧｲﾙは削除する。
+						remove.Delete();
+					}
+				}
 			});
 		}
 
