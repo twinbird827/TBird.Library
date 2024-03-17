@@ -157,7 +157,8 @@ namespace Netkeiba
 				var bst = old == null || old.Score < now.Score ? now : old;
 
 				AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
-				AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
+                AddLog($"Score: {now.Score}");
+                AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
 				AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
 				AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
 				AddLog($"Entropy: {trainedModelMetrics.Entropy}");
@@ -173,7 +174,7 @@ namespace Netkeiba
 
 				mlContext.Model.Save(model, data.Schema, savepath);
 
-				AppSetting.Instance.UpdateBinaryClassificationResults(now, old);
+				AppSetting.Instance.UpdateBinaryClassificationResults(bst, old);
 
 				Progress.Value += 1;
 			}
@@ -265,8 +266,9 @@ namespace Netkeiba
 				var bst = old == null || old.Score < now.Score ? now : old;
 
 				AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
-				AddLog($"RSquared: {trainedModelMetrics.RSquared}");
-				AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
+                AddLog($"Score: {now.Score}");
+                AddLog($"RSquared: {trainedModelMetrics.RSquared}");
+                AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
 				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
 				AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
 				AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
@@ -274,7 +276,7 @@ namespace Netkeiba
 
 				mlContext.Model.Save(model, data.Schema, savepath);
 
-				AppSetting.Instance.UpdateRegressionResults(now, old);
+				AppSetting.Instance.UpdateRegressionResults(bst, old);
 
 				Progress.Value += 1;
 			}
@@ -368,7 +370,7 @@ namespace Netkeiba
 					),
 				};
 
-				var rets = new List<float>();
+				var rets = new List<decimal>();
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
@@ -492,13 +494,13 @@ namespace Netkeiba
 						var payoutDetail = await GetPayout(raceid);
 
 						// 結果の平均を結果に詰める
-						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle() - x.pay).Average());
+						rets.Add(pays.Select(x => Calc(x.func(arr, payoutDetail, 7), x.pay, (a, b) => a / b)).Average());
 					}
 
 					conn.Rollback();
 				}
 
-				return rets.Any() ? rets.Average() : 0F;
+				return rets.Any() ? rets.Average().GetSingle() : 0F;
 			}
 		}
 	}
