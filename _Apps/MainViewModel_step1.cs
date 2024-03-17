@@ -43,7 +43,7 @@ namespace Netkeiba
 
 		public IRelayCommand S1EXEC => RelayCommand.Create(async _ =>
 		{
-			var years = Enumerable.Range(SYear, EYear - SYear).Select(i => i.ToString(2)).ToArray();
+			var years = Enumerable.Range(SYear, EYear - SYear + 1).Select(i => i.ToString(2)).ToArray();
 			var basyos = BasyoSources.Where(x => x.IsChecked).ToArray();
 			var counts = Enumerable.Range(1, 6).Select(i => i.ToString(2)).ToArray();
 			var days = Enumerable.Range(1, 12).Select(i => i.ToString(2)).ToArray();

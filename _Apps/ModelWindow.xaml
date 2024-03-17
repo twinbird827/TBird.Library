@@ -80,6 +80,45 @@
 			</WrapPanel>
 		</GroupBox>
 
+		<GroupBox DockPanel.Dock="Top" Header="TrainingSeconds">
+			<WrapPanel Orientation="Horizontal">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="80" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="Minimum" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultInputDecimalTextBox}"
+							 Text="{Binding MinimumTrainingTimeSecond}" />
+				</Grid>
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="80" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="Maximum" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultInputDecimalTextBox}"
+							 Text="{Binding MaximumTrainingTimeSecond}" />
+				</Grid>
+
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="80" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="Count" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultInputDecimalTextBox}"
+							 Text="{Binding TrainingCount}" />
+				</Grid>
+			</WrapPanel>
+		</GroupBox>
+
 		<GroupBox DockPanel.Dock="Top" Header="BinaryClassification" MinHeight="150" MaxHeight="350">
 			<DockPanel>
 				<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" />

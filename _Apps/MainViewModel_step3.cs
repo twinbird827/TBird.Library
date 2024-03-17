@@ -41,7 +41,7 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
-			var seconds = 3;
+			var seconds = AppSetting.Instance.TrainingCount;
 			var metrics = Arr(BinaryClassificationMetric.AreaUnderRocCurve, BinaryClassificationMetric.F1Score);
 
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
@@ -69,7 +69,7 @@ namespace Netkeiba
 			var random = new Random();
 			for (var tmp = 0; tmp < seconds; tmp++)
 			{
-				var second = (uint)random.Next(600, 3600);
+				var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
 				foreach (var metric in metrics)
 				{
@@ -516,7 +516,7 @@ namespace Netkeiba
 					conn.Rollback();
 				}
 
-				return rets.Any() ? rets.Average().GetSingle() : 0F;
+				return rets.Any() ? Calc(rets.Sum(), rets.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F;
 			}
 		}
 	}

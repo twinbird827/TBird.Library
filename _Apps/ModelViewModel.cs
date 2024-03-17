@@ -76,6 +76,9 @@ namespace Netkeiba
 					AppSetting.Instance.TrainingTimeSecond = TrainingTimeSecond.Split(',').Select(i => i.GetInt32()).ToArray();
 				}
 
+				AppSetting.Instance.MinimumTrainingTimeSecond = MinimumTrainingTimeSecond;
+				AppSetting.Instance.MaximumTrainingTimeSecond = MaximumTrainingTimeSecond;
+				AppSetting.Instance.TrainingCount = TrainingCount;
 				AppSetting.Instance.UseFastForest = UseFastForest;
 				AppSetting.Instance.UseFastTree = UseFastTree;
 				AppSetting.Instance.UseLgbm = UseLgbm;
@@ -88,6 +91,27 @@ namespace Netkeiba
 				AppSetting.Instance.Save();
 			});
 		}
+
+		public uint MinimumTrainingTimeSecond
+		{
+			get => _MinimumTrainingTimeSecond;
+			set => SetProperty(ref _MinimumTrainingTimeSecond, value);
+		}
+		private uint _MinimumTrainingTimeSecond = AppSetting.Instance.MinimumTrainingTimeSecond;
+
+		public uint MaximumTrainingTimeSecond
+		{
+			get => _MaximumTrainingTimeSecond;
+			set => SetProperty(ref _MaximumTrainingTimeSecond, value);
+		}
+		private uint _MaximumTrainingTimeSecond = AppSetting.Instance.MaximumTrainingTimeSecond;
+
+		public uint TrainingCount
+		{
+			get => _TrainingCount;
+			set => SetProperty(ref _TrainingCount, value);
+		}
+		private uint _TrainingCount = AppSetting.Instance.TrainingCount;
 
 		public bool UseFastForest
 		{

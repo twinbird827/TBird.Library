@@ -98,6 +98,27 @@ namespace Netkeiba
 		}
 		private int[] _TrainingTimeSecond = new int[] { };
 
+		public uint MinimumTrainingTimeSecond
+		{
+			get => GetProperty(_MinimumTrainingTimeSecond);
+			set => SetProperty(ref _MinimumTrainingTimeSecond, value);
+		}
+		private uint _MinimumTrainingTimeSecond = 600;
+
+		public uint MaximumTrainingTimeSecond
+		{
+			get => GetProperty(_MaximumTrainingTimeSecond);
+			set => SetProperty(ref _MaximumTrainingTimeSecond, value);
+		}
+		private uint _MaximumTrainingTimeSecond = 3600;
+
+		public uint TrainingCount
+		{
+			get => GetProperty(_TrainingCount);
+			set => SetProperty(ref _TrainingCount, value);
+		}
+		private uint _TrainingCount = 3;
+
 		public string[]? Features
 		{
 			get => GetProperty(_Features);
