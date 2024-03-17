@@ -32,7 +32,7 @@ namespace Netkeiba
 				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
 				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
 				var racbase = await conn.GetRows(r => r.Get<string>(0),
-					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE ﾚｰｽID < ? AND 開催日数 >= ? AND ﾗﾝｸ2 <> 'RANK5' ORDER BY ﾚｰｽID DESC",
+					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE ﾚｰｽID < ? AND 開催日数 >= ? ORDER BY ﾚｰｽID DESC",
 					SQLiteUtil.CreateParameter(System.Data.DbType.String, "202400000000"),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
 				);
@@ -65,7 +65,7 @@ namespace Netkeiba
 
 					// ﾚｰｽ毎の纏まり
 					var racarr = await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
-					var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID", "単勝");
+					var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID");
 					var head2 = Arr("着順", "単勝", "人気");
 
 					if (create)
@@ -79,7 +79,7 @@ namespace Netkeiba
 						await conn.ExecuteNonQueryAsync(Arr(
 							"CREATE TABLE IF NOT EXISTS t_model (",
 							head1.Select(x => $"{x} INTEGER").GetString(","),
-							",Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
+							",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
 					}
 
 					await conn.BeginTransaction();
@@ -88,13 +88,14 @@ namespace Netkeiba
 						AppSetting.Instance.Features = AppSetting.Instance.Features ?? ins.Keys.Where(x => !head2.Contains(x)).ToArray();
 
 						var prms1 = head1.Select(x => SQLiteUtil.CreateParameter(System.Data.DbType.Int64, ins[x]));
-						var prms2 = SQLiteUtil.CreateParameter(System.Data.DbType.Binary,
+						var prms2 = SQLiteUtil.CreateParameter(System.Data.DbType.Single, ins["単勝"]);
+						var prms3 = SQLiteUtil.CreateParameter(System.Data.DbType.Binary,
 							AppSetting.Instance.Features.SelectMany(x => BitConverter.GetBytes(ins[x].GetSingle())).ToArray()
 						);
 
 						await conn.ExecuteNonQueryAsync(
-							$"INSERT INTO t_model ({head1.GetString(",")},Features) VALUES ({Enumerable.Repeat("?", head1.Length).GetString(",")}, ?)",
-							prms1.Concat(Arr(prms2)).ToArray()
+							$"INSERT INTO t_model ({head1.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", head1.Length).GetString(",")}, ?, ?)",
+							prms1.Concat(Arr(prms2)).Concat(Arr(prms3)).ToArray()
 						);
 					}
 					conn.Commit();
@@ -226,7 +227,7 @@ namespace Netkeiba
 
                 // 予測したいﾃﾞｰﾀ
                 dic["着順"] = src["着順"].GetInt64();
-                dic["単勝"] = src["単勝"].GetSingle() * 10;
+                dic["単勝"] = src["単勝"].GetSingle();
 
                 // 馬毎に違う情報
                 dic["枠番"] = src["枠番"].GetInt64();

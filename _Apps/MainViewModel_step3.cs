@@ -65,12 +65,12 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 <= 1) },
-				{ 2, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 <= 2) },
-				{ 3, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 <= 3) },
-				{ 6, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 > 1) },
-				{ 7, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 > 2) },
-				{ 8, r => 着勝(r).Run(x => 50 < x.単勝 && x.着順 > 3) },
+				{ 1, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 <= 1) },
+				{ 2, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 <= 2) },
+				{ 3, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 <= 3) },
+				{ 6, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 > 1) },
+				{ 7, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 > 2) },
+				{ 8, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 > 3) },
 			};
 
 			var random = new Random();
