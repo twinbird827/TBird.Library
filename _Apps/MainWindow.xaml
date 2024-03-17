@@ -147,7 +147,10 @@
 							</ItemsControl.ItemTemplate>
 						</ItemsControl>
 					</ScrollViewer>
-					<Button Width="200" Content="実行" Command="{Binding S3EXEC}" />
+					<DockPanel Width="200">
+						<Button DockPanel.Dock="Top" Content="全選択／解除" Command="{Binding S3EXECCHECK}" />
+						<Button Content="実行" Command="{Binding S3EXEC}" />
+					</DockPanel>
 				</DockPanel>
 			</GroupBox>
 

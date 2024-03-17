@@ -39,6 +39,13 @@ namespace Netkeiba
 
 		public BindableContextCollection<CheckboxItemModel> CreateModels { get; }
 
+		public IRelayCommand S3EXECCHECK => RelayCommand.Create(_ =>
+		{
+			var check = CreateModelSources.Count(x => !x.IsChecked) < CreateModelSources.Count(x => x.IsChecked);
+
+			CreateModelSources.ForEach(x => x.IsChecked = !check);
+		});
+
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
 			var seconds = AppSetting.Instance.TrainingCount;
