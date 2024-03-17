@@ -153,14 +153,12 @@ namespace Netkeiba
 						null
 					)
 				);
-				var old = AppSetting.Instance.BinaryClassificationResults.FirstOrDefault(x => x.Index == index);
+				var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
 				var bst = old == null || old.Score < now.Score ? now : old;
 
 				AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
-                AddLog($"Score: {now.Score}");
                 AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
 				AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
-				AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
 				AddLog($"Entropy: {trainedModelMetrics.Entropy}");
 				AddLog($"F1Score: {trainedModelMetrics.F1Score}");
 				AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
@@ -170,7 +168,9 @@ namespace Netkeiba
 				AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
 				AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
 				AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
-				AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+                AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
+                AddLog($"Score: {now.Score}");
+                AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
 
 				mlContext.Model.Save(model, data.Schema, savepath);
 
@@ -262,17 +262,17 @@ namespace Netkeiba
 				var now = new RegressionResult(savepath, rank, 1, second, trainedModelMetrics,
 					await PredictionModel(rank, null, null, mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model))
 				);
-				var old = AppSetting.Instance.RegressionResults.FirstOrDefault(x => x.Index == 1);
+				var old = AppSetting.Instance.GetRegressionResult(1, rank);
 				var bst = old == null || old.Score < now.Score ? now : old;
 
 				AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
-                AddLog($"Score: {now.Score}");
-                AddLog($"RSquared: {trainedModelMetrics.RSquared}");
                 AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
 				AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
 				AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
 				AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
-				AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
+                AddLog($"RSquared: {trainedModelMetrics.RSquared}");
+                AddLog($"Score: {now.Score}");
+                AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
 
 				mlContext.Model.Save(model, data.Schema, savepath);
 
@@ -334,18 +334,18 @@ namespace Netkeiba
 			{
 				(int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
 				{
-                    // 複1の予想結果
-                    (100, "複1", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 3),
-						arr.Where(x => x[j].GetInt32() <= 3),
-						arr.Where(x => x[j].GetInt32() <= 3))
-					),
                     // 複2の予想結果
                     (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
+                        arr.Where(x => x[j].GetInt32() <= 2),
+                        arr.Where(x => x[j].GetInt32() <= 2),
+                        arr.Where(x => x[j].GetInt32() <= 4))
+                    ),
+                    // 複2の予想結果
+                    (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+                        arr.Where(x => x[j].GetInt32() == 1),
+                        arr.Where(x => x[j].GetInt32() <= 4),
+                        arr.Where(x => x[j].GetInt32() <= 4))
+                    ),
                     // 複4aの予想結果
                     (400, "複4a", (arr, payoutDetail, j) => Get三連複(payoutDetail,
 						arr.Where(x => x[j].GetInt32() <= 4),
@@ -370,7 +370,7 @@ namespace Netkeiba
 					),
 				};
 
-				var rets = new List<decimal>();
+				var rets = new List<float>();
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
@@ -494,7 +494,7 @@ namespace Netkeiba
 						var payoutDetail = await GetPayout(raceid);
 
 						// 結果の平均を結果に詰める
-						rets.Add(pays.Select(x => Calc(x.func(arr, payoutDetail, 7), x.pay, (a, b) => a / b)).Average());
+						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle()).Sum());
 					}
 
 					conn.Rollback();

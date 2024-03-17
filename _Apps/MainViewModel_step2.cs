@@ -32,7 +32,7 @@ namespace Netkeiba
 				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
 				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
 				var racbase = await conn.GetRows(r => r.Get<string>(0),
-					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE ﾚｰｽID < ? AND 開催日数 >= ? ORDER BY ﾚｰｽID DESC",
+					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE ﾚｰｽID < ? AND 開催日数 >= ? AND ﾗﾝｸ2 <> 'RANK5' ORDER BY ﾚｰｽID DESC",
 					SQLiteUtil.CreateParameter(System.Data.DbType.String, "202400000000"),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
 				);
@@ -65,7 +65,7 @@ namespace Netkeiba
 
 					// ﾚｰｽ毎の纏まり
 					var racarr = await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
-					var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID");
+					var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID", "単勝");
 					var head2 = Arr("着順", "単勝", "人気");
 
 					if (create)
@@ -224,11 +224,12 @@ namespace Netkeiba
 				//dic["ﾗﾝｸ1"] = ﾗﾝｸ1.IndexOf(src["ﾗﾝｸ1"]);
 				dic["ﾗﾝｸ2"] = ﾗﾝｸ2.IndexOf(src["ﾗﾝｸ2"]);
 
-				// 予測したいﾃﾞｰﾀ
-				dic["着順"] = src["着順"].GetInt64();
+                // 予測したいﾃﾞｰﾀ
+                dic["着順"] = src["着順"].GetInt64();
+                dic["単勝"] = src["単勝"].GetSingle() * 10;
 
-				// 馬毎に違う情報
-				dic["枠番"] = src["枠番"].GetInt64();
+                // 馬毎に違う情報
+                dic["枠番"] = src["枠番"].GetInt64();
 				dic["馬番"] = src["馬番"].GetInt64();
 				dic["馬ID"] = src["馬ID"].GetInt64();
 				dic["馬性"] = 馬性.IndexOf(src["馬性"]);
