@@ -66,7 +66,7 @@ namespace Netkeiba
 				}
 			});
 
-			AddDisposed((sender, e) =>
+			ClickSave = RelayCommand.Create(_ =>
 			{
 				AppSetting.Instance.BinaryClassificationMetric = EnumUtil.ToEnum<BinaryClassificationMetric>(BinaryClassificationMetrics.SelectedItem.Value);
 				AppSetting.Instance.RegressionMetric = EnumUtil.ToEnum<RegressionMetric>(RegressionMetrics.SelectedItem.Value);
@@ -200,6 +200,9 @@ namespace Netkeiba
 		private string _MergePath = string.Empty;
 
 		public IRelayCommand ClickMerge { get; }
+
+		public IRelayCommand ClickSave { get; }
+
 	}
 
 	public class BinaryClassificationViewModel : BinaryClassificationResult

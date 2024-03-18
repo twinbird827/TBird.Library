@@ -51,6 +51,12 @@
 		</Style>
 	</Controls:MetroWindow.Resources>
 	<DockPanel>
+		<GroupBox DockPanel.Dock="Top" Header="Save">
+			<Button Height="40"
+					Content="保存"
+					Command="{Binding ClickSave}" />
+		</GroupBox>
+
 		<GroupBox DockPanel.Dock="Top" Header="Merge">
 			<DockPanel>
 				<Button DockPanel.Dock="Right"
