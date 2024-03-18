@@ -67,9 +67,9 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 <= 1) },
-				{ 2, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 <= 2) },
-				{ 3, r => 着勝(r).Run(x => 5 < x.単勝 && x.着順 <= 3) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 1) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 2) },
+				{ 3, r => 着勝(r).Run(x => x.着順 <= 3) },
 				{ 6, r => 着勝(r).Run(x => x.着順 > 3) },
 				{ 7, r => 着勝(r).Run(x => x.着順 > 4) },
 				{ 8, r => 着勝(r).Run(x => x.着順 > 5) },
@@ -400,7 +400,7 @@ namespace Netkeiba
 
 				var rets = new List<float>();
 
-				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT 着順, Features FROM t_model WHERE ﾚｰｽID > ? ", SQLiteUtil.CreateParameter(DbType.Int64, 202400000000)))
+				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE ﾚｰｽID > ? ", SQLiteUtil.CreateParameter(DbType.Int64, 202400000000)))
 				{
 					var arr = new List<List<object>>();
 
@@ -444,8 +444,10 @@ namespace Netkeiba
 						var n = 1;
 						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
 
-						// 支払情報を出力
-						var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
+                        await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
+
+                        // 支払情報を出力
+                        var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
 						{
 							if (rows.Any())
 							{
@@ -460,12 +462,10 @@ namespace Netkeiba
 						// 結果の平均を結果に詰める
 						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle()).Sum());
 
-						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key)");
-
 						await conn.BeginTransaction();
 						foreach (var x in payoutDetail)
 						{
-							await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) (?,?,?)",
+							await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
 								SQLiteUtil.CreateParameter(DbType.String, raceid.ToString()),
 								SQLiteUtil.CreateParameter(DbType.String, x.Key),
 								SQLiteUtil.CreateParameter(DbType.String, x.Value)
