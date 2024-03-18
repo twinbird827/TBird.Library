@@ -67,9 +67,9 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 3) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 4) },
-				{ 3, r => 着勝(r).Run(x => x.着順 <= 5) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 2) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 3, r => 着勝(r).Run(x => x.着順 <= 4) },
 				{ 6, r => 着勝(r).Run(x => x.着順 > 3) },
 				{ 7, r => 着勝(r).Run(x => x.着順 > 4) },
 				{ 8, r => 着勝(r).Run(x => x.着順 > 5) },
@@ -423,7 +423,7 @@ namespace Netkeiba
 					if (arr.Any())
 					{
 						var n = 1;
-						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+						arr.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
 
 						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
 
