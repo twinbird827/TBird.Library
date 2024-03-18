@@ -28,6 +28,8 @@ using TBird.Wpf.Collections;
 using ICSharpCode.SharpZipLib.Core;
 using Tensorflow;
 using MathNet.Numerics.RootFinding;
+using ControlzEx.Theming;
+using System.Windows.Forms;
 
 namespace Netkeiba
 {
@@ -322,7 +324,10 @@ namespace Netkeiba
 			using (var file = new FileAppendWriter(path))
 			{
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
-				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番", SQLiteUtil.CreateParameter(DbType.Int64, ﾗﾝｸ2.IndexOf(rank)));
+				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE ﾚｰｽID < ? AND ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番",
+					SQLiteUtil.CreateParameter(DbType.Int64, 202400000000),
+					SQLiteUtil.CreateParameter(DbType.Int64, ﾗﾝｸ2.IndexOf(rank))
+				);
 
 				var next = await reader.ReadAsync();
 
@@ -394,94 +399,20 @@ namespace Netkeiba
 				};
 
 				var rets = new List<float>();
-				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
-				var 馬性 = await AppUtil.Get馬性(conn);
-				var 調教場所 = await AppUtil.Get調教場所(conn);
-				var 追切 = await AppUtil.Get追切(conn);
 
-				var raceids = GetRaceIds().ToArray();
-
-				// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
-				var racearrs = await raceids.Select(raceid => GetRaceShutubas(raceid).RunAsync(async arr =>
+				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT 着順, Features FROM t_model WHERE ﾚｰｽID > ? ", SQLiteUtil.CreateParameter(DbType.Int64, 202400000000)))
 				{
-					if (arr.Count == 0) return;
-
-					if (arr.First()["ﾗﾝｸ2"] != rank) return;
-
-					// 着順情報取得
-					var tyaku = await GetTyakujun(raceid);
-
-					// 追切情報取得
-					var oikiri = await GetOikiris(raceid);
-
-					await arr.Select(async row =>
-					{
-						var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-						row["着順"] = tya != null ? tya["着順"] : string.Empty;
-
-						var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-						row["一言"] = oik != null ? oik["一言"] : string.Empty;
-						row["追切"] = oik != null ? oik["追切"] : string.Empty;
-
-						var ban = await conn
-							.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
-							.RunAsync(async tmp =>
-							{
-								if (0 < tmp.Count)
-								{
-									return tmp[0];
-								}
-								else
-								{
-									return await GetBanushi(row["馬ID"]);
-								}
-							});
-						row["馬主名"] = ban["馬主名"];
-						row["馬主ID"] = ban["馬主ID"];
-					}).WhenAll();
-				})).WhenAll();
-
-				// 馬ID
-				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"]).Distinct());
-
-				// 血統情報の作成
-				await RefreshKetto(conn, 馬IDs);
-
-				// 産駒成績の更新
-				await RefreshSanku(conn, true, 馬IDs);
-
-				foreach (var racearr in racearrs)
-				{
-					if (!racearr.Any()) continue;
-					if (racearr.First()["ﾗﾝｸ2"] != rank) continue;
-
-					var raceid = racearr.First()["ﾚｰｽID"];
-
-					await conn.BeginTransaction();
-
-					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
-					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));
-					foreach (var x in racearr)
-					{
-						var sql = "INSERT INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
-						var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
-						await conn.ExecuteNonQueryAsync(sql, prm);
-					}
-
 					var arr = new List<List<object>>();
 
-					// ﾚｰｽ情報の初期化
-					await InitializeModelBase(conn);
-
-					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
-					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
+					foreach (var m in await conn.GetRows("SELECT 着順, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 					{
 						var tmp = new List<object>();
-						var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
 
 						var binaryClassificationSource = new BinaryClassificationSource()
 						{
-							Features = (AppSetting.Instance.Features ?? throw new ArgumentNullException()).Select(x => m[x].GetSingle()).ToArray()
+							Features = m["Features"]
+								.Run(x => (byte[])x)
+								.Run(bytes => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray())
 						};
 						var regressionSource = new RegressionSource()
 						{
@@ -502,7 +433,7 @@ namespace Netkeiba
 						tmp.Add(string.Empty);
 						tmp.Add(string.Empty);
 						tmp.Add(string.Empty);
-						tmp.Add(src["着順"]);
+						tmp.Add(m["着順"]);
 
 						arr.Add(tmp);
 					}
@@ -514,13 +445,34 @@ namespace Netkeiba
 						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
 
 						// 支払情報を出力
-						var payoutDetail = await GetPayout(raceid);
+						var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
+						{
+							if (rows.Any())
+							{
+								return rows.ToDictionary(x => $"{x["key"]}", x => $"{x["val"]}");
+							}
+							else
+							{
+								return await GetPayout(raceid.ToString());
+							}
+						});
 
 						// 結果の平均を結果に詰める
 						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle()).Sum());
-					}
 
-					conn.Rollback();
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key)");
+
+						await conn.BeginTransaction();
+						foreach (var x in payoutDetail)
+						{
+							await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) (?,?,?)",
+								SQLiteUtil.CreateParameter(DbType.String, raceid.ToString()),
+								SQLiteUtil.CreateParameter(DbType.String, x.Key),
+								SQLiteUtil.CreateParameter(DbType.String, x.Value)
+							);
+						}
+						conn.Commit();
+					}
 				}
 
 				return rets.Any() ? Calc(rets.Sum(), rets.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F;
