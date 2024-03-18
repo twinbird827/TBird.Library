@@ -158,6 +158,11 @@ namespace Netkeiba
 
 	public class BinaryClassificationResult : PredictionResult
 	{
+		public static readonly BinaryClassificationResult Default = new BinaryClassificationResult()
+		{
+			Path = string.Empty
+		};
+
 		public BinaryClassificationResult()
 		{
 
@@ -209,6 +214,11 @@ namespace Netkeiba
 
 	public class RegressionResult : PredictionResult
 	{
+		public static readonly RegressionResult Default = new RegressionResult()
+		{
+			Path = string.Empty
+		};
+
 		public RegressionResult()
 		{
 

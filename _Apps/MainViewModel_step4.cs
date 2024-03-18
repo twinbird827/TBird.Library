@@ -142,12 +142,12 @@ namespace Netkeiba
 					//),
                     // 連1の予想結果
                     (100, "連1", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() <= 2))
-                    ),
+						arr.Where(x => x[j].GetInt32() <= 2))
+					),
                     // 単勝1の予想結果
                     (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
-                        arr.Where(x => x[j].GetInt32() == 1))
-                    ),
+						arr.Where(x => x[j].GetInt32() == 1))
+					),
      //               // 連3の予想結果
      //               (300, "連3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
 					//	arr.Where(x => x[j].GetInt32() <= 3))
@@ -159,7 +159,7 @@ namespace Netkeiba
 				var 調教場所 = await AppUtil.Get調教場所(conn);
 				var 追切 = await AppUtil.Get追切(conn);
 
-				var lists = Arr(tag, "RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
+				var lists = Arr(tag)
 					.ToDictionary(x => x, x => new List<List<object>>());
 
 				var headers = Arr("ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順")
@@ -304,6 +304,7 @@ namespace Netkeiba
 
 						var regressions = Arr(着順1)
 							.Select(x => x[src["ﾗﾝｸ2"]].Predict(regressionSource))
+							.Select(x => { x.Score = 5 - x.Score; return x; })
 							.ToArray();
 						tmp.AddRange(regressions);
 
@@ -315,7 +316,7 @@ namespace Netkeiba
 							// 合計値2
 							Enumerable.Range(0, 3).Sum(i => Math.Max(binaries1[i].GetScore1(), binaries2[i].GetScore2())),
 							// 着順付き
-							binaries1.Concat(binaries2).Sum(x => x.GetScore2()) + regressions.Sum(x => 1 / x.Score * 16)
+							binaries1.Concat(binaries2).Sum(x => x.GetScore2()) + regressions.Sum(x => x.Score)
 						);
 						tmp.AddRange(scores.Select(x => (object)x));
 
@@ -330,20 +331,7 @@ namespace Netkeiba
 						for (var j = iHeaders; j < scoremaxlen; j++)
 						{
 							var n = 1;
-							if ((iHeaders + iBinaries1 + iBinaries2) <= j && j <= (iHeaders + iBinaries1 + iBinaries2))
-							{
-								arr
-									.OrderBy(x => x[j].GetDouble())
-									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].GetDouble())
-									.ForEach(x => x.Add(n++));
-							}
-							else
-							{
-								arr
-									.OrderByDescending(x => x[j].GetDouble())
-									.ThenBy(x => x[iHeaders + iBinaries1 + iBinaries2].GetDouble())
-									.ForEach(x => x.Add(n++));
-							}
+							arr.OrderByDescending(x => x[j].GetDouble()).ForEach(x => x.Add(n++));
 						}
 
 						// 支払情報を出力
@@ -354,9 +342,7 @@ namespace Netkeiba
 							arr.First().AddRange(pays.Select(x => x.func(arr, payoutDetail, j)));
 						}
 
-						var rnk = racearr.Select(x => x["ﾗﾝｸ2"]).First();
 						lists[tag].AddRange(arr);
-						lists[rnk].AddRange(arr);
 					}
 
 					conn.Rollback();
@@ -491,14 +477,15 @@ namespace Netkeiba
 				? Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
 				: 0;
 		}
-        private object Get単勝(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
-        {
-            var arr = arr1.Select(x => x[6].GetInt32().ToString());
 
-            return payoutDetail.ContainsKey("単勝")
-                ? Arr(0).Concat(payoutDetail["単勝"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-                : 0;
-        }
+		private object Get単勝(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
+		{
+			var arr = arr1.Select(x => x[6].GetInt32().ToString());
 
-    }
+			return payoutDetail.ContainsKey("単勝")
+				? Arr(0).Concat(payoutDetail["単勝"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
+				: 0;
+		}
+
+	}
 }

@@ -139,11 +139,11 @@ namespace Netkeiba
 			Save();
 		}
 
-		public BinaryClassificationResult? GetBinaryClassificationResult(int index, string rank)
+		public BinaryClassificationResult GetBinaryClassificationResult(int index, string rank)
 		{
 			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
 			{
-				return arr.FirstOrDefault(x => x.Score == arr.Max(y => y.Score));
+				return arr.FirstOrDefault(x => x.Score == arr.Max(y => y.Score)) ?? BinaryClassificationResult.Default;
 			});
 		}
 
@@ -160,11 +160,11 @@ namespace Netkeiba
 			Save();
 		}
 
-		public RegressionResult? GetRegressionResult(int index, string rank)
+		public RegressionResult GetRegressionResult(int index, string rank)
 		{
 			return RegressionResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
 			{
-				return arr.FirstOrDefault(x => x.Score == arr.Max(y => y.Score));
+				return arr.FirstOrDefault(x => x.Score == arr.Max(y => y.Score)) ?? RegressionResult.Default;
 			});
 		}
 	}

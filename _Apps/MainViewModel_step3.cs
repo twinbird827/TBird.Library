@@ -175,7 +175,7 @@ namespace Netkeiba
 				await PredictionModel(rank, engine, bytes => new BinaryClassificationSource(bytes), dst => dst.GetScore2() * (index < 5 ? 1 : -1))
 			);
 			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-			var bst = old == null || old.Score < now.Score ? now : old;
+			var bst = old == BinaryClassificationResult.Default || old.Score < now.Score ? now : old;
 
 			AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
 			AddLog($"Accuracy: {trained.Accuracy}");
@@ -282,7 +282,7 @@ namespace Netkeiba
 				await PredictionModel(rank, engine, bytes => new RegressionSource(bytes), pre => pre.Score * -1)
 			);
 			var old = AppSetting.Instance.GetRegressionResult(1, rank);
-			var bst = old == null || old.Score < now.Score ? now : old;
+			var bst = old == RegressionResult.Default || old.Score < now.Score ? now : old;
 
 			AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
 			AddLog($"MeanSquaredError: {trained.MeanSquaredError}");
