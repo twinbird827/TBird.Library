@@ -11,7 +11,7 @@ namespace Netkeiba
 {
 	public class PredictionSource
 	{
-		public const int Count = 748;
+		public const int Count = 751;
 
 		[LoadColumn(0, Count)]
 		[VectorType(Count)]
