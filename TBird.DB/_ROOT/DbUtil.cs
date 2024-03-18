@@ -48,6 +48,8 @@ namespace TBird.DB
 
 		private static object ToDecimal(object value) => value is decimal x ? x : decimal.Parse(value.ToString());
 
+		private static object ToString(object value) => value is string x ? x : value.ToString();
+
 		private static readonly Dictionary<Type, Func<object, object>> _typeconverters = new Dictionary<Type, Func<object, object>>()
 		{
 			{ typeof(short), ToInt16 },
@@ -57,6 +59,7 @@ namespace TBird.DB
 			{ typeof(byte[]), ToBytes },
 			{ typeof(float), ToSingle },
 			{ typeof(double), ToDouble },
+			{ typeof(string), ToString },
 			{ typeof(decimal), ToDecimal }
 		};
 	}
