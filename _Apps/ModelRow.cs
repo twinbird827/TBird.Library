@@ -16,16 +16,46 @@ namespace Netkeiba
 		[LoadColumn(0, Count)]
 		[VectorType(Count)]
 		public float[] Features { get; set; } = new float[0];
+
+		public PredictionSource()
+		{
+
+		}
+
+		public PredictionSource(byte[] bytes)
+		{
+			Features = Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray();
+		}
 	}
 
 	public class BinaryClassificationSource : PredictionSource
 	{
+		public BinaryClassificationSource()
+		{
+
+		}
+
+		public BinaryClassificationSource(byte[] bytes) : base(bytes)
+		{
+
+		}
+
 		[LoadColumn(Count)]
 		public bool 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource
 	{
+		public RegressionSource()
+		{
+
+		}
+
+		public RegressionSource(byte[] bytes) : base(bytes)
+		{
+
+		}
+
 		[LoadColumn(Count)]
 		public float 着順 { get; set; }
 	}

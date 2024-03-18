@@ -67,9 +67,9 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 1) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 2) },
-				{ 3, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 4) },
+				{ 3, r => 着勝(r).Run(x => x.着順 <= 5) },
 				{ 6, r => 着勝(r).Run(x => x.着順 > 3) },
 				{ 7, r => 着勝(r).Run(x => x.着順 > 4) },
 				{ 8, r => 着勝(r).Run(x => x.着順 > 5) },
@@ -145,8 +145,8 @@ namespace Netkeiba
 			// Create AutoML experiment
 			var experiment = mlContext.Auto().CreateExperiment()
 				.SetPipeline(pipeline)
-				.SetBinaryClassificationMetric(AppSetting.Instance.BinaryClassificationMetric, labelColumn: Label)
-				.SetTrainingTimeInSeconds((uint)second)
+				.SetBinaryClassificationMetric(metric, labelColumn: Label)
+				.SetTrainingTimeInSeconds(second)
 				.SetEciCostFrugalTuner()
 				.SetDataset(trainValidationData)
 				.SetMonitor(monitor);
@@ -169,30 +169,27 @@ namespace Netkeiba
 			// Save model
 			var savepath = $@"model\BinaryClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
-			var trainedModelMetrics = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
-			var now = new BinaryClassificationResult(savepath, rank, index, second, trainedModelMetrics,
-				await PredictionModel(rank,
-					index < 5 ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
-					4 < index ? mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model) : null,
-					null
-				)
+			var trained = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
+			var engine = mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model);
+			var now = new BinaryClassificationResult(savepath, rank, index, second, trained,
+				await PredictionModel(rank, engine, bytes => new BinaryClassificationSource(bytes), dst => dst.GetScore2() * (index < 5 ? 1 : -1))
 			);
 			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
 			var bst = old == null || old.Score < now.Score ? now : old;
 
 			AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
-			AddLog($"Accuracy: {trainedModelMetrics.Accuracy}");
-			AddLog($"AreaUnderPrecisionRecallCurve: {trainedModelMetrics.AreaUnderPrecisionRecallCurve}");
-			AddLog($"Entropy: {trainedModelMetrics.Entropy}");
-			AddLog($"F1Score: {trainedModelMetrics.F1Score}");
-			AddLog($"LogLoss: {trainedModelMetrics.LogLoss}");
-			AddLog($"LogLossReduction: {trainedModelMetrics.LogLossReduction}");
-			AddLog($"NegativePrecision: {trainedModelMetrics.NegativePrecision}");
-			AddLog($"NegativeRecall: {trainedModelMetrics.NegativeRecall}");
-			AddLog($"PositivePrecision: {trainedModelMetrics.PositivePrecision}");
-			AddLog($"PositiveRecall: {trainedModelMetrics.PositiveRecall}");
-			AddLog($"{trainedModelMetrics.ConfusionMatrix.GetFormattedConfusionTable()}");
-			AddLog($"AreaUnderRocCurve: {trainedModelMetrics.AreaUnderRocCurve}");
+			AddLog($"Accuracy: {trained.Accuracy}");
+			AddLog($"AreaUnderPrecisionRecallCurve: {trained.AreaUnderPrecisionRecallCurve}");
+			AddLog($"Entropy: {trained.Entropy}");
+			AddLog($"F1Score: {trained.F1Score}");
+			AddLog($"LogLoss: {trained.LogLoss}");
+			AddLog($"LogLossReduction: {trained.LogLossReduction}");
+			AddLog($"NegativePrecision: {trained.NegativePrecision}");
+			AddLog($"NegativeRecall: {trained.NegativeRecall}");
+			AddLog($"PositivePrecision: {trained.PositivePrecision}");
+			AddLog($"PositiveRecall: {trained.PositiveRecall}");
+			AddLog($"{trained.ConfusionMatrix.GetFormattedConfusionTable()}");
+			AddLog($"AreaUnderRocCurve: {trained.AreaUnderRocCurve}");
 			AddLog($"Score: {now.Score}");
 			AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
 
@@ -279,19 +276,20 @@ namespace Netkeiba
 			// Save model
 			var savepath = $@"model\Regression_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
-			var trainedModelMetrics = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: Label);
-			var now = new RegressionResult(savepath, rank, 1, second, trainedModelMetrics,
-				await PredictionModel(rank, null, null, mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model))
+			var trained = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: Label);
+			var engine = mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model);
+			var now = new RegressionResult(savepath, rank, 1, second, trained,
+				await PredictionModel(rank, engine, bytes => new RegressionSource(bytes), pre => pre.Score * -1)
 			);
 			var old = AppSetting.Instance.GetRegressionResult(1, rank);
 			var bst = old == null || old.Score < now.Score ? now : old;
 
 			AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
-			AddLog($"MeanSquaredError: {trainedModelMetrics.MeanSquaredError}");
-			AddLog($"RootMeanSquaredError: {trainedModelMetrics.RootMeanSquaredError}");
-			AddLog($"LossFunction: {trainedModelMetrics.LossFunction}");
-			AddLog($"MeanAbsoluteError: {trainedModelMetrics.MeanAbsoluteError}");
-			AddLog($"RSquared: {trainedModelMetrics.RSquared}");
+			AddLog($"MeanSquaredError: {trained.MeanSquaredError}");
+			AddLog($"RootMeanSquaredError: {trained.RootMeanSquaredError}");
+			AddLog($"LossFunction: {trained.LossFunction}");
+			AddLog($"MeanAbsoluteError: {trained.MeanAbsoluteError}");
+			AddLog($"RSquared: {trained.RSquared}");
 			AddLog($"Score: {now.Score}");
 			AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
 
@@ -353,14 +351,11 @@ namespace Netkeiba
 			.Run(bytes => Enumerable.Range(0, bytes.Length / 4).Select(i => (object)BitConverter.ToSingle(bytes, i * 4)))
 			.Concat(Arr(func_target(reader)));
 
-		private async Task<float> PredictionModel(string rank,
-			PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>? bin,
-			PredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>? tya,
-			PredictionEngine<RegressionSource, RegressionPrediction>? reg)
+		private async Task<float> PredictionModel<TSrc, TDst>(string rank, PredictionEngineBase<TSrc, TDst> engine, Func<byte[], TSrc> getsrc, Func<TDst, float> putscr) where TSrc : class where TDst : class, new()
 		{
 			using (var conn = CreateSQLiteControl())
 			{
-				(int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
+				var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
 				{
                     // 複2の予想結果
                     (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
@@ -408,24 +403,10 @@ namespace Netkeiba
 					{
 						var tmp = new List<object>();
 
-						var binaryClassificationSource = new BinaryClassificationSource()
-						{
-							Features = m["Features"]
-								.Run(x => (byte[])x)
-								.Run(bytes => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray())
-						};
-						var regressionSource = new RegressionSource()
-						{
-							Features = binaryClassificationSource.Features
-						};
-
 						// ｽｺｱ算出
-						var score = bin != null
-							? bin.Predict(binaryClassificationSource).GetScore2()
-							: tya != null
-							? tya.Predict(binaryClassificationSource).Run(x => { x.Score = x.Score * -1; }).GetScore2()
-							: reg.Predict(regressionSource).Score * -1;
-						tmp.Add(score);
+						var src = getsrc((byte[])m["Features"]);
+						var scr = putscr(engine.Predict(src));
+						tmp.Add(scr);
 
 						// 共通ﾍｯﾀﾞ
 						tmp.Add(string.Empty);
@@ -444,10 +425,10 @@ namespace Netkeiba
 						var n = 1;
 						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
 
-                        await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
 
-                        // 支払情報を出力
-                        var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
+						// 支払情報を出力
+						var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
 						{
 							if (rows.Any())
 							{

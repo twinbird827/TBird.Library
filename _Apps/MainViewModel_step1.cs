@@ -162,6 +162,12 @@ namespace Netkeiba
 						}
 					}
 				}
+
+				// 血統情報の作成
+				await RefreshKetto(conn);
+
+				// 産駒成績の更新
+				await RefreshSanku(conn, true, await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_sanku)"));
 			}
 
 			MessageService.Info("Step1 Completed!!");
