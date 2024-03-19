@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using static System.Formats.Asn1.AsnWriter;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Netkeiba
 {
@@ -125,6 +126,8 @@ namespace Netkeiba
 
 		public float Score { get; set; }
 
+		public float Rate { get; set; }
+
 		public int Index { get; set; }
 
 		public uint Second { get; set; }
@@ -168,13 +171,14 @@ namespace Netkeiba
 
 		}
 
-		public BinaryClassificationResult(string path, string rank, int index, uint second, CalibratedBinaryClassificationMetrics metrics, float score)
+		public BinaryClassificationResult(string path, string rank, int index, uint second, CalibratedBinaryClassificationMetrics metrics, float score, float rate)
 		{
 			Index = index;
 			Rank = rank;
 			Second = second;
 			Path = path;
 			Score = score;
+			Rate = rate;
 			Accuracy = metrics.Accuracy;
 			AreaUnderPrecisionRecallCurve = metrics.AreaUnderPrecisionRecallCurve;
 			AreaUnderRocCurve = metrics.AreaUnderRocCurve;
@@ -224,14 +228,15 @@ namespace Netkeiba
 
 		}
 
-		public RegressionResult(string path, string rank, int index, uint second, RegressionMetrics metrics, float score)
+		public RegressionResult(string path, string rank, int index, uint second, RegressionMetrics metrics, float score, float rate)
 		{
 			Path = path;
 			Rank = rank;
-			Index = index;
+            Index = index;
 			Second = second;
 			Score = score;
-			RSquared = metrics.RSquared;
+            Rate = rate;
+            RSquared = metrics.RSquared;
 			MeanSquaredError = metrics.MeanSquaredError;
 			RootMeanSquaredError = metrics.RootMeanSquaredError;
 			LossFunction = metrics.LossFunction;

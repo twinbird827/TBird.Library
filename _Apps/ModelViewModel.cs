@@ -219,6 +219,7 @@ namespace Netkeiba
 			Index = source.Index;
 			Rank = source.Rank;
 			Score = source.Score;
+			Rate = source.Rate;
 			Second = source.Second;
 			Path = source.Path;
 			Accuracy = source.Accuracy;
@@ -256,7 +257,8 @@ namespace Netkeiba
 
 			Index = source.Index;
 			Rank = Rank;
-			Score = source.Score;
+            Rate = source.Rate;
+            Score = source.Score;
 			Second = source.Second;
 			Path = source.Path;
 			RSquared = source.RSquared;

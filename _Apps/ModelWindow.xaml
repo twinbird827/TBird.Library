@@ -135,11 +135,13 @@
 											DisplayMemberBinding="{Binding Index}" />
 							<GridViewColumn Header="Second"
 											DisplayMemberBinding="{Binding Second}" />
-							<GridViewColumn Header="Rank"
+                            <GridViewColumn Header="Rank"
 											DisplayMemberBinding="{Binding Rank}" />
-							<GridViewColumn Header="Score"
+                            <GridViewColumn Header="Score"
 											DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Path"
+                            <GridViewColumn Header="Rate"
+											DisplayMemberBinding="{Binding Rate, StringFormat={}{0:N4}}" />
+                            <GridViewColumn Header="Path"
 											DisplayMemberBinding="{Binding Path}" />
 							<GridViewColumn Header="Accuracy"
 											DisplayMemberBinding="{Binding Accuracy, StringFormat={}{0:N4}}" />
@@ -190,7 +192,9 @@
 											DisplayMemberBinding="{Binding Rank}" />
 							<GridViewColumn Header="Score"
 											DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Path"
+                            <GridViewColumn Header="Rate"
+											DisplayMemberBinding="{Binding Rate, StringFormat={}{0:N4}}" />
+                            <GridViewColumn Header="Path"
 											DisplayMemberBinding="{Binding Path}" />
 							<GridViewColumn Header="RSquared"
 											DisplayMemberBinding="{Binding RSquared, StringFormat={}{0:N4}}" />
