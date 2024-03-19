@@ -41,7 +41,7 @@ namespace Netkeiba
 
 		public BindableContextCollection<CheckboxItemModel> CreateModels { get; }
 
-		private long step3date;
+		private long tgtdate;
 
 		public IRelayCommand S3EXECCHECK => RelayCommand.Create(_ =>
 		{
@@ -57,6 +57,12 @@ namespace Netkeiba
 
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
+			using (var conn = CreateSQLiteControl())
+			{
+				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
+				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
+				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
+			}
 			Progress.Value = 0;
 			Progress.Minimum = 0;
 			Progress.Maximum =
@@ -174,10 +180,10 @@ namespace Netkeiba
 			var trained = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
 			var engine = mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model);
 			var now = await PredictionModel(rank, engine, bytes => new BinaryClassificationSource(bytes), dst => dst.GetScore2() * (index < 5 ? 1 : -1)).RunAsync(x =>
-                new BinaryClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
-            );
+				new BinaryClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
+			);
 			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-			var bst = old == BinaryClassificationResult.Default || old.Score < now.Score ? now : old;
+			var bst = old == BinaryClassificationResult.Default || (old.Score * old.Rate) < (now.Score * now.Rate) ? now : old;
 
 			AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
 			AddLog($"Accuracy: {trained.Accuracy}");
@@ -192,9 +198,9 @@ namespace Netkeiba
 			AddLog($"PositiveRecall: {trained.PositiveRecall}");
 			AddLog($"{trained.ConfusionMatrix.GetFormattedConfusionTable()}");
 			AddLog($"AreaUnderRocCurve: {trained.AreaUnderRocCurve}");
-            AddLog($"Rate: {now.Rate}");
-            AddLog($"Score: {now.Score}");
-            AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+			AddLog($"Rate: {now.Rate}");
+			AddLog($"Score: {now.Score}");
+			AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
 
 			mlContext.Model.Save(model, data.Schema, savepath);
 
@@ -285,7 +291,7 @@ namespace Netkeiba
 				new RegressionResult(savepath, rank, 1, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetRegressionResult(1, rank);
-			var bst = old == RegressionResult.Default || old.Score < now.Score ? now : old;
+			var bst = old == RegressionResult.Default || (old.Score * old.Rate) < (now.Score * now.Rate) ? now : old;
 
 			AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
 			AddLog($"MeanSquaredError: {trained.MeanSquaredError}");
@@ -293,9 +299,9 @@ namespace Netkeiba
 			AddLog($"LossFunction: {trained.LossFunction}");
 			AddLog($"MeanAbsoluteError: {trained.MeanAbsoluteError}");
 			AddLog($"RSquared: {trained.RSquared}");
-            AddLog($"Rate: {now.Rate}");
-            AddLog($"Score: {now.Score}");
-            AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
+			AddLog($"Rate: {now.Rate}");
+			AddLog($"Score: {now.Score}");
+			AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
 
 			mlContext.Model.Save(model, data.Schema, savepath);
 
@@ -326,8 +332,8 @@ namespace Netkeiba
 			using (var file = new FileAppendWriter(path))
 			{
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
-				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE ﾚｰｽID < ? AND ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番",
-					SQLiteUtil.CreateParameter(DbType.Int64, 202400000000),
+				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番",
+					SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
 					SQLiteUtil.CreateParameter(DbType.Int64, ﾗﾝｸ2.IndexOf(rank))
 				);
 
@@ -401,8 +407,8 @@ namespace Netkeiba
 				var rets = new List<float>();
 				var debg = new List<float>();
 
-				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE ﾚｰｽID > ? AND ﾗﾝｸ2 = ?",
-						SQLiteUtil.CreateParameter(DbType.Int64, 202400000000),
+				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
+						SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
 						SQLiteUtil.CreateParameter(DbType.Int64, rank2.IndexOf(rank))
 					))
 				{
@@ -434,9 +440,9 @@ namespace Netkeiba
 						var n = 1;
 						arr.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
 						var j = 1;
-                        arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(j++));
+						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(j++));
 
-                        await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
 
 						// 支払情報を出力
 						var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
@@ -453,9 +459,9 @@ namespace Netkeiba
 
 						// 結果の平均を結果に詰める
 						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle()).Sum());
-                        debg.Add(pays.Select(x => x.func(arr, payoutDetail, 8).GetSingle()).Sum());
+						debg.Add(pays.Select(x => x.func(arr, payoutDetail, 8).GetSingle()).Sum());
 
-                        await conn.BeginTransaction();
+						await conn.BeginTransaction();
 						foreach (var x in payoutDetail)
 						{
 							await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
@@ -468,12 +474,12 @@ namespace Netkeiba
 					}
 				}
 
-                AddLog($"Debug Score: {debg.Any().Run(bl => bl ? Calc(debg.Sum(), debg.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F)}");
-                AddLog($"Debug Rate: {debg.Any().Run(bl => bl ? Calc(debg.Count(x => 0 < x), debg.Count, (x, y) => x / y).GetSingle() : 0F)}");
+				AddLog($"Debug Score: {debg.Any().Run(bl => bl ? Calc(debg.Sum(), debg.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F)}");
+				AddLog($"Debug Rate: {debg.Any().Run(bl => bl ? Calc(debg.Count(x => 0 < x), debg.Count, (x, y) => x / y).GetSingle() : 0F)}");
 
-                return (
+				return (
 					rets.Any() ? Calc(rets.Sum(), rets.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F,
-                    rets.Any() ? Calc(rets.Count(x => 0 < x), rets.Count, (x, y) => x / y).GetSingle() : 0F
+					rets.Any() ? Calc(rets.Count(x => 0 < x), rets.Count, (x, y) => x / y).GetSingle() : 0F
 				);
 			}
 		}
