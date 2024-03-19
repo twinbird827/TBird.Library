@@ -179,11 +179,11 @@ namespace Netkeiba
 
 			var trained = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
 			var engine = mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model);
-			var now = await PredictionModel(rank, engine, bytes => new BinaryClassificationSource(bytes), dst => dst.GetScore2() * (index < 5 ? 1 : -1)).RunAsync(x =>
+			var now = await PredictionModel(rank, engine, bytes => new BinaryClassificationSource(bytes), dst => dst.GetScore() * (index < 5 ? 1 : -1)).RunAsync(x =>
 				new BinaryClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-			var bst = old == BinaryClassificationResult.Default || (old.Score * old.Rate) < (now.Score * now.Rate) ? now : old;
+			var bst = old == BinaryClassificationResult.Default || old.GetScore() < now.GetScore() ? now : old;
 
 			AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
 			AddLog($"Accuracy: {trained.Accuracy}");
@@ -291,7 +291,7 @@ namespace Netkeiba
 				new RegressionResult(savepath, rank, 1, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetRegressionResult(1, rank);
-			var bst = old == RegressionResult.Default || (old.Score * old.Rate) < (now.Score * now.Rate) ? now : old;
+			var bst = old == RegressionResult.Default || old.GetScore() < now.GetScore() ? now : old;
 
 			AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
 			AddLog($"MeanSquaredError: {trained.MeanSquaredError}");
@@ -357,8 +357,8 @@ namespace Netkeiba
 			AddLog($"After Create: {path}");
 		}
 
-		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => ((byte[])reader.GetValue("Features"))
-			.Run(bytes => Enumerable.Range(0, bytes.Length / 4).Select(i => (object)BitConverter.ToSingle(bytes, i * 4)))
+		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => new PredictionSource((byte[])reader.GetValue("Features"))
+			.Run(x => x.Features.Select(flt => (object)flt))
 			.Concat(Arr(func_target(reader)));
 
 		private async Task<(float score, float rate)> PredictionModel<TSrc, TDst>(string rank, PredictionEngineBase<TSrc, TDst> engine, Func<byte[], TSrc> getsrc, Func<TDst, float> putscr) where TSrc : class where TDst : class, new()
@@ -374,7 +374,7 @@ namespace Netkeiba
 						arr.Where(x => x[j].GetInt32() <= 2),
 						arr.Where(x => x[j].GetInt32() <= 4))
 					),
-                    // 複2の予想結果
+                    // 複3の予想結果
                     (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
 						arr.Where(x => x[j].GetInt32() == 1),
 						arr.Where(x => x[j].GetInt32() <= 4),
@@ -412,9 +412,9 @@ namespace Netkeiba
 						SQLiteUtil.CreateParameter(DbType.Int64, rank2.IndexOf(rank))
 					))
 				{
-					var arr = new List<List<object>>();
+					var racs = new List<List<object>>();
 
-					foreach (var m in await conn.GetRows("SELECT 着順, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
+					foreach (var m in await conn.GetRows("SELECT 馬番, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 					{
 						var tmp = new List<object>();
 
@@ -429,18 +429,18 @@ namespace Netkeiba
 						tmp.Add(string.Empty);
 						tmp.Add(string.Empty);
 						tmp.Add(string.Empty);
-						tmp.Add(m["着順"]);
+						tmp.Add(m["馬番"]);
 
-						arr.Add(tmp);
+						racs.Add(tmp);
 					}
 
 					// ｽｺｱで順位付けをする
-					if (arr.Any())
+					if (racs.Any())
 					{
 						var n = 1;
-						arr.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+						racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
 						var j = 1;
-						arr.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(j++));
+						racs.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(j++));
 
 						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
 
@@ -458,8 +458,8 @@ namespace Netkeiba
 						});
 
 						// 結果の平均を結果に詰める
-						rets.Add(pays.Select(x => x.func(arr, payoutDetail, 7).GetSingle()).Sum());
-						debg.Add(pays.Select(x => x.func(arr, payoutDetail, 8).GetSingle()).Sum());
+						rets.Add(pays.Select(x => x.func(racs, payoutDetail, 7).GetSingle()).Sum());
+						debg.Add(pays.Select(x => x.func(racs, payoutDetail, 8).GetSingle()).Sum());
 
 						await conn.BeginTransaction();
 						foreach (var x in payoutDetail)

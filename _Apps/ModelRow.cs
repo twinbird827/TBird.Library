@@ -1,4 +1,5 @@
-﻿using Microsoft.ML.Data;
+﻿using Microsoft.ML;
+using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,59 +62,127 @@ namespace Netkeiba
 		public float 着順 { get; set; }
 	}
 
-	public class RegressionPrediction
+	public abstract class ModelPrediction
 	{
 		[ColumnName("Label")]
 		public float Label { get; set; }
 
 		[ColumnName("Score")]
 		public float Score { get; set; }
-
-		public static string[] GetHeaders(string head) => new[] { $"{head}_{nameof(Score)}" };
 
 		public override string ToString()
 		{
 			return $"{Score}";
 		}
 
+		public virtual float GetScore()
+		{
+			return Score;
+		}
 	}
 
-	public class BinaryClassificationPrediction
+	public class RegressionPrediction : ModelPrediction
 	{
-		[ColumnName("Label")]
-		public float Label { get; set; }
+		public override float GetScore()
+		{
+			return (5 - base.GetScore());
+		}
+	}
 
-		[ColumnName("Score")]
-		public float Score { get; set; }
-
+	public class BinaryClassificationPrediction : ModelPrediction
+	{
 		[ColumnName("Probability")]
 		public float Probability { get; set; }
 
 		[ColumnName("PredictedLabel")]
 		public bool PredictedLabel { get; set; }
 
-		public float Magnification { get; set; }
-
-		public BinaryClassificationPrediction SetMagnification(float magnification)
+		public override float GetScore()
 		{
-			Magnification = magnification;
-			return this;
+			return base.GetScore() * Probability;
+		}
+	}
+
+	public abstract class PredictionFactory<TSrc, TDst> where TSrc : PredictionSource where TDst : ModelPrediction, new()
+	{
+		public PredictionFactory(MLContext context, string rank, int index, bool minus)
+		{
+			_context = context;
+			_rank = rank;
+			_index = index;
+			_minus = minus;
 		}
 
-		public static string[] GetHeaders(string head) => new[] { $"{head}_{nameof(Score)}" };
+		protected MLContext _context;
+		protected string _rank;
+		protected int _index;
+		protected bool _minus;
+		protected float _score;
+		protected PredictionResult? _result;
+		protected PredictionEngineBase<TSrc, TDst>? _engine;
 
-		public override string ToString()
+		protected PredictionResult GetResult() => _result = _result ?? GetResult(_rank, _index);
+
+		public PredictionEngineBase<TSrc, TDst> GetEngine()
 		{
-			return $"{Score}";
+			return _engine = _engine ?? _context.Model.CreatePredictionEngine<TSrc, TDst>(_context.Model.Load(GetResult().Path, out DataViewSchema schema));
 		}
 
-		public float GetScore1() => Score;
+		public float Predict(float[] features)
+		{
+			return _score = GetEngine().Predict(GetSrc(features)).GetScore() * GetResult().GetScore() * (_minus ? -1 : 1);
+		}
 
-		public float GetScore2() => Score * Probability;
+		public float GetScore()
+		{
+			return _score;
+		}
 
-		public float GetScore3() => Score * (PredictedLabel ? 2 : 1);
+		public abstract string Name { get; }
 
-		public float GetScore4() => Score * Probability * (PredictedLabel ? 2 : 1);
+		protected abstract PredictionResult GetResult(string rank, int index);
+
+		protected abstract TSrc GetSrc(float[] bytes);
+	}
+
+	public class BinaryClassificationPredictionFactory : PredictionFactory<BinaryClassificationSource, BinaryClassificationPrediction>
+	{
+		public BinaryClassificationPredictionFactory(MLContext context, string rank, int index, bool minus) : base(context, rank, index, minus)
+		{
+
+		}
+
+		public override string Name => $"Bin{_index}";
+
+		protected override PredictionResult GetResult(string rank, int index)
+		{
+			return AppSetting.Instance.GetBinaryClassificationResult(index, rank);
+		}
+
+		protected override BinaryClassificationSource GetSrc(float[] features)
+		{
+			return new BinaryClassificationSource() { Features = features };
+		}
+	}
+
+	public class RegressionPredictionFactory : PredictionFactory<RegressionSource, RegressionPrediction>
+	{
+		public RegressionPredictionFactory(MLContext context, string rank, int index, bool minus) : base(context, rank, index, minus)
+		{
+
+		}
+
+		public override string Name => $"Reg{_index}";
+
+		protected override PredictionResult GetResult(string rank, int index)
+		{
+			return AppSetting.Instance.GetRegressionResult(index, rank);
+		}
+
+		protected override RegressionSource GetSrc(float[] features)
+		{
+			return new RegressionSource() { Features = features };
+		}
 	}
 
 	public class PredictionResult
@@ -135,6 +204,11 @@ namespace Netkeiba
 		public string Path { get; set; }
 
 		public string Rank { get; set; }
+
+		public float GetScore()
+		{
+			return Score * Score * Rate;
+		}
 
 		public override string ToString()
 		{
@@ -232,11 +306,11 @@ namespace Netkeiba
 		{
 			Path = path;
 			Rank = rank;
-            Index = index;
+			Index = index;
 			Second = second;
 			Score = score;
-            Rate = rate;
-            RSquared = metrics.RSquared;
+			Rate = rate;
+			RSquared = metrics.RSquared;
 			MeanSquaredError = metrics.MeanSquaredError;
 			RootMeanSquaredError = metrics.RootMeanSquaredError;
 			LossFunction = metrics.LossFunction;

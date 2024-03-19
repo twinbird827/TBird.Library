@@ -34,7 +34,7 @@ namespace Netkeiba
 			BinaryClassificationResults = new BindableCollection<BinaryClassificationViewModel>(AppSetting.Instance.BinaryClassificationResults
 				.OrderBy(x => x.Rank)
 				.ThenBy(x => x.Index)
-				.ThenBy(x => x.Score)
+				.ThenBy(x => x.GetScore())
 				.ToArray()
 				.Select(x => new BinaryClassificationViewModel(this, x))
 			);
@@ -44,7 +44,7 @@ namespace Netkeiba
 			RegressionResults = new BindableCollection<RegressionViewModel>(AppSetting.Instance.RegressionResults
 				.OrderBy(x => x.Rank)
 				.ThenBy(x => x.Index)
-				.ThenBy(x => x.Score)
+				.ThenBy(x => x.GetScore())
 				.ToArray()
 				.Select(x => new RegressionViewModel(this, x))
 			);
@@ -257,8 +257,8 @@ namespace Netkeiba
 
 			Index = source.Index;
 			Rank = Rank;
-            Rate = source.Rate;
-            Score = source.Score;
+			Rate = source.Rate;
+			Score = source.Score;
 			Second = source.Second;
 			Path = source.Path;
 			RSquared = source.RSquared;

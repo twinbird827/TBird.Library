@@ -143,7 +143,7 @@ namespace Netkeiba
 		{
 			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
 			{
-				return arr.FirstOrDefault(x => x.Score == arr.Max(y => y.Score)) ?? BinaryClassificationResult.Default;
+				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? BinaryClassificationResult.Default;
 			});
 		}
 
@@ -164,7 +164,7 @@ namespace Netkeiba
 		{
 			return RegressionResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
 			{
-				return arr.FirstOrDefault(x => x.Score == arr.Max(y => y.Score)) ?? RegressionResult.Default;
+				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? RegressionResult.Default;
 			});
 		}
 	}
