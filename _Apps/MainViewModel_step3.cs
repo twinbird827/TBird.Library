@@ -88,7 +88,7 @@ namespace Netkeiba
 			{
 				var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
-				foreach (var metric in metrics)
+				//foreach (var metric in metrics)
 				{
 					foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")))
 					{
@@ -96,7 +96,7 @@ namespace Netkeiba
 						var index = args[2].GetInt32();
 						var rank = args[1];
 
-						await BinaryClassification(index, rank, second, metric, dic[index]).TryCatch();
+						await BinaryClassification(index, rank, second, BinaryClassificationMetric.AreaUnderRocCurve, dic[index]).TryCatch();
 					}
 				}
 
