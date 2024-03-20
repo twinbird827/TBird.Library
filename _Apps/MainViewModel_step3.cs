@@ -405,7 +405,6 @@ namespace Netkeiba
 				};
 
 				var rets = new List<float>();
-				var debg = new List<float>();
 
 				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
 						SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
@@ -439,8 +438,6 @@ namespace Netkeiba
 					{
 						var n = 1;
 						racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
-						var j = 1;
-						racs.OrderBy(x => x[0].GetDouble()).ForEach(x => x.Add(j++));
 
 						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
 
@@ -459,7 +456,6 @@ namespace Netkeiba
 
 						// 結果の平均を結果に詰める
 						rets.Add(pays.Select(x => x.func(racs, payoutDetail, 7).GetSingle()).Sum());
-						debg.Add(pays.Select(x => x.func(racs, payoutDetail, 8).GetSingle()).Sum());
 
 						await conn.BeginTransaction();
 						foreach (var x in payoutDetail)
@@ -473,9 +469,6 @@ namespace Netkeiba
 						conn.Commit();
 					}
 				}
-
-				AddLog($"Debug Score: {debg.Any().Run(bl => bl ? Calc(debg.Sum(), debg.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F)}");
-				AddLog($"Debug Rate: {debg.Any().Run(bl => bl ? Calc(debg.Count(x => 0 < x), debg.Count, (x, y) => x / y).GetSingle() : 0F)}");
 
 				return (
 					rets.Any() ? Calc(rets.Sum(), rets.Count * pays.Sum(x => x.pay), (x, y) => x / y).GetSingle() : 0F,
