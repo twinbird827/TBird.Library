@@ -6,8 +6,6 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Formats.Asn1.AsnWriter;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Netkeiba
 {
@@ -18,46 +16,16 @@ namespace Netkeiba
 		[LoadColumn(0, Count)]
 		[VectorType(Count)]
 		public float[] Features { get; set; } = new float[0];
-
-		public PredictionSource()
-		{
-
-		}
-
-		public PredictionSource(byte[] bytes)
-		{
-			Features = Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray();
-		}
 	}
 
 	public class BinaryClassificationSource : PredictionSource
 	{
-		public BinaryClassificationSource()
-		{
-
-		}
-
-		public BinaryClassificationSource(byte[] bytes) : base(bytes)
-		{
-
-		}
-
 		[LoadColumn(Count)]
 		public bool 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource
 	{
-		public RegressionSource()
-		{
-
-		}
-
-		public RegressionSource(byte[] bytes) : base(bytes)
-		{
-
-		}
-
 		[LoadColumn(Count)]
 		public float 着順 { get; set; }
 	}
@@ -85,7 +53,7 @@ namespace Netkeiba
 	{
 		public override float GetScore()
 		{
-			return (5 - base.GetScore());
+			return 5 - base.GetScore();
 		}
 	}
 
@@ -103,34 +71,44 @@ namespace Netkeiba
 		}
 	}
 
-	public abstract class PredictionFactory<TSrc, TDst> where TSrc : PredictionSource where TDst : ModelPrediction, new()
+	public abstract class PredictionFactory<TSrc, TDst> where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 	{
-		public PredictionFactory(MLContext context, string rank, int index, bool minus)
+		public PredictionFactory(MLContext context, string rank, int index, ITransformer model) : this(context, rank, index, true)
+		{
+			_engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(model);
+		}
+
+		public PredictionFactory(MLContext context, string rank, int index, bool isnew)
 		{
 			_context = context;
 			_rank = rank;
 			_index = index;
-			_minus = minus;
+			_isnew = isnew;
 		}
 
 		protected MLContext _context;
 		protected string _rank;
 		protected int _index;
-		protected bool _minus;
+		protected bool _isnew;
 		protected float _score;
 		protected PredictionResult? _result;
 		protected PredictionEngineBase<TSrc, TDst>? _engine;
 
-		protected PredictionResult GetResult() => _result = _result ?? GetResult(_rank, _index);
+		public PredictionResult GetResult() => _result = _result ?? GetResult(_rank, _index);
 
 		public PredictionEngineBase<TSrc, TDst> GetEngine()
 		{
 			return _engine = _engine ?? _context.Model.CreatePredictionEngine<TSrc, TDst>(_context.Model.Load(GetResult().Path, out DataViewSchema schema));
 		}
 
-		public float Predict(float[] features)
+		public float Predict(byte[] bytes)
 		{
-			return _score = GetEngine().Predict(GetSrc(features)).GetScore() * GetResult().GetScore() * (_minus ? -1 : 1);
+			return Predict(AppUtil.ToSingles(bytes));
+		}
+
+		public virtual float Predict(float[] features)
+		{
+			return _score = GetEngine().Predict(new TSrc() { Features = features }).GetScore() * (_isnew ? 1F : GetResult().GetScore());
 		}
 
 		public float GetScore()
@@ -138,50 +116,47 @@ namespace Netkeiba
 			return _score;
 		}
 
-		public abstract string Name { get; }
-
 		protected abstract PredictionResult GetResult(string rank, int index);
-
-		protected abstract TSrc GetSrc(float[] bytes);
 	}
 
 	public class BinaryClassificationPredictionFactory : PredictionFactory<BinaryClassificationSource, BinaryClassificationPrediction>
 	{
-		public BinaryClassificationPredictionFactory(MLContext context, string rank, int index, bool minus) : base(context, rank, index, minus)
+		public BinaryClassificationPredictionFactory(MLContext context, string rank, int index, ITransformer model) : base(context, rank, index, model)
 		{
 
 		}
 
-		public override string Name => $"Bin{_index}";
+		public BinaryClassificationPredictionFactory(MLContext context, string rank, int index) : base(context, rank, index, false)
+		{
+
+		}
+
+		public override float Predict(float[] features)
+		{
+			return base.Predict(features) * (_index < 5 ? 1 : -1);
+		}
 
 		protected override PredictionResult GetResult(string rank, int index)
 		{
 			return AppSetting.Instance.GetBinaryClassificationResult(index, rank);
 		}
-
-		protected override BinaryClassificationSource GetSrc(float[] features)
-		{
-			return new BinaryClassificationSource() { Features = features };
-		}
 	}
 
 	public class RegressionPredictionFactory : PredictionFactory<RegressionSource, RegressionPrediction>
 	{
-		public RegressionPredictionFactory(MLContext context, string rank, int index, bool minus) : base(context, rank, index, minus)
+		public RegressionPredictionFactory(MLContext context, string rank, int index, ITransformer model) : base(context, rank, index, model)
 		{
 
 		}
 
-		public override string Name => $"Reg{_index}";
+		public RegressionPredictionFactory(MLContext context, string rank, int index) : base(context, rank, index, false)
+		{
+
+		}
 
 		protected override PredictionResult GetResult(string rank, int index)
 		{
 			return AppSetting.Instance.GetRegressionResult(index, rank);
-		}
-
-		protected override RegressionSource GetSrc(float[] features)
-		{
-			return new RegressionSource() { Features = features };
 		}
 	}
 

@@ -36,13 +36,13 @@ namespace Netkeiba
 			var ranks = new[] { "RANK1", "RANK2", "RANK3", "RANK4", "RANK5" };
 
 			await CreatePredictionFile("Best",
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1, false)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2, false)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3, false)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6, true)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7, true)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8, true)),
-				ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, 1, false))
+				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
+				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
+				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3)),
+				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
+				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
+				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8)),
+				ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, 1))
 			).TryCatch();
 
 			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));

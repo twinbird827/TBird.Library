@@ -178,8 +178,7 @@ namespace Netkeiba
 			var savepath = $@"model\BinaryClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
 			var trained = mlContext.BinaryClassification.Evaluate(testDataPredictions, labelColumnName: Label);
-			var engine = mlContext.Model.CreatePredictionEngine<BinaryClassificationSource, BinaryClassificationPrediction>(model);
-			var now = await PredictionModel(rank, engine, bytes => new BinaryClassificationSource(bytes), dst => dst.GetScore() * (index < 5 ? 1 : -1)).RunAsync(x =>
+			var now = await PredictionModel(rank, new BinaryClassificationPredictionFactory(mlContext, rank, index, model)).RunAsync(x =>
 				new BinaryClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
@@ -198,8 +197,7 @@ namespace Netkeiba
 			AddLog($"PositiveRecall: {trained.PositiveRecall}");
 			AddLog($"{trained.ConfusionMatrix.GetFormattedConfusionTable()}");
 			AddLog($"AreaUnderRocCurve: {trained.AreaUnderRocCurve}");
-			AddLog($"Rate: {now.Rate}");
-			AddLog($"Score: {now.Score}");
+			AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
 			AddLog($"=============== End Update of BinaryClassification evaluation {rank} {index} {second} ===============");
 
 			mlContext.Model.Save(model, data.Schema, savepath);
@@ -286,8 +284,7 @@ namespace Netkeiba
 			var savepath = $@"model\Regression_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
 			var trained = mlContext.Regression.Evaluate(testDataPredictions, labelColumnName: Label);
-			var engine = mlContext.Model.CreatePredictionEngine<RegressionSource, RegressionPrediction>(model);
-			var now = await PredictionModel(rank, engine, bytes => new RegressionSource(bytes), pre => pre.Score * -1).RunAsync(x =>
+			var now = await PredictionModel(rank, new RegressionPredictionFactory(mlContext, rank, 1, model)).RunAsync(x =>
 				new RegressionResult(savepath, rank, 1, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetRegressionResult(1, rank);
@@ -299,8 +296,7 @@ namespace Netkeiba
 			AddLog($"LossFunction: {trained.LossFunction}");
 			AddLog($"MeanAbsoluteError: {trained.MeanAbsoluteError}");
 			AddLog($"RSquared: {trained.RSquared}");
-			AddLog($"Rate: {now.Rate}");
-			AddLog($"Score: {now.Score}");
+			AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
 			AddLog($"=============== End of Regression evaluation {rank} {second} ===============");
 
 			mlContext.Model.Save(model, data.Schema, savepath);
@@ -357,11 +353,11 @@ namespace Netkeiba
 			AddLog($"After Create: {path}");
 		}
 
-		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => new PredictionSource((byte[])reader.GetValue("Features"))
-			.Run(x => x.Features.Select(flt => (object)flt))
+		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => AppUtil.ToSingles((byte[])reader.GetValue("Features"))
+			.Run(x => x.Select(flt => (object)flt))
 			.Concat(Arr(func_target(reader)));
 
-		private async Task<(float score, float rate)> PredictionModel<TSrc, TDst>(string rank, PredictionEngineBase<TSrc, TDst> engine, Func<byte[], TSrc> getsrc, Func<TDst, float> putscr) where TSrc : class where TDst : class, new()
+		private async Task<(float score, float rate)> PredictionModel<TSrc, TDst>(string rank, PredictionFactory<TSrc, TDst> factory) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
 			using (var conn = CreateSQLiteControl())
 			{
@@ -418,8 +414,7 @@ namespace Netkeiba
 						var tmp = new List<object>();
 
 						// ｽｺｱ算出
-						var src = getsrc((byte[])m["Features"]);
-						var scr = putscr(engine.Predict(src));
+						var scr = factory.Predict((byte[])m["Features"]);
 						tmp.Add(scr);
 
 						// 共通ﾍｯﾀﾞ

@@ -18,6 +18,8 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
+		public static float[] ToSingles(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray();
+
 		public static string GetInnerHtml(this AngleSharp.Dom.IElement x)
 		{
 			var innerhtml = x.GetElementsByTagName("span").Any()
@@ -58,13 +60,14 @@ namespace Netkeiba
 			using (await Locker.LockAsync(_guid))
 			{
 				MainViewModel.AddLog($"req: {url}");
-                var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+				var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
 
-                var doc = await _parser.ParseDocumentAsync(res);
+				var doc = await _parser.ParseDocumentAsync(res);
 
-                return doc;
-            }
-        }
+				return doc;
+			}
+		}
+
 		private static string _guid = Guid.NewGuid().ToString();
 
 		private static HtmlParser _parser = new HtmlParser();
