@@ -114,6 +114,13 @@ namespace Netkeiba
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 
+			using (var conn = CreateSQLiteControl())
+			{
+				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
+				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
+				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
+			}
+
 			var ranks = new[] { "RANK1", "RANK2", "RANK3", "RANK4", "RANK5" };
 
 			var bbbb = await PredictionModel(pays, Arr(
@@ -128,9 +135,7 @@ namespace Netkeiba
 				ranks.Select(rank => new RegressionPredictionFactory(mlContext, rank, 1))
 			).SelectMany(tmp => tmp).ToArray());
 
-			var aaaa = bbbb.Concat(cccc).ToArray();
-
-			var path = Path.Combine("model", DateTime.Now.ToString("yyyyMMdd-HHmmss-Prediction.csv"));
+			var path = Path.Combine("model", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
 
 			FileUtil.BeforeCreate(path);
 
@@ -148,7 +153,18 @@ namespace Netkeiba
 					pays.SelectMany(x => Arr(x.head + "+S", x.head + "+R"))
 				).GetString(","));
 
-				foreach (var dic in aaaa)
+				foreach (var dic in bbbb)
+				{
+					var val = await dic.Value;
+
+					await file.WriteLineAsync(
+						dic.Key.Run(x => Arr((object)x.Rank, x.Index, x.Score, x.Rate)).Concat(
+							val.SelectMany(x => Arr((object)x.score, x.rate))
+						).Select(x => x.ToString()).GetString(",")
+					);
+				}
+
+				foreach (var dic in cccc)
 				{
 					var val = await dic.Value;
 
@@ -656,9 +672,9 @@ namespace Netkeiba
 					}
 
 					return rets.Any()
-						? rets.Select((row, i) => (
-							Calc(row.Sum(), row.Length * pays[i].pay, (s, p) => s / p).GetSingle(),
-							Calc(row.Count(r => 0 < r), row.Length, (c, l) => c / l).GetSingle()
+						? pays.Select((pay, i) => (
+							Calc(rets.Sum(x => x[i]), rets.Count * pay.pay, (s, p) => s / p).GetSingle(),
+							Calc(rets.Count(x => 0 < x[i]), rets.Count, (c, l) => c / l).GetSingle()
 						)).ToArray()
 						: pays.Select(tmp => (0F, 0F)).ToArray();
 				});
