@@ -256,7 +256,7 @@ namespace Netkeiba
 			Source = source;
 
 			Index = source.Index;
-			Rank = Rank;
+			Rank = source.Rank;
 			Rate = source.Rate;
 			Score = source.Score;
 			Second = source.Second;

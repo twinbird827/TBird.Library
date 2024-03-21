@@ -25,11 +25,6 @@ using Microsoft.ML.AutoML.CodeGen;
 using Microsoft.ML.SearchSpace;
 using Microsoft.ML.SearchSpace.Option;
 using TBird.Wpf.Collections;
-using ICSharpCode.SharpZipLib.Core;
-using Tensorflow;
-using MathNet.Numerics.RootFinding;
-using ControlzEx.Theming;
-using System.Windows.Forms;
 
 namespace Netkeiba
 {
@@ -48,6 +43,124 @@ namespace Netkeiba
 			var check = CreateModelSources.Count(x => !x.IsChecked) < CreateModelSources.Count(x => x.IsChecked);
 
 			CreateModelSources.ForEach(x => x.IsChecked = !check);
+		});
+
+		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
+		{
+			var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
+			{
+                    // 単4の予想結果
+                    (400, "単4", (arr, payoutDetail, j) => Get三連単(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
+                    // 複2の予想結果
+                    (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 2),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
+                    // 複3の予想結果
+                    (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+						arr.Where(x => x[j].GetInt32() == 1),
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
+                    // 複4aの予想結果
+                    (400, "複4", (arr, payoutDetail, j) => Get三連複(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4),
+						arr.Where(x => x[j].GetInt32() <= 4))
+					),
+                    // ワ1の予想結果
+                    (100, "ワ1-2", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+						arr.Where(x => Arr(1, 2).Contains(x[j].GetInt32())))
+					),
+					(100, "ワ1-3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+						arr.Where(x => Arr(1, 3).Contains(x[j].GetInt32())))
+					),
+					(100, "ワ2-3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+						arr.Where(x => Arr(2, 3).Contains(x[j].GetInt32())))
+					),
+                    // ワ3の予想結果
+                    (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
+						arr.Where(x => x[j].GetInt32() <= 3))
+					),
+                    // 連1の予想結果
+                    (100, "連1-2", (arr, payoutDetail, j) => Get馬連(payoutDetail,
+						arr.Where(x => Arr(1, 2).Contains(x[j].GetInt32())))
+					),
+					(100, "連1-3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
+						arr.Where(x => Arr(1, 3).Contains(x[j].GetInt32())))
+					),
+					(100, "連2-3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
+						arr.Where(x => Arr(2, 3).Contains(x[j].GetInt32())))
+					),
+                    // 単勝1の予想結果
+                    (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
+						arr.Where(x => x[j].GetInt32() == 1))
+					),
+                    // 単勝1の予想結果
+                    (100, "勝2", (arr, payoutDetail, j) => Get単勝(payoutDetail,
+						arr.Where(x => x[j].GetInt32() == 2))
+					),
+                    // 単勝1の予想結果
+                    (100, "勝3", (arr, payoutDetail, j) => Get単勝(payoutDetail,
+						arr.Where(x => x[j].GetInt32() == 3))
+					),
+			};
+
+			// Initialize MLContext
+			MLContext mlContext = new MLContext();
+
+			var ranks = new[] { "RANK1", "RANK2", "RANK3", "RANK4", "RANK5" };
+
+			var bbbb = await PredictionModel(pays, Arr(
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3)),
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8))
+			).SelectMany(tmp => tmp).ToArray());
+			var cccc = await PredictionModel(pays, Arr(
+				ranks.Select(rank => new RegressionPredictionFactory(mlContext, rank, 1))
+			).SelectMany(tmp => tmp).ToArray());
+
+			var aaaa = bbbb.Concat(cccc).ToArray();
+
+			var path = Path.Combine("model", DateTime.Now.ToString("yyyyMMdd-HHmmss-Prediction.csv"));
+
+			FileUtil.BeforeCreate(path);
+
+			AddLog($"S3EXECPREDICT: {path}");
+
+			using (var file = new FileAppendWriter(path))
+			{
+				// ﾍｯﾀﾞの書き込み
+				await file.WriteLineAsync(Arr(
+					"Rank",
+					"Index",
+					"Score",
+					"Rate"
+				).Concat(
+					pays.SelectMany(x => Arr(x.head + "+S", x.head + "+R"))
+				).GetString(","));
+
+				foreach (var dic in aaaa)
+				{
+					var val = await dic.Value;
+
+					await file.WriteLineAsync(
+						dic.Key.Run(x => Arr((object)x.Rank, x.Index, x.Score, x.Rate)).Concat(
+							val.SelectMany(x => Arr((object)x.score, x.rate))
+						).Select(x => x.ToString()).GetString(",")
+					);
+				}
+			}
+
+			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("model"));
 		});
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
@@ -471,5 +584,86 @@ namespace Netkeiba
 				);
 			}
 		}
+
+		private async Task<Dictionary<PredictionResult, Task<(float score, float rate)[]>>> PredictionModel<TSrc, TDst>((int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+		{
+			using (var conn = CreateSQLiteControl())
+			{
+				var rank2 = await AppUtil.Getﾗﾝｸ2(conn);
+
+				return factories.ToDictionary(fac => fac.GetResult(), async fac =>
+				{
+					var rets = new List<float[]>();
+
+					foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
+							SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
+							SQLiteUtil.CreateParameter(DbType.Int64, rank2.IndexOf(fac.GetResult().Rank))
+						))
+					{
+						var racs = new List<List<object>>();
+
+						foreach (var m in await conn.GetRows("SELECT 馬番, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
+						{
+							var tmp = new List<object>()
+							{
+								fac.Predict((byte[])m["Features"]),
+								string.Empty,
+								string.Empty,
+								string.Empty,
+								string.Empty,
+								string.Empty,
+								m["馬番"],
+							};
+
+							racs.Add(tmp);
+						}
+
+						// ｽｺｱで順位付けをする
+						if (racs.Any())
+						{
+							var n = 1;
+							racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+
+							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
+
+							// 支払情報を出力
+							var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
+							{
+								if (rows.Any())
+								{
+									return rows.ToDictionary(x => $"{x["key"]}", x => $"{x["val"]}");
+								}
+								else
+								{
+									return await GetPayout(raceid.ToString());
+								}
+							});
+
+							// 結果の平均を結果に詰める
+							rets.Add(pays.Select(x => x.func(racs, payoutDetail, 7).GetSingle()).ToArray());
+
+							await conn.BeginTransaction();
+							foreach (var x in payoutDetail)
+							{
+								await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
+									SQLiteUtil.CreateParameter(DbType.String, raceid.ToString()),
+									SQLiteUtil.CreateParameter(DbType.String, x.Key),
+									SQLiteUtil.CreateParameter(DbType.String, x.Value)
+								);
+							}
+							conn.Commit();
+						}
+					}
+
+					return rets.Any()
+						? rets.Select((row, i) => (
+							Calc(row.Sum(), row.Length * pays[i].pay, (s, p) => s / p).GetSingle(),
+							Calc(row.Count(r => 0 < r), row.Length, (c, l) => c / l).GetSingle()
+						)).ToArray()
+						: pays.Select(tmp => (0F, 0F)).ToArray();
+				});
+			}
+		}
+
 	}
 }

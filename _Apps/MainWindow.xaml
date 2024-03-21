@@ -149,7 +149,8 @@
 					</ScrollViewer>
 					<DockPanel Width="200">
 						<Button DockPanel.Dock="Top" Content="全選択／解除" Command="{Binding S3EXECCHECK}" />
-						<Button Content="実行" Command="{Binding S3EXEC}" />
+						<Button DockPanel.Dock="Top" Content="モデル検証" Command="{Binding S3EXECPREDICT}" />
+						<Button Content="モデル作成" Command="{Binding S3EXEC}" />
 					</DockPanel>
 				</DockPanel>
 			</GroupBox>
