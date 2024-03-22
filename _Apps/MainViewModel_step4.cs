@@ -263,21 +263,21 @@ namespace Netkeiba
 						iHeaders = tmp.Count;
 
 						var binaries1 = Arr(以内1, 以内2, 以内3)
-							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features))
+							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
 							.ToArray();
 						tmp.AddRange(binaries1);
 
 						iBinaries1 = binaries1.Length;
 
 						var binaries2 = Arr(着外1, 着外2, 着外3)
-							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features))
+							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
 							.ToArray();
 						tmp.AddRange(binaries2);
 
 						iBinaries2 = binaries2.Length;
 
 						var regressions = Arr(着順1)
-							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features))
+							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
 							.ToArray();
 						tmp.AddRange(regressions);
 

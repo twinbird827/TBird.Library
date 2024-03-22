@@ -234,6 +234,13 @@ namespace Netkeiba
 					var args = x.Value.Split("-");
 					await Regression(args[1], second).TryCatch();
 				};
+
+				foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("M-")))
+				{
+					var args = x.Value.Split("-");
+					await MultiClassClassification(1, args[1], second).TryCatch();
+				};
+
 			}
 		});
 
@@ -447,7 +454,7 @@ namespace Netkeiba
 			AppUtil.DeleteEndress(dataPath);
 		}
 
-		private async Task MultiClassClassification(int index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
+		private async Task MultiClassClassification(int index, string rank, uint second)
 		{
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
@@ -456,15 +463,15 @@ namespace Netkeiba
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			await CreateModelInputData(dataPath, rank, r => r.GetValue("着順").GetSingle().Run(x => x == 1 ? 20
-				: x == 2 ? 10
-				: x == 3 ? 5
-				: x == 4 ? 2
-				: x == 5 ? 1
-				: (x - 6) * -1
+			await CreateModelInputData(dataPath, rank, r => r.GetValue("着順").GetInt32().Run(x => x == 1 ? 20
+				: x == 2 ? 16
+				: x == 3 ? 8
+				: x == 4 ? 4
+				: x == 5 ? 2
+				: 0
 			).ToString());
 
-			AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+			AddLog($"=============== Begin Update of MultiClassClassification evaluation {rank} {index} {second} ===============");
 
 			// Infer column information
 			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
@@ -472,7 +479,11 @@ namespace Netkeiba
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = "ﾚｰｽID";
 			}), groupColumns: true);
-
+			columnInference.TextLoaderOptions.Run(x =>
+			{
+				x.Columns[1].DataKind = DataKind.UInt32;
+				x.Columns[2].DataKind = DataKind.Int64;
+			});
 			// Create text loader
 			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
 
@@ -486,14 +497,16 @@ namespace Netkeiba
 			SweepablePipeline pipeline = mlContext
 					.Auto()
 					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
+					.Append(mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: Label, outputColumnName: "Label"))
 					.Append(mlContext.Auto().MultiClassification(
-						labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+						labelColumnName: "Label",
 						useFastForest: AppSetting.Instance.UseFastForest,
 						useFastTree: AppSetting.Instance.UseFastTree,
 						useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
 						useLgbm: AppSetting.Instance.UseLgbm,
 						useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
-					));
+					))
+					.Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: Label, inputColumnName: "Label"));
 
 			// Log experiment trials
 			var monitor = new AutoMLMonitor(pipeline, this);
@@ -581,7 +594,7 @@ namespace Netkeiba
 				if (!next) return;
 
 				var first = GetReaderRows(reader, func_target).ToArray();
-				var headers = Enumerable.Repeat("COL", first.Length - 1).Select((c, i) => $"{c}{i.ToString(4)}");
+				var headers = Enumerable.Repeat("COL", first.Length - 2).Select((c, i) => $"{c}{i.ToString(4)}");
 
 				await file.WriteLineAsync(func_head(headers).GetString(",") + ",ﾚｰｽID");
 				await file.WriteLineAsync(first.GetString(","));
@@ -652,12 +665,12 @@ namespace Netkeiba
 				{
 					var racs = new List<List<object>>();
 
-					foreach (var m in await conn.GetRows("SELECT 馬番, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
+					foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 					{
 						var tmp = new List<object>();
 
 						// ｽｺｱ算出
-						var scr = factory.Predict((byte[])m["Features"]);
+						var scr = factory.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64());
 						tmp.Add(scr);
 
 						// 共通ﾍｯﾀﾞ
@@ -732,11 +745,11 @@ namespace Netkeiba
 					{
 						var racs = new List<List<object>>();
 
-						foreach (var m in await conn.GetRows("SELECT 馬番, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
+						foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 						{
 							var tmp = new List<object>()
 							{
-								fac.Predict((byte[])m["Features"]),
+								fac.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64()),
 								string.Empty,
 								string.Empty,
 								string.Empty,

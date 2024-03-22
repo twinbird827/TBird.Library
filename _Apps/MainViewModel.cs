@@ -50,6 +50,10 @@ namespace Netkeiba
 				.SelectMany(x => Arr(1).Select(i => $"R-{x}-{i}"))
 				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
 			);
+			CreateModelSources.AddRange(Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
+				.SelectMany(x => Arr(1).Select(i => $"M-{x}-{i}"))
+				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
+			);
 
 			EYear = DateTime.Now.Year;
 			SYear = EYear - 1;

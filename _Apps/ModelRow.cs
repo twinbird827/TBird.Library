@@ -32,7 +32,7 @@ namespace Netkeiba
 	public class MultiClassificationSource : PredictionSource
 	{
 		[LoadColumn(Count)]
-		public int 着順 { get; set; }
+		public uint 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource
@@ -314,14 +314,14 @@ namespace Netkeiba
 			return _engine = _engine ?? _context.Model.CreatePredictionEngine<TSrc, TDst>(_context.Model.Load(GetResult().Path, out DataViewSchema schema));
 		}
 
-		public float Predict(byte[] bytes)
+		public float Predict(byte[] bytes, long raceid)
 		{
-			return Predict(AppUtil.ToSingles(bytes));
+			return Predict(AppUtil.ToSingles(bytes), raceid);
 		}
 
-		public virtual float Predict(float[] features)
+		public virtual float Predict(float[] features, long raceid)
 		{
-			return _score = GetEngine().Predict(new TSrc() { Features = features }).GetScore() * (_isnew ? 1F : GetResult().GetScore());
+			return _score = GetEngine().Predict(new TSrc() { Features = features, ﾚｰｽID = raceid }).GetScore() * (_isnew ? 1F : GetResult().GetScore());
 		}
 
 		public float GetScore()
@@ -344,9 +344,9 @@ namespace Netkeiba
 
 		}
 
-		public override float Predict(float[] features)
+		public override float Predict(float[] features, long raceid)
 		{
-			return base.Predict(features) * (_index < 5 ? 1 : -1);
+			return base.Predict(features, raceid) * (_index < 5 ? 1 : -1);
 		}
 
 		protected override PredictionResult GetResult(string rank, int index)
@@ -355,7 +355,7 @@ namespace Netkeiba
 		}
 	}
 
-	public class MultiClassificationPredictionFactory : PredictionFactory<BinaryClassificationSource, BinaryClassificationPrediction>
+	public class MultiClassificationPredictionFactory : PredictionFactory<MultiClassificationSource, MultiClassificationPrediction>
 	{
 		public MultiClassificationPredictionFactory(MLContext context, string rank, int index, ITransformer model) : base(context, rank, index, model)
 		{
@@ -367,9 +367,9 @@ namespace Netkeiba
 
 		}
 
-		public override float Predict(float[] features)
+		public override float Predict(float[] features, long raceid)
 		{
-			return base.Predict(features) * (_index < 5 ? 1 : -1);
+			return base.Predict(features, raceid) * (_index < 5 ? 1 : -1);
 		}
 
 		protected override PredictionResult GetResult(string rank, int index)
