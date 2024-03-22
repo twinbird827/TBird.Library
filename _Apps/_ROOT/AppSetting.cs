@@ -147,6 +147,27 @@ namespace Netkeiba
 			});
 		}
 
+		public MultiClassificationResult[] MultiClassificationResults
+		{
+			get => GetProperty(_MultiClassificationResults);
+			set => SetProperty(ref _MultiClassificationResults, value);
+		}
+		public MultiClassificationResult[] _MultiClassificationResults = new MultiClassificationResult[] { };
+
+		public void UpdateMultiClassificationResults(MultiClassificationResult now, MultiClassificationResult? old)
+		{
+			MultiClassificationResults = Arr(now).Concat(MultiClassificationResults.Where(x => !x.Equals(old))).ToArray();
+			Save();
+		}
+
+		public MultiClassificationResult GetMultiClassificationResult(int index, string rank)
+		{
+			return MultiClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
+			{
+				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? MultiClassificationResult.Default;
+			});
+		}
+
 		public RegressionResult[] RegressionResults
 		{
 			get => GetProperty(_RegressionResults);

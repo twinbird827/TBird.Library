@@ -251,8 +251,11 @@ namespace Netkeiba
 			AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
 
 			// Infer column information
-			var columnInference =
-				mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
+			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
+			{
+				x.LabelColumnName = Label;
+				x.SamplingKeyColumnName = "ﾚｰｽID";
+			}), groupColumns: true);
 
 			// Create text loader
 			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
@@ -356,9 +359,11 @@ namespace Netkeiba
 
 			AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
 
-			// Infer column information
-			var columnInference =
-				mlContext.Auto().InferColumns(dataPath, labelColumnName: Label, groupColumns: true);
+			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
+			{
+				x.LabelColumnName = Label;
+				x.SamplingKeyColumnName = "ﾚｰｽID";
+			}), groupColumns: true);
 
 			// Create text loader
 			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
@@ -442,12 +447,121 @@ namespace Netkeiba
 			AppUtil.DeleteEndress(dataPath);
 		}
 
-		private Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
+		private async Task MultiClassClassification(int index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
 		{
-			return CreateModelInputData(path, rank, func_target, head => head.Concat(Arr(Label)), (x, r) => x);
+			// Initialize MLContext
+			MLContext mlContext = new MLContext();
+
+			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
+			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
+
+			// ﾃﾞｰﾀﾌｧｲﾙを作製する
+			await CreateModelInputData(dataPath, rank, r => r.GetValue("着順").GetSingle().Run(x => x == 1 ? 20
+				: x == 2 ? 10
+				: x == 3 ? 5
+				: x == 4 ? 2
+				: x == 5 ? 1
+				: (x - 6) * -1
+			).ToString());
+
+			AddLog($"=============== Begin Update of BinaryClassification evaluation {rank} {index} {second} ===============");
+
+			// Infer column information
+			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
+			{
+				x.LabelColumnName = Label;
+				x.SamplingKeyColumnName = "ﾚｰｽID";
+			}), groupColumns: true);
+
+			// Create text loader
+			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
+
+			// Load data into IDataView
+			IDataView data = loader.Load(dataPath);
+
+			// Split into train (80%), validation (20%) sets
+			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+
+			//Define pipeline
+			SweepablePipeline pipeline = mlContext
+					.Auto()
+					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
+					.Append(mlContext.Auto().MultiClassification(
+						labelColumnName: columnInference.ColumnInformation.LabelColumnName,
+						useFastForest: AppSetting.Instance.UseFastForest,
+						useFastTree: AppSetting.Instance.UseFastTree,
+						useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
+						useLgbm: AppSetting.Instance.UseLgbm,
+						useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
+					));
+
+			// Log experiment trials
+			var monitor = new AutoMLMonitor(pipeline, this);
+
+			// Create AutoML experiment
+			var experiment = mlContext.Auto().CreateExperiment()
+				.SetPipeline(pipeline)
+				.SetMulticlassClassificationMetric(MulticlassClassificationMetric.MicroAccuracy, labelColumn: Label)
+				.SetTrainingTimeInSeconds(second)
+				.SetEciCostFrugalTuner()
+				.SetDataset(trainValidationData)
+				.SetMonitor(monitor);
+
+			// Run experiment
+			var cts = new CancellationTokenSource();
+			TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+
+			// Get best model
+			var model = experimentResults.Model;
+
+			// Get all completed trials
+			var completedTrials = monitor.GetCompletedTrials();
+
+			// Measure trained model performance
+			// Apply data prep transformer to test data
+			// Use trained model to make inferences on test data
+			IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
+
+			// Save model
+			var savepath = $@"model\MultiClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
+
+			var trained = mlContext.MulticlassClassification.Evaluate(testDataPredictions, labelColumnName: Label);
+			var now = await PredictionModel(rank, new MultiClassificationPredictionFactory(mlContext, rank, index, model)).RunAsync(x =>
+				new MultiClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
+			);
+			var old = AppSetting.Instance.GetMultiClassificationResult(index, rank);
+			var bst = old == MultiClassificationResult.Default || old.GetScore() < now.GetScore() ? now : old;
+
+			AddLog($"=============== Result of MultiClassification Model Data {rank} {index} {second} ===============");
+			AddLog($"LogLoss: {trained.LogLoss}");
+			AddLog($"LogLossReduction: {trained.LogLossReduction}");
+			AddLog($"MacroAccuracy: {trained.MacroAccuracy}");
+			AddLog($"MicroAccuracy: {trained.MicroAccuracy}");
+			AddLog($"TopKAccuracy: {trained.TopKAccuracy}");
+			AddLog($"TopKPredictionCount: {trained.TopKPredictionCount}");
+			AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
+			AddLog($"=============== End Update of MultiClassification evaluation {rank} {index} {second} ===============");
+
+			mlContext.Model.Save(model, data.Schema, savepath);
+
+			AppSetting.Instance.UpdateMultiClassificationResults(bst, old);
+
+			if (old != null && !bst.Equals(old) && await FileUtil.Exists(old.Path))
+			{
+				FileUtil.Delete(old.Path);
+			}
+
+			Progress.Value += 1;
+
+			AppUtil.DeleteEndress(dataPath);
 		}
 
-		private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target, Func<IEnumerable<string>, IEnumerable<string>> func_head, Func<IEnumerable<object>, DbDataReader, IEnumerable<object>> func_row)
+		private Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
+		{
+			return CreateModelInputData(path, rank, func_target, head => head.Concat(Arr(Label)));
+		}
+
+		private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target, Func<IEnumerable<string>, IEnumerable<string>> func_head)
 		{
 			FileUtil.BeforeCreate(path);
 
@@ -466,15 +580,15 @@ namespace Netkeiba
 
 				if (!next) return;
 
-				var first = func_row(GetReaderRows(reader, func_target), reader).ToArray();
+				var first = GetReaderRows(reader, func_target).ToArray();
 				var headers = Enumerable.Repeat("COL", first.Length - 1).Select((c, i) => $"{c}{i.ToString(4)}");
 
-				await file.WriteLineAsync(func_head(headers).GetString(","));
+				await file.WriteLineAsync(func_head(headers).GetString(",") + ",ﾚｰｽID");
 				await file.WriteLineAsync(first.GetString(","));
 
 				while (next)
 				{
-					await file.WriteLineAsync(func_row(GetReaderRows(reader, func_target), reader).GetString(","));
+					await file.WriteLineAsync(GetReaderRows(reader, func_target).GetString(","));
 					next = await reader.ReadAsync();
 				}
 			}
@@ -484,7 +598,7 @@ namespace Netkeiba
 
 		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => AppUtil.ToSingles((byte[])reader.GetValue("Features"))
 			.Run(x => x.Select(flt => (object)flt))
-			.Concat(Arr(func_target(reader)));
+			.Concat(Arr(func_target(reader), reader.GetValue("ﾚｰｽID").GetInt64()));
 
 		private async Task<(float score, float rate)> PredictionModel<TSrc, TDst>(string rank, PredictionFactory<TSrc, TDst> factory) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
