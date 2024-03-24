@@ -183,6 +183,23 @@ namespace TBird.Core
 		}
 
 		/// <summary>
+		/// 配列の各行に対して、直列処理を実行します。
+		/// </summary>
+		/// <typeparam name="T">配列の型</typeparam>
+		/// <param name="array">配列</param>
+		/// <param name="action">各行に対して実行する処理</param>
+		public static void ForEach<T>(this IEnumerable<T> array, Action<T, int> action)
+		{
+			if (array == null) return;
+
+			int i = 0;
+			foreach (var row in array)
+			{
+				action(row, i++);
+			}
+		}
+
+		/// <summary>
 		/// 指定した非同期配列を別の型で取得し直します。
 		/// </summary>
 		/// <typeparam name="TSource">変更前の型</typeparam>
