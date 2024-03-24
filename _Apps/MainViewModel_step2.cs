@@ -79,6 +79,8 @@ namespace Netkeiba
 							"CREATE TABLE IF NOT EXISTS t_model (",
 							head1.Select(x => $"{x} INTEGER").GetString(","),
 							",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
+
+						await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2)");
 					}
 
 					await conn.BeginTransaction();
@@ -181,15 +183,15 @@ namespace Netkeiba
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
 
 			// 他の馬との比較
-			//racarr.ForEach(dic =>
-			//{
-			//	keys.ForEach(key =>
-			//	{
-			//		dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
-			//		dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
-			//		dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
-			//	});
-			//});
+			racarr.ForEach(dic =>
+			{
+				keys.ForEach(key =>
+				{
+					dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
+					//dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
+					//dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
+				});
+			});
 
 			return racarr;
 		}

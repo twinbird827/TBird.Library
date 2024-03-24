@@ -31,6 +31,7 @@ namespace Netkeiba
 	public partial class MainViewModel
 	{
 		private const string Label = "着順";
+		private const string Group = "ﾚｰｽID";
 
 		public BindableCollection<CheckboxItemModel> CreateModelSources { get; } = new BindableCollection<CheckboxItemModel>();
 
@@ -204,12 +205,12 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 6) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 5) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 2) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 3) },
 				{ 3, r => 着勝(r).Run(x => x.着順 <= 4) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > 3) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > 4) },
-				{ 8, r => 着勝(r).Run(x => x.着順 > 5) },
+				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
+				{ 7, r => 着勝(r).Run(x => x.着順 > 3) },
+				{ 8, r => 着勝(r).Run(x => x.着順 > 4) },
 			};
 
 			var random = new Random();
@@ -261,8 +262,8 @@ namespace Netkeiba
 			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
 			{
 				x.LabelColumnName = Label;
-				x.SamplingKeyColumnName = "ﾚｰｽID";
-			}), groupColumns: true);
+				x.SamplingKeyColumnName = Group;
+			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
 				x.Columns[2].DataKind = DataKind.Int64;
@@ -367,15 +368,15 @@ namespace Netkeiba
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			await CreateModelInputData(dataPath, rank, reader => reader.GetValue("着順").GetDouble());
+			await CreateModelInputData(dataPath, rank, (int 着順) => 着順);
 
 			AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
 
 			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
 			{
 				x.LabelColumnName = Label;
-				x.SamplingKeyColumnName = "ﾚｰｽID";
-			}), groupColumns: true);
+				x.SamplingKeyColumnName = Group;
+			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
 				x.Columns[2].DataKind = DataKind.Int64;
@@ -473,13 +474,15 @@ namespace Netkeiba
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			await CreateModelInputData(dataPath, rank, r => r.GetValue("着順").GetInt32().Run(x => x == 1 ? 20
-				: x == 2 ? 16
-				: x == 3 ? 8
-				: x == 4 ? 4
-				: x == 5 ? 2
-				: 0
-			).ToString());
+			await CreateModelInputData(dataPath, rank, (int 着順) => 着順 switch
+			{
+				1 => 20,
+				2 => 16,
+				3 => 8,
+				4 => 4,
+				5 => 2,
+				_ => 0
+			});
 
 			AddLog($"=============== Begin Update of MultiClassClassification evaluation {rank} {index} {second} ===============");
 
@@ -487,8 +490,8 @@ namespace Netkeiba
 			var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
 			{
 				x.LabelColumnName = Label;
-				x.SamplingKeyColumnName = "ﾚｰｽID";
-			}), groupColumns: true);
+				x.SamplingKeyColumnName = Group;
+			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
 				x.Columns[1].DataKind = DataKind.UInt32;
@@ -579,12 +582,12 @@ namespace Netkeiba
 			AppUtil.DeleteEndress(dataPath);
 		}
 
-		private Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
+		private Task CreateModelInputData(string path, string rank, Func<int, object> func_target)
 		{
-			return CreateModelInputData(path, rank, func_target, head => head.Concat(Arr(Label)));
+			return CreateModelInputData(path, rank, r => func_target(r.GetValue("着順").GetInt32()));
 		}
 
-		private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target, Func<IEnumerable<string>, IEnumerable<string>> func_head)
+		private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
 		{
 			FileUtil.BeforeCreate(path);
 
@@ -603,25 +606,31 @@ namespace Netkeiba
 
 				if (!next) return;
 
-				var first = GetReaderRows(reader, func_target).ToArray();
-				var headers = Enumerable.Repeat("COL", first.Length - 2).Select((c, i) => $"{c}{i.ToString(4)}");
+				var first = AppUtil.ToSingles((byte[])reader.GetValue("Features"));
+				var headers = Enumerable.Repeat("COL", first.Length).Select((c, i) => $"{c}{i.ToString(4)}");
 
-				await file.WriteLineAsync(func_head(headers).GetString(",") + ",ﾚｰｽID");
-				await file.WriteLineAsync(first.GetString(","));
+				await file.WriteLineAsync(Arr(Label, Group)
+					.Concat(headers)
+					.GetString(",")
+				);
+				await file.WriteLineAsync(Arr(func_target(reader), reader.GetValue("ﾚｰｽID").GetInt64())
+					.Concat(first.Select(x => (object)x))
+					.GetString(",")
+				);
 
 				while (next)
 				{
-					await file.WriteLineAsync(GetReaderRows(reader, func_target).GetString(","));
+					var features = AppUtil.ToSingles((byte[])reader.GetValue("Features"));
+					await file.WriteLineAsync(Arr(func_target(reader), reader.GetValue("ﾚｰｽID").GetInt64())
+						.Concat(features.Select(x => (object)x))
+						.GetString(",")
+					);
 					next = await reader.ReadAsync();
 				}
 			}
 
 			AddLog($"After Create: {path}");
 		}
-
-		private IEnumerable<object> GetReaderRows(DbDataReader reader, Func<DbDataReader, object> func_target) => AppUtil.ToSingles((byte[])reader.GetValue("Features"))
-			.Run(x => x.Select(flt => (object)flt))
-			.Concat(Arr(func_target(reader), reader.GetValue("ﾚｰｽID").GetInt64()));
 
 		private async Task<(float score, float rate)> PredictionModel<TSrc, TDst>(string rank, PredictionFactory<TSrc, TDst> factory) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
