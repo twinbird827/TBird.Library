@@ -113,14 +113,14 @@ namespace Netkeiba
 
 		private async Task InitializeModelBase(SQLiteControl conn)
 		{
-			TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
+			TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
 			{
 				return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x["頭数"].GetSingle());
 			});
 
 			// ﾃﾞﾌｫﾙﾄ値の作製
 			DEF = await conn.GetRow<float>(Arr(
-				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(1) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
+				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
 				$"SELECT",
 				$"AVG((頭数 / 着順) * {着順CASE}) 着順,",
 				$"AVG(体重) 体重,",
@@ -181,15 +181,15 @@ namespace Netkeiba
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
 
 			// 他の馬との比較
-			racarr.ForEach(dic =>
-			{
-				keys.ForEach(key =>
-				{
-					dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
-					dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
-					dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
-				});
-			});
+			//racarr.ForEach(dic =>
+			//{
+			//	keys.ForEach(key =>
+			//	{
+			//		dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
+			//		dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
+			//		dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
+			//	});
+			//});
 
 			return racarr;
 		}
@@ -203,178 +203,171 @@ namespace Netkeiba
 
 		private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
-			try
+			var 馬情報 = await conn.GetRows(
+					$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ, t_top.上り TOP上り, t_top.斤量 TOP斤量" +
+					$" FROM t_orig" +
+					$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_orig.開催日数 = t_top.開催日数 AND t_top.着順 = 1" +
+					$" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
+					SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
+			).RunAsync(arr =>
 			{
-				var 馬情報 = await conn.GetRows(
-						$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ, t_top.上り TOP上り, t_top.斤量 TOP斤量" +
-						$" FROM t_orig" +
-						$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_orig.開催日数 = t_top.開催日数 AND t_top.着順 = 1" +
-						$" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
-						SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-						SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
-				).RunAsync(arr =>
-				{
-					return Arr(arr).Concat(Enumerable.Range(1, 4).Select(i => arr.Take(i).ToList())).ToArray();
-				});
+				return Arr(arr).Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i).ToList())).ToArray();
+			});
 
-				var dic = new Dictionary<string, object>();
-				// ﾍｯﾀﾞ情報
-				dic["ﾚｰｽID"] = src["ﾚｰｽID"].GetInt64();
-				dic["開催日数"] = src["開催日数"].GetInt64();
-				//dic["ﾗﾝｸ1"] = ﾗﾝｸ1.IndexOf(src["ﾗﾝｸ1"]);
-				dic["ﾗﾝｸ2"] = ﾗﾝｸ2.IndexOf(src["ﾗﾝｸ2"]);
+			var dic = new Dictionary<string, object>();
+			// ﾍｯﾀﾞ情報
+			dic["ﾚｰｽID"] = src["ﾚｰｽID"].GetInt64();
+			dic["開催日数"] = src["開催日数"].GetInt64();
+			//dic["ﾗﾝｸ1"] = ﾗﾝｸ1.IndexOf(src["ﾗﾝｸ1"]);
+			dic["ﾗﾝｸ2"] = ﾗﾝｸ2.IndexOf(src["ﾗﾝｸ2"]);
 
-				// 予測したいﾃﾞｰﾀ
-				dic["着順"] = src["着順"].GetInt64();
-				dic["単勝"] = src["単勝"].GetSingle();
+			// 予測したいﾃﾞｰﾀ
+			dic["着順"] = src["着順"].GetInt64();
+			dic["単勝"] = src["単勝"].GetSingle();
 
-				// 馬毎に違う情報
-				dic["枠番"] = src["枠番"].GetInt64();
-				dic["馬番"] = src["馬番"].GetInt64();
-				dic["馬ID"] = src["馬ID"].GetInt64();
-				dic["馬性"] = 馬性.IndexOf(src["馬性"]);
-				dic["馬齢"] = src["馬齢"].GetSingle();
-				dic["斤量"] = src["斤量"].GetSingle();
+			// 馬毎に違う情報
+			dic["枠番"] = src["枠番"].GetInt64();
+			dic["馬番"] = src["馬番"].GetInt64();
+			dic["馬ID"] = src["馬ID"].GetInt64();
+			dic["馬性"] = 馬性.IndexOf(src["馬性"]);
+			dic["馬齢"] = src["馬齢"].GetSingle();
+			dic["斤量"] = src["斤量"].GetSingle();
 
-				馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
+			馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
 
-				dic["体重"] = Median(馬情報[0], "体重");
-				//dic["増減"] = src["増減"].GetDouble();
-				//dic["増減割"] = dic["増減"] / dic["体重"];
-				dic["斤量割"] = dic["斤量"].GetSingle() / dic["体重"].GetSingle();
-				dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
-				//dic["一言"] = 一言.IndexOf(src["一言"]);
-				dic["追切"] = 追切.IndexOf(src["追切"]);
+			dic["体重"] = Median(馬情報[0], "体重");
+			//dic["増減"] = src["増減"].GetDouble();
+			//dic["増減割"] = dic["増減"] / dic["体重"];
+			dic["斤量割"] = dic["斤量"].GetSingle() / dic["体重"].GetSingle();
+			dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
+			//dic["一言"] = 一言.IndexOf(src["一言"]);
+			dic["追切"] = 追切.IndexOf(src["追切"]);
 
-				var analysis = await Arr(
-					GetAnalysis(conn, 200, src, "馬ID", new[] { "馬ID", "開催場所", "馬場", "馬場状態" }),
-					GetAnalysis(conn, 100, src, "騎手ID", new[] { "騎手ID", "開催場所", "馬場", "馬場状態" }),
-					GetAnalysis(conn, 100, src, "調教師ID", new[] { "調教師ID" }),
-					GetAnalysis(conn, 100, src, "馬主ID", new[] { "馬主ID" })
-				).WhenAll();
+			var analysis = await Arr(
+				GetAnalysis(conn, 200, src, "馬ID", new[] { "馬ID", "開催場所", "馬場", "馬場状態" }),
+				GetAnalysis(conn, 100, src, "騎手ID", new[] { "騎手ID", "開催場所", "馬場", "馬場状態" }),
+				GetAnalysis(conn, 100, src, "調教師ID", new[] { "調教師ID" }),
+				GetAnalysis(conn, 100, src, "馬主ID", new[] { "馬主ID" })
+			).WhenAll();
 
-				dic.AddRange(analysis.SelectMany(x => x));
+			dic.AddRange(analysis.SelectMany(x => x));
 
-				// 得意距離、及び今回のﾚｰｽ距離との差
-				dic["距離"] = src["距離"].GetSingle();
+			// 得意距離、及び今回のﾚｰｽ距離との差
+			dic["距離"] = src["距離"].GetSingle();
 
-				馬情報.ForEach((arr, i) => dic[$"距離得{i}"] = Median(arr, "距離"));
+			馬情報.ForEach((arr, i) => dic[$"距離得{i}"] = Median(arr, "距離"));
 
-				dic["距離差"] = dic["距離"].GetSingle() - dic["距離得0"].GetSingle();
+			dic["距離差"] = dic["距離"].GetSingle() - dic["距離得0"].GetSingle();
 
-				// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-				Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(6D);
+			// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+			Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(6D);
 
-				馬情報.ForEach((arr, i) => dic[$"通過{i}"] = Median(arr, 6F, x => (float)func_tuka(x["通過"])));
+			馬情報.ForEach((arr, i) => dic[$"通過{i}"] = Median(arr, 6F, x => (float)func_tuka(x["通過"])));
 
-				// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-				//dic["上り全"] = Avg2(馬情報全, x => x["上り"].GetDouble(), 上りDEF);
-				//dic["上り直"] = Avg2(馬情報直, x => x["上り"].GetDouble(), 上りDEF);
-				//dic["上小全"] = 馬情報全.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
-				//dic["上小直"] = 馬情報直.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
-				//dic["上大全"] = 馬情報全.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
-				//dic["上大直"] = 馬情報直.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+			//dic["上り全"] = Avg2(馬情報全, x => x["上り"].GetDouble(), 上りDEF);
+			//dic["上り直"] = Avg2(馬情報直, x => x["上り"].GetDouble(), 上りDEF);
+			//dic["上小全"] = 馬情報全.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			//dic["上小直"] = 馬情報直.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			//dic["上大全"] = 馬情報全.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			//dic["上大直"] = 馬情報直.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
 
-				馬情報.ForEach((arr, i) =>
-				{
-					dic[$"斤上り{i}"] = Median(arr, DEF["斤上"], x => Get斤上(x));
-					dic[$"斤上小{i}"] = GetSingle(arr.Select(x => Get斤上(x)), DEF["斤上"] * 0.90F, ret => ret.Min());
-					dic[$"斤上大{i}"] = GetSingle(arr.Select(x => Get斤上(x)), DEF["斤上"] * 1.10F, ret => ret.Max());
-				});
-
-				// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-				Func<object, float> func_time = v => $"{v}".Split(':')[0].GetSingle() * 60 + $"{v}".Split(':')[1].GetSingle();
-				馬情報.ForEach((arr, i) =>
-				{
-					dic[$"時間{i}"] = Median(arr, DEF["時間"], x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"]));
-					dic[$"斤時{i}"] = dic[$"斤上り{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
-				});
-
-				// 1着との差(時間)
-				馬情報.ForEach((arr, i) =>
-				{
-					dic[$"勝時差{i}"] = GetSingle(arr.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), DEF["勝時差"], ret => ret.Median());
-					dic[$"勝上差{i}"] = GetSingle(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"], ret => ret.Median());
-				});
-
-				// 着順平均
-				馬情報.ForEach((arr, i) =>
-				{
-					dic[$"着順{i}"] = Median(arr, DEF["着順"], x => GET着順(x));
-				});
-
-				// 出走間隔
-				馬情報.ForEach((arr, i) =>
-				{
-					dic[$"出走間隔{i}"] = 0 < arr.Count ? dic["開催日数"].GetSingle() - arr[0]["開催日数"].GetSingle() : DEF["出走間隔"] * (i + 1);
-				});
-
-				var 芝距 = $"(CASE WHEN IFNULL(AVG(芝距),0) = 0 THEN {dic["距離"]} ELSE AVG(芝距) END)";
-				var ダ距 = $"(CASE WHEN IFNULL(AVG(ダ距),0) = 0 THEN {dic["距離"]} ELSE AVG(ダ距) END)";
-
-				// 産駒成績
-				var 産駒 = Arr(
-					$"SELECT",
-					$"AVG(順位), IFNULL(SUM(勝馬頭数)/SUM(出走頭数),0), IFNULL(SUM(勝利回数)/SUM(出走回数),0), IFNULL(AVG(EI), {DEF["EI"]}), IFNULL(SUM(賞金), {DEF["賞金"]}),",
-					$"{dic["距離"]} - ", $"{src["馬場"]}" == "芝" ? 芝距 : ダ距, ",",
-					$"{src["馬場"]}" == "芝" ? "IFNULL(SUM(芝勝)/SUM(芝出),0)" : "IFNULL(SUM(ダ勝)/SUM(ダ出),0)"
-				).GetString(" ");
-
-				var 全父 = Arr(産駒,
-					$"FROM t_ketto",
-					$"LEFT JOIN t_sanku ON t_sanku.馬ID = t_ketto.父ID",
-					$"WHERE t_ketto.馬ID = ? AND t_sanku.年度 <= ?"
-				).GetString(" ");
-
-				dic.AddRange(await conn.GetRow(
-					r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"全父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-					全父,
-					SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1)
-				));
-
-				var 直父 = Arr(全父, "AND t_sanku.年度 >= ?").GetString(" ");
-
-				dic.AddRange(await conn.GetRow(
-					r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"直父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-					直父,
-					SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 4)
-				));
-
-				// 産駒BMS成績
-				var 全母父 = Arr(産駒,
-					$"FROM t_ketto a",
-					$"LEFT JOIN t_ketto b ON b.馬ID = a.母ID",
-					$"LEFT JOIN t_sanku ON t_sanku.馬ID = b.父ID",
-					$"WHERE a.馬ID = ? AND t_sanku.年度 <= ?"
-				).GetString(" ");
-
-				dic.AddRange(await conn.GetRow(
-					r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"全母父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-					全母父,
-					SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1)
-				));
-
-				var 直母父 = Arr(全母父, "AND t_sanku.年度 >= ?").GetString(" ");
-
-				dic.AddRange(await conn.GetRow(
-					r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"直母父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-					直母父,
-					SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 4)
-				));
-
-				// 産駒BMS成績
-				return dic;
-			}
-			catch (Exception ex)
+			馬情報.ForEach((arr, i) =>
 			{
-				throw;
-			}
+				dic[$"斤上り{i}"] = Median(arr, DEF["斤上"], x => Get斤上(x));
+				dic[$"斤上小{i}"] = GetSingle(arr.Select(x => Get斤上(x)), DEF["斤上"] * 0.90F, ret => ret.Min());
+				dic[$"斤上大{i}"] = GetSingle(arr.Select(x => Get斤上(x)), DEF["斤上"] * 1.10F, ret => ret.Max());
+			});
+
+			// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+			Func<object, float> func_time = v => $"{v}".Split(':')[0].GetSingle() * 60 + $"{v}".Split(':')[1].GetSingle();
+			馬情報.ForEach((arr, i) =>
+			{
+				dic[$"時間{i}"] = Median(arr, DEF["時間"], x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"]));
+				dic[$"斤時{i}"] = dic[$"斤上り{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
+			});
+
+			// 1着との差(時間)
+			馬情報.ForEach((arr, i) =>
+			{
+				dic[$"勝時差{i}"] = GetSingle(arr.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), DEF["勝時差"], ret => ret.Median());
+				dic[$"勝上差{i}"] = GetSingle(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"], ret => ret.Median());
+			});
+
+			// 着順平均
+			馬情報.ForEach((arr, i) =>
+			{
+				dic[$"着順{i}"] = Median(arr, DEF["着順"], x => GET着順(x));
+			});
+
+			// 出走間隔
+			馬情報.ForEach((arr, i) =>
+			{
+				dic[$"出走間隔{i}"] = 0 < arr.Count ? dic["開催日数"].GetSingle() - arr[0]["開催日数"].GetSingle() : DEF["出走間隔"] * (i + 1);
+			});
+
+			var 芝距 = $"(CASE WHEN IFNULL(AVG(芝距),0) = 0 THEN {dic["距離"]} ELSE AVG(芝距) END)";
+			var ダ距 = $"(CASE WHEN IFNULL(AVG(ダ距),0) = 0 THEN {dic["距離"]} ELSE AVG(ダ距) END)";
+
+			// 産駒成績
+			var 産駒 = Arr(
+				$"SELECT",
+				$"AVG(順位), IFNULL(SUM(勝馬頭数)/SUM(出走頭数),0), IFNULL(SUM(勝利回数)/SUM(出走回数),0), IFNULL(AVG(EI), {DEF["EI"]}), IFNULL(SUM(賞金), {DEF["賞金"]}),",
+				$"{dic["距離"]} - ", $"{src["馬場"]}" == "芝" ? 芝距 : ダ距, ",",
+				$"{src["馬場"]}" == "芝" ? "IFNULL(SUM(芝勝)/SUM(芝出),0)" : "IFNULL(SUM(ダ勝)/SUM(ダ出),0)"
+			).GetString(" ");
+
+			var 全父 = Arr(産駒,
+				$"FROM t_ketto",
+				$"LEFT JOIN t_sanku ON t_sanku.馬ID = t_ketto.父ID",
+				$"WHERE t_ketto.馬ID = ? AND t_sanku.年度 <= ?"
+			).GetString(" ");
+
+			dic.AddRange(await conn.GetRow(
+				r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"全父{i.ToString(3)}", i => (object)r.Get<float>(i)),
+				全父,
+				SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
+				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1)
+			));
+
+			var 直父 = Arr(全父, "AND t_sanku.年度 >= ?").GetString(" ");
+
+			dic.AddRange(await conn.GetRow(
+				r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"直父{i.ToString(3)}", i => (object)r.Get<float>(i)),
+				直父,
+				SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
+				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1),
+				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 4)
+			));
+
+			// 産駒BMS成績
+			var 全母父 = Arr(産駒,
+				$"FROM t_ketto a",
+				$"LEFT JOIN t_ketto b ON b.馬ID = a.母ID",
+				$"LEFT JOIN t_sanku ON t_sanku.馬ID = b.父ID",
+				$"WHERE a.馬ID = ? AND t_sanku.年度 <= ?"
+			).GetString(" ");
+
+			dic.AddRange(await conn.GetRow(
+				r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"全母父{i.ToString(3)}", i => (object)r.Get<float>(i)),
+				全母父,
+				SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
+				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1)
+			));
+
+			var 直母父 = Arr(全母父, "AND t_sanku.年度 >= ?").GetString(" ");
+
+			dic.AddRange(await conn.GetRow(
+				r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"直母父{i.ToString(3)}", i => (object)r.Get<float>(i)),
+				直母父,
+				SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
+				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1),
+				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 4)
+			));
+
+			// 産駒BMS成績
+			return dic;
 		}
 
 		private float GET着順(Dictionary<string, object> x)
@@ -405,11 +398,15 @@ namespace Netkeiba
 			var ranks = new[] { 1, 3, 5 };
 			var now = $"{src["開催日数"]}".GetSingle();
 			var keyvalue = $"{src[keyname]}";
+			//var select = Arr(
+			//	$"IFNULL(AVG(着順), {DEF["着順"]})",
+			//	$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
+			//	$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
+			//);
 			var select = Arr(
-				$"IFNULL(AVG(着順), {DEF["着順"]})",
-				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
-				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
+				$"IFNULL(AVG(着順), {DEF["着順"]})"
 			);
+
 			var count = ranks.Length * select.Length * headnames.Length;
 			var index = 0;
 			var with = new List<string>();

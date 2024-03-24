@@ -217,7 +217,7 @@ namespace Netkeiba
 			{
 				var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
-				//foreach (var metric in metrics)
+				foreach (var metric in metrics)
 				{
 					foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")))
 					{
@@ -263,6 +263,10 @@ namespace Netkeiba
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = "ﾚｰｽID";
 			}), groupColumns: true);
+			columnInference.TextLoaderOptions.Run(x =>
+			{
+				x.Columns[2].DataKind = DataKind.Int64;
+			});
 
 			// Create text loader
 			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
@@ -295,6 +299,7 @@ namespace Netkeiba
 				.SetBinaryClassificationMetric(metric, labelColumn: Label)
 				.SetTrainingTimeInSeconds(second)
 				.SetEciCostFrugalTuner()
+				.SetGridSearchTuner()
 				.SetDataset(trainValidationData)
 				.SetMonitor(monitor);
 
@@ -371,6 +376,10 @@ namespace Netkeiba
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = "ﾚｰｽID";
 			}), groupColumns: true);
+			columnInference.TextLoaderOptions.Run(x =>
+			{
+				x.Columns[2].DataKind = DataKind.Int64;
+			});
 
 			// Create text loader
 			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
@@ -403,6 +412,7 @@ namespace Netkeiba
 				.SetRegressionMetric(AppSetting.Instance.RegressionMetric, Label)
 				.SetTrainingTimeInSeconds((uint)second)
 				.SetEciCostFrugalTuner()
+				.SetGridSearchTuner()
 				.SetDataset(trainValidationData)
 				.SetMonitor(monitor);
 

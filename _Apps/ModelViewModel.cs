@@ -60,9 +60,24 @@ namespace Netkeiba
 				// 設定情報のｺﾋﾟｰ
 				using (var setting = new AppSetting(Path.Combine(MergePath, @"lib\app-setting.json")))
 				{
-					BinaryClassificationResults.AddRange(setting.BinaryClassificationResults.Select(x => new BinaryClassificationViewModel(this, x)));
-
-					RegressionResults.AddRange(setting.RegressionResults.Select(x => new RegressionViewModel(this, x)));
+					setting.BinaryClassificationResults.ForEach(tgt =>
+					{
+						var old = BinaryClassificationResults.FirstOrDefault(x => x.Index == tgt.Index && x.Rank == tgt.Rank);
+						if (old == null || old.GetScore() < tgt.GetScore())
+						{
+							if (old != null) old.ClickDelete.Execute(null);
+							BinaryClassificationResults.Add(new BinaryClassificationViewModel(this, tgt));
+						}
+					});
+					setting.RegressionResults.ForEach(tgt =>
+					{
+						var old = RegressionResults.FirstOrDefault(x => x.Index == tgt.Index && x.Rank == tgt.Rank);
+						if (old == null || old.GetScore() < tgt.GetScore())
+						{
+							if (old != null) old.ClickDelete.Execute(null);
+							RegressionResults.Add(new RegressionViewModel(this, tgt));
+						}
+					});
 				}
 			});
 
