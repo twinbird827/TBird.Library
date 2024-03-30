@@ -205,7 +205,7 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 2) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 5) },
 				{ 2, r => 着勝(r).Run(x => x.着順 <= 3) },
 				{ 3, r => 着勝(r).Run(x => x.着順 <= 4) },
 				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
@@ -266,7 +266,7 @@ namespace Netkeiba
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
-				x.Columns[2].DataKind = DataKind.Int64;
+				x.Columns[1].DataKind = DataKind.Int64;
 			});
 
 			// Create text loader
@@ -300,7 +300,6 @@ namespace Netkeiba
 				.SetBinaryClassificationMetric(metric, labelColumn: Label)
 				.SetTrainingTimeInSeconds(second)
 				.SetEciCostFrugalTuner()
-				.SetGridSearchTuner()
 				.SetDataset(trainValidationData)
 				.SetMonitor(monitor);
 
@@ -379,7 +378,7 @@ namespace Netkeiba
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
-				x.Columns[2].DataKind = DataKind.Int64;
+				x.Columns[1].DataKind = DataKind.Int64;
 			});
 
 			// Create text loader
@@ -413,7 +412,6 @@ namespace Netkeiba
 				.SetRegressionMetric(AppSetting.Instance.RegressionMetric, Label)
 				.SetTrainingTimeInSeconds((uint)second)
 				.SetEciCostFrugalTuner()
-				.SetGridSearchTuner()
 				.SetDataset(trainValidationData)
 				.SetMonitor(monitor);
 
@@ -494,8 +492,8 @@ namespace Netkeiba
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
-				x.Columns[1].DataKind = DataKind.UInt32;
-				x.Columns[2].DataKind = DataKind.Int64;
+				x.Columns[0].DataKind = DataKind.UInt32;
+				x.Columns[1].DataKind = DataKind.Int64;
 			});
 			// Create text loader
 			TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
@@ -607,7 +605,7 @@ namespace Netkeiba
 				if (!next) return;
 
 				var first = AppUtil.ToSingles((byte[])reader.GetValue("Features"));
-				var headers = Enumerable.Repeat("COL", first.Length).Select((c, i) => $"{c}{i.ToString(4)}");
+				var headers = Enumerable.Repeat("C", first.Length).Select((c, i) => $"{c}{i.ToString(4)}");
 
 				await file.WriteLineAsync(Arr(Label, Group)
 					.Concat(headers)
