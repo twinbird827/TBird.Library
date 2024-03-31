@@ -118,7 +118,7 @@ namespace Netkeiba
 					// 人気
 					dic["人気"] = row.Cells[13].GetInnerHtml();
 					// 体重
-					dic["体重"] = row.Cells[14].GetInnerHtml().Split('(')[0];
+					dic["体重"] = row.Cells[14].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
 					// 増減 TODO 軽量不能時はｾﾞﾛ
 					dic["増減"] = row.Cells[14].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
 					//// 調教ﾀｲﾑ(有料)

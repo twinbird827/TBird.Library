@@ -52,6 +52,11 @@ namespace Netkeiba
 				// 血統情報の作成
 				await RefreshKetto(conn);
 
+				// ﾃｰﾌﾞﾙ作成
+				await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
+					"PRIMARY KEY (馬ID,年度))").GetString(" ")
+				);
+
 				// 産駒成績の更新
 				await RefreshSanku(conn, true, await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_sanku)"));
 
@@ -187,11 +192,18 @@ namespace Netkeiba
 			{
 				keys.ForEach(key =>
 				{
-					dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
-					dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
-					dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
-					dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
-					dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
+					try
+					{
+						dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
+						dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
+						dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
+						dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
+						dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
+					}
+					catch
+					{
+						throw;
+					}
 				});
 			});
 
@@ -538,11 +550,6 @@ namespace Netkeiba
 
 		private async Task RefreshSanku(SQLiteControl conn, bool transaction, IEnumerable<string> keys)
 		{
-			// ﾃｰﾌﾞﾙ作成
-			await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
-				"PRIMARY KEY (馬ID,年度))").GetString(" ")
-			);
-
 			var sql = Arr(
 				$"WITH w_ketto AS (SELECT 父ID,母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
 				$"SELECT DISTINCT 父ID FROM w_ketto",
