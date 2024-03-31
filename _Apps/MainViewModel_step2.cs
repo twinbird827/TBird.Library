@@ -188,8 +188,10 @@ namespace Netkeiba
 				keys.ForEach(key =>
 				{
 					dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
-					//dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
-					//dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
+					dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
+					dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
+					dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
+					dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
 				});
 			});
 
@@ -238,6 +240,8 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
 
+			馬情報.ForEach((arr, i) => dic[$"賞金平{i}"] = Median(arr, "賞金"));
+
 			dic["体重"] = Median(馬情報[0], "体重");
 			//dic["増減"] = src["増減"].GetDouble();
 			//dic["増減割"] = dic["増減"] / dic["体重"];
@@ -254,6 +258,11 @@ namespace Netkeiba
 			).WhenAll();
 
 			dic.AddRange(analysis.SelectMany(x => x));
+
+			dic["馬騎手A0"] = dic["A_馬ID_00000_00"].GetSingle() + dic["A_騎手ID_00000_00"].GetSingle();
+			dic["馬騎手A1"] = dic["A_馬ID_00000_00"].GetSingle() * dic["A_騎手ID_00000_00"].GetSingle();
+			dic["馬騎手N0"] = dic["N_馬ID_00000_00"].GetSingle() + dic["N_騎手ID_00000_00"].GetSingle();
+			dic["馬騎手N1"] = dic["N_馬ID_00000_00"].GetSingle() * dic["N_騎手ID_00000_00"].GetSingle();
 
 			// 得意距離、及び今回のﾚｰｽ距離との差
 			dic["距離"] = src["距離"].GetSingle();
@@ -400,14 +409,14 @@ namespace Netkeiba
 			var ranks = new[] { 1, 3, 5 };
 			var now = $"{src["開催日数"]}".GetSingle();
 			var keyvalue = $"{src[keyname]}";
-			//var select = Arr(
-			//	$"IFNULL(AVG(着順), {DEF["着順"]})",
-			//	$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
-			//	$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
-			//);
 			var select = Arr(
-				$"IFNULL(AVG(着順), {DEF["着順"]})"
+				$"IFNULL(AVG(着順), {DEF["着順"]})",
+				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
+				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
 			);
+			//var select = Arr(
+			//	$"IFNULL(AVG(着順), {DEF["着順"]})"
+			//);
 
 			var count = ranks.Length * select.Length * headnames.Length;
 			var index = 0;

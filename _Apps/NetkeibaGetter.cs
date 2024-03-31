@@ -81,7 +81,7 @@ namespace Netkeiba
 					dic["馬場状態"] = cond;
 
 					// 着順
-					dic["着順"] = row.Cells[0].GetInnerHtml();
+					dic["着順"] = row.Cells[0].GetInnerHtml().Split('(')[0];
 					// 着順が数値ではない場合は出走取消
 					if (!int.TryParse(dic["着順"], out int def)) break;
 
@@ -137,6 +137,8 @@ namespace Netkeiba
 					dic["馬主名"] = row.Cells[19].GetHrefAttribute("title");
 					// 馬主ID
 					dic["馬主ID"] = row.Cells[19].GetHrefAttribute("href").Split('/')[4];
+					// 賞金
+					dic["賞金"] = $"{row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle()}";
 
 					// 追切情報の枠だけ用意する
 					dic["一言"] = string.Empty;
@@ -303,6 +305,8 @@ namespace Netkeiba
 					// 馬主情報の枠だけ用意する
 					dic["馬主名"] = string.Empty;
 					dic["馬主ID"] = string.Empty;
+					// 賞金
+					dic["賞金"] = "0";
 
 					// 追切情報の枠だけ用意する
 					dic["一言"] = string.Empty;
