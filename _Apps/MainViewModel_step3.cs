@@ -25,6 +25,7 @@ using Microsoft.ML.AutoML.CodeGen;
 using Microsoft.ML.SearchSpace;
 using Microsoft.ML.SearchSpace.Option;
 using TBird.Wpf.Collections;
+using System.Windows;
 
 namespace Netkeiba
 {
@@ -206,12 +207,22 @@ namespace Netkeiba
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
 				{ 1, r => 着勝(r).Run(x => x.着順 <= 5) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 6) },
 				{ 3, r => 着勝(r).Run(x => x.着順 <= 4) },
 				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
 				{ 7, r => 着勝(r).Run(x => x.着順 > 3) },
 				{ 8, r => 着勝(r).Run(x => x.着順 > 4) },
 			};
+
+			try
+			{
+				await MultiClassClassification(1, "RANK1", 100);
+			}
+			catch (Exception ex)
+			{
+				MessageService.Info(ex.ToString());
+				return;
+			}
 
 			var random = new Random();
 			for (var tmp = 0; tmp < seconds; tmp++)
@@ -472,15 +483,7 @@ namespace Netkeiba
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			await CreateModelInputData(dataPath, rank, (int 着順) => 着順 switch
-			{
-				1 => 20,
-				2 => 16,
-				3 => 8,
-				4 => 4,
-				5 => 2,
-				_ => 0
-			});
+			await CreateModelInputData(dataPath, rank, (int 着順) => (uint)Math.Min(着順, 6));
 
 			AddLog($"=============== Begin Update of MultiClassClassification evaluation {rank} {index} {second} ===============");
 
@@ -503,43 +506,50 @@ namespace Netkeiba
 
 			// Split into train (80%), validation (20%) sets
 			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			////Define pipeline
+			//SweepablePipeline pipeline = mlContext
+			//		.Auto()
+			//		.Featurizer(data)
+			//		.Append(mlContext.Transforms.Conversion.MapValueToKey("Label", Label))
+			//		.Append(mlContext.Transforms.Concatenate("Features", Enumerable.Range(0, 235).Select(i => $"C{i.ToString(4)}").ToArray()))
+			//		.Append(mlContext.Auto().MultiClassification(
+			//			labelColumnName: Label,
+			//			useFastForest: AppSetting.Instance.UseFastForest,
+			//			useFastTree: AppSetting.Instance.UseFastTree,
+			//			useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
+			//			useLgbm: AppSetting.Instance.UseLgbm,
+			//			useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
+			//		).Append(mlContext.Transforms.Conversion.MapKeyToValue(Label, "Label")));
 
-			//Define pipeline
-			SweepablePipeline pipeline = mlContext
-					.Auto()
-					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-					.Append(mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: Label, outputColumnName: "Label"))
-					.Append(mlContext.Auto().MultiClassification(
-						labelColumnName: "Label",
-						useFastForest: AppSetting.Instance.UseFastForest,
-						useFastTree: AppSetting.Instance.UseFastTree,
-						useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
-						useLgbm: AppSetting.Instance.UseLgbm,
-						useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
-					))
-					.Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: Label, inputColumnName: "Label"));
+			//// Log experiment trials
+			//var monitor = new AutoMLMonitor(pipeline, this);
 
-			// Log experiment trials
-			var monitor = new AutoMLMonitor(pipeline, this);
+			//// Create AutoML experiment
+			//var experiment = mlContext.Auto().CreateExperiment()
+			//	.SetPipeline(pipeline)
+			//	.SetMulticlassClassificationMetric(MulticlassClassificationMetric.MacroAccuracy, "Label")
+			//	.SetTrainingTimeInSeconds(second)
+			//	.SetEciCostFrugalTuner()
+			//	.SetDataset(trainValidationData)
+			//	.SetMonitor(monitor);
 
-			// Create AutoML experiment
-			var experiment = mlContext.Auto().CreateExperiment()
-				.SetPipeline(pipeline)
-				.SetMulticlassClassificationMetric(MulticlassClassificationMetric.MicroAccuracy, labelColumn: Label)
-				.SetTrainingTimeInSeconds(second)
-				.SetEciCostFrugalTuner()
-				.SetDataset(trainValidationData)
-				.SetMonitor(monitor);
+			//// Run experiment
+			//var cts = new CancellationTokenSource();
+			//TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+			//TrainTestData valid = mlContext.Data.TrainTestSplit(trainValidationData.TrainSet, testFraction: 0.2);
 
-			// Run experiment
-			var cts = new CancellationTokenSource();
-			TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+			//// Get best model
+			//var model = experimentResults.Model;
 
-			// Get best model
-			var model = experimentResults.Model;
+			var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label", Label)
+				.Append(mlContext.Transforms.Concatenate("Features", Enumerable.Range(0, 235).Select(i => $"C{i.ToString(4)}").ToArray()))
+				.Append(mlContext.MulticlassClassification.Trainers.LightGbm()
+					.Append(mlContext.Transforms.Conversion.MapKeyToValue(Label, "Label")));
+
+			var model = pipeline.Fit(trainValidationData.TrainSet);
 
 			// Get all completed trials
-			var completedTrials = monitor.GetCompletedTrials();
+			//var completedTrials = monitor.GetCompletedTrials();
 
 			// Measure trained model performance
 			// Apply data prep transformer to test data
@@ -549,7 +559,7 @@ namespace Netkeiba
 			// Save model
 			var savepath = $@"model\MultiClassification_{rank}_{index.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
-			var trained = mlContext.MulticlassClassification.Evaluate(testDataPredictions, labelColumnName: Label);
+			var trained = mlContext.MulticlassClassification.Evaluate(testDataPredictions, labelColumnName: "Label");
 			var now = await PredictionModel(rank, new MultiClassificationPredictionFactory(mlContext, rank, index, model)).RunAsync(x =>
 				new MultiClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
 			);

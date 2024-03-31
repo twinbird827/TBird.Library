@@ -4,10 +4,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Netkeiba
 {
 	public abstract class ModelPrediction
+	{
+		public override string ToString()
+		{
+			return $"{GetScore()}";
+		}
+
+		public abstract float GetScore();
+	}
+
+	public class BinaryClassificationPrediction : ModelPrediction
 	{
 		[ColumnName("Label")]
 		public float Label { get; set; }
@@ -15,19 +26,6 @@ namespace Netkeiba
 		[ColumnName("Score")]
 		public float Score { get; set; }
 
-		public override string ToString()
-		{
-			return $"{Score}";
-		}
-
-		public virtual float GetScore()
-		{
-			return Score;
-		}
-	}
-
-	public class BinaryClassificationPrediction : ModelPrediction
-	{
 		[ColumnName("Probability")]
 		public float Probability { get; set; }
 
@@ -36,29 +34,41 @@ namespace Netkeiba
 
 		public override float GetScore()
 		{
-			return base.GetScore() * Probability;
+			return Score * Probability;
 		}
 	}
 
 	public class MultiClassificationPrediction : ModelPrediction
 	{
+		[ColumnName("Label")]
+		public uint Label { get; set; }
+
+		[ColumnName("Score")]
+		public float[] Score { get; set; }
+
 		[ColumnName("Probability")]
 		public float Probability { get; set; }
 
 		[ColumnName("PredictedLabel")]
-		public bool PredictedLabel { get; set; }
+		public uint PredictedLabel { get; set; }
 
 		public override float GetScore()
 		{
-			return base.GetScore() * Probability;
+			return PredictedLabel / Score[PredictedLabel - 1];
 		}
 	}
 
 	public class RegressionPrediction : ModelPrediction
 	{
+		[ColumnName("Label")]
+		public float Label { get; set; }
+
+		[ColumnName("Score")]
+		public float Score { get; set; }
+
 		public override float GetScore()
 		{
-			return 5 - base.GetScore();
+			return 5 - Score;
 		}
 	}
 }
