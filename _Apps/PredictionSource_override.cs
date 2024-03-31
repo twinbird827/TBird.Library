@@ -26,7 +26,7 @@ namespace Netkeiba
 	public class MultiClassificationSource : PredictionSource
 	{
 		[LoadColumn(0)]
-		public uint 着順 { get; set; }
+		public int 着順 { get; set; }
 	}
 
 	public class RegressionSource : PredictionSource

@@ -472,15 +472,7 @@ namespace Netkeiba
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
 			// ﾃﾞｰﾀﾌｧｲﾙを作製する
-			await CreateModelInputData(dataPath, rank, (int 着順) => 着順 switch
-			{
-				1 => 20,
-				2 => 16,
-				3 => 8,
-				4 => 4,
-				5 => 2,
-				_ => 0
-			});
+			await CreateModelInputData(dataPath, rank, (int 着順) => (uint)Math.Max(着順, 6));
 
 			AddLog($"=============== Begin Update of MultiClassClassification evaluation {rank} {index} {second} ===============");
 
@@ -492,7 +484,6 @@ namespace Netkeiba
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
-				x.Columns[0].DataKind = DataKind.UInt32;
 				x.Columns[1].DataKind = DataKind.Int64;
 			});
 			// Create text loader
@@ -508,7 +499,6 @@ namespace Netkeiba
 			SweepablePipeline pipeline = mlContext
 					.Auto()
 					.Featurizer(data, columnInformation: columnInference.ColumnInformation)
-					.Append(mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: Label, outputColumnName: "Label"))
 					.Append(mlContext.Auto().MultiClassification(
 						labelColumnName: "Label",
 						useFastForest: AppSetting.Instance.UseFastForest,
@@ -516,8 +506,7 @@ namespace Netkeiba
 						useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
 						useLgbm: AppSetting.Instance.UseLgbm,
 						useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
-					))
-					.Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: Label, inputColumnName: "Label"));
+					));
 
 			// Log experiment trials
 			var monitor = new AutoMLMonitor(pipeline, this);
