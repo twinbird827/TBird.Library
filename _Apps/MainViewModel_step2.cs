@@ -85,7 +85,7 @@ namespace Netkeiba
 							head1.Select(x => $"{x} INTEGER").GetString(","),
 							",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
 
-						await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2)");
+						await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID)");
 					}
 
 					await conn.BeginTransaction();

@@ -64,7 +64,7 @@ namespace Netkeiba
 				Dictionary<string, RegressionPredictionFactory> 着順1
 			)
 		{
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
 				{

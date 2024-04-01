@@ -129,6 +129,7 @@ namespace Netkeiba
 			{
 				var tgt = new List<double>();
 				var features = new List<double>[1500];
+				for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
 
 				using (var conn = AppUtil.CreateSQLiteControl())
 				{
@@ -152,9 +153,9 @@ namespace Netkeiba
 					}
 				}
 
-				_correls = features.Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+				_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
 
-				MessageService.Info($"{_correls.Length}個の要素を除外します。");
+				MessageService.Info($"{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_correls.Length}個の要素を除外します。");
 			});
 		}
 
