@@ -53,14 +53,14 @@ namespace Netkeiba
 			Progress.Minimum = 0;
 			Progress.Maximum = years.Length * counts.Length * days.Length;
 
-			bool create = S1Overwrite.IsChecked || !File.Exists(_sqlitepath);
+			bool create = S1Overwrite.IsChecked || !File.Exists(AppUtil.Sqlitepath);
 
 			if (create)
 			{
-				FileUtil.BeforeCreate(_sqlitepath);
+				FileUtil.BeforeCreate(AppUtil.Sqlitepath);
 			}
 
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				if (await conn.ExistsColumn("t_orig", "ﾚｰｽID"))
 				{

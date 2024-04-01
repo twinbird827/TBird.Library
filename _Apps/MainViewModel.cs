@@ -69,18 +69,14 @@ namespace Netkeiba
 		{
 			if (_logmax < _this.LogSource.Count)
 			{
-                _this.LogSource.RemoveAt(_logmax);
+				_this.LogSource.RemoveAt(_logmax);
 			}
-            _this.LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
+			_this.LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
 
 			MessageService.AppendLogfile(message);
 		}
 
 		private const int _logmax = 1024;
-
-		private readonly string _sqlitepath = Path.Combine(@"database", "database.sqlite3");
-
-		private SQLiteControl CreateSQLiteControl() => new SQLiteControl(_sqlitepath, string.Empty, false, false, 1024 * 1024, true);
 
 		public IRelayCommand ClickSetting { get; } = RelayCommand.Create(_ =>
 		{

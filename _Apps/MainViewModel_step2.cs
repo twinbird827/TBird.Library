@@ -20,7 +20,7 @@ namespace Netkeiba
 
 		public IRelayCommand S2EXEC => RelayCommand.Create(async _ =>
 		{
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var create = S2Overwrite.IsChecked || !await conn.ExistsColumn("t_model", "着順");
 

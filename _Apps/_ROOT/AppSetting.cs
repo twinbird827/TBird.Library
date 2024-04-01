@@ -188,5 +188,13 @@ namespace Netkeiba
 				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? RegressionResult.Default;
 			});
 		}
+
+		public string[] Correls
+		{
+			get => GetProperty(_Correls);
+			set => SetProperty(ref _Correls, value);
+		}
+		public string[] _Correls = Enumerable.Empty<string>().ToArray();
+
 	}
 }

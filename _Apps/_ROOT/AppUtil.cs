@@ -18,6 +18,10 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
+		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
+
+		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
+
 		public static float[] ToSingles(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray();
 
 		public static string GetInnerHtml(this AngleSharp.Dom.IElement x)

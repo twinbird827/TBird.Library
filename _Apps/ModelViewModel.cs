@@ -11,6 +11,10 @@ using TBird.Core;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
+using TBird.DB.SQLite;
+using TBird.DB;
+using System.Data;
+using MathNet.Numerics.Statistics;
 
 namespace Netkeiba
 {
@@ -103,6 +107,7 @@ namespace Netkeiba
 				AppSetting.Instance.UseLbfgsLogisticRegression = UseLbfgsLogisticRegression;
 				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
+				AppSetting.Instance.Correls = _correls;
 				AppSetting.Instance.Save();
 
 				var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
@@ -118,6 +123,38 @@ namespace Netkeiba
 						remove.Delete();
 					}
 				}
+			});
+
+			ClickCorrelation = RelayCommand.Create(async _ =>
+			{
+				var tgt = new List<double>();
+				var features = new List<double>[1500];
+
+				using (var conn = AppUtil.CreateSQLiteControl())
+				{
+					var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
+					var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
+					var tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
+
+					using var reader = await conn.ExecuteReaderAsync(
+						"SELECT 着順, Features FROM t_model WHERE 開催日数 <= ? ORDER BY ﾚｰｽID, 馬番",
+						SQLiteUtil.CreateParameter(DbType.Int64, tgtdate)
+					);
+
+					while (await reader.ReadAsync())
+					{
+						tgt.Add(reader.Get<double>(0));
+
+						reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
+						{
+							features[i].Add(x);
+						});
+					}
+				}
+
+				_correls = features.Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+
+				MessageService.Info($"{_correls.Length}個の要素を除外します。");
 			});
 		}
 
@@ -217,6 +254,17 @@ namespace Netkeiba
 		public IRelayCommand ClickMerge { get; }
 
 		public IRelayCommand ClickSave { get; }
+
+		public string Correl
+		{
+			get => _Correl;
+			set => SetProperty(ref _Correl, value);
+		}
+		private string _Correl = "0.01";
+
+		private string[] _correls = Enumerable.Empty<string>().ToArray();
+
+		public IRelayCommand ClickCorrelation { get; }
 
 	}
 

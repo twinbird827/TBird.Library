@@ -116,7 +116,7 @@ namespace Netkeiba
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
 				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
@@ -188,7 +188,7 @@ namespace Netkeiba
 
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
 				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
@@ -274,6 +274,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.Correls);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -386,6 +387,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.Correls);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -492,6 +494,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.Correls);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -601,7 +604,7 @@ namespace Netkeiba
 
 			AddLog($"Before Create: {path}");
 
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			using (var file = new FileAppendWriter(path))
 			{
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
@@ -642,7 +645,7 @@ namespace Netkeiba
 
 		private async Task<(float score, float rate)> PredictionModel<TSrc, TDst>(string rank, PredictionFactory<TSrc, TDst> factory) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var rank2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
@@ -757,7 +760,7 @@ namespace Netkeiba
 
 		private async Task<Dictionary<PredictionResult, Task<(float score, float rate)[]>>> PredictionModel<TSrc, TDst>((int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
-			using (var conn = CreateSQLiteControl())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var rank2 = await AppUtil.Getﾗﾝｸ2(conn);
 
