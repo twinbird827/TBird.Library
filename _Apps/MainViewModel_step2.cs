@@ -197,8 +197,10 @@ namespace Netkeiba
 						dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
 						dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
 						dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
-						//dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
-						//dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
+						dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
+						dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
+						dic[$"{key}S6"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() * ret.StandardDeviation().GetSingle());
+						dic[$"{key}S7"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.StandardDeviation().GetSingle());
 					}
 					catch
 					{
@@ -424,7 +426,9 @@ namespace Netkeiba
 			var select = Arr(
 				$"IFNULL(AVG(着順), {DEF["着順"]})",
 				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
-				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
+				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})",
+				$"IFNULL(STDEV(着順), 1.0)",
+				$"IFNULL(AVG(着順), {DEF["着順"]}) * IFNULL(STDEV(着順), 1.0)"
 			);
 			//var select = Arr(
 			//	$"IFNULL(AVG(着順), {DEF["着順"]})"
