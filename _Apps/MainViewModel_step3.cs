@@ -214,15 +214,15 @@ namespace Netkeiba
 				{ 8, r => 着勝(r).Run(x => x.着順 > 4) },
 			};
 
-			try
-			{
-				await MultiClassClassification(1, "RANK1", 100);
-			}
-			catch (Exception ex)
-			{
-				MessageService.Info(ex.ToString());
-				return;
-			}
+			//try
+			//{
+			//	await MultiClassClassification(1, "RANK1", 100);
+			//}
+			//catch (Exception ex)
+			//{
+			//	MessageService.Info(ex.ToString());
+			//	return;
+			//}
 
 			var random = new Random();
 			for (var tmp = 0; tmp < seconds; tmp++)

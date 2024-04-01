@@ -1014,7 +1014,508 @@ namespace Netkeiba
 				{ 996, x =>  C0996 = x },
 				{ 997, x =>  C0997 = x },
 				{ 998, x =>  C0998 = x },
-				{ 999, x =>  C0999 = x }
+				{ 999, x =>  C0999 = x },
+				{ 1000, x =>  C1000 = x },
+				{ 1001, x =>  C1001 = x },
+				{ 1002, x =>  C1002 = x },
+				{ 1003, x =>  C1003 = x },
+				{ 1004, x =>  C1004 = x },
+				{ 1005, x =>  C1005 = x },
+				{ 1006, x =>  C1006 = x },
+				{ 1007, x =>  C1007 = x },
+				{ 1008, x =>  C1008 = x },
+				{ 1009, x =>  C1009 = x },
+				{ 1010, x =>  C1010 = x },
+				{ 1011, x =>  C1011 = x },
+				{ 1012, x =>  C1012 = x },
+				{ 1013, x =>  C1013 = x },
+				{ 1014, x =>  C1014 = x },
+				{ 1015, x =>  C1015 = x },
+				{ 1016, x =>  C1016 = x },
+				{ 1017, x =>  C1017 = x },
+				{ 1018, x =>  C1018 = x },
+				{ 1019, x =>  C1019 = x },
+				{ 1020, x =>  C1020 = x },
+				{ 1021, x =>  C1021 = x },
+				{ 1022, x =>  C1022 = x },
+				{ 1023, x =>  C1023 = x },
+				{ 1024, x =>  C1024 = x },
+				{ 1025, x =>  C1025 = x },
+				{ 1026, x =>  C1026 = x },
+				{ 1027, x =>  C1027 = x },
+				{ 1028, x =>  C1028 = x },
+				{ 1029, x =>  C1029 = x },
+				{ 1030, x =>  C1030 = x },
+				{ 1031, x =>  C1031 = x },
+				{ 1032, x =>  C1032 = x },
+				{ 1033, x =>  C1033 = x },
+				{ 1034, x =>  C1034 = x },
+				{ 1035, x =>  C1035 = x },
+				{ 1036, x =>  C1036 = x },
+				{ 1037, x =>  C1037 = x },
+				{ 1038, x =>  C1038 = x },
+				{ 1039, x =>  C1039 = x },
+				{ 1040, x =>  C1040 = x },
+				{ 1041, x =>  C1041 = x },
+				{ 1042, x =>  C1042 = x },
+				{ 1043, x =>  C1043 = x },
+				{ 1044, x =>  C1044 = x },
+				{ 1045, x =>  C1045 = x },
+				{ 1046, x =>  C1046 = x },
+				{ 1047, x =>  C1047 = x },
+				{ 1048, x =>  C1048 = x },
+				{ 1049, x =>  C1049 = x },
+				{ 1050, x =>  C1050 = x },
+				{ 1051, x =>  C1051 = x },
+				{ 1052, x =>  C1052 = x },
+				{ 1053, x =>  C1053 = x },
+				{ 1054, x =>  C1054 = x },
+				{ 1055, x =>  C1055 = x },
+				{ 1056, x =>  C1056 = x },
+				{ 1057, x =>  C1057 = x },
+				{ 1058, x =>  C1058 = x },
+				{ 1059, x =>  C1059 = x },
+				{ 1060, x =>  C1060 = x },
+				{ 1061, x =>  C1061 = x },
+				{ 1062, x =>  C1062 = x },
+				{ 1063, x =>  C1063 = x },
+				{ 1064, x =>  C1064 = x },
+				{ 1065, x =>  C1065 = x },
+				{ 1066, x =>  C1066 = x },
+				{ 1067, x =>  C1067 = x },
+				{ 1068, x =>  C1068 = x },
+				{ 1069, x =>  C1069 = x },
+				{ 1070, x =>  C1070 = x },
+				{ 1071, x =>  C1071 = x },
+				{ 1072, x =>  C1072 = x },
+				{ 1073, x =>  C1073 = x },
+				{ 1074, x =>  C1074 = x },
+				{ 1075, x =>  C1075 = x },
+				{ 1076, x =>  C1076 = x },
+				{ 1077, x =>  C1077 = x },
+				{ 1078, x =>  C1078 = x },
+				{ 1079, x =>  C1079 = x },
+				{ 1080, x =>  C1080 = x },
+				{ 1081, x =>  C1081 = x },
+				{ 1082, x =>  C1082 = x },
+				{ 1083, x =>  C1083 = x },
+				{ 1084, x =>  C1084 = x },
+				{ 1085, x =>  C1085 = x },
+				{ 1086, x =>  C1086 = x },
+				{ 1087, x =>  C1087 = x },
+				{ 1088, x =>  C1088 = x },
+				{ 1089, x =>  C1089 = x },
+				{ 1090, x =>  C1090 = x },
+				{ 1091, x =>  C1091 = x },
+				{ 1092, x =>  C1092 = x },
+				{ 1093, x =>  C1093 = x },
+				{ 1094, x =>  C1094 = x },
+				{ 1095, x =>  C1095 = x },
+				{ 1096, x =>  C1096 = x },
+				{ 1097, x =>  C1097 = x },
+				{ 1098, x =>  C1098 = x },
+				{ 1099, x =>  C1099 = x },
+				{ 1100, x =>  C1100 = x },
+				{ 1101, x =>  C1101 = x },
+				{ 1102, x =>  C1102 = x },
+				{ 1103, x =>  C1103 = x },
+				{ 1104, x =>  C1104 = x },
+				{ 1105, x =>  C1105 = x },
+				{ 1106, x =>  C1106 = x },
+				{ 1107, x =>  C1107 = x },
+				{ 1108, x =>  C1108 = x },
+				{ 1109, x =>  C1109 = x },
+				{ 1110, x =>  C1110 = x },
+				{ 1111, x =>  C1111 = x },
+				{ 1112, x =>  C1112 = x },
+				{ 1113, x =>  C1113 = x },
+				{ 1114, x =>  C1114 = x },
+				{ 1115, x =>  C1115 = x },
+				{ 1116, x =>  C1116 = x },
+				{ 1117, x =>  C1117 = x },
+				{ 1118, x =>  C1118 = x },
+				{ 1119, x =>  C1119 = x },
+				{ 1120, x =>  C1120 = x },
+				{ 1121, x =>  C1121 = x },
+				{ 1122, x =>  C1122 = x },
+				{ 1123, x =>  C1123 = x },
+				{ 1124, x =>  C1124 = x },
+				{ 1125, x =>  C1125 = x },
+				{ 1126, x =>  C1126 = x },
+				{ 1127, x =>  C1127 = x },
+				{ 1128, x =>  C1128 = x },
+				{ 1129, x =>  C1129 = x },
+				{ 1130, x =>  C1130 = x },
+				{ 1131, x =>  C1131 = x },
+				{ 1132, x =>  C1132 = x },
+				{ 1133, x =>  C1133 = x },
+				{ 1134, x =>  C1134 = x },
+				{ 1135, x =>  C1135 = x },
+				{ 1136, x =>  C1136 = x },
+				{ 1137, x =>  C1137 = x },
+				{ 1138, x =>  C1138 = x },
+				{ 1139, x =>  C1139 = x },
+				{ 1140, x =>  C1140 = x },
+				{ 1141, x =>  C1141 = x },
+				{ 1142, x =>  C1142 = x },
+				{ 1143, x =>  C1143 = x },
+				{ 1144, x =>  C1144 = x },
+				{ 1145, x =>  C1145 = x },
+				{ 1146, x =>  C1146 = x },
+				{ 1147, x =>  C1147 = x },
+				{ 1148, x =>  C1148 = x },
+				{ 1149, x =>  C1149 = x },
+				{ 1150, x =>  C1150 = x },
+				{ 1151, x =>  C1151 = x },
+				{ 1152, x =>  C1152 = x },
+				{ 1153, x =>  C1153 = x },
+				{ 1154, x =>  C1154 = x },
+				{ 1155, x =>  C1155 = x },
+				{ 1156, x =>  C1156 = x },
+				{ 1157, x =>  C1157 = x },
+				{ 1158, x =>  C1158 = x },
+				{ 1159, x =>  C1159 = x },
+				{ 1160, x =>  C1160 = x },
+				{ 1161, x =>  C1161 = x },
+				{ 1162, x =>  C1162 = x },
+				{ 1163, x =>  C1163 = x },
+				{ 1164, x =>  C1164 = x },
+				{ 1165, x =>  C1165 = x },
+				{ 1166, x =>  C1166 = x },
+				{ 1167, x =>  C1167 = x },
+				{ 1168, x =>  C1168 = x },
+				{ 1169, x =>  C1169 = x },
+				{ 1170, x =>  C1170 = x },
+				{ 1171, x =>  C1171 = x },
+				{ 1172, x =>  C1172 = x },
+				{ 1173, x =>  C1173 = x },
+				{ 1174, x =>  C1174 = x },
+				{ 1175, x =>  C1175 = x },
+				{ 1176, x =>  C1176 = x },
+				{ 1177, x =>  C1177 = x },
+				{ 1178, x =>  C1178 = x },
+				{ 1179, x =>  C1179 = x },
+				{ 1180, x =>  C1180 = x },
+				{ 1181, x =>  C1181 = x },
+				{ 1182, x =>  C1182 = x },
+				{ 1183, x =>  C1183 = x },
+				{ 1184, x =>  C1184 = x },
+				{ 1185, x =>  C1185 = x },
+				{ 1186, x =>  C1186 = x },
+				{ 1187, x =>  C1187 = x },
+				{ 1188, x =>  C1188 = x },
+				{ 1189, x =>  C1189 = x },
+				{ 1190, x =>  C1190 = x },
+				{ 1191, x =>  C1191 = x },
+				{ 1192, x =>  C1192 = x },
+				{ 1193, x =>  C1193 = x },
+				{ 1194, x =>  C1194 = x },
+				{ 1195, x =>  C1195 = x },
+				{ 1196, x =>  C1196 = x },
+				{ 1197, x =>  C1197 = x },
+				{ 1198, x =>  C1198 = x },
+				{ 1199, x =>  C1199 = x },
+				{ 1200, x =>  C1200 = x },
+				{ 1201, x =>  C1201 = x },
+				{ 1202, x =>  C1202 = x },
+				{ 1203, x =>  C1203 = x },
+				{ 1204, x =>  C1204 = x },
+				{ 1205, x =>  C1205 = x },
+				{ 1206, x =>  C1206 = x },
+				{ 1207, x =>  C1207 = x },
+				{ 1208, x =>  C1208 = x },
+				{ 1209, x =>  C1209 = x },
+				{ 1210, x =>  C1210 = x },
+				{ 1211, x =>  C1211 = x },
+				{ 1212, x =>  C1212 = x },
+				{ 1213, x =>  C1213 = x },
+				{ 1214, x =>  C1214 = x },
+				{ 1215, x =>  C1215 = x },
+				{ 1216, x =>  C1216 = x },
+				{ 1217, x =>  C1217 = x },
+				{ 1218, x =>  C1218 = x },
+				{ 1219, x =>  C1219 = x },
+				{ 1220, x =>  C1220 = x },
+				{ 1221, x =>  C1221 = x },
+				{ 1222, x =>  C1222 = x },
+				{ 1223, x =>  C1223 = x },
+				{ 1224, x =>  C1224 = x },
+				{ 1225, x =>  C1225 = x },
+				{ 1226, x =>  C1226 = x },
+				{ 1227, x =>  C1227 = x },
+				{ 1228, x =>  C1228 = x },
+				{ 1229, x =>  C1229 = x },
+				{ 1230, x =>  C1230 = x },
+				{ 1231, x =>  C1231 = x },
+				{ 1232, x =>  C1232 = x },
+				{ 1233, x =>  C1233 = x },
+				{ 1234, x =>  C1234 = x },
+				{ 1235, x =>  C1235 = x },
+				{ 1236, x =>  C1236 = x },
+				{ 1237, x =>  C1237 = x },
+				{ 1238, x =>  C1238 = x },
+				{ 1239, x =>  C1239 = x },
+				{ 1240, x =>  C1240 = x },
+				{ 1241, x =>  C1241 = x },
+				{ 1242, x =>  C1242 = x },
+				{ 1243, x =>  C1243 = x },
+				{ 1244, x =>  C1244 = x },
+				{ 1245, x =>  C1245 = x },
+				{ 1246, x =>  C1246 = x },
+				{ 1247, x =>  C1247 = x },
+				{ 1248, x =>  C1248 = x },
+				{ 1249, x =>  C1249 = x },
+				{ 1250, x =>  C1250 = x },
+				{ 1251, x =>  C1251 = x },
+				{ 1252, x =>  C1252 = x },
+				{ 1253, x =>  C1253 = x },
+				{ 1254, x =>  C1254 = x },
+				{ 1255, x =>  C1255 = x },
+				{ 1256, x =>  C1256 = x },
+				{ 1257, x =>  C1257 = x },
+				{ 1258, x =>  C1258 = x },
+				{ 1259, x =>  C1259 = x },
+				{ 1260, x =>  C1260 = x },
+				{ 1261, x =>  C1261 = x },
+				{ 1262, x =>  C1262 = x },
+				{ 1263, x =>  C1263 = x },
+				{ 1264, x =>  C1264 = x },
+				{ 1265, x =>  C1265 = x },
+				{ 1266, x =>  C1266 = x },
+				{ 1267, x =>  C1267 = x },
+				{ 1268, x =>  C1268 = x },
+				{ 1269, x =>  C1269 = x },
+				{ 1270, x =>  C1270 = x },
+				{ 1271, x =>  C1271 = x },
+				{ 1272, x =>  C1272 = x },
+				{ 1273, x =>  C1273 = x },
+				{ 1274, x =>  C1274 = x },
+				{ 1275, x =>  C1275 = x },
+				{ 1276, x =>  C1276 = x },
+				{ 1277, x =>  C1277 = x },
+				{ 1278, x =>  C1278 = x },
+				{ 1279, x =>  C1279 = x },
+				{ 1280, x =>  C1280 = x },
+				{ 1281, x =>  C1281 = x },
+				{ 1282, x =>  C1282 = x },
+				{ 1283, x =>  C1283 = x },
+				{ 1284, x =>  C1284 = x },
+				{ 1285, x =>  C1285 = x },
+				{ 1286, x =>  C1286 = x },
+				{ 1287, x =>  C1287 = x },
+				{ 1288, x =>  C1288 = x },
+				{ 1289, x =>  C1289 = x },
+				{ 1290, x =>  C1290 = x },
+				{ 1291, x =>  C1291 = x },
+				{ 1292, x =>  C1292 = x },
+				{ 1293, x =>  C1293 = x },
+				{ 1294, x =>  C1294 = x },
+				{ 1295, x =>  C1295 = x },
+				{ 1296, x =>  C1296 = x },
+				{ 1297, x =>  C1297 = x },
+				{ 1298, x =>  C1298 = x },
+				{ 1299, x =>  C1299 = x },
+				{ 1300, x =>  C1300 = x },
+				{ 1301, x =>  C1301 = x },
+				{ 1302, x =>  C1302 = x },
+				{ 1303, x =>  C1303 = x },
+				{ 1304, x =>  C1304 = x },
+				{ 1305, x =>  C1305 = x },
+				{ 1306, x =>  C1306 = x },
+				{ 1307, x =>  C1307 = x },
+				{ 1308, x =>  C1308 = x },
+				{ 1309, x =>  C1309 = x },
+				{ 1310, x =>  C1310 = x },
+				{ 1311, x =>  C1311 = x },
+				{ 1312, x =>  C1312 = x },
+				{ 1313, x =>  C1313 = x },
+				{ 1314, x =>  C1314 = x },
+				{ 1315, x =>  C1315 = x },
+				{ 1316, x =>  C1316 = x },
+				{ 1317, x =>  C1317 = x },
+				{ 1318, x =>  C1318 = x },
+				{ 1319, x =>  C1319 = x },
+				{ 1320, x =>  C1320 = x },
+				{ 1321, x =>  C1321 = x },
+				{ 1322, x =>  C1322 = x },
+				{ 1323, x =>  C1323 = x },
+				{ 1324, x =>  C1324 = x },
+				{ 1325, x =>  C1325 = x },
+				{ 1326, x =>  C1326 = x },
+				{ 1327, x =>  C1327 = x },
+				{ 1328, x =>  C1328 = x },
+				{ 1329, x =>  C1329 = x },
+				{ 1330, x =>  C1330 = x },
+				{ 1331, x =>  C1331 = x },
+				{ 1332, x =>  C1332 = x },
+				{ 1333, x =>  C1333 = x },
+				{ 1334, x =>  C1334 = x },
+				{ 1335, x =>  C1335 = x },
+				{ 1336, x =>  C1336 = x },
+				{ 1337, x =>  C1337 = x },
+				{ 1338, x =>  C1338 = x },
+				{ 1339, x =>  C1339 = x },
+				{ 1340, x =>  C1340 = x },
+				{ 1341, x =>  C1341 = x },
+				{ 1342, x =>  C1342 = x },
+				{ 1343, x =>  C1343 = x },
+				{ 1344, x =>  C1344 = x },
+				{ 1345, x =>  C1345 = x },
+				{ 1346, x =>  C1346 = x },
+				{ 1347, x =>  C1347 = x },
+				{ 1348, x =>  C1348 = x },
+				{ 1349, x =>  C1349 = x },
+				{ 1350, x =>  C1350 = x },
+				{ 1351, x =>  C1351 = x },
+				{ 1352, x =>  C1352 = x },
+				{ 1353, x =>  C1353 = x },
+				{ 1354, x =>  C1354 = x },
+				{ 1355, x =>  C1355 = x },
+				{ 1356, x =>  C1356 = x },
+				{ 1357, x =>  C1357 = x },
+				{ 1358, x =>  C1358 = x },
+				{ 1359, x =>  C1359 = x },
+				{ 1360, x =>  C1360 = x },
+				{ 1361, x =>  C1361 = x },
+				{ 1362, x =>  C1362 = x },
+				{ 1363, x =>  C1363 = x },
+				{ 1364, x =>  C1364 = x },
+				{ 1365, x =>  C1365 = x },
+				{ 1366, x =>  C1366 = x },
+				{ 1367, x =>  C1367 = x },
+				{ 1368, x =>  C1368 = x },
+				{ 1369, x =>  C1369 = x },
+				{ 1370, x =>  C1370 = x },
+				{ 1371, x =>  C1371 = x },
+				{ 1372, x =>  C1372 = x },
+				{ 1373, x =>  C1373 = x },
+				{ 1374, x =>  C1374 = x },
+				{ 1375, x =>  C1375 = x },
+				{ 1376, x =>  C1376 = x },
+				{ 1377, x =>  C1377 = x },
+				{ 1378, x =>  C1378 = x },
+				{ 1379, x =>  C1379 = x },
+				{ 1380, x =>  C1380 = x },
+				{ 1381, x =>  C1381 = x },
+				{ 1382, x =>  C1382 = x },
+				{ 1383, x =>  C1383 = x },
+				{ 1384, x =>  C1384 = x },
+				{ 1385, x =>  C1385 = x },
+				{ 1386, x =>  C1386 = x },
+				{ 1387, x =>  C1387 = x },
+				{ 1388, x =>  C1388 = x },
+				{ 1389, x =>  C1389 = x },
+				{ 1390, x =>  C1390 = x },
+				{ 1391, x =>  C1391 = x },
+				{ 1392, x =>  C1392 = x },
+				{ 1393, x =>  C1393 = x },
+				{ 1394, x =>  C1394 = x },
+				{ 1395, x =>  C1395 = x },
+				{ 1396, x =>  C1396 = x },
+				{ 1397, x =>  C1397 = x },
+				{ 1398, x =>  C1398 = x },
+				{ 1399, x =>  C1399 = x },
+				{ 1400, x =>  C1400 = x },
+				{ 1401, x =>  C1401 = x },
+				{ 1402, x =>  C1402 = x },
+				{ 1403, x =>  C1403 = x },
+				{ 1404, x =>  C1404 = x },
+				{ 1405, x =>  C1405 = x },
+				{ 1406, x =>  C1406 = x },
+				{ 1407, x =>  C1407 = x },
+				{ 1408, x =>  C1408 = x },
+				{ 1409, x =>  C1409 = x },
+				{ 1410, x =>  C1410 = x },
+				{ 1411, x =>  C1411 = x },
+				{ 1412, x =>  C1412 = x },
+				{ 1413, x =>  C1413 = x },
+				{ 1414, x =>  C1414 = x },
+				{ 1415, x =>  C1415 = x },
+				{ 1416, x =>  C1416 = x },
+				{ 1417, x =>  C1417 = x },
+				{ 1418, x =>  C1418 = x },
+				{ 1419, x =>  C1419 = x },
+				{ 1420, x =>  C1420 = x },
+				{ 1421, x =>  C1421 = x },
+				{ 1422, x =>  C1422 = x },
+				{ 1423, x =>  C1423 = x },
+				{ 1424, x =>  C1424 = x },
+				{ 1425, x =>  C1425 = x },
+				{ 1426, x =>  C1426 = x },
+				{ 1427, x =>  C1427 = x },
+				{ 1428, x =>  C1428 = x },
+				{ 1429, x =>  C1429 = x },
+				{ 1430, x =>  C1430 = x },
+				{ 1431, x =>  C1431 = x },
+				{ 1432, x =>  C1432 = x },
+				{ 1433, x =>  C1433 = x },
+				{ 1434, x =>  C1434 = x },
+				{ 1435, x =>  C1435 = x },
+				{ 1436, x =>  C1436 = x },
+				{ 1437, x =>  C1437 = x },
+				{ 1438, x =>  C1438 = x },
+				{ 1439, x =>  C1439 = x },
+				{ 1440, x =>  C1440 = x },
+				{ 1441, x =>  C1441 = x },
+				{ 1442, x =>  C1442 = x },
+				{ 1443, x =>  C1443 = x },
+				{ 1444, x =>  C1444 = x },
+				{ 1445, x =>  C1445 = x },
+				{ 1446, x =>  C1446 = x },
+				{ 1447, x =>  C1447 = x },
+				{ 1448, x =>  C1448 = x },
+				{ 1449, x =>  C1449 = x },
+				{ 1450, x =>  C1450 = x },
+				{ 1451, x =>  C1451 = x },
+				{ 1452, x =>  C1452 = x },
+				{ 1453, x =>  C1453 = x },
+				{ 1454, x =>  C1454 = x },
+				{ 1455, x =>  C1455 = x },
+				{ 1456, x =>  C1456 = x },
+				{ 1457, x =>  C1457 = x },
+				{ 1458, x =>  C1458 = x },
+				{ 1459, x =>  C1459 = x },
+				{ 1460, x =>  C1460 = x },
+				{ 1461, x =>  C1461 = x },
+				{ 1462, x =>  C1462 = x },
+				{ 1463, x =>  C1463 = x },
+				{ 1464, x =>  C1464 = x },
+				{ 1465, x =>  C1465 = x },
+				{ 1466, x =>  C1466 = x },
+				{ 1467, x =>  C1467 = x },
+				{ 1468, x =>  C1468 = x },
+				{ 1469, x =>  C1469 = x },
+				{ 1470, x =>  C1470 = x },
+				{ 1471, x =>  C1471 = x },
+				{ 1472, x =>  C1472 = x },
+				{ 1473, x =>  C1473 = x },
+				{ 1474, x =>  C1474 = x },
+				{ 1475, x =>  C1475 = x },
+				{ 1476, x =>  C1476 = x },
+				{ 1477, x =>  C1477 = x },
+				{ 1478, x =>  C1478 = x },
+				{ 1479, x =>  C1479 = x },
+				{ 1480, x =>  C1480 = x },
+				{ 1481, x =>  C1481 = x },
+				{ 1482, x =>  C1482 = x },
+				{ 1483, x =>  C1483 = x },
+				{ 1484, x =>  C1484 = x },
+				{ 1485, x =>  C1485 = x },
+				{ 1486, x =>  C1486 = x },
+				{ 1487, x =>  C1487 = x },
+				{ 1488, x =>  C1488 = x },
+				{ 1489, x =>  C1489 = x },
+				{ 1490, x =>  C1490 = x },
+				{ 1491, x =>  C1491 = x },
+				{ 1492, x =>  C1492 = x },
+				{ 1493, x =>  C1493 = x },
+				{ 1494, x =>  C1494 = x },
+				{ 1495, x =>  C1495 = x },
+				{ 1496, x =>  C1496 = x },
+				{ 1497, x =>  C1497 = x },
+				{ 1498, x =>  C1498 = x },
+				{ 1499, x =>  C1499 = x }
+
 			};
 		}
 
@@ -4020,6 +4521,1006 @@ namespace Netkeiba
 
 		[LoadColumn(1001)]
 		public float C0999 { get; set; }
+		[LoadColumn(1002)]
+		public float C1000 { get; set; }
+		[LoadColumn(1003)]
+		public float C1001 { get; set; }
+		[LoadColumn(1004)]
+		public float C1002 { get; set; }
+		[LoadColumn(1005)]
+		public float C1003 { get; set; }
+		[LoadColumn(1006)]
+		public float C1004 { get; set; }
+		[LoadColumn(1007)]
+		public float C1005 { get; set; }
+		[LoadColumn(1008)]
+		public float C1006 { get; set; }
+		[LoadColumn(1009)]
+		public float C1007 { get; set; }
+		[LoadColumn(1010)]
+		public float C1008 { get; set; }
+		[LoadColumn(1011)]
+		public float C1009 { get; set; }
+		[LoadColumn(1012)]
+		public float C1010 { get; set; }
+		[LoadColumn(1013)]
+		public float C1011 { get; set; }
+		[LoadColumn(1014)]
+		public float C1012 { get; set; }
+		[LoadColumn(1015)]
+		public float C1013 { get; set; }
+		[LoadColumn(1016)]
+		public float C1014 { get; set; }
+		[LoadColumn(1017)]
+		public float C1015 { get; set; }
+		[LoadColumn(1018)]
+		public float C1016 { get; set; }
+		[LoadColumn(1019)]
+		public float C1017 { get; set; }
+		[LoadColumn(1020)]
+		public float C1018 { get; set; }
+		[LoadColumn(1021)]
+		public float C1019 { get; set; }
+		[LoadColumn(1022)]
+		public float C1020 { get; set; }
+		[LoadColumn(1023)]
+		public float C1021 { get; set; }
+		[LoadColumn(1024)]
+		public float C1022 { get; set; }
+		[LoadColumn(1025)]
+		public float C1023 { get; set; }
+		[LoadColumn(1026)]
+		public float C1024 { get; set; }
+		[LoadColumn(1027)]
+		public float C1025 { get; set; }
+		[LoadColumn(1028)]
+		public float C1026 { get; set; }
+		[LoadColumn(1029)]
+		public float C1027 { get; set; }
+		[LoadColumn(1030)]
+		public float C1028 { get; set; }
+		[LoadColumn(1031)]
+		public float C1029 { get; set; }
+		[LoadColumn(1032)]
+		public float C1030 { get; set; }
+		[LoadColumn(1033)]
+		public float C1031 { get; set; }
+		[LoadColumn(1034)]
+		public float C1032 { get; set; }
+		[LoadColumn(1035)]
+		public float C1033 { get; set; }
+		[LoadColumn(1036)]
+		public float C1034 { get; set; }
+		[LoadColumn(1037)]
+		public float C1035 { get; set; }
+		[LoadColumn(1038)]
+		public float C1036 { get; set; }
+		[LoadColumn(1039)]
+		public float C1037 { get; set; }
+		[LoadColumn(1040)]
+		public float C1038 { get; set; }
+		[LoadColumn(1041)]
+		public float C1039 { get; set; }
+		[LoadColumn(1042)]
+		public float C1040 { get; set; }
+		[LoadColumn(1043)]
+		public float C1041 { get; set; }
+		[LoadColumn(1044)]
+		public float C1042 { get; set; }
+		[LoadColumn(1045)]
+		public float C1043 { get; set; }
+		[LoadColumn(1046)]
+		public float C1044 { get; set; }
+		[LoadColumn(1047)]
+		public float C1045 { get; set; }
+		[LoadColumn(1048)]
+		public float C1046 { get; set; }
+		[LoadColumn(1049)]
+		public float C1047 { get; set; }
+		[LoadColumn(1050)]
+		public float C1048 { get; set; }
+		[LoadColumn(1051)]
+		public float C1049 { get; set; }
+		[LoadColumn(1052)]
+		public float C1050 { get; set; }
+		[LoadColumn(1053)]
+		public float C1051 { get; set; }
+		[LoadColumn(1054)]
+		public float C1052 { get; set; }
+		[LoadColumn(1055)]
+		public float C1053 { get; set; }
+		[LoadColumn(1056)]
+		public float C1054 { get; set; }
+		[LoadColumn(1057)]
+		public float C1055 { get; set; }
+		[LoadColumn(1058)]
+		public float C1056 { get; set; }
+		[LoadColumn(1059)]
+		public float C1057 { get; set; }
+		[LoadColumn(1060)]
+		public float C1058 { get; set; }
+		[LoadColumn(1061)]
+		public float C1059 { get; set; }
+		[LoadColumn(1062)]
+		public float C1060 { get; set; }
+		[LoadColumn(1063)]
+		public float C1061 { get; set; }
+		[LoadColumn(1064)]
+		public float C1062 { get; set; }
+		[LoadColumn(1065)]
+		public float C1063 { get; set; }
+		[LoadColumn(1066)]
+		public float C1064 { get; set; }
+		[LoadColumn(1067)]
+		public float C1065 { get; set; }
+		[LoadColumn(1068)]
+		public float C1066 { get; set; }
+		[LoadColumn(1069)]
+		public float C1067 { get; set; }
+		[LoadColumn(1070)]
+		public float C1068 { get; set; }
+		[LoadColumn(1071)]
+		public float C1069 { get; set; }
+		[LoadColumn(1072)]
+		public float C1070 { get; set; }
+		[LoadColumn(1073)]
+		public float C1071 { get; set; }
+		[LoadColumn(1074)]
+		public float C1072 { get; set; }
+		[LoadColumn(1075)]
+		public float C1073 { get; set; }
+		[LoadColumn(1076)]
+		public float C1074 { get; set; }
+		[LoadColumn(1077)]
+		public float C1075 { get; set; }
+		[LoadColumn(1078)]
+		public float C1076 { get; set; }
+		[LoadColumn(1079)]
+		public float C1077 { get; set; }
+		[LoadColumn(1080)]
+		public float C1078 { get; set; }
+		[LoadColumn(1081)]
+		public float C1079 { get; set; }
+		[LoadColumn(1082)]
+		public float C1080 { get; set; }
+		[LoadColumn(1083)]
+		public float C1081 { get; set; }
+		[LoadColumn(1084)]
+		public float C1082 { get; set; }
+		[LoadColumn(1085)]
+		public float C1083 { get; set; }
+		[LoadColumn(1086)]
+		public float C1084 { get; set; }
+		[LoadColumn(1087)]
+		public float C1085 { get; set; }
+		[LoadColumn(1088)]
+		public float C1086 { get; set; }
+		[LoadColumn(1089)]
+		public float C1087 { get; set; }
+		[LoadColumn(1090)]
+		public float C1088 { get; set; }
+		[LoadColumn(1091)]
+		public float C1089 { get; set; }
+		[LoadColumn(1092)]
+		public float C1090 { get; set; }
+		[LoadColumn(1093)]
+		public float C1091 { get; set; }
+		[LoadColumn(1094)]
+		public float C1092 { get; set; }
+		[LoadColumn(1095)]
+		public float C1093 { get; set; }
+		[LoadColumn(1096)]
+		public float C1094 { get; set; }
+		[LoadColumn(1097)]
+		public float C1095 { get; set; }
+		[LoadColumn(1098)]
+		public float C1096 { get; set; }
+		[LoadColumn(1099)]
+		public float C1097 { get; set; }
+		[LoadColumn(1100)]
+		public float C1098 { get; set; }
+		[LoadColumn(1101)]
+		public float C1099 { get; set; }
+		[LoadColumn(1102)]
+		public float C1100 { get; set; }
+		[LoadColumn(1103)]
+		public float C1101 { get; set; }
+		[LoadColumn(1104)]
+		public float C1102 { get; set; }
+		[LoadColumn(1105)]
+		public float C1103 { get; set; }
+		[LoadColumn(1106)]
+		public float C1104 { get; set; }
+		[LoadColumn(1107)]
+		public float C1105 { get; set; }
+		[LoadColumn(1108)]
+		public float C1106 { get; set; }
+		[LoadColumn(1109)]
+		public float C1107 { get; set; }
+		[LoadColumn(1110)]
+		public float C1108 { get; set; }
+		[LoadColumn(1111)]
+		public float C1109 { get; set; }
+		[LoadColumn(1112)]
+		public float C1110 { get; set; }
+		[LoadColumn(1113)]
+		public float C1111 { get; set; }
+		[LoadColumn(1114)]
+		public float C1112 { get; set; }
+		[LoadColumn(1115)]
+		public float C1113 { get; set; }
+		[LoadColumn(1116)]
+		public float C1114 { get; set; }
+		[LoadColumn(1117)]
+		public float C1115 { get; set; }
+		[LoadColumn(1118)]
+		public float C1116 { get; set; }
+		[LoadColumn(1119)]
+		public float C1117 { get; set; }
+		[LoadColumn(1120)]
+		public float C1118 { get; set; }
+		[LoadColumn(1121)]
+		public float C1119 { get; set; }
+		[LoadColumn(1122)]
+		public float C1120 { get; set; }
+		[LoadColumn(1123)]
+		public float C1121 { get; set; }
+		[LoadColumn(1124)]
+		public float C1122 { get; set; }
+		[LoadColumn(1125)]
+		public float C1123 { get; set; }
+		[LoadColumn(1126)]
+		public float C1124 { get; set; }
+		[LoadColumn(1127)]
+		public float C1125 { get; set; }
+		[LoadColumn(1128)]
+		public float C1126 { get; set; }
+		[LoadColumn(1129)]
+		public float C1127 { get; set; }
+		[LoadColumn(1130)]
+		public float C1128 { get; set; }
+		[LoadColumn(1131)]
+		public float C1129 { get; set; }
+		[LoadColumn(1132)]
+		public float C1130 { get; set; }
+		[LoadColumn(1133)]
+		public float C1131 { get; set; }
+		[LoadColumn(1134)]
+		public float C1132 { get; set; }
+		[LoadColumn(1135)]
+		public float C1133 { get; set; }
+		[LoadColumn(1136)]
+		public float C1134 { get; set; }
+		[LoadColumn(1137)]
+		public float C1135 { get; set; }
+		[LoadColumn(1138)]
+		public float C1136 { get; set; }
+		[LoadColumn(1139)]
+		public float C1137 { get; set; }
+		[LoadColumn(1140)]
+		public float C1138 { get; set; }
+		[LoadColumn(1141)]
+		public float C1139 { get; set; }
+		[LoadColumn(1142)]
+		public float C1140 { get; set; }
+		[LoadColumn(1143)]
+		public float C1141 { get; set; }
+		[LoadColumn(1144)]
+		public float C1142 { get; set; }
+		[LoadColumn(1145)]
+		public float C1143 { get; set; }
+		[LoadColumn(1146)]
+		public float C1144 { get; set; }
+		[LoadColumn(1147)]
+		public float C1145 { get; set; }
+		[LoadColumn(1148)]
+		public float C1146 { get; set; }
+		[LoadColumn(1149)]
+		public float C1147 { get; set; }
+		[LoadColumn(1150)]
+		public float C1148 { get; set; }
+		[LoadColumn(1151)]
+		public float C1149 { get; set; }
+		[LoadColumn(1152)]
+		public float C1150 { get; set; }
+		[LoadColumn(1153)]
+		public float C1151 { get; set; }
+		[LoadColumn(1154)]
+		public float C1152 { get; set; }
+		[LoadColumn(1155)]
+		public float C1153 { get; set; }
+		[LoadColumn(1156)]
+		public float C1154 { get; set; }
+		[LoadColumn(1157)]
+		public float C1155 { get; set; }
+		[LoadColumn(1158)]
+		public float C1156 { get; set; }
+		[LoadColumn(1159)]
+		public float C1157 { get; set; }
+		[LoadColumn(1160)]
+		public float C1158 { get; set; }
+		[LoadColumn(1161)]
+		public float C1159 { get; set; }
+		[LoadColumn(1162)]
+		public float C1160 { get; set; }
+		[LoadColumn(1163)]
+		public float C1161 { get; set; }
+		[LoadColumn(1164)]
+		public float C1162 { get; set; }
+		[LoadColumn(1165)]
+		public float C1163 { get; set; }
+		[LoadColumn(1166)]
+		public float C1164 { get; set; }
+		[LoadColumn(1167)]
+		public float C1165 { get; set; }
+		[LoadColumn(1168)]
+		public float C1166 { get; set; }
+		[LoadColumn(1169)]
+		public float C1167 { get; set; }
+		[LoadColumn(1170)]
+		public float C1168 { get; set; }
+		[LoadColumn(1171)]
+		public float C1169 { get; set; }
+		[LoadColumn(1172)]
+		public float C1170 { get; set; }
+		[LoadColumn(1173)]
+		public float C1171 { get; set; }
+		[LoadColumn(1174)]
+		public float C1172 { get; set; }
+		[LoadColumn(1175)]
+		public float C1173 { get; set; }
+		[LoadColumn(1176)]
+		public float C1174 { get; set; }
+		[LoadColumn(1177)]
+		public float C1175 { get; set; }
+		[LoadColumn(1178)]
+		public float C1176 { get; set; }
+		[LoadColumn(1179)]
+		public float C1177 { get; set; }
+		[LoadColumn(1180)]
+		public float C1178 { get; set; }
+		[LoadColumn(1181)]
+		public float C1179 { get; set; }
+		[LoadColumn(1182)]
+		public float C1180 { get; set; }
+		[LoadColumn(1183)]
+		public float C1181 { get; set; }
+		[LoadColumn(1184)]
+		public float C1182 { get; set; }
+		[LoadColumn(1185)]
+		public float C1183 { get; set; }
+		[LoadColumn(1186)]
+		public float C1184 { get; set; }
+		[LoadColumn(1187)]
+		public float C1185 { get; set; }
+		[LoadColumn(1188)]
+		public float C1186 { get; set; }
+		[LoadColumn(1189)]
+		public float C1187 { get; set; }
+		[LoadColumn(1190)]
+		public float C1188 { get; set; }
+		[LoadColumn(1191)]
+		public float C1189 { get; set; }
+		[LoadColumn(1192)]
+		public float C1190 { get; set; }
+		[LoadColumn(1193)]
+		public float C1191 { get; set; }
+		[LoadColumn(1194)]
+		public float C1192 { get; set; }
+		[LoadColumn(1195)]
+		public float C1193 { get; set; }
+		[LoadColumn(1196)]
+		public float C1194 { get; set; }
+		[LoadColumn(1197)]
+		public float C1195 { get; set; }
+		[LoadColumn(1198)]
+		public float C1196 { get; set; }
+		[LoadColumn(1199)]
+		public float C1197 { get; set; }
+		[LoadColumn(1200)]
+		public float C1198 { get; set; }
+		[LoadColumn(1201)]
+		public float C1199 { get; set; }
+		[LoadColumn(1202)]
+		public float C1200 { get; set; }
+		[LoadColumn(1203)]
+		public float C1201 { get; set; }
+		[LoadColumn(1204)]
+		public float C1202 { get; set; }
+		[LoadColumn(1205)]
+		public float C1203 { get; set; }
+		[LoadColumn(1206)]
+		public float C1204 { get; set; }
+		[LoadColumn(1207)]
+		public float C1205 { get; set; }
+		[LoadColumn(1208)]
+		public float C1206 { get; set; }
+		[LoadColumn(1209)]
+		public float C1207 { get; set; }
+		[LoadColumn(1210)]
+		public float C1208 { get; set; }
+		[LoadColumn(1211)]
+		public float C1209 { get; set; }
+		[LoadColumn(1212)]
+		public float C1210 { get; set; }
+		[LoadColumn(1213)]
+		public float C1211 { get; set; }
+		[LoadColumn(1214)]
+		public float C1212 { get; set; }
+		[LoadColumn(1215)]
+		public float C1213 { get; set; }
+		[LoadColumn(1216)]
+		public float C1214 { get; set; }
+		[LoadColumn(1217)]
+		public float C1215 { get; set; }
+		[LoadColumn(1218)]
+		public float C1216 { get; set; }
+		[LoadColumn(1219)]
+		public float C1217 { get; set; }
+		[LoadColumn(1220)]
+		public float C1218 { get; set; }
+		[LoadColumn(1221)]
+		public float C1219 { get; set; }
+		[LoadColumn(1222)]
+		public float C1220 { get; set; }
+		[LoadColumn(1223)]
+		public float C1221 { get; set; }
+		[LoadColumn(1224)]
+		public float C1222 { get; set; }
+		[LoadColumn(1225)]
+		public float C1223 { get; set; }
+		[LoadColumn(1226)]
+		public float C1224 { get; set; }
+		[LoadColumn(1227)]
+		public float C1225 { get; set; }
+		[LoadColumn(1228)]
+		public float C1226 { get; set; }
+		[LoadColumn(1229)]
+		public float C1227 { get; set; }
+		[LoadColumn(1230)]
+		public float C1228 { get; set; }
+		[LoadColumn(1231)]
+		public float C1229 { get; set; }
+		[LoadColumn(1232)]
+		public float C1230 { get; set; }
+		[LoadColumn(1233)]
+		public float C1231 { get; set; }
+		[LoadColumn(1234)]
+		public float C1232 { get; set; }
+		[LoadColumn(1235)]
+		public float C1233 { get; set; }
+		[LoadColumn(1236)]
+		public float C1234 { get; set; }
+		[LoadColumn(1237)]
+		public float C1235 { get; set; }
+		[LoadColumn(1238)]
+		public float C1236 { get; set; }
+		[LoadColumn(1239)]
+		public float C1237 { get; set; }
+		[LoadColumn(1240)]
+		public float C1238 { get; set; }
+		[LoadColumn(1241)]
+		public float C1239 { get; set; }
+		[LoadColumn(1242)]
+		public float C1240 { get; set; }
+		[LoadColumn(1243)]
+		public float C1241 { get; set; }
+		[LoadColumn(1244)]
+		public float C1242 { get; set; }
+		[LoadColumn(1245)]
+		public float C1243 { get; set; }
+		[LoadColumn(1246)]
+		public float C1244 { get; set; }
+		[LoadColumn(1247)]
+		public float C1245 { get; set; }
+		[LoadColumn(1248)]
+		public float C1246 { get; set; }
+		[LoadColumn(1249)]
+		public float C1247 { get; set; }
+		[LoadColumn(1250)]
+		public float C1248 { get; set; }
+		[LoadColumn(1251)]
+		public float C1249 { get; set; }
+		[LoadColumn(1252)]
+		public float C1250 { get; set; }
+		[LoadColumn(1253)]
+		public float C1251 { get; set; }
+		[LoadColumn(1254)]
+		public float C1252 { get; set; }
+		[LoadColumn(1255)]
+		public float C1253 { get; set; }
+		[LoadColumn(1256)]
+		public float C1254 { get; set; }
+		[LoadColumn(1257)]
+		public float C1255 { get; set; }
+		[LoadColumn(1258)]
+		public float C1256 { get; set; }
+		[LoadColumn(1259)]
+		public float C1257 { get; set; }
+		[LoadColumn(1260)]
+		public float C1258 { get; set; }
+		[LoadColumn(1261)]
+		public float C1259 { get; set; }
+		[LoadColumn(1262)]
+		public float C1260 { get; set; }
+		[LoadColumn(1263)]
+		public float C1261 { get; set; }
+		[LoadColumn(1264)]
+		public float C1262 { get; set; }
+		[LoadColumn(1265)]
+		public float C1263 { get; set; }
+		[LoadColumn(1266)]
+		public float C1264 { get; set; }
+		[LoadColumn(1267)]
+		public float C1265 { get; set; }
+		[LoadColumn(1268)]
+		public float C1266 { get; set; }
+		[LoadColumn(1269)]
+		public float C1267 { get; set; }
+		[LoadColumn(1270)]
+		public float C1268 { get; set; }
+		[LoadColumn(1271)]
+		public float C1269 { get; set; }
+		[LoadColumn(1272)]
+		public float C1270 { get; set; }
+		[LoadColumn(1273)]
+		public float C1271 { get; set; }
+		[LoadColumn(1274)]
+		public float C1272 { get; set; }
+		[LoadColumn(1275)]
+		public float C1273 { get; set; }
+		[LoadColumn(1276)]
+		public float C1274 { get; set; }
+		[LoadColumn(1277)]
+		public float C1275 { get; set; }
+		[LoadColumn(1278)]
+		public float C1276 { get; set; }
+		[LoadColumn(1279)]
+		public float C1277 { get; set; }
+		[LoadColumn(1280)]
+		public float C1278 { get; set; }
+		[LoadColumn(1281)]
+		public float C1279 { get; set; }
+		[LoadColumn(1282)]
+		public float C1280 { get; set; }
+		[LoadColumn(1283)]
+		public float C1281 { get; set; }
+		[LoadColumn(1284)]
+		public float C1282 { get; set; }
+		[LoadColumn(1285)]
+		public float C1283 { get; set; }
+		[LoadColumn(1286)]
+		public float C1284 { get; set; }
+		[LoadColumn(1287)]
+		public float C1285 { get; set; }
+		[LoadColumn(1288)]
+		public float C1286 { get; set; }
+		[LoadColumn(1289)]
+		public float C1287 { get; set; }
+		[LoadColumn(1290)]
+		public float C1288 { get; set; }
+		[LoadColumn(1291)]
+		public float C1289 { get; set; }
+		[LoadColumn(1292)]
+		public float C1290 { get; set; }
+		[LoadColumn(1293)]
+		public float C1291 { get; set; }
+		[LoadColumn(1294)]
+		public float C1292 { get; set; }
+		[LoadColumn(1295)]
+		public float C1293 { get; set; }
+		[LoadColumn(1296)]
+		public float C1294 { get; set; }
+		[LoadColumn(1297)]
+		public float C1295 { get; set; }
+		[LoadColumn(1298)]
+		public float C1296 { get; set; }
+		[LoadColumn(1299)]
+		public float C1297 { get; set; }
+		[LoadColumn(1300)]
+		public float C1298 { get; set; }
+		[LoadColumn(1301)]
+		public float C1299 { get; set; }
+		[LoadColumn(1302)]
+		public float C1300 { get; set; }
+		[LoadColumn(1303)]
+		public float C1301 { get; set; }
+		[LoadColumn(1304)]
+		public float C1302 { get; set; }
+		[LoadColumn(1305)]
+		public float C1303 { get; set; }
+		[LoadColumn(1306)]
+		public float C1304 { get; set; }
+		[LoadColumn(1307)]
+		public float C1305 { get; set; }
+		[LoadColumn(1308)]
+		public float C1306 { get; set; }
+		[LoadColumn(1309)]
+		public float C1307 { get; set; }
+		[LoadColumn(1310)]
+		public float C1308 { get; set; }
+		[LoadColumn(1311)]
+		public float C1309 { get; set; }
+		[LoadColumn(1312)]
+		public float C1310 { get; set; }
+		[LoadColumn(1313)]
+		public float C1311 { get; set; }
+		[LoadColumn(1314)]
+		public float C1312 { get; set; }
+		[LoadColumn(1315)]
+		public float C1313 { get; set; }
+		[LoadColumn(1316)]
+		public float C1314 { get; set; }
+		[LoadColumn(1317)]
+		public float C1315 { get; set; }
+		[LoadColumn(1318)]
+		public float C1316 { get; set; }
+		[LoadColumn(1319)]
+		public float C1317 { get; set; }
+		[LoadColumn(1320)]
+		public float C1318 { get; set; }
+		[LoadColumn(1321)]
+		public float C1319 { get; set; }
+		[LoadColumn(1322)]
+		public float C1320 { get; set; }
+		[LoadColumn(1323)]
+		public float C1321 { get; set; }
+		[LoadColumn(1324)]
+		public float C1322 { get; set; }
+		[LoadColumn(1325)]
+		public float C1323 { get; set; }
+		[LoadColumn(1326)]
+		public float C1324 { get; set; }
+		[LoadColumn(1327)]
+		public float C1325 { get; set; }
+		[LoadColumn(1328)]
+		public float C1326 { get; set; }
+		[LoadColumn(1329)]
+		public float C1327 { get; set; }
+		[LoadColumn(1330)]
+		public float C1328 { get; set; }
+		[LoadColumn(1331)]
+		public float C1329 { get; set; }
+		[LoadColumn(1332)]
+		public float C1330 { get; set; }
+		[LoadColumn(1333)]
+		public float C1331 { get; set; }
+		[LoadColumn(1334)]
+		public float C1332 { get; set; }
+		[LoadColumn(1335)]
+		public float C1333 { get; set; }
+		[LoadColumn(1336)]
+		public float C1334 { get; set; }
+		[LoadColumn(1337)]
+		public float C1335 { get; set; }
+		[LoadColumn(1338)]
+		public float C1336 { get; set; }
+		[LoadColumn(1339)]
+		public float C1337 { get; set; }
+		[LoadColumn(1340)]
+		public float C1338 { get; set; }
+		[LoadColumn(1341)]
+		public float C1339 { get; set; }
+		[LoadColumn(1342)]
+		public float C1340 { get; set; }
+		[LoadColumn(1343)]
+		public float C1341 { get; set; }
+		[LoadColumn(1344)]
+		public float C1342 { get; set; }
+		[LoadColumn(1345)]
+		public float C1343 { get; set; }
+		[LoadColumn(1346)]
+		public float C1344 { get; set; }
+		[LoadColumn(1347)]
+		public float C1345 { get; set; }
+		[LoadColumn(1348)]
+		public float C1346 { get; set; }
+		[LoadColumn(1349)]
+		public float C1347 { get; set; }
+		[LoadColumn(1350)]
+		public float C1348 { get; set; }
+		[LoadColumn(1351)]
+		public float C1349 { get; set; }
+		[LoadColumn(1352)]
+		public float C1350 { get; set; }
+		[LoadColumn(1353)]
+		public float C1351 { get; set; }
+		[LoadColumn(1354)]
+		public float C1352 { get; set; }
+		[LoadColumn(1355)]
+		public float C1353 { get; set; }
+		[LoadColumn(1356)]
+		public float C1354 { get; set; }
+		[LoadColumn(1357)]
+		public float C1355 { get; set; }
+		[LoadColumn(1358)]
+		public float C1356 { get; set; }
+		[LoadColumn(1359)]
+		public float C1357 { get; set; }
+		[LoadColumn(1360)]
+		public float C1358 { get; set; }
+		[LoadColumn(1361)]
+		public float C1359 { get; set; }
+		[LoadColumn(1362)]
+		public float C1360 { get; set; }
+		[LoadColumn(1363)]
+		public float C1361 { get; set; }
+		[LoadColumn(1364)]
+		public float C1362 { get; set; }
+		[LoadColumn(1365)]
+		public float C1363 { get; set; }
+		[LoadColumn(1366)]
+		public float C1364 { get; set; }
+		[LoadColumn(1367)]
+		public float C1365 { get; set; }
+		[LoadColumn(1368)]
+		public float C1366 { get; set; }
+		[LoadColumn(1369)]
+		public float C1367 { get; set; }
+		[LoadColumn(1370)]
+		public float C1368 { get; set; }
+		[LoadColumn(1371)]
+		public float C1369 { get; set; }
+		[LoadColumn(1372)]
+		public float C1370 { get; set; }
+		[LoadColumn(1373)]
+		public float C1371 { get; set; }
+		[LoadColumn(1374)]
+		public float C1372 { get; set; }
+		[LoadColumn(1375)]
+		public float C1373 { get; set; }
+		[LoadColumn(1376)]
+		public float C1374 { get; set; }
+		[LoadColumn(1377)]
+		public float C1375 { get; set; }
+		[LoadColumn(1378)]
+		public float C1376 { get; set; }
+		[LoadColumn(1379)]
+		public float C1377 { get; set; }
+		[LoadColumn(1380)]
+		public float C1378 { get; set; }
+		[LoadColumn(1381)]
+		public float C1379 { get; set; }
+		[LoadColumn(1382)]
+		public float C1380 { get; set; }
+		[LoadColumn(1383)]
+		public float C1381 { get; set; }
+		[LoadColumn(1384)]
+		public float C1382 { get; set; }
+		[LoadColumn(1385)]
+		public float C1383 { get; set; }
+		[LoadColumn(1386)]
+		public float C1384 { get; set; }
+		[LoadColumn(1387)]
+		public float C1385 { get; set; }
+		[LoadColumn(1388)]
+		public float C1386 { get; set; }
+		[LoadColumn(1389)]
+		public float C1387 { get; set; }
+		[LoadColumn(1390)]
+		public float C1388 { get; set; }
+		[LoadColumn(1391)]
+		public float C1389 { get; set; }
+		[LoadColumn(1392)]
+		public float C1390 { get; set; }
+		[LoadColumn(1393)]
+		public float C1391 { get; set; }
+		[LoadColumn(1394)]
+		public float C1392 { get; set; }
+		[LoadColumn(1395)]
+		public float C1393 { get; set; }
+		[LoadColumn(1396)]
+		public float C1394 { get; set; }
+		[LoadColumn(1397)]
+		public float C1395 { get; set; }
+		[LoadColumn(1398)]
+		public float C1396 { get; set; }
+		[LoadColumn(1399)]
+		public float C1397 { get; set; }
+		[LoadColumn(1400)]
+		public float C1398 { get; set; }
+		[LoadColumn(1401)]
+		public float C1399 { get; set; }
+		[LoadColumn(1402)]
+		public float C1400 { get; set; }
+		[LoadColumn(1403)]
+		public float C1401 { get; set; }
+		[LoadColumn(1404)]
+		public float C1402 { get; set; }
+		[LoadColumn(1405)]
+		public float C1403 { get; set; }
+		[LoadColumn(1406)]
+		public float C1404 { get; set; }
+		[LoadColumn(1407)]
+		public float C1405 { get; set; }
+		[LoadColumn(1408)]
+		public float C1406 { get; set; }
+		[LoadColumn(1409)]
+		public float C1407 { get; set; }
+		[LoadColumn(1410)]
+		public float C1408 { get; set; }
+		[LoadColumn(1411)]
+		public float C1409 { get; set; }
+		[LoadColumn(1412)]
+		public float C1410 { get; set; }
+		[LoadColumn(1413)]
+		public float C1411 { get; set; }
+		[LoadColumn(1414)]
+		public float C1412 { get; set; }
+		[LoadColumn(1415)]
+		public float C1413 { get; set; }
+		[LoadColumn(1416)]
+		public float C1414 { get; set; }
+		[LoadColumn(1417)]
+		public float C1415 { get; set; }
+		[LoadColumn(1418)]
+		public float C1416 { get; set; }
+		[LoadColumn(1419)]
+		public float C1417 { get; set; }
+		[LoadColumn(1420)]
+		public float C1418 { get; set; }
+		[LoadColumn(1421)]
+		public float C1419 { get; set; }
+		[LoadColumn(1422)]
+		public float C1420 { get; set; }
+		[LoadColumn(1423)]
+		public float C1421 { get; set; }
+		[LoadColumn(1424)]
+		public float C1422 { get; set; }
+		[LoadColumn(1425)]
+		public float C1423 { get; set; }
+		[LoadColumn(1426)]
+		public float C1424 { get; set; }
+		[LoadColumn(1427)]
+		public float C1425 { get; set; }
+		[LoadColumn(1428)]
+		public float C1426 { get; set; }
+		[LoadColumn(1429)]
+		public float C1427 { get; set; }
+		[LoadColumn(1430)]
+		public float C1428 { get; set; }
+		[LoadColumn(1431)]
+		public float C1429 { get; set; }
+		[LoadColumn(1432)]
+		public float C1430 { get; set; }
+		[LoadColumn(1433)]
+		public float C1431 { get; set; }
+		[LoadColumn(1434)]
+		public float C1432 { get; set; }
+		[LoadColumn(1435)]
+		public float C1433 { get; set; }
+		[LoadColumn(1436)]
+		public float C1434 { get; set; }
+		[LoadColumn(1437)]
+		public float C1435 { get; set; }
+		[LoadColumn(1438)]
+		public float C1436 { get; set; }
+		[LoadColumn(1439)]
+		public float C1437 { get; set; }
+		[LoadColumn(1440)]
+		public float C1438 { get; set; }
+		[LoadColumn(1441)]
+		public float C1439 { get; set; }
+		[LoadColumn(1442)]
+		public float C1440 { get; set; }
+		[LoadColumn(1443)]
+		public float C1441 { get; set; }
+		[LoadColumn(1444)]
+		public float C1442 { get; set; }
+		[LoadColumn(1445)]
+		public float C1443 { get; set; }
+		[LoadColumn(1446)]
+		public float C1444 { get; set; }
+		[LoadColumn(1447)]
+		public float C1445 { get; set; }
+		[LoadColumn(1448)]
+		public float C1446 { get; set; }
+		[LoadColumn(1449)]
+		public float C1447 { get; set; }
+		[LoadColumn(1450)]
+		public float C1448 { get; set; }
+		[LoadColumn(1451)]
+		public float C1449 { get; set; }
+		[LoadColumn(1452)]
+		public float C1450 { get; set; }
+		[LoadColumn(1453)]
+		public float C1451 { get; set; }
+		[LoadColumn(1454)]
+		public float C1452 { get; set; }
+		[LoadColumn(1455)]
+		public float C1453 { get; set; }
+		[LoadColumn(1456)]
+		public float C1454 { get; set; }
+		[LoadColumn(1457)]
+		public float C1455 { get; set; }
+		[LoadColumn(1458)]
+		public float C1456 { get; set; }
+		[LoadColumn(1459)]
+		public float C1457 { get; set; }
+		[LoadColumn(1460)]
+		public float C1458 { get; set; }
+		[LoadColumn(1461)]
+		public float C1459 { get; set; }
+		[LoadColumn(1462)]
+		public float C1460 { get; set; }
+		[LoadColumn(1463)]
+		public float C1461 { get; set; }
+		[LoadColumn(1464)]
+		public float C1462 { get; set; }
+		[LoadColumn(1465)]
+		public float C1463 { get; set; }
+		[LoadColumn(1466)]
+		public float C1464 { get; set; }
+		[LoadColumn(1467)]
+		public float C1465 { get; set; }
+		[LoadColumn(1468)]
+		public float C1466 { get; set; }
+		[LoadColumn(1469)]
+		public float C1467 { get; set; }
+		[LoadColumn(1470)]
+		public float C1468 { get; set; }
+		[LoadColumn(1471)]
+		public float C1469 { get; set; }
+		[LoadColumn(1472)]
+		public float C1470 { get; set; }
+		[LoadColumn(1473)]
+		public float C1471 { get; set; }
+		[LoadColumn(1474)]
+		public float C1472 { get; set; }
+		[LoadColumn(1475)]
+		public float C1473 { get; set; }
+		[LoadColumn(1476)]
+		public float C1474 { get; set; }
+		[LoadColumn(1477)]
+		public float C1475 { get; set; }
+		[LoadColumn(1478)]
+		public float C1476 { get; set; }
+		[LoadColumn(1479)]
+		public float C1477 { get; set; }
+		[LoadColumn(1480)]
+		public float C1478 { get; set; }
+		[LoadColumn(1481)]
+		public float C1479 { get; set; }
+		[LoadColumn(1482)]
+		public float C1480 { get; set; }
+		[LoadColumn(1483)]
+		public float C1481 { get; set; }
+		[LoadColumn(1484)]
+		public float C1482 { get; set; }
+		[LoadColumn(1485)]
+		public float C1483 { get; set; }
+		[LoadColumn(1486)]
+		public float C1484 { get; set; }
+		[LoadColumn(1487)]
+		public float C1485 { get; set; }
+		[LoadColumn(1488)]
+		public float C1486 { get; set; }
+		[LoadColumn(1489)]
+		public float C1487 { get; set; }
+		[LoadColumn(1490)]
+		public float C1488 { get; set; }
+		[LoadColumn(1491)]
+		public float C1489 { get; set; }
+		[LoadColumn(1492)]
+		public float C1490 { get; set; }
+		[LoadColumn(1493)]
+		public float C1491 { get; set; }
+		[LoadColumn(1494)]
+		public float C1492 { get; set; }
+		[LoadColumn(1495)]
+		public float C1493 { get; set; }
+		[LoadColumn(1496)]
+		public float C1494 { get; set; }
+		[LoadColumn(1497)]
+		public float C1495 { get; set; }
+		[LoadColumn(1498)]
+		public float C1496 { get; set; }
+		[LoadColumn(1499)]
+		public float C1497 { get; set; }
+		[LoadColumn(1500)]
+		public float C1498 { get; set; }
+		[LoadColumn(1501)]
+		public float C1499 { get; set; }
 
 	}
 }
