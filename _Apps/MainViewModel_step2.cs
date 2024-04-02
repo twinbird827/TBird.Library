@@ -426,9 +426,7 @@ namespace Netkeiba
 			var select = Arr(
 				$"IFNULL(AVG(着順), {DEF["着順"]})",
 				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
-				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})",
-				$"IFNULL(STDEV(着順), 1.0)",
-				$"IFNULL(AVG(着順), {DEF["着順"]}) * IFNULL(STDEV(着順), 1.0)"
+				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
 			);
 			//var select = Arr(
 			//	$"IFNULL(AVG(着順), {DEF["着順"]})"

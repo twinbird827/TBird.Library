@@ -128,7 +128,7 @@ namespace Netkeiba
 			ClickCorrelation = RelayCommand.Create(async _ =>
 			{
 				var tgt = new List<double>();
-				var features = new List<double>[1500];
+				var features = new List<double>[3000];
 				for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
 
 				using (var conn = AppUtil.CreateSQLiteControl())
