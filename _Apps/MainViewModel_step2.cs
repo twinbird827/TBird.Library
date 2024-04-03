@@ -199,8 +199,8 @@ namespace Netkeiba
 						dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
 						dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
 						dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
-						dic[$"{key}S6"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() * ret.StandardDeviation().GetSingle());
-						dic[$"{key}S7"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.StandardDeviation().GetSingle());
+						//dic[$"{key}S6"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() * ret.StandardDeviation().GetSingle());
+						//dic[$"{key}S7"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.StandardDeviation().GetSingle());
 					}
 					catch
 					{
