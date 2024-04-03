@@ -142,9 +142,32 @@ namespace Netkeiba
 			DEF["勝時差"] = 1.0F;
 			DEF["勝上差"] = DEF["斤上"] - DEF["斤上"] * 0.9F;
 			DEF["出走間隔"] = 40F;
-			DEF.AddRange(await conn.GetRow<float>(
-				"SELECT AVG(EI) EI, AVG(賞金) 賞金 FROM (SELECT 馬ID, AVG(EI) EI, AVG(賞金) 賞金 FROM t_sanku GROUP BY 馬ID)"
-			));
+			DEF.AddRange(await conn.GetRow<float>(Arr(
+				$"SELECT",
+				$"    AVG(順位) 順位,",
+				$"    AVG(出走頭数) 出走頭数,",
+				$"    AVG(勝馬頭数) 勝馬頭数,",
+				$"    AVG(勝馬頭数 / 出走頭数) AS 勝馬率,",
+				$"    AVG(出走回数) 出走回数,",
+				$"    AVG(勝利回数) 勝利回数,",
+				$"    AVG(勝利回数 / 出走回数) AS 勝利率,",
+				$"    AVG(重出) 重出,",
+				$"    AVG(重勝) 重勝,",
+				$"    AVG(IFNULL(重勝 / 重出, 0)) 重勝率,",
+				$"    AVG(特出) 特出,",
+				$"    AVG(特勝) 特勝,",
+				$"    AVG(IFNULL(特勝 / 特出, 0)) 特勝率,",
+				$"    AVG(平出) 平出,",
+				$"    AVG(平勝) 平勝,",
+				$"    AVG(IFNULL(平勝 / 平出, 0)) 平勝率,",
+				$"    AVG((芝出+ダ出)/2) 場出,",
+				$"    AVG((芝勝+ダ勝)/2) 場勝,",
+				$"    AVG((IFNULL(芝勝/芝出,0)+IFNULL(ダ勝/ダ出,0))/2) 場勝率,",
+				$"    AVG(EI) EI,",
+				$"    AVG(賞金) 賞金,",
+				$"    AVG((芝距+ダ距)/2) 場距",
+				$"FROM t_sanku"
+			).GetString(" ")));
 		}
 
 		private float GetSingle(float x, float y, float def, Func<float, float, float> func)
@@ -164,7 +187,12 @@ namespace Netkeiba
 
 		private float Median(IEnumerable<Dictionary<string, object>> arr, string n)
 		{
-			return Median(arr.Select(x => x[n].GetSingle()), DEF[n]);
+			return Median(arr, n, DEF[n]);
+		}
+
+		private float Median(IEnumerable<Dictionary<string, object>> arr, string n, float def)
+		{
+			return Median(arr.Select(x => x[n].GetSingle()), def);
 		}
 
 		private float Median(IEnumerable<Dictionary<string, object>> arr, float def, Func<Dictionary<string, object>, float> sel)
@@ -398,7 +426,7 @@ namespace Netkeiba
 				dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
 				dic[$"産駒EI{i}"] = Median(arr, "EI");
 				dic[$"産駒賞金{i}"] = Median(arr, "賞金");
-				dic[$"産駒距離差{i}"] = Median(arr, "距離差");
+				dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
 			});
 
 			//var 芝距 = $"(CASE WHEN IFNULL(AVG(芝距),0) = 0 THEN {dic["距離"]} ELSE AVG(芝距) END)";
