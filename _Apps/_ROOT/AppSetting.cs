@@ -196,5 +196,12 @@ namespace Netkeiba
 		}
 		public string[] _Correls = Enumerable.Empty<string>().ToArray();
 
+		public string Correl
+		{
+			get => GetProperty(_Correl);
+			set => SetProperty(ref _Correl, value);
+		}
+		private string _Correl = "0.025";
+
 	}
 }

@@ -108,6 +108,7 @@ namespace Netkeiba
 				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.Correls = _correls;
+				AppSetting.Instance.Correl = Correl;
 				AppSetting.Instance.Save();
 
 				var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
@@ -254,7 +255,7 @@ namespace Netkeiba
 			get => _Correl;
 			set => SetProperty(ref _Correl, value);
 		}
-		private string _Correl = "0.01";
+		private string _Correl = AppSetting.Instance.Correl;
 
 		private string[] _correls = Enumerable.Empty<string>().ToArray();
 

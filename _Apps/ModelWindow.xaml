@@ -135,98 +135,99 @@
 			</WrapPanel>
 		</GroupBox>
 
-		<GroupBox DockPanel.Dock="Top" Header="BinaryClassification" MinHeight="150" MaxHeight="350">
-			<DockPanel>
-				<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" />
-				<ListView ItemsSource="{Binding BinaryClassificationResultViews}">
-					<ListView.View>
-						<GridView>
-							<GridViewColumn Header="Index"
+		<TabControl>
+			<TabItem Header="BinaryClassification">
+				<DockPanel>
+					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" />
+					<ListView ItemsSource="{Binding BinaryClassificationResultViews}">
+						<ListView.View>
+							<GridView>
+								<GridViewColumn Header="Index"
 											DisplayMemberBinding="{Binding Index}" />
-							<GridViewColumn Header="Second"
+								<GridViewColumn Header="Second"
 											DisplayMemberBinding="{Binding Second}" />
-							<GridViewColumn Header="Rank"
+								<GridViewColumn Header="Rank"
 											DisplayMemberBinding="{Binding Rank}" />
-							<GridViewColumn Header="Score"
+								<GridViewColumn Header="Score"
 											DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Rate"
+								<GridViewColumn Header="Rate"
 											DisplayMemberBinding="{Binding Rate, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Path"
+								<GridViewColumn Header="Path"
 											DisplayMemberBinding="{Binding Path}" />
-							<GridViewColumn Header="Accuracy"
+								<GridViewColumn Header="Accuracy"
 											DisplayMemberBinding="{Binding Accuracy, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="AUPRC"
+								<GridViewColumn Header="AUPRC"
 											DisplayMemberBinding="{Binding AreaUnderPrecisionRecallCurve, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="AURC"
+								<GridViewColumn Header="AURC"
 											DisplayMemberBinding="{Binding AreaUnderRocCurve, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Entropy"
+								<GridViewColumn Header="Entropy"
 											DisplayMemberBinding="{Binding Entropy, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="F1Score"
+								<GridViewColumn Header="F1Score"
 											DisplayMemberBinding="{Binding F1Score, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="LL"
+								<GridViewColumn Header="LL"
 											DisplayMemberBinding="{Binding LogLoss, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="LLR"
+								<GridViewColumn Header="LLR"
 											DisplayMemberBinding="{Binding LogLossReduction, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="NP"
+								<GridViewColumn Header="NP"
 											DisplayMemberBinding="{Binding NegativePrecision, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="NR"
+								<GridViewColumn Header="NR"
 											DisplayMemberBinding="{Binding NegativeRecall, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="PP"
+								<GridViewColumn Header="PP"
 											DisplayMemberBinding="{Binding PositivePrecision, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="PR"
+								<GridViewColumn Header="PR"
 											DisplayMemberBinding="{Binding PositiveRecall, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="削除">
-								<GridViewColumn.CellTemplate>
-									<DataTemplate>
-										<Button Content="削除" Command="{Binding ClickDelete}" />
-									</DataTemplate>
-								</GridViewColumn.CellTemplate>
-							</GridViewColumn>
-						</GridView>
-					</ListView.View>
-				</ListView>
-			</DockPanel>
-		</GroupBox>
-
-		<GroupBox DockPanel.Dock="Top" Header="Regression" MinHeight="150" MaxHeight="350">
-			<DockPanel>
-				<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding RegressionMetrics.Items}" SelectedItem="{Binding RegressionMetrics.SelectedItem}" />
-				<ListView ItemsSource="{Binding RegressionResultViews}">
-					<ListView.View>
-						<GridView>
-							<GridViewColumn Header="Index"
+								<GridViewColumn Header="削除">
+									<GridViewColumn.CellTemplate>
+										<DataTemplate>
+											<Button Content="削除" Command="{Binding ClickDelete}" />
+										</DataTemplate>
+									</GridViewColumn.CellTemplate>
+								</GridViewColumn>
+							</GridView>
+						</ListView.View>
+					</ListView>
+				</DockPanel>
+			</TabItem>
+			<TabItem Header="Regression">
+				<DockPanel>
+					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding RegressionMetrics.Items}" SelectedItem="{Binding RegressionMetrics.SelectedItem}" />
+					<ListView ItemsSource="{Binding RegressionResultViews}">
+						<ListView.View>
+							<GridView>
+								<GridViewColumn Header="Index"
 											DisplayMemberBinding="{Binding Index}" />
-							<GridViewColumn Header="Second"
+								<GridViewColumn Header="Second"
 											DisplayMemberBinding="{Binding Second}" />
-							<GridViewColumn Header="Rank"
+								<GridViewColumn Header="Rank"
 											DisplayMemberBinding="{Binding Rank}" />
-							<GridViewColumn Header="Score"
+								<GridViewColumn Header="Score"
 											DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Rate"
+								<GridViewColumn Header="Rate"
 											DisplayMemberBinding="{Binding Rate, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="Path"
+								<GridViewColumn Header="Path"
 											DisplayMemberBinding="{Binding Path}" />
-							<GridViewColumn Header="RSquared"
+								<GridViewColumn Header="RSquared"
 											DisplayMemberBinding="{Binding RSquared, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="MSE"
+								<GridViewColumn Header="MSE"
 											DisplayMemberBinding="{Binding MeanSquaredError, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="RMSE"
+								<GridViewColumn Header="RMSE"
 											DisplayMemberBinding="{Binding RootMeanSquaredError, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="LF"
+								<GridViewColumn Header="LF"
 											DisplayMemberBinding="{Binding LossFunction, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="MAE"
+								<GridViewColumn Header="MAE"
 											DisplayMemberBinding="{Binding MeanAbsoluteError, StringFormat={}{0:N4}}" />
-							<GridViewColumn Header="削除">
-								<GridViewColumn.CellTemplate>
-									<DataTemplate>
-										<Button Content="削除" Command="{Binding ClickDelete}" />
-									</DataTemplate>
-								</GridViewColumn.CellTemplate>
-							</GridViewColumn>
-						</GridView>
-					</ListView.View>
-				</ListView>
-			</DockPanel>
-		</GroupBox>
+								<GridViewColumn Header="削除">
+									<GridViewColumn.CellTemplate>
+										<DataTemplate>
+											<Button Content="削除" Command="{Binding ClickDelete}" />
+										</DataTemplate>
+									</GridViewColumn.CellTemplate>
+								</GridViewColumn>
+							</GridView>
+						</ListView.View>
+					</ListView>
+				</DockPanel>
+			</TabItem>
+		</TabControl>
 	</DockPanel>
 </Controls:MetroWindow>
