@@ -326,13 +326,9 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr =>
-				{
-					return Arr(arr)
-						.Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i * 5).ToList()))
-						.Concat(tgt.SelectMany(ttt => Enumerable.Range(1, 3).Select(i => arr.Where(x => x[ttt] == src[ttt]).Take(i * 5).ToList())))
-						.ToArray();
-				});
+				).RunAsync(arr => Arr(arr).Concat(tgt.Select(ttt => arr.Where(x => x[ttt] == src[ttt]).ToList()).ToArray())
+					.Run(lst => lst.Concat(lst.Select(x => x.Take(20))))
+				);
 				情報.ForEach((arr, i) =>
 				{
 					var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
@@ -347,9 +343,8 @@ namespace Netkeiba
 			});
 
 			// 着順平均
-			馬情報[0].Run(arr => Arr(arr)
-				.Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i * 5).ToList()))
-				.Concat(tgt.SelectMany(ttt => Enumerable.Range(1, 3).Select(i => arr.Where(x => x[ttt] == src[ttt]).Take(i * 5).ToList())))
+			馬情報[0].Run(arr => Arr(arr).Concat(tgt.Select(ttt => arr.Where(x => x[ttt] == src[ttt]).ToList()).ToArray())
+				.Run(lst => lst.Concat(lst.Select(x => x.Take(5))))
 			).ForEach((arr, i) =>
 			{
 				var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
@@ -476,66 +471,6 @@ namespace Netkeiba
 				});
 			}
 
-			//var 芝距 = $"(CASE WHEN IFNULL(AVG(芝距),0) = 0 THEN {dic["距離"]} ELSE AVG(芝距) END)";
-			//var ダ距 = $"(CASE WHEN IFNULL(AVG(ダ距),0) = 0 THEN {dic["距離"]} ELSE AVG(ダ距) END)";
-
-			//// 産駒成績
-			//var 産駒 = Arr(
-			//	$"SELECT",
-			//	$"AVG(順位), IFNULL(SUM(勝馬頭数)/SUM(出走頭数),0), IFNULL(SUM(勝利回数)/SUM(出走回数),0), IFNULL(AVG(EI), {DEF["EI"]}), IFNULL(SUM(賞金), {DEF["賞金"]}),",
-			//	$"{dic["距離"]} - ", $"{src["馬場"]}" == "芝" ? 芝距 : ダ距, ",",
-			//	$"{src["馬場"]}" == "芝" ? "IFNULL(SUM(芝勝)/SUM(芝出),0)" : "IFNULL(SUM(ダ勝)/SUM(ダ出),0)"
-			//).GetString(" ");
-
-			//var 全父 = Arr(産駒,
-			//	$"FROM t_ketto",
-			//	$"LEFT JOIN t_sanku ON t_sanku.馬ID = t_ketto.父ID",
-			//	$"WHERE t_ketto.馬ID = ? AND t_sanku.年度 <= ?"
-			//).GetString(" ");
-
-			//dic.AddRange(await conn.GetRow(
-			//	r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"全父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-			//	全父,
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1)
-			//));
-
-			//var 直父 = Arr(全父, "AND t_sanku.年度 >= ?").GetString(" ");
-
-			//dic.AddRange(await conn.GetRow(
-			//	r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"直父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-			//	直父,
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1),
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 4)
-			//));
-
-			//// 産駒BMS成績
-			//var 全母父 = Arr(産駒,
-			//	$"FROM t_ketto a",
-			//	$"LEFT JOIN t_ketto b ON b.馬ID = a.母ID",
-			//	$"LEFT JOIN t_sanku ON t_sanku.馬ID = b.父ID",
-			//	$"WHERE a.馬ID = ? AND t_sanku.年度 <= ?"
-			//).GetString(" ");
-
-			//dic.AddRange(await conn.GetRow(
-			//	r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"全母父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-			//	全母父,
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1)
-			//));
-
-			//var 直母父 = Arr(全母父, "AND t_sanku.年度 >= ?").GetString(" ");
-
-			//dic.AddRange(await conn.GetRow(
-			//	r => Enumerable.Range(0, r.FieldCount).ToDictionary(i => $"直母父{i.ToString(3)}", i => (object)r.Get<float>(i)),
-			//	直母父,
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 1),
-			//	SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32() - 4)
-			//));
-
-			// 産駒BMS成績
 			return dic;
 		}
 
@@ -561,58 +496,6 @@ namespace Netkeiba
 		private float Get斤上(Dictionary<string, object> src, string k1, string k2) => Get斤上(src[k1].GetSingle(), src[k2].GetSingle());
 
 		private float Get斤上(Dictionary<string, object> src) => Get斤上(src, "上り", "斤量");
-
-		private async Task<Dictionary<string, object>> GetAnalysis(SQLiteControl conn, int num, Dictionary<string, object> src, string keyname, string[] headnames)
-		{
-			var ranks = new[] { 1, 3, 5 };
-			var now = $"{src["開催日数"]}".GetSingle();
-			var keyvalue = $"{src[keyname]}";
-			var select = Arr(
-				$"IFNULL(AVG(着順), {DEF["着順"]})",
-				$"IFNULL(LOWER_QUARTILE(着順), {DEF["着順"] * 着順LQ})",
-				$"IFNULL(UPPER_QUARTILE(着順), {DEF["着順"] * 着順UQ})"
-			);
-			//var select = Arr(
-			//	$"IFNULL(AVG(着順), {DEF["着順"]})"
-			//);
-
-			var count = ranks.Length * select.Length * headnames.Length;
-			var index = 0;
-			var with = new List<string>();
-			var whe = new List<string>();
-
-			foreach (var i in ranks)
-			{
-				foreach (var headname in headnames)
-				{
-					var key = keyname == headname ? keyname : $"{keyname}_{headname}";
-
-					var val = $"({TOU[src["ﾚｰｽID"].GetInt64()]} / 着順) * {着順CASE}";
-
-					var where = Arr(
-						$"FROM t_orig WHERE",
-						$"{keyname} = '{keyvalue}' AND",
-						$"開催日数  < {now}        AND",
-						$"{{0}}",
-						$"ﾗﾝｸ2     <= 'RANK{i}'",
-						keyname == headname ? string.Empty : $"AND {headname} = '{src[headname]}'"
-					).GetString(" ");
-
-					with.Add($"TA{index.ToString(5)} AS (SELECT ({val}) 着順 {string.Format(where, $"                            ")})");
-					with.Add($"TN{index.ToString(5)} AS (SELECT ({val}) 着順 {string.Format(where, $"開催日数  > {now - num}  AND")})");
-
-					whe.Add(Arr($"(SELECT", select.Select((x, j) => $"{x} A_{key}_{index.ToString(5)}_{j.ToString(2)}").GetString(","), $"FROM TA{index.ToString(5)})").GetString(" "));
-					whe.Add(Arr($"(SELECT", select.Select((x, j) => $"{x} N_{key}_{index.ToString(5)}_{j.ToString(2)}").GetString(","), $"FROM TN{index.ToString(5)})").GetString(" "));
-
-					index += 1;
-				}
-			}
-
-			return await conn.GetRow(
-				r => Enumerable.Range(0, count).ToDictionary(i => r.GetName(i), i => (object)r.Get<object>(i).GetSingle()),
-				Arr($"WITH", with.GetString(","), "SELECT * FROM", whe.GetString(" CROSS JOIN ")).GetString(" ")
-			);
-		}
 
 		private async Task RefreshKetto(SQLiteControl conn)
 		{
