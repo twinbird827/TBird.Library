@@ -293,19 +293,58 @@ namespace Netkeiba
 			//dic["一言"] = 一言.IndexOf(src["一言"]);
 			dic["追切"] = 追切.IndexOf(src["追切"]);
 
-			var analysis = await Arr(
-				GetAnalysis(conn, 200, src, "馬ID", new[] { "馬ID", "開催場所", "馬場", "馬場状態" }),
-				GetAnalysis(conn, 100, src, "騎手ID", new[] { "騎手ID", "開催場所", "馬場", "馬場状態" }),
-				GetAnalysis(conn, 100, src, "調教師ID", new[] { "調教師ID" }),
-				GetAnalysis(conn, 100, src, "馬主ID", new[] { "馬主ID" })
-			).WhenAll();
+			//var analysis = await Arr(
+			//	GetAnalysis(conn, 200, src, "馬ID", new[] { "馬ID", "開催場所", "馬場", "馬場状態" }),
+			//	GetAnalysis(conn, 100, src, "騎手ID", new[] { "騎手ID", "開催場所", "馬場", "馬場状態" }),
+			//	GetAnalysis(conn, 100, src, "調教師ID", new[] { "調教師ID" }),
+			//	GetAnalysis(conn, 100, src, "馬主ID", new[] { "馬主ID" })
+			//).WhenAll();
 
-			dic.AddRange(analysis.SelectMany(x => x));
+			//dic.AddRange(analysis.SelectMany(x => x));
 
-			dic["馬騎手A0"] = dic["A_馬ID_00000_00"].GetSingle() + dic["A_騎手ID_00000_00"].GetSingle();
-			dic["馬騎手A1"] = dic["A_馬ID_00000_00"].GetSingle() * dic["A_騎手ID_00000_00"].GetSingle();
-			dic["馬騎手N0"] = dic["N_馬ID_00000_00"].GetSingle() + dic["N_騎手ID_00000_00"].GetSingle();
-			dic["馬騎手N1"] = dic["N_馬ID_00000_00"].GetSingle() * dic["N_騎手ID_00000_00"].GetSingle();
+			var tgt = Arr("開催場所", "馬場", "馬場状態");
+
+			Arr("騎手ID", "調教師ID", "馬主ID").ForEach(async key =>
+			{
+				var 情報 = await conn.GetRows(
+					$"SELECT 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
+					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
+				).RunAsync(arr =>
+				{
+					return Arr(arr)
+						.Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i * 5).ToList()))
+						.Concat(tgt.SelectMany(ttt => Enumerable.Range(1, 3).Select(i => arr.Where(x => x[ttt] == src[ttt]).Take(i * 5).ToList())))
+						.ToArray();
+				});
+				情報.ForEach((arr, i) =>
+				{
+					dic[$"{key}A{i.ToString(2)}"] = Median(arr, "着順");
+					dic[$"{key}B{i.ToString(2)}"] = Median(arr, DEF["着順"], x => GET着順(x));
+				});
+			});
+
+			// 着順平均
+			馬情報[0].Run(arr => Arr(arr)
+				.Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i * 5).ToList()))
+				.Concat(tgt.SelectMany(ttt => Enumerable.Range(1, 3).Select(i => arr.Where(x => x[ttt] == src[ttt]).Take(i * 5).ToList())))
+			).ForEach((arr, i) =>
+			{
+				dic[$"着順A{i.ToString(2)}"] = Median(arr, DEF["着順"], x => GET着順(x));
+				dic[$"着順B{i.ToString(2)}"] = Median(arr, "着順");
+			});
+			Arr(
+				("着順", "騎手ID"), ("着順", "調教師ID"), ("着順", "馬主ID"),
+				("騎手ID", "調教師ID"), ("騎手ID", "馬主ID"),
+				("調教師ID", "馬主ID")
+			).ForEach(x =>
+			{
+				dic[$"{x.Item1}{x.Item2}0"] = dic[$"{x.Item1}A00"].GetSingle() + dic[$"{x.Item2}A00"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}1"] = dic[$"{x.Item1}A00"].GetSingle() * dic[$"{x.Item2}A00"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}2"] = dic[$"{x.Item1}B00"].GetSingle() + dic[$"{x.Item2}B00"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}3"] = dic[$"{x.Item1}B00"].GetSingle() * dic[$"{x.Item2}B00"].GetSingle();
+			});
 
 			// 得意距離、及び今回のﾚｰｽ距離との差
 			dic["距離"] = src["距離"].GetSingle();
@@ -347,13 +386,6 @@ namespace Netkeiba
 			{
 				dic[$"勝時差{i}"] = GetSingle(arr.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), DEF["勝時差"], ret => ret.Median());
 				dic[$"勝上差{i}"] = GetSingle(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"], ret => ret.Median());
-			});
-
-			// 着順平均
-			馬情報.ForEach((arr, i) =>
-			{
-				dic[$"着順x{i}"] = Median(arr, DEF["着順"], x => GET着順(x));
-				dic[$"着順y{i}"] = Median(arr, "着順");
 			});
 
 			// 出走間隔
