@@ -203,6 +203,19 @@ namespace Netkeiba
 			return Median(arr.Select(x => sel(x)), def);
 		}
 
+		private IEnumerable<float> GetSingles(IEnumerable<Dictionary<string, object>> arr, string n) => GetSingles(arr, x => x[n].GetSingle());
+
+		private IEnumerable<float> GetSingles(IEnumerable<Dictionary<string, object>> arr, Func<Dictionary<string, object>, float> func) => arr.Select(x => func(x));
+
+		private float[] Statistics(IEnumerable<float> arr, float def)
+		{
+			return arr.Where(x => !float.IsNaN(x)).Any()
+				? arr.Where(x => !float.IsNaN(x)).Run(x =>
+					Arr(x.Average(), x.Percentile(25), x.Percentile(75), x.Average() - (float)x.StandardDeviation(), x.Average() + (float)x.StandardDeviation())
+				)
+				: Arr(def, def * 0.5F, def * 2.0F, def * 0.5F, def * 2.0F);
+		}
+
 		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			// 同ﾚｰｽの平均を取りたいときに使用する
@@ -228,8 +241,8 @@ namespace Netkeiba
 						dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
 						dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
 						dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
-						dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() + ret.StandardDeviation().GetSingle());
-						dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() - ret.StandardDeviation().GetSingle());
+						dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Average() + ret.StandardDeviation().GetSingle());
+						dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Average() - ret.StandardDeviation().GetSingle());
 						//dic[$"{key}S6"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() * ret.StandardDeviation().GetSingle());
 						//dic[$"{key}S7"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.StandardDeviation().GetSingle());
 					}
@@ -285,7 +298,7 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
 
-			馬情報.ForEach((arr, i) => dic[$"賞金平{i}"] = Median(arr, "賞金"));
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, "賞金"), DEF["賞金"]).ForEach((xxx, j) => dic[$"賞金平{i}{j}"] = xxx));
 
 			dic["体重"] = Median(馬情報[0], "体重");
 			//dic["増減"] = src["増減"].GetDouble();
@@ -363,44 +376,30 @@ namespace Netkeiba
 			// 得意距離、及び今回のﾚｰｽ距離との差
 			dic["距離"] = src["距離"].GetSingle();
 
-			馬情報.ForEach((arr, i) => dic[$"距離得{i}"] = Median(arr, "距離"));
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, "距離"), DEF["距離"]).ForEach((xxx, j) => dic[$"距離得{i}{j}"] = xxx));
 
-			dic["距離差"] = dic["距離"].GetSingle() - dic["距離得0"].GetSingle();
+			dic["距離差"] = dic["距離"].GetSingle() - dic["距離得00"].GetSingle();
 
 			// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 			Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(6D);
 
-			馬情報.ForEach((arr, i) => dic[$"通過{i}"] = Median(arr, 6F, x => (float)func_tuka(x["通過"])));
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, x => (float)func_tuka(x["通過"])), 6F).ForEach((xxx, j) => dic[$"通過{i}{j}"] = xxx));
 
-			// 通過順の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-			//dic["上り全"] = Avg2(馬情報全, x => x["上り"].GetDouble(), 上りDEF);
-			//dic["上り直"] = Avg2(馬情報直, x => x["上り"].GetDouble(), 上りDEF);
-			//dic["上小全"] = 馬情報全.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
-			//dic["上小直"] = 馬情報直.MinOrDefault(x => x["上り"].GetDouble(), 上りDEF);
-			//dic["上大全"] = 馬情報全.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
-			//dic["上大直"] = 馬情報直.MaxOrDefault(x => x["上り"].GetDouble(), 上りDEF);
+			// 上り×斤量
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, x => Get斤上(x)), DEF["斤上"]).ForEach((xxx, j) => dic[$"斤上{i}{j}"] = xxx));
 
-			馬情報.ForEach((arr, i) =>
-			{
-				dic[$"斤上り{i}"] = Median(arr, DEF["斤上"], x => Get斤上(x));
-				dic[$"斤上小{i}"] = GetSingle(arr.Select(x => Get斤上(x)), DEF["斤上"] * 0.90F, ret => ret.Min());
-				dic[$"斤上大{i}"] = GetSingle(arr.Select(x => Get斤上(x)), DEF["斤上"] * 1.10F, ret => ret.Max());
-			});
-
-			// ﾀｲﾑの平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+			// ﾀｲﾑの平均、ﾀｲﾑ平均×上り×斤量
 			Func<object, float> func_time = v => $"{v}".Split(':')[0].GetSingle() * 60 + $"{v}".Split(':')[1].GetSingle();
-			馬情報.ForEach((arr, i) =>
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"])), DEF["時間"]).ForEach((xxx, j) =>
 			{
-				dic[$"時間{i}"] = Median(arr, DEF["時間"], x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"]));
-				dic[$"斤時{i}"] = dic[$"斤上り{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
-			});
+				dic[$"時間{i}{j}"] = xxx;
+				dic[$"斤間{i}{j}"] = dic[$"斤上{i}{j}"].GetSingle() * xxx;
+			}));
 
 			// 1着との差(時間)
-			馬情報.ForEach((arr, i) =>
-			{
-				dic[$"勝時差{i}"] = GetSingle(arr.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), DEF["勝時差"], ret => ret.Median());
-				dic[$"勝上差{i}"] = GetSingle(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"], ret => ret.Median());
-			});
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])), DEF["勝時差"]).ForEach((xxx, j) => dic[$"勝時差{i}{j}"] = xxx));
+			// 1着との差(上り×斤量)
+			馬情報.ForEach((arr, i) => Statistics(GetSingles(arr, x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"]).ForEach((xxx, j) => dic[$"勝上差{i}{j}"] = xxx));
 
 			// 出走間隔
 			馬情報.ForEach((arr, i) =>
