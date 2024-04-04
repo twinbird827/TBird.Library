@@ -133,6 +133,7 @@ namespace Netkeiba
 				$"AVG(体重) 体重,",
 				$"AVG(距離) 距離,",
 				$"AVG(上り) 上り,",
+				$"AVG(賞金) 賞金,",
 				$"AVG(斤量) 斤量",
 				$"FROM t_orig LEFT JOIN w_tou ON w_tou.ﾚｰｽID = t_orig.ﾚｰｽID"
 			).GetString(" "));
@@ -164,7 +165,7 @@ namespace Netkeiba
 				$"    AVG((芝勝+ダ勝)/2) 場勝,",
 				$"    AVG((IFNULL(芝勝/芝出,0)+IFNULL(ダ勝/ダ出,0))/2) 場勝率,",
 				$"    AVG(EI) EI,",
-				$"    AVG(賞金) 賞金,",
+				$"    AVG(賞金) 産賞金,",
 				$"    AVG((芝距+ダ距)/2) 場距",
 				$"FROM t_sanku"
 			).GetString(" ")));
@@ -361,73 +362,74 @@ namespace Netkeiba
 				dic[$"出走間隔{i}"] = 0 < arr.Count ? dic["開催日数"].GetSingle() - arr[0]["開催日数"].GetSingle() : DEF["出走間隔"] * (i + 1);
 			});
 
-			var 産駒馬場 = $"{src["馬場"]}" == "芝" ? "芝" : "ダ";
-			var 産駒情報 = await conn.GetRows(Arr(
-					$"WITH RECURSIVE",
-					$"w_titi(父ID, LAYER) AS (",
-					$"    VALUES(?, 0)",
-					$"    UNION ALL",
-					$"    SELECT t.父ID, LAYER+1 FROM t_ketto t, w_titi WHERE t.馬ID = w_titi.父ID",
-					$"    UNION ALL",
-					$"    SELECT c.父ID, LAYER+1 FROM t_ketto t, t_ketto c, w_titi WHERE t.馬ID = w_titi.父ID AND t.母ID = c.馬ID",
-					$")",
-					$"SELECT",
-					$"    w_titi.LAYER,",
-					$"    t_sanku.順位,",
-					$"    t_sanku.出走頭数,",
-					$"    t_sanku.勝馬頭数,",
-					$"    t_sanku.勝馬頭数 / t_sanku.出走頭数 AS 勝馬率,",
-					$"    t_sanku.出走回数,",
-					$"    t_sanku.勝利回数,",
-					$"    t_sanku.勝利回数 / t_sanku.出走回数 AS 勝利率,",
-					$"    t_sanku.重出,",
-					$"    t_sanku.重勝,",
-					$"    IFNULL(t_sanku.重勝 / t_sanku.重出, 0) 重勝率,",
-					$"    t_sanku.特出,",
-					$"    t_sanku.特勝,",
-					$"    IFNULL(t_sanku.特勝 / t_sanku.特出, 0) 特勝率,",
-					$"    t_sanku.平出,",
-					$"    t_sanku.平勝,",
-					$"    IFNULL(t_sanku.平勝 / t_sanku.平出, 0) 平勝率,",
-					$"    t_sanku.{産駒馬場}出 場出,",
-					$"    t_sanku.{産駒馬場}勝 場勝,",
-					$"    IFNULL(t_sanku.{産駒馬場}勝 / t_sanku.{産駒馬場}出, 0) 場勝率,",
-					$"    t_sanku.EI,",
-					$"    t_sanku.賞金,",
-					$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差",
-					$"FROM w_titi, t_sanku WHERE w_titi.父ID = t_sanku.馬ID AND t_sanku.年度 < ?"
-				).GetString(" "),
-				SQLiteUtil.CreateParameter(System.Data.DbType.String, src["馬ID"]),
-				SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["ﾚｰｽID"].ToString().Left(4).GetInt32())
-			).RunAsync(arr =>
+			using (await Locker.LockAsync(Lock))
 			{
-				return Arr(arr).Concat(Enumerable.Range(1, 3).Select(i => arr.Where(x => x["LAYER"].GetInt32() <= i).ToList())).ToArray();
-			});
-			産駒情報.ForEach((arr, i) =>
-			{
-				dic[$"産駒順位{i}"] = Median(arr, "順位");
-				dic[$"産駒出走頭数{i}"] = Median(arr, "出走頭数");
-				dic[$"産駒勝馬頭数{i}"] = Median(arr, "勝馬頭数");
-				dic[$"産駒勝馬率{i}"] = Median(arr, "勝馬率");
-				dic[$"産駒出走回数{i}"] = Median(arr, "出走回数");
-				dic[$"産駒勝利回数{i}"] = Median(arr, "勝利回数");
-				dic[$"産駒勝利率{i}"] = Median(arr, "勝利率");
-				dic[$"産駒重出{i}"] = Median(arr, "重出");
-				dic[$"産駒重勝{i}"] = Median(arr, "重勝");
-				dic[$"産駒重勝率{i}"] = Median(arr, "重勝率");
-				dic[$"産駒特出{i}"] = Median(arr, "特出");
-				dic[$"産駒特勝{i}"] = Median(arr, "特勝");
-				dic[$"産駒特勝率{i}"] = Median(arr, "特勝率");
-				dic[$"産駒平出{i}"] = Median(arr, "平出");
-				dic[$"産駒平勝{i}"] = Median(arr, "平勝");
-				dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
-				dic[$"産駒場出{i}"] = Median(arr, "場出");
-				dic[$"産駒場勝{i}"] = Median(arr, "場勝");
-				dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
-				dic[$"産駒EI{i}"] = Median(arr, "EI");
-				dic[$"産駒賞金{i}"] = Median(arr, "賞金");
-				dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
-			});
+				var 産駒馬場 = $"{src["馬場"]}" == "芝" ? "芝" : "ダ";
+				var 産駒情報 = await conn.GetRows(Arr(
+						$"WITH RECURSIVE",
+						$"w_titi(父ID, LAYER) AS (",
+						$"    VALUES('{src["馬ID"]}', 0)",
+						$"    UNION ALL",
+						$"    SELECT t.父ID, LAYER+1 FROM t_ketto t, w_titi WHERE t.馬ID = w_titi.父ID",
+						$"    UNION ALL",
+						$"    SELECT c.父ID, LAYER+1 FROM t_ketto t, t_ketto c, w_titi WHERE t.馬ID = w_titi.父ID AND t.母ID = c.馬ID",
+						$")",
+						$"SELECT",
+						$"    w_titi.LAYER,",
+						$"    t_sanku.順位,",
+						$"    t_sanku.出走頭数,",
+						$"    t_sanku.勝馬頭数,",
+						$"    t_sanku.勝馬頭数 / t_sanku.出走頭数 AS 勝馬率,",
+						$"    t_sanku.出走回数,",
+						$"    t_sanku.勝利回数,",
+						$"    t_sanku.勝利回数 / t_sanku.出走回数 AS 勝利率,",
+						$"    t_sanku.重出,",
+						$"    t_sanku.重勝,",
+						$"    IFNULL(t_sanku.重勝 / t_sanku.重出, 0) 重勝率,",
+						$"    t_sanku.特出,",
+						$"    t_sanku.特勝,",
+						$"    IFNULL(t_sanku.特勝 / t_sanku.特出, 0) 特勝率,",
+						$"    t_sanku.平出,",
+						$"    t_sanku.平勝,",
+						$"    IFNULL(t_sanku.平勝 / t_sanku.平出, 0) 平勝率,",
+						$"    t_sanku.{産駒馬場}出 場出,",
+						$"    t_sanku.{産駒馬場}勝 場勝,",
+						$"    IFNULL(t_sanku.{産駒馬場}勝 / t_sanku.{産駒馬場}出, 0) 場勝率,",
+						$"    t_sanku.EI,",
+						$"    t_sanku.賞金 産賞金,",
+						$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差",
+						$"FROM w_titi, t_sanku WHERE w_titi.父ID = t_sanku.馬ID AND CAST(t_sanku.年度 AS INTEGER) < {src["ﾚｰｽID"].ToString().Left(4)}"
+					).GetString(" ")
+				).RunAsync(arr =>
+				{
+					return Arr(arr).Concat(Enumerable.Range(1, 3).Select(i => arr.Where(x => x["LAYER"].GetInt32() <= i).ToList())).ToArray();
+				});
+				産駒情報.ForEach((arr, i) =>
+				{
+					dic[$"産駒順位{i}"] = Median(arr, "順位");
+					dic[$"産駒出走頭数{i}"] = Median(arr, "出走頭数");
+					dic[$"産駒勝馬頭数{i}"] = Median(arr, "勝馬頭数");
+					dic[$"産駒勝馬率{i}"] = Median(arr, "勝馬率");
+					dic[$"産駒出走回数{i}"] = Median(arr, "出走回数");
+					dic[$"産駒勝利回数{i}"] = Median(arr, "勝利回数");
+					dic[$"産駒勝利率{i}"] = Median(arr, "勝利率");
+					dic[$"産駒重出{i}"] = Median(arr, "重出");
+					dic[$"産駒重勝{i}"] = Median(arr, "重勝");
+					dic[$"産駒重勝率{i}"] = Median(arr, "重勝率");
+					dic[$"産駒特出{i}"] = Median(arr, "特出");
+					dic[$"産駒特勝{i}"] = Median(arr, "特勝");
+					dic[$"産駒特勝率{i}"] = Median(arr, "特勝率");
+					dic[$"産駒平出{i}"] = Median(arr, "平出");
+					dic[$"産駒平勝{i}"] = Median(arr, "平勝");
+					dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
+					dic[$"産駒場出{i}"] = Median(arr, "場出");
+					dic[$"産駒場勝{i}"] = Median(arr, "場勝");
+					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
+					dic[$"産駒EI{i}"] = Median(arr, "EI");
+					dic[$"産駒賞金{i}"] = Median(arr, "産賞金");
+					dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
+				});
+			}
 
 			//var 芝距 = $"(CASE WHEN IFNULL(AVG(芝距),0) = 0 THEN {dic["距離"]} ELSE AVG(芝距) END)";
 			//var ダ距 = $"(CASE WHEN IFNULL(AVG(ダ距),0) = 0 THEN {dic["距離"]} ELSE AVG(ダ距) END)";
