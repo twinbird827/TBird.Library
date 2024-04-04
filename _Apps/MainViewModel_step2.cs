@@ -207,13 +207,13 @@ namespace Netkeiba
 
 		private IEnumerable<float> GetSingles(IEnumerable<Dictionary<string, object>> arr, Func<Dictionary<string, object>, float> func) => arr.Select(x => func(x));
 
+		private float Std(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.StandardDeviation() : 1.0F);
+
 		private float[] Statistics(IEnumerable<float> arr, float def)
 		{
-			return arr.Where(x => !float.IsNaN(x)).Any()
-				? arr.Where(x => !float.IsNaN(x)).Run(x =>
-					Arr(x.Average(), x.Percentile(25), x.Percentile(75), x.Average() - (float)x.StandardDeviation(), x.Average() + (float)x.StandardDeviation())
-				)
-				: Arr(def, def * 0.5F, def * 2.0F, def * 0.5F, def * 2.0F);
+			return arr.Where(x => !float.IsNaN(x)).Run(xxx => xxx.Any()
+				? xxx.Run(x => Arr(x.Average(), x.Percentile(25), x.Percentile(75)/*, x.Average() - Std(x), x.Average() + Std(x)*/))
+				: Arr(def, def * 0.5F, def * 2.0F/*, def * 0.5F, def * 2.0F*/));
 		}
 
 		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
@@ -241,8 +241,8 @@ namespace Netkeiba
 						dic[$"{key}S1"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average());
 						dic[$"{key}S2"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Percentile(25));
 						dic[$"{key}S3"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Percentile(75));
-						dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Average() + ret.StandardDeviation().GetSingle());
-						dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Average() - ret.StandardDeviation().GetSingle());
+						//dic[$"{key}S4"] = 他馬比較(dic, racarr, key, 着順LQ, ret => ret.Average() + ret.StandardDeviation().GetSingle());
+						//dic[$"{key}S5"] = 他馬比較(dic, racarr, key, 着順UQ, ret => ret.Average() - ret.StandardDeviation().GetSingle());
 						//dic[$"{key}S6"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.Average() * ret.StandardDeviation().GetSingle());
 						//dic[$"{key}S7"] = 他馬比較(dic, racarr, key, 1.00F, ret => ret.StandardDeviation().GetSingle());
 					}
