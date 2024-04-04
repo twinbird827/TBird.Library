@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
@@ -130,6 +131,7 @@ namespace Netkeiba
 				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
 				$"SELECT",
 				$"AVG((頭数 / 着順) * {着順CASE}) 着順,",
+				$"AVG(着順) 着順SRC,",
 				$"AVG(体重) 体重,",
 				$"AVG(距離) 距離,",
 				$"AVG(上り) 上り,",
@@ -307,7 +309,7 @@ namespace Netkeiba
 			Arr("騎手ID", "調教師ID", "馬主ID").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					$"SELECT 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
+					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
 					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -320,8 +322,14 @@ namespace Netkeiba
 				});
 				情報.ForEach((arr, i) =>
 				{
-					dic[$"{key}A{i.ToString(2)}"] = Median(arr, "着順");
-					dic[$"{key}B{i.ToString(2)}"] = Median(arr, DEF["着順"], x => GET着順(x));
+					var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
+					var B = arr.Select(x => GET着順(x)).ToArray();
+					dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
+					dic[$"{key}A1{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
+					dic[$"{key}A2{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
+					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
+					dic[$"{key}B1{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(25));
+					dic[$"{key}B2{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(75));
 				});
 			});
 
@@ -331,8 +339,14 @@ namespace Netkeiba
 				.Concat(tgt.SelectMany(ttt => Enumerable.Range(1, 3).Select(i => arr.Where(x => x[ttt] == src[ttt]).Take(i * 5).ToList())))
 			).ForEach((arr, i) =>
 			{
-				dic[$"着順A{i.ToString(2)}"] = Median(arr, DEF["着順"], x => GET着順(x));
-				dic[$"着順B{i.ToString(2)}"] = Median(arr, "着順");
+				var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
+				var B = arr.Select(x => GET着順(x)).ToArray();
+				dic[$"着順A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
+				dic[$"着順A1{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
+				dic[$"着順A2{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
+				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
+				dic[$"着順B1{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(25));
+				dic[$"着順B2{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(75));
 			});
 			Arr(
 				("着順", "騎手ID"), ("着順", "調教師ID"), ("着順", "馬主ID"),
@@ -340,10 +354,10 @@ namespace Netkeiba
 				("調教師ID", "馬主ID")
 			).ForEach(x =>
 			{
-				dic[$"{x.Item1}{x.Item2}0"] = dic[$"{x.Item1}A00"].GetSingle() + dic[$"{x.Item2}A00"].GetSingle();
-				dic[$"{x.Item1}{x.Item2}1"] = dic[$"{x.Item1}A00"].GetSingle() * dic[$"{x.Item2}A00"].GetSingle();
-				dic[$"{x.Item1}{x.Item2}2"] = dic[$"{x.Item1}B00"].GetSingle() + dic[$"{x.Item2}B00"].GetSingle();
-				dic[$"{x.Item1}{x.Item2}3"] = dic[$"{x.Item1}B00"].GetSingle() * dic[$"{x.Item2}B00"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}0"] = dic[$"{x.Item1}A000"].GetSingle() + dic[$"{x.Item2}A000"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}1"] = dic[$"{x.Item1}A000"].GetSingle() * dic[$"{x.Item2}A000"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}2"] = dic[$"{x.Item1}B000"].GetSingle() + dic[$"{x.Item2}B000"].GetSingle();
+				dic[$"{x.Item1}{x.Item2}3"] = dic[$"{x.Item1}B000"].GetSingle() * dic[$"{x.Item2}B000"].GetSingle();
 			});
 
 			// 得意距離、及び今回のﾚｰｽ距離との差
