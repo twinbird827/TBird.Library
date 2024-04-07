@@ -247,17 +247,6 @@ namespace Netkeiba
 
 					var raceid = racearr.First()["ﾚｰｽID"];
 
-					await conn.BeginTransaction();
-
-					// 元ﾃﾞｰﾀにﾚｰｽﾃﾞｰﾀがあれば削除してから取得したﾚｰｽﾃﾞｰﾀを挿入する
-					await conn.ExecuteNonQueryAsync("DELETE FROM t_orig WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid));
-					foreach (var x in racearr)
-					{
-						var sql = "INSERT INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
-						var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
-						await conn.ExecuteNonQueryAsync(sql, prm);
-					}
-
 					var arr = new List<List<object>>();
 
 					// ﾚｰｽ情報の初期化
@@ -341,8 +330,6 @@ namespace Netkeiba
 
 						lists[tag].AddRange(arr);
 					}
-
-					conn.Rollback();
 
 					AddLog($"End Step4 Race: {raceid}");
 
