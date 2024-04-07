@@ -1,31 +1,20 @@
-﻿using System;
+﻿using Microsoft.ML;
+using Microsoft.ML.AutoML;
+using Microsoft.ML.Data;
+using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Wpf;
-using TBird.Core;
-using System.IO;
-using Microsoft.ML;
-using Microsoft.ML.Data;
-using System.Data;
-using static Microsoft.ML.DataOperationsCatalog;
-using System.Threading;
-using Microsoft.ML.AutoML;
-using ControlzEx.Standard;
-using System.Security.Cryptography;
-using System.Data.Common;
-using System.Text.RegularExpressions;
-using System.Reflection;
-using System.Windows.Media.TextFormatting;
-using Microsoft.ML.Trainers.LightGbm;
-using Microsoft.ML.AutoML.CodeGen;
-using Microsoft.ML.SearchSpace;
-using Microsoft.ML.SearchSpace.Option;
 using TBird.Wpf.Collections;
-using System.Windows;
 
 namespace Netkeiba
 {
@@ -137,7 +126,7 @@ namespace Netkeiba
 				ranks.Select(rank => new RegressionPredictionFactory(mlContext, rank, 1))
 			).SelectMany(tmp => tmp).ToArray());
 
-			var path = Path.Combine("model", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
+			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
 
 			FileUtil.BeforeCreate(path);
 
@@ -178,7 +167,7 @@ namespace Netkeiba
 				}
 			}
 
-			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("model"));
+			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
 		});
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
@@ -286,7 +275,7 @@ namespace Netkeiba
 			IDataView data = loader.Load(dataPath);
 
 			// Split into train (80%), validation (20%) sets
-			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
 
 			//Define pipeline
 			SweepablePipeline pipeline = mlContext
@@ -399,7 +388,7 @@ namespace Netkeiba
 			IDataView data = loader.Load(dataPath);
 
 			// Split into train (80%), validation (20%) sets
-			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
 
 			//Define pipeline
 			SweepablePipeline pipeline = mlContext
@@ -506,7 +495,7 @@ namespace Netkeiba
 			IDataView data = loader.Load(dataPath);
 
 			// Split into train (80%), validation (20%) sets
-			TrainTestData trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
 			////Define pipeline
 			//SweepablePipeline pipeline = mlContext
 			//		.Auto()

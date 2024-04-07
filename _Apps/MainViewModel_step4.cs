@@ -1,21 +1,18 @@
+using Microsoft.ML;
+using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using TBird.Core;
+using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Wpf;
-using TBird.Core;
-using Microsoft.ML;
-using Microsoft.ML.AutoML;
-using Microsoft.ML.Data;
-using TBird.DB;
-using System.IO;
-using System.Diagnostics.SymbolStore;
 using Tensorflow;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Netkeiba
 {
@@ -169,51 +166,80 @@ namespace Netkeiba
 				var iScores = 0;
 
 				// ﾚｰｽﾃﾞｰﾀ取得→なかったら次へ
-				var racearrs = await raceids.Select(raceid => GetRaceShutubas(raceid).RunAsync(async arr =>
+				await conn.BeginTransaction();
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_shutuba WHERE 着順 IS NULL");
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_shutuba WHERE 着順 = ''");
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_shutuba WHERE 着順 = 0");
+
+				var racearrs = await raceids.Select(async raceid =>
 				{
-					if (arr.Count == 0) return;
+					var lst = await conn.GetRows(
+						"SELECT * FROM t_shutuba WHERE ﾚｰｽID = ?",
+						SQLiteUtil.CreateParameter(DbType.String, raceid)
+					).RunAsync(tmp =>
+						tmp.Select(x => x.ToDictionary(y => y.Key, y => $"{y.Value}")).ToList()
+					);
 
-					// 着順情報取得
-					var tyaku = await GetTyakujun(raceid);
+					return lst.Any()
+						? lst
+						: await GetRaceShutubas(raceid).RunAsync(async arr =>
+						{
+							if (arr.Count == 0) return;
 
-					// 追切情報取得
-					var oikiri = await GetOikiris(raceid);
+							// 着順情報取得
+							var tyaku = await GetTyakujun(raceid);
 
-					await arr.Select(async row =>
-					{
-						var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-						row["着順"] = tya != null ? tya["着順"] : string.Empty;
+							// 追切情報取得
+							var oikiri = await GetOikiris(raceid);
 
-						var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-						row["一言"] = oik != null ? oik["一言"] : string.Empty;
-						row["追切"] = oik != null ? oik["追切"] : string.Empty;
-
-						var ban = await conn
-							.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
-							.RunAsync(async tmp =>
+							await arr.Select(async row =>
 							{
-								if (0 < tmp.Count)
-								{
-									return tmp[0];
-								}
-								else
-								{
-									return await GetBanushi(row["馬ID"]);
-								}
-							});
-						row["馬主名"] = ban["馬主名"];
-						row["馬主ID"] = ban["馬主ID"];
-					}).WhenAll();
-				})).WhenAll();
+								var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+								row["着順"] = tya != null ? tya["着順"] : string.Empty;
+
+								var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+								row["一言"] = oik != null ? oik["一言"] : string.Empty;
+								row["追切"] = oik != null ? oik["追切"] : string.Empty;
+
+								var ban = await conn
+									.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
+									.RunAsync(async tmp =>
+									{
+										if (0 < tmp.Count)
+										{
+											return tmp[0];
+										}
+										else
+										{
+											return await GetBanushi(row["馬ID"]);
+										}
+									});
+								row["馬主名"] = ban["馬主名"];
+								row["馬主ID"] = ban["馬主ID"];
+							}).WhenAll();
+						});
+				}).WhenAll();
+
+				foreach (var racearr in racearrs)
+				{
+					foreach (var x in racearr)
+					{
+						var sql = "INSERT INTO t_shutuba (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
+						var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
+						await conn.ExecuteNonQueryAsync(sql, prm);
+					}
+				}
 
 				// 馬ID
-				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"]).Distinct());
+				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"])).Distinct();
 
 				// 血統情報の作成
 				await RefreshKetto(conn, 馬IDs);
 
 				// 産駒成績の更新
 				await RefreshSanku(conn, true, 馬IDs);
+
+				conn.Commit();
 
 				foreach (var racearr in racearrs)
 				{
@@ -238,7 +264,7 @@ namespace Netkeiba
 					await InitializeModelBase(conn);
 
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
-					foreach (var m in await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
+					foreach (var m in await CreateRaceModel(conn, "t_shutuba", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
 					{
 						var tmp = new List<object>();
 						var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);

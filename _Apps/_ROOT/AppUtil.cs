@@ -8,10 +8,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
+using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Web;
-using TBird.DB;
-using System.Windows.Forms;
 using TBird.Wpf;
 
 namespace Netkeiba

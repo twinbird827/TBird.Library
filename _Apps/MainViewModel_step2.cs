@@ -4,15 +4,12 @@ using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Input;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Wpf;
-using Tensorflow.Keras.Layers;
 
 namespace Netkeiba
 {
@@ -70,7 +67,7 @@ namespace Netkeiba
 					MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
 					// ﾚｰｽ毎の纏まり
-					var racarr = await CreateRaceModel(conn, raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
+					var racarr = await CreateRaceModel(conn, "t_orig", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
 					var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID");
 					var head2 = Arr("着順", "単勝", "人気");
 
@@ -196,10 +193,10 @@ namespace Netkeiba
 
 		private float Std(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.StandardDeviation() : 0F);
 
-		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
+		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			// 同ﾚｰｽの平均を取りたいときに使用する
-			var 同ﾚｰｽ = await conn.GetRows("SELECT * FROM t_orig WHERE ﾚｰｽID = ?",
+			var 同ﾚｰｽ = await conn.GetRows($"SELECT * FROM {tablename} WHERE ﾚｰｽID = ?",
 				SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
 			);
 

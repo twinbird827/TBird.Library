@@ -1,12 +1,12 @@
 ﻿<Controls:MetroWindow x:Class="Netkeiba.ModelWindow"
-                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                      xmlns:local="clr-namespace:Netkeiba"
-		              xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+					  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					  xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
 					  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-                      mc:Ignorable="d">
+					  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+					  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+					  xmlns:local="clr-namespace:Netkeiba"
+					  mc:Ignorable="d">
 	<Controls:MetroWindow.DataContext>
 		<local:ModelViewModel />
 	</Controls:MetroWindow.DataContext>

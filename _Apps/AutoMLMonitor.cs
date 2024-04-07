@@ -1,10 +1,6 @@
 ﻿using Microsoft.ML.AutoML;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TBird.Core;
 
 namespace Netkeiba
 {
@@ -46,9 +42,9 @@ namespace Netkeiba
 		{
 			if (exception.Message.Contains("Operation was canceled."))
 			{
-                MainViewModel.AddLog($"{settings.TrialId} cancelled. Time budget exceeded.");
+				MainViewModel.AddLog($"{settings.TrialId} cancelled. Time budget exceeded.");
 			}
-            MainViewModel.AddLog($"{settings.TrialId} failed with exception {exception.Message}");
+			MainViewModel.AddLog($"{settings.TrialId} failed with exception {exception.Message}");
 		}
 
 		public void ReportRunningTrial(TrialSettings setting)

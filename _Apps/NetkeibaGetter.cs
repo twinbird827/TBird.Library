@@ -6,7 +6,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
-using Tensorflow;
 
 namespace Netkeiba
 {
@@ -18,7 +17,7 @@ namespace Netkeiba
 
 			var raceurl = $"https://db.netkeiba.com/race/{raceid}";
 
-            using (var raceparser = await AppUtil.GetDocument(raceurl))
+			using (var raceparser = await AppUtil.GetDocument(raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("race_table_01 nk_tb_common").FirstOrDefault() as IHtmlTableElement;
 
@@ -332,16 +331,16 @@ namespace Netkeiba
 					// 馬主ID
 					dic["馬主ID"] = umatable1.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
 				}
-                else if (umaparser.GetElementsByClassName("db_prof_table ").FirstOrDefault() is IHtmlTableElement umatable2)
-                {
-                    // 馬主名
-                    dic["馬主名"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("title");
-                    // 馬主ID
-                    dic["馬主ID"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
-                }
-            }
+				else if (umaparser.GetElementsByClassName("db_prof_table ").FirstOrDefault() is IHtmlTableElement umatable2)
+				{
+					// 馬主名
+					dic["馬主名"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("title");
+					// 馬主ID
+					dic["馬主ID"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
+				}
+			}
 
-            return dic;
+			return dic;
 		}
 
 		private async Task<List<Dictionary<string, string>>> GetTyakujun(string raceid)
@@ -397,12 +396,12 @@ namespace Netkeiba
 
 				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "払戻し") is IHtmlTableElement table2)
 				{
-                    // 馬連
-                    dic["馬連"] = GetPayout(table2, "Umaren");
-                    // 単勝
-                    dic["単勝"] = GetPayout(table2, "Tansho", "div", "span");
-                }
-            }
+					// 馬連
+					dic["馬連"] = GetPayout(table2, "Umaren");
+					// 単勝
+					dic["単勝"] = GetPayout(table2, "Tansho", "div", "span");
+				}
+			}
 
 			return dic;
 		}

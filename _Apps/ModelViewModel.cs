@@ -1,20 +1,17 @@
-﻿using MathNet.Numerics.RootFinding;
+﻿using MathNet.Numerics.Statistics;
 using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using TBird.Core;
+using TBird.DB;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
-using TBird.DB.SQLite;
-using TBird.DB;
-using System.Data;
-using MathNet.Numerics.Statistics;
 
 namespace Netkeiba
 {

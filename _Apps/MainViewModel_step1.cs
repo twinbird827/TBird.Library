@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using TBird.Wpf.Collections;
-using TBird.Wpf;
 using TBird.Core;
-using System.IO;
-using TBird.DB.SQLite;
-using System.Data;
 using TBird.DB;
-using AngleSharp.Html.Dom;
+using TBird.DB.SQLite;
+using TBird.Wpf;
+using TBird.Wpf.Collections;
 
 namespace Netkeiba
 {
@@ -122,6 +119,7 @@ namespace Netkeiba
 											var keynames = racearr.First().Keys.Select(x => integers.Contains(x) ? $"{x} INTEGER" : $"{x} TEXT");
 											// ﾃｰﾌﾞﾙ作成
 											await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_orig (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
+											await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_shutuba (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
 
 											// ｲﾝﾃﾞｯｸｽ作成
 											var indexes = new Dictionary<string, string[]>()
