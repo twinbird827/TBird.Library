@@ -38,10 +38,8 @@ namespace Netkeiba
 			await CreatePredictionFile("Best",
 				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
 				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3)),
 				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
 				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
-				ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8)),
 				ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, 1))
 			).TryCatch();
 
@@ -57,10 +55,8 @@ namespace Netkeiba
 		private async Task CreatePredictionFile(string tag,
 				Dictionary<string, BinaryClassificationPredictionFactory> 以内1,
 				Dictionary<string, BinaryClassificationPredictionFactory> 以内2,
-				Dictionary<string, BinaryClassificationPredictionFactory> 以内3,
 				Dictionary<string, BinaryClassificationPredictionFactory> 着外1,
 				Dictionary<string, BinaryClassificationPredictionFactory> 着外2,
-				Dictionary<string, BinaryClassificationPredictionFactory> 着外3,
 				Dictionary<string, RegressionPredictionFactory> 着順1
 			)
 		{
@@ -145,7 +141,7 @@ namespace Netkeiba
 					.ToDictionary(x => x, x => new List<List<object>>());
 
 				var headers = Arr("ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順")
-					.Concat(Arr(nameof(以内1), nameof(以内2), nameof(以内3), nameof(着外1), nameof(着外2), nameof(着外3), nameof(着順1)))
+					.Concat(Arr(nameof(以内1), nameof(以内2), nameof(着外1), nameof(着外2), nameof(着順1)))
 					.Concat(Arr("加1", "加2", "全1", "全2"))
 					.ToArray();
 
@@ -262,14 +258,14 @@ namespace Netkeiba
 
 						iHeaders = tmp.Count;
 
-						var binaries1 = Arr(以内1, 以内2, 以内3)
+						var binaries1 = Arr(以内1, 以内2)
 							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
 							.ToArray();
 						tmp.AddRange(binaries1);
 
 						iBinaries1 = binaries1.Length;
 
-						var binaries2 = Arr(着外1, 着外2, 着外3)
+						var binaries2 = Arr(着外1, 着外2)
 							.Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
 							.ToArray();
 						tmp.AddRange(binaries2);
@@ -287,11 +283,11 @@ namespace Netkeiba
 							// 合計値1
 							binaries1.Concat(binaries2).Sum(x => x.GetSingle()),
 							// 合計値2
-							Enumerable.Range(0, 3).Sum(i => Math.Max(binaries1[i].GetSingle(), binaries2[i].GetSingle())),
+							Enumerable.Range(0, 2).Sum(i => Math.Max(binaries1[i].GetSingle(), binaries2[i].GetSingle())),
 							// 着順付き1
 							binaries1.Concat(binaries2).Concat(regressions).Sum(x => x.GetSingle()),
 							// 着順付き2
-							Enumerable.Range(0, 3).Sum(i => Math.Max(binaries1[i].GetSingle(), binaries2[i].GetSingle())) + regressions.Sum(x => x.GetSingle())
+							Enumerable.Range(0, 2).Sum(i => Math.Max(binaries1[i].GetSingle(), binaries2[i].GetSingle())) + regressions.Sum(x => x.GetSingle())
 						);
 						tmp.AddRange(scores.Select(x => (object)x));
 

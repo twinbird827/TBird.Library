@@ -51,7 +51,7 @@ namespace Netkeiba
 				x.ﾚｰｽID = raceid;
 			});
 
-			return _score = GetEngine().Predict(src).GetScore() * (_isnew ? 1F : GetResult().GetScore());
+			return _score = GetEngine().Predict(src).GetScore() * 1F/*(_isnew ? 1F : GetResult().GetScore())*/;
 		}
 
 		public float GetScore()

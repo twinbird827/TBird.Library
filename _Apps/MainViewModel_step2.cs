@@ -222,13 +222,18 @@ namespace Netkeiba
 						var arr = racarr.Select(x => x[key].GetSingle()).Where(x => !float.IsNaN(x)).ToArray();
 						var std = Std(arr);
 
-						dic[$"{key}S1"] = val - arr.Average();
-						dic[$"{key}S2"] = val - arr.Percentile(25);
-						dic[$"{key}S3"] = val - arr.Percentile(75);
-						dic[$"{key}S4"] = val - arr.Max();
-						dic[$"{key}S5"] = val - arr.Min();
-						dic[$"{key}S6"] = val == 0 ? 0F : arr.Sum() / val;
-						dic[$"{key}S7"] = std == 0 ? 0F : arr.Average() - val * std;
+						dic[$"{key}A1"] = val - arr.Average();
+						dic[$"{key}A2"] = val - arr.Percentile(25);
+						dic[$"{key}A3"] = val - arr.Percentile(75);
+						//dic[$"{key}A4"] = val - arr.Max();
+						//dic[$"{key}A5"] = val - arr.Min();
+						dic[$"{key}A7"] = val * std;
+						dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
+						dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
+						dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
+						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Max() / val * 100;
+						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Min() / val * 100;
+						dic[$"{key}B6"] = val == 0 ? 0F : arr.Sum() / val;
 					}
 					catch
 					{
@@ -287,7 +292,7 @@ namespace Netkeiba
 
 			var tgt = Arr("開催場所", "馬場", "馬場状態");
 
-			Arr("騎手ID", "調教師ID", "馬主ID").ForEach(async key =>
+			Arr("騎手ID").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
 					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
@@ -299,10 +304,29 @@ namespace Netkeiba
 				);
 				情報.ForEach((arr, i) =>
 				{
-					var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
 					var B = arr.Select(x => GET着順(x)).ToArray();
-					dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
 					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
+					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Max());
+					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Min());
+				});
+			});
+
+			Arr("調教師ID"/*, "馬主ID"*/).ForEach(async key =>
+			{
+				var 情報 = await conn.GetRows(
+					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
+					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
+				).RunAsync(arr => Arr(arr)
+					.Run(lst => lst.Concat(lst.Select(x => x.Take(20))))
+				);
+				情報.ForEach((arr, i) =>
+				{
+					var B = arr.Select(x => GET着順(x)).ToArray();
+					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
+					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Max());
+					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Min());
 				});
 			});
 
@@ -311,19 +335,17 @@ namespace Netkeiba
 				.Run(lst => lst.Concat(lst.Select(x => x.Take(5))))
 			).ForEach((arr, i) =>
 			{
-				var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
 				var B = arr.Select(x => GET着順(x)).ToArray();
-				dic[$"着順A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
 				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
+				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Max());
+				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Min());
 			});
 			Arr(
-				("着順", "騎手ID"), ("着順", "調教師ID"), ("着順", "馬主ID"),
-				("騎手ID", "調教師ID"), ("騎手ID", "馬主ID"),
-				("調教師ID", "馬主ID")
+				("着順", "騎手ID") /*("着順", "調教師ID"), ("着順", "馬主ID"),*/
+			//("騎手ID", "調教師ID"), ("騎手ID", "馬主ID"),
+			//("調教師ID", "馬主ID")
 			).ForEach(x =>
 			{
-				dic[$"{x.Item1}{x.Item2}0"] = dic[$"{x.Item1}A000"].GetSingle() + dic[$"{x.Item2}A000"].GetSingle();
-				dic[$"{x.Item1}{x.Item2}1"] = dic[$"{x.Item1}A000"].GetSingle() * dic[$"{x.Item2}A000"].GetSingle();
 				dic[$"{x.Item1}{x.Item2}2"] = dic[$"{x.Item1}B000"].GetSingle() + dic[$"{x.Item2}B000"].GetSingle();
 				dic[$"{x.Item1}{x.Item2}3"] = dic[$"{x.Item1}B000"].GetSingle() * dic[$"{x.Item2}B000"].GetSingle();
 			});
@@ -403,12 +425,15 @@ namespace Netkeiba
 						$"    IFNULL(t_sanku.{産駒馬場}勝 / t_sanku.{産駒馬場}出, 0) 場勝率,",
 						$"    t_sanku.EI,",
 						$"    t_sanku.賞金 産賞金,",
-						$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差",
+						$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差,",
+						$"    t_sanku.年度 年度",
 						$"FROM w_titi, t_sanku WHERE w_titi.父ID = t_sanku.馬ID AND CAST(t_sanku.年度 AS INTEGER) < {src["ﾚｰｽID"].ToString().Left(4)}"
 					).GetString(" ")
 				).RunAsync(arr =>
 				{
-					return Arr(arr).Concat(Enumerable.Range(1, 3).Select(i => arr.Where(x => x["LAYER"].GetInt32() <= i).ToList())).ToArray();
+					return Arr(arr, arr.Where(x => x["年度"].GetInt64() > (src["ﾚｰｽID"].ToString().Left(4).GetInt64() - 4L)))
+						.SelectMany(lst => Enumerable.Range(1, 1).Select(i => arr.Where(x => x["LAYER"].GetInt32() <= i * 2).ToList()))
+						.ToArray();
 				});
 				産駒情報.ForEach((arr, i) =>
 				{
@@ -419,15 +444,15 @@ namespace Netkeiba
 					dic[$"産駒出走回数{i}"] = Median(arr, "出走回数");
 					dic[$"産駒勝利回数{i}"] = Median(arr, "勝利回数");
 					dic[$"産駒勝利率{i}"] = Median(arr, "勝利率");
-					dic[$"産駒重出{i}"] = Median(arr, "重出");
-					dic[$"産駒重勝{i}"] = Median(arr, "重勝");
-					dic[$"産駒重勝率{i}"] = Median(arr, "重勝率");
-					dic[$"産駒特出{i}"] = Median(arr, "特出");
-					dic[$"産駒特勝{i}"] = Median(arr, "特勝");
-					dic[$"産駒特勝率{i}"] = Median(arr, "特勝率");
-					dic[$"産駒平出{i}"] = Median(arr, "平出");
-					dic[$"産駒平勝{i}"] = Median(arr, "平勝");
-					dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
+					//dic[$"産駒重出{i}"] = Median(arr, "重出");
+					//dic[$"産駒重勝{i}"] = Median(arr, "重勝");
+					//dic[$"産駒重勝率{i}"] = Median(arr, "重勝率");
+					//dic[$"産駒特出{i}"] = Median(arr, "特出");
+					//dic[$"産駒特勝{i}"] = Median(arr, "特勝");
+					//dic[$"産駒特勝率{i}"] = Median(arr, "特勝率");
+					//dic[$"産駒平出{i}"] = Median(arr, "平出");
+					//dic[$"産駒平勝{i}"] = Median(arr, "平勝");
+					//dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
 					dic[$"産駒場出{i}"] = Median(arr, "場出");
 					dic[$"産駒場勝{i}"] = Median(arr, "場勝");
 					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
