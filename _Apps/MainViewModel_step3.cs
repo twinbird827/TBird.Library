@@ -195,8 +195,8 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 2) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 4) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 5) },
 				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
 				{ 7, r => 着勝(r).Run(x => x.着順 > 3) },
 			};
