@@ -282,6 +282,8 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) => dic[$"賞金平{i}"] = Median(arr, "賞金"));
 
+			馬情報.ForEach((arr, i) => dic[$"単勝平{i}"] = Median(arr, "単勝"));
+
 			dic["体重"] = Median(馬情報[0], "体重");
 			//dic["増減"] = src["増減"].GetDouble();
 			//dic["増減割"] = dic["増減"] / dic["体重"];
