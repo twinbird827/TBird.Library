@@ -224,7 +224,7 @@ namespace Netkeiba
 				{
 					foreach (var x in racearr)
 					{
-						var sql = "INSERT INTO t_shutuba (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
+						var sql = "REPLACE INTO t_shutuba (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
 						var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
 						await conn.ExecuteNonQueryAsync(sql, prm);
 					}
@@ -233,13 +233,13 @@ namespace Netkeiba
 				// 馬ID
 				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"])).Distinct();
 
+				conn.Commit();
+
 				// 血統情報の作成
 				await RefreshKetto(conn, 馬IDs);
 
 				// 産駒成績の更新
 				await RefreshSanku(conn, true, 馬IDs);
-
-				conn.Commit();
 
 				foreach (var racearr in racearrs)
 				{

@@ -205,7 +205,7 @@ namespace Netkeiba
 			// ﾚｰｽ毎の纏まり
 			var racarr = await 同ﾚｰｽ.Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切).TryCatch()).WhenAll();
 
-			var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "ﾚｰｽID", "開催日数", "ﾗﾝｸ2"); ;
+			var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ2"); ;
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
 
 			// 他の馬との比較

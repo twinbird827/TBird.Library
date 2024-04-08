@@ -207,16 +207,16 @@ namespace Netkeiba
 				var racedata01 = raceparser.GetElementsByClassName("RaceData01").First();
 
 				// 「ダ1200m」を取得
-				var babakyori = racedata01.GetElementsByTagName("span").First().GetInnerHtml();
+				var babakyori = racedata01.GetElementsByTagName("span").First().GetInnerHtml().Trim();
 
 				// 1文字目(ダ or 芝 or 障)
 				var left = babakyori.Left(1);
 				// 2文字目(左 or 右) TODO 障害ﾚｰｽは1文字目が"障"になってるので仮に右回りとする
-				var mawari = Regex.Match(racedata01.InnerHtml, @"\((?<x>.+)\)").Groups["x"].Value; mawari = mawari == "障" ? "右" : mawari;
+				var mawari = left == "障" ? "障" : Regex.Match(racedata01.InnerHtml, @"\((?<x>.+)\)").Groups["x"].Value.Split("&nbsp;")[0].Trim();
 				// 距離
 				var kyori = Regex.Match(babakyori, @"\d+").Value;
 				// 天候
-				var tenki = Regex.Match(racedata01.InnerHtml, @"天候:(?<x>[^\<]+)").Groups["x"].Value;
+				var tenki = Regex.Match(racedata01.InnerHtml, @"天候:(?<x>[^\<]+)").Groups["x"].Value.Split("&nbsp;")[0].Trim();
 				// 馬場(芝 or ダート)
 				var baba = left == "ダ" ? "ダート" : "芝";
 				// 馬場状態
@@ -255,7 +255,12 @@ namespace Netkeiba
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;
 					dic["馬場"] = baba;
-					dic["馬場状態"] = cond;
+					dic["馬場状態"] = cond switch
+					{
+						"不" => "不良",
+						"稍" => "稍重",
+						_ => cond
+					};
 
 					dic["着順"] = "0";
 
@@ -291,7 +296,7 @@ namespace Netkeiba
 					// 人気(スクレイピングじゃ取れないらしい)
 					dic["人気"] = "0";
 					// 体重
-					dic["体重"] = row.Cells[8].GetInnerHtml().Split('<')[0];
+					dic["体重"] = row.Cells[8].GetInnerHtml().Split('<')[0].Replace("\r\n", "").Trim();
 					// 増減
 					dic["増減"] = row.Cells[8].GetElementsByTagName("small").Select(x => Regex.Match(x.GetInnerHtml(), @"\((?<x>.+)\)").Groups["x"].Value).FirstOrDefault() ?? "0";
 					// 調教場所
