@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Windows.Input;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
@@ -131,6 +133,7 @@ namespace Netkeiba
 				$"AVG((頭数 / 着順) * {着順CASE}) 着順,",
 				$"AVG(着順) 着順SRC,",
 				$"AVG(体重) 体重,",
+				$"AVG(単勝) 単勝,",
 				$"AVG(距離) 距離,",
 				$"AVG(上り) 上り,",
 				$"AVG(賞金) 賞金,",
@@ -288,59 +291,52 @@ namespace Netkeiba
 			dic["追切"] = 追切.IndexOf(src["追切"]);
 
 			var tgt = Arr("開催場所", "馬場", "馬場状態");
-
-			Arr("騎手ID").ForEach(async key =>
+			Func<List<Dictionary<string, object>>, bool, int, IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, istgt, take) =>
 			{
-				var 情報 = await conn.GetRows(
-					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
-					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => Arr(arr).Concat(tgt.Select(ttt => arr.Where(x => x[ttt] == src[ttt]).ToList()).ToArray())
-					.Run(lst => lst.Concat(lst.Select(x => x.Take(20))))
-				);
-				情報.ForEach((arr, i) =>
-				{
-					var B = arr.Select(x => GET着順(x)).ToArray();
-					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
-					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Max());
-					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Min());
-				});
-			});
-
-			Arr("調教師ID"/*, "馬主ID"*/).ForEach(async key =>
+				var tgtlst = istgt ? tgt.Select(ttt => arr.Where(x => x[ttt] == src[ttt]).ToList()) : Enumerable.Empty<List<Dictionary<string, object>>>();
+				var tklst1 = arr.Take(take).ToList();
+				var tklst2 = tgtlst.Select(tmp => tmp.Take(take).ToList());
+				return Arr(arr, tklst1).Concat(tgtlst).Concat(tklst2);
+			};
+			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
 			{
-				var 情報 = await conn.GetRows(
-					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
-					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => Arr(arr)
-					.Run(lst => lst.Concat(lst.Select(x => x.Take(20))))
-				);
-				情報.ForEach((arr, i) =>
-				{
-					var B = arr.Select(x => GET着順(x)).ToArray();
-					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
-					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Max());
-					dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Min());
-				});
-			});
+				var A = arr.Select(x => x["着順"].GetSingle()).ToArray();
+				var B = arr.Select(x => GET着順(x)).ToArray();
+				var C = arr.Select(x => x["着順"].GetSingle() / x["単勝"].GetSingle(DEF["単勝"])).ToArray();
+
+				dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
+				dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
+				dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
+				dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
+				dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(25));
+				dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(75));
+				dic[$"{key}C0{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Average());
+				dic[$"{key}C0{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Percentile(25));
+				dic[$"{key}C0{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Percentile(75));
+			};
 
 			// 着順平均
-			馬情報[0].Run(arr => Arr(arr).Concat(tgt.Select(ttt => arr.Where(x => x[ttt] == src[ttt]).ToList()).ToArray())
-				.Run(lst => lst.Concat(lst.Select(x => x.Take(5))))
-			).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, true, 5)).ForEach((arr, i) =>
 			{
-				var B = arr.Select(x => GET着順(x)).ToArray();
-				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
-				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Max());
-				dic[$"着順B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Min());
+				ACTION情報("馬ID", arr, i);
 			});
+
+			Arr("騎手ID", "調教師ID", "馬主ID").ForEach(async key =>
+			{
+				var 情報 = await conn.GetRows(
+					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 単勝, 開催場所, 馬場, 馬場状態 FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
+					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
+				).RunAsync(arr => CREATE情報(arr, key == "騎手ID", 30));
+
+				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
+			});
+
 			Arr(
-				("着順", "騎手ID") /*("着順", "調教師ID"), ("着順", "馬主ID"),*/
-			//("騎手ID", "調教師ID"), ("騎手ID", "馬主ID"),
-			//("調教師ID", "馬主ID")
+				("馬ID", "騎手ID"), ("馬ID", "調教師ID")/*, ("馬ID", "馬主ID")*/
+			// , ("騎手ID", "調教師ID"), ("騎手ID", "馬主ID")
+			// , ("調教師ID", "馬主ID")
 			).ForEach(x =>
 			{
 				dic[$"{x.Item1}{x.Item2}2"] = dic[$"{x.Item1}B000"].GetSingle() + dic[$"{x.Item2}B000"].GetSingle();

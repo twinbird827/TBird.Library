@@ -99,7 +99,7 @@
 						<TextBox Text="{Binding EYear, Converter={StaticResource Int2StringConverter}}" />
 					</StackPanel>
 
-					<ItemsControl ItemsSource="{Binding Basyos}">
+					<!--<ItemsControl ItemsSource="{Binding Basyos}">
 						<ItemsControl.ItemsPanel>
 							<ItemsPanelTemplate>
 								<StackPanel Orientation="Horizontal" />
@@ -110,7 +110,7 @@
 								<CheckBox Margin="3" Width="60" IsChecked="{Binding IsChecked}" Content="{Binding Display}" />
 							</DataTemplate>
 						</ItemsControl.ItemTemplate>
-					</ItemsControl>
+					</ItemsControl>-->
 
 					<CheckBox IsChecked="{Binding S1Overwrite.IsChecked}" Content="上書きする" />
 				</UniformGrid>
