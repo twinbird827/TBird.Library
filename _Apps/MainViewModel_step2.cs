@@ -443,9 +443,9 @@ namespace Netkeiba
 					//dic[$"産駒特出{i}"] = Median(arr, "特出");
 					//dic[$"産駒特勝{i}"] = Median(arr, "特勝");
 					//dic[$"産駒特勝率{i}"] = Median(arr, "特勝率");
-					//dic[$"産駒平出{i}"] = Median(arr, "平出");
-					//dic[$"産駒平勝{i}"] = Median(arr, "平勝");
-					//dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
+					dic[$"産駒平出{i}"] = Median(arr, "平出");
+					dic[$"産駒平勝{i}"] = Median(arr, "平勝");
+					dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
 					dic[$"産駒場出{i}"] = Median(arr, "場出");
 					dic[$"産駒場勝{i}"] = Median(arr, "場勝");
 					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
