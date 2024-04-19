@@ -225,14 +225,14 @@ namespace Netkeiba
 						dic[$"{key}A1"] = val - arr.Average();
 						dic[$"{key}A2"] = val - arr.Percentile(25);
 						dic[$"{key}A3"] = val - arr.Percentile(75);
-						//dic[$"{key}A4"] = val - arr.Max();
-						//dic[$"{key}A5"] = val - arr.Min();
+						dic[$"{key}A4"] = val - arr.Max();
+						dic[$"{key}A5"] = val - arr.Min();
 						dic[$"{key}A7"] = val * std;
 						dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
 						dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
 						dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
-						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Max() / val * 100;
-						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Min() / val * 100;
+						dic[$"{key}B4"] = val == 0 ? 0F : arr.Max() / val * 100;
+						dic[$"{key}B5"] = val == 0 ? 0F : arr.Min() / val * 100;
 						dic[$"{key}B6"] = val == 0 ? 0F : arr.Sum() / val;
 					}
 					catch
@@ -256,7 +256,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(arr).Concat(Enumerable.Range(1, 3).Select(i => arr.Take(i).ToList())).ToArray();
+				return Arr(arr).Concat(Arr(1, 2, 3).Select(i => arr.Take(i).ToList())).ToArray();
 			});
 
 			var dic = new Dictionary<string, object>();
@@ -306,15 +306,12 @@ namespace Netkeiba
 				var B = arr.Select(x => GET着順(x)).ToArray();
 				var C = arr.Select(x => x["着順"].GetSingle() / x["単勝"].GetSingle(DEF["単勝"])).ToArray();
 
-				dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
-				dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
-				dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
+				//dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
+				//dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
+				//dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
 				dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
 				dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(25));
 				dic[$"{key}B0{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(75));
-				dic[$"{key}C0{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Average());
-				dic[$"{key}C0{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Percentile(25));
-				dic[$"{key}C0{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Percentile(75));
 			};
 
 			// 着順平均
@@ -622,9 +619,9 @@ namespace Netkeiba
 			}
 		}
 
-		private const float 着順RANK1 = 4.00F;
-		private const float 着順RANK2 = 3.00F;
-		private const float 着順RANK3 = 2.00F;
+		private const float 着順RANK1 = 9.00F;
+		private const float 着順RANK2 = 6.00F;
+		private const float 着順RANK3 = 4.00F;
 		private const float 着順RANK4 = 1.00F;
 		private const float 着順RANK5 = 1.00F;
 		private readonly string 着順CASE = $"(CASE ﾗﾝｸ2 WHEN 'RANK1' THEN {着順RANK1} WHEN 'RANK2' THEN {着順RANK2} WHEN 'RANK3' THEN {着順RANK3} WHEN 'RANK4' THEN {着順RANK4} ELSE {着順RANK5} END)";

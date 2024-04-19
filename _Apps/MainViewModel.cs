@@ -71,7 +71,7 @@ namespace Netkeiba
 		{
 			using (var vm = new ModelViewModel())
 			{
-				vm.ShowDialog(() => new ModelWindow());
+				vm.Show(() => new ModelWindow());
 			}
 		});
 	}
