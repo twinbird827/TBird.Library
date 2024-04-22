@@ -32,6 +32,31 @@ namespace TBird.Core
 		}
 
 		/// <summary>
+		/// 条件を満たすまで待機します。
+		/// </summary>
+		/// <param name="func">条件</param>
+		/// <param name="token">ｷｬﾝｾﾙﾄｰｸﾝ</param>
+		/// <returns></returns>
+		public static async Task<bool> Delay(Func<bool> func, CancellationToken token)
+		{
+			while (!func() && !token.IsCancellationRequested)
+			{
+				await Task.Delay(16);
+			}
+			return !token.IsCancellationRequested;
+		}
+
+		/// <summary>
+		/// 条件を満たすまで待機します。
+		/// </summary>
+		/// <param name="func">条件</param>
+		/// <returns></returns>
+		public static Task<bool> Delay(Func<bool> func)
+		{
+			return Delay(func, CancellationToken.None);
+		}
+
+		/// <summary>
 		/// 指定した同期処理を非同期で実行します。
 		/// </summary>
 		/// <param name="action">同期処理</param>
