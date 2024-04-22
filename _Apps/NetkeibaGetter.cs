@@ -107,7 +107,7 @@ namespace Netkeiba
 					// 着差
 					dic["着差"] = row.Cells[8].GetInnerHtml();
 					//// ﾀｲﾑ指数(有料)
-					//dic["ﾀｲﾑ指数_有料"] = "**";
+					dic["ﾀｲﾑ指数"] = row.Cells[9].GetInnerHtml();
 					// 通過
 					dic["通過"] = row.Cells[10].GetInnerHtml();
 					// 上り
