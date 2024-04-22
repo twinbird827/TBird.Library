@@ -146,7 +146,7 @@ namespace TBird.Web
 			return new Disposer<TBirdSelenium>(sel, x =>
 			{
 				var wait = new WebDriverWait(sel._driver, TimeSpan.FromMilliseconds(10));
-				var until = wait.Until(e => e.FindElement(By.XPath(@"</html>")));
+				var until = wait.Until(e => e.FindElement(By.TagName(@"html")));
 			});
 		}
 	}
