@@ -103,17 +103,17 @@ namespace Netkeiba
 												arr.ForEach(row =>
 												{
 													var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-													row["調教場所"] = oik != null ? oik["調教場所"] : string.Empty;
-													row["調教馬場"] = oik != null ? oik["調教馬場"] : string.Empty;
-													row["調教騎手"] = oik != null ? oik["調教騎手"] : string.Empty;
-													row["調教1"] = oik != null ? oik["調教1"] : string.Empty;
-													row["調教2"] = oik != null ? oik["調教2"] : string.Empty;
-													row["調教3"] = oik != null ? oik["調教3"] : string.Empty;
-													row["調教4"] = oik != null ? oik["調教4"] : string.Empty;
-													row["調教5"] = oik != null ? oik["調教5"] : string.Empty;
-													row["調教強さ"] = oik != null ? oik["調教強さ"] : string.Empty;
-													row["一言"] = oik != null ? oik["一言"] : string.Empty;
-													row["追切"] = oik != null ? oik["追切"] : string.Empty;
+													row["追切場所"] = oik != null ? oik["追切場所"] : string.Empty;
+													row["追切馬場"] = oik != null ? oik["追切馬場"] : string.Empty;
+													row["追切騎手"] = oik != null ? oik["追切騎手"] : string.Empty;
+													row["追切時間1"] = oik != null ? oik["追切時間1"] : string.Empty;
+													row["追切時間2"] = oik != null ? oik["追切時間2"] : string.Empty;
+													row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
+													row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
+													row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
+													row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
+													row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
+													row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
 												});
 											}
 										});

@@ -106,8 +106,8 @@ namespace Netkeiba
 					dic["ﾀｲﾑ"] = row.Cells[7].GetInnerHtml();
 					// 着差
 					dic["着差"] = row.Cells[8].GetInnerHtml();
-					//// ﾀｲﾑ指数(有料)
-					dic["ﾀｲﾑ指数"] = row.Cells[9].GetInnerHtml();
+					// ﾀｲﾑ指数(有料)
+					dic["ﾀｲﾑ指数"] = row.Cells[9].GetInnerHtml().Replace("\n", "");
 					// 通過
 					dic["通過"] = row.Cells[10].GetInnerHtml();
 					// 上り
@@ -120,12 +120,12 @@ namespace Netkeiba
 					dic["体重"] = row.Cells[14].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
 					// 増減 TODO 軽量不能時はｾﾞﾛ
 					dic["増減"] = row.Cells[14].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
-					// 調教ﾀｲﾑ(有料)
-					dic["調教ﾀｲﾑ"] = row.Cells[15].GetInnerHtml();
-					// 厩舎ｺﾒﾝﾄ(有料)
-					dic["厩舎ｺﾒﾝﾄ"] = row.Cells[16].GetInnerHtml();
+					//// 調教ﾀｲﾑ(有料)
+					//dic["調教ﾀｲﾑ"] = row.Cells[15].GetInnerHtml();
+					//// 厩舎ｺﾒﾝﾄ(有料)
+					//dic["厩舎ｺﾒﾝﾄ"] = row.Cells[16].GetInnerHtml();
 					// 備考(有料)
-					dic["備考"] = row.Cells[17].GetInnerHtml();
+					dic["備考"] = row.Cells[17].GetInnerHtml().Replace("\n", "");
 					// 調教場所
 					dic["調教場所"] = row.Cells[18].GetInnerHtml().Split('[')[1].Split(']')[0];
 					// 調教師名
@@ -140,8 +140,17 @@ namespace Netkeiba
 					dic["賞金"] = $"{row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle()}";
 
 					// 追切情報の枠だけ用意する
-					dic["一言"] = string.Empty;
-					dic["追切"] = string.Empty;
+					dic["追切場所"] = string.Empty;
+					dic["追切馬場"] = string.Empty;
+					dic["追切騎手"] = string.Empty;
+					dic["追切時間1"] = string.Empty;
+					dic["追切時間2"] = string.Empty;
+					dic["追切時間3"] = string.Empty;
+					dic["追切時間4"] = string.Empty;
+					dic["追切時間5"] = string.Empty;
+					dic["追切強さ"] = string.Empty;
+					dic["追切一言"] = string.Empty;
+					dic["追切評価"] = string.Empty;
 
 					arr.Add(dic);
 				}
@@ -178,24 +187,25 @@ namespace Netkeiba
 						dic["枠番"] = row.Cells[0].GetInnerHtml();
 						// 馬番
 						dic["馬番"] = row.Cells[1].GetInnerHtml();
-						// 調教場所
-						dic["調教場所"] = row.Cells[5].GetInnerHtml();
-						// 調教騎手
-						dic["調教馬場"] = row.Cells[6].GetInnerHtml();
-						// 調教騎手
-						dic["調教騎手"] = row.Cells[7].GetInnerHtml();
+						// 追切場所
+						dic["追切場所"] = row.Cells[5].GetInnerHtml();
+						// 追切馬場
+						dic["追切馬場"] = row.Cells[6].GetInnerHtml();
+						// 追切騎手
+						dic["追切騎手"] = row.Cells[7].GetInnerHtml();
 						var li = row.Cells[8].GetElementsByTagName("li").Select(x => x.InnerHtml.Split('<')[0]).ToArray();
-						dic["調教1"] = li[0];
-						dic["調教2"] = li[1];
-						dic["調教3"] = li[2];
-						dic["調教4"] = li[3];
-						dic["調教5"] = li[4];
-						// 調教騎手
-						dic["調教強さ"] = row.Cells[10].GetInnerHtml();
-						// 一言
-						dic["一言"] = row.Cells[11].GetInnerHtml();
-						// 評価
-						dic["追切"] = row.Cells[12].GetInnerHtml();
+						// 追切時間
+						dic["追切時間1"] = li[0];
+						dic["追切時間2"] = li[1];
+						dic["追切時間3"] = li[2];
+						dic["追切時間4"] = li[3];
+						dic["追切時間5"] = li[4];
+						// 追切強さ
+						dic["追切強さ"] = row.Cells[10].GetInnerHtml();
+						// 追切一言
+						dic["追切一言"] = row.Cells[11].GetInnerHtml();
+						// 追切評価
+						dic["追切評価"] = row.Cells[12].GetInnerHtml();
 
 						arr.Add(dic);
 					}
@@ -302,6 +312,8 @@ namespace Netkeiba
 					dic["ﾀｲﾑ"] = "0:00.0";
 					// 着差(なし)
 					dic["着差"] = "0";
+					// ﾀｲﾑ指数(有料)
+					dic["ﾀｲﾑ指数"] = "0";
 					// 通過(なし)
 					dic["通過"] = "0";
 					// 上り(なし)
@@ -314,6 +326,8 @@ namespace Netkeiba
 					dic["体重"] = row.Cells[8].GetInnerHtml().Split('<')[0].Replace("\r\n", "").Trim();
 					// 増減
 					dic["増減"] = row.Cells[8].GetElementsByTagName("small").Select(x => Regex.Match(x.GetInnerHtml(), @"\((?<x>.+)\)").Groups["x"].Value).FirstOrDefault() ?? "0";
+					// 備考(有料)
+					dic["備考"] = "";
 					// 調教場所
 					dic["調教場所"] = row.Cells[7].GetElementsByTagName("span").First().GetInnerHtml() == "栗東" ? "西" : "東";
 					// 調教師名
@@ -328,8 +342,17 @@ namespace Netkeiba
 					dic["賞金"] = "0";
 
 					// 追切情報の枠だけ用意する
-					dic["一言"] = string.Empty;
-					dic["追切"] = string.Empty;
+					dic["追切場所"] = string.Empty;
+					dic["追切馬場"] = string.Empty;
+					dic["追切騎手"] = string.Empty;
+					dic["追切時間1"] = string.Empty;
+					dic["追切時間2"] = string.Empty;
+					dic["追切時間3"] = string.Empty;
+					dic["追切時間4"] = string.Empty;
+					dic["追切時間5"] = string.Empty;
+					dic["追切強さ"] = string.Empty;
+					dic["追切一言"] = string.Empty;
+					dic["追切評価"] = string.Empty;
 
 					arr.Add(dic);
 				}
