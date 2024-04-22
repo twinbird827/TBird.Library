@@ -77,6 +77,15 @@
 			</DockPanel>
 		</GroupBox>
 
+		<GroupBox DockPanel.Dock="Top" Header="Netkeiba">
+			<UniformGrid Columns="4">
+				<TextBlock Text="Login Id" />
+				<TextBox Text="{Binding NetkeibaId}" />
+				<TextBlock Text="Password" />
+				<TextBox Text="{Binding NetkeibaPassword}" />
+			</UniformGrid>
+		</GroupBox>
+
 		<GroupBox DockPanel.Dock="Top" Header="Check">
 			<WrapPanel Orientation="Horizontal">
 				<CheckBox Content="UseFastForest"

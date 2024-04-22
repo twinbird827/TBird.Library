@@ -106,6 +106,8 @@ namespace Netkeiba
 				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.Correls = _correls;
 				AppSetting.Instance.Correl = Correl;
+				AppSetting.Instance.NetkeibaId = NetkeibaId;
+				AppSetting.Instance.NetkeibaPassword = NetkeibaPassword;
 				AppSetting.Instance.Save();
 
 				var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
@@ -230,6 +232,20 @@ namespace Netkeiba
 			set => SetProperty(ref _TrainingTimeSecond, value);
 		}
 		private string _TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond.GetString(",");
+
+		public string NetkeibaId
+		{
+			get => _NetkeibaId;
+			set => SetProperty(ref _NetkeibaId, value);
+		}
+		private string _NetkeibaId = AppSetting.Instance.NetkeibaId;
+
+		public string NetkeibaPassword
+		{
+			get => _NetkeibaPassword;
+			set => SetProperty(ref _NetkeibaPassword, value);
+		}
+		private string _NetkeibaPassword = AppSetting.Instance.NetkeibaPassword;
 
 		public BindableCollection<BinaryClassificationViewModel> BinaryClassificationResults { get; }
 		public BindableContextCollection<BinaryClassificationViewModel> BinaryClassificationResultViews { get; }

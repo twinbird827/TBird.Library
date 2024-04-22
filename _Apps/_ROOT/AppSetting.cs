@@ -198,5 +198,19 @@ namespace Netkeiba
 		}
 		private string _Correl = "0.025";
 
+		public string NetkeibaId
+		{
+			get => GetProperty(_NetkeibaId);
+			set => SetProperty(ref _NetkeibaId, value);
+		}
+		private string _NetkeibaId = string.Empty;
+
+		public string NetkeibaPassword
+		{
+			get => GetProperty(_NetkeibaPassword);
+			set => SetProperty(ref _NetkeibaPassword, value);
+		}
+		private string _NetkeibaPassword = string.Empty;
+
 	}
 }

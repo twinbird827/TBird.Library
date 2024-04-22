@@ -1,5 +1,6 @@
 ﻿using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
+using OpenQA.Selenium;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -62,12 +63,38 @@ namespace Netkeiba
 		{
 			using (await Locker.LockAsync(_guid))
 			{
+				var selenium = await TBirdSeleniumFactory.CreateSelenium(10);
+
+				selenium.SetInitialize(driver =>
+				{
+					using (selenium.GetPageWaiter())
+					{
+						driver.Url = @"https://regist.netkeiba.com/account/?pid=login";
+					}
+
+					driver.FindElement(By.Name("login_id")).SendKeys(AppSetting.Instance.NetkeibaId);
+					driver.FindElement(By.Name("pswd")).SendKeys(AppSetting.Instance.NetkeibaPassword);
+					driver.FindElement(By.XPath(@"//input[@alt='ログイン']")).Click();
+				});
+
 				MainViewModel.AddLog($"req: {url}");
-				var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+				return await selenium.Execute(driver =>
+				{
+					using (selenium.GetPageWaiter())
+					{
+						driver.Navigate().GoToUrl(url);
+					}
 
-				var doc = await _parser.ParseDocumentAsync(res);
+					var res = driver.PageSource;
 
-				return doc;
+					return _parser.ParseDocumentAsync(res);
+				}).RunAsync(async x => await x);
+
+				//var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+
+				//var doc = await _parser.ParseDocumentAsync(res);
+
+				//return doc;
 			}
 		}
 
