@@ -165,8 +165,15 @@ namespace TBird.Web
 		{
 			return new Disposer<TBirdSelenium>(sel, x =>
 			{
-				var wait = new WebDriverWait(sel._driver, TimeSpan.FromMilliseconds(10));
-				var until = wait.Until(e => e.FindElement(By.TagName(@"html")));
+				try
+				{
+					var wait = new WebDriverWait(sel._driver, TimeSpan.FromMilliseconds(10));
+					var until = wait.Until(e => e.FindElement(By.TagName(@"html")));
+				}
+				catch (Exception ex)
+				{
+					throw new ApplicationException("Page transition was not completed.", ex);
+				}
 			});
 		}
 	}
