@@ -198,6 +198,15 @@ namespace Netkeiba
 								row["着順"] = tya != null ? tya["着順"] : string.Empty;
 
 								var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+								row["調教場所"] = oik != null ? oik["調教場所"] : string.Empty;
+								row["調教馬場"] = oik != null ? oik["調教馬場"] : string.Empty;
+								row["調教騎手"] = oik != null ? oik["調教騎手"] : string.Empty;
+								row["調教1"] = oik != null ? oik["調教1"] : string.Empty;
+								row["調教2"] = oik != null ? oik["調教2"] : string.Empty;
+								row["調教3"] = oik != null ? oik["調教3"] : string.Empty;
+								row["調教4"] = oik != null ? oik["調教4"] : string.Empty;
+								row["調教5"] = oik != null ? oik["調教5"] : string.Empty;
+								row["調教強さ"] = oik != null ? oik["調教強さ"] : string.Empty;
 								row["一言"] = oik != null ? oik["一言"] : string.Empty;
 								row["追切"] = oik != null ? oik["追切"] : string.Empty;
 

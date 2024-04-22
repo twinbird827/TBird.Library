@@ -120,12 +120,12 @@ namespace Netkeiba
 					dic["体重"] = row.Cells[14].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
 					// 増減 TODO 軽量不能時はｾﾞﾛ
 					dic["増減"] = row.Cells[14].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
-					//// 調教ﾀｲﾑ(有料)
-					//dic["調教ﾀｲﾑ_有料"] = "**";
-					//// 厩舎ｺﾒﾝﾄ(有料)
-					//dic["厩舎ｺﾒﾝﾄ_有料"] = "**";
-					//// 備考(有料)
-					//dic["備考_有料"] = "**";
+					// 調教ﾀｲﾑ(有料)
+					dic["調教ﾀｲﾑ"] = row.Cells[15].GetInnerHtml();
+					// 厩舎ｺﾒﾝﾄ(有料)
+					dic["厩舎ｺﾒﾝﾄ"] = row.Cells[16].GetInnerHtml();
+					// 備考(有料)
+					dic["備考"] = row.Cells[17].GetInnerHtml();
 					// 調教場所
 					dic["調教場所"] = row.Cells[18].GetInnerHtml().Split('[')[1].Split(']')[0];
 					// 調教師名
@@ -163,7 +163,8 @@ namespace Netkeiba
 		{
 			var arr = new List<Dictionary<string, string>>();
 
-			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}";
+			//			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}";
+			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}&type=2&rf=shutuba_submenu";
 
 			using (var raceparser = await AppUtil.GetDocument(url))
 			{
@@ -177,10 +178,24 @@ namespace Netkeiba
 						dic["枠番"] = row.Cells[0].GetInnerHtml();
 						// 馬番
 						dic["馬番"] = row.Cells[1].GetInnerHtml();
+						// 調教場所
+						dic["調教場所"] = row.Cells[5].GetInnerHtml();
+						// 調教騎手
+						dic["調教馬場"] = row.Cells[6].GetInnerHtml();
+						// 調教騎手
+						dic["調教騎手"] = row.Cells[7].GetInnerHtml();
+						var li = row.Cells[8].GetElementsByTagName("li").Select(x => x.InnerHtml.Split('<')[0]).ToArray();
+						dic["調教1"] = li[0];
+						dic["調教2"] = li[1];
+						dic["調教3"] = li[2];
+						dic["調教4"] = li[3];
+						dic["調教5"] = li[4];
+						// 調教騎手
+						dic["調教強さ"] = row.Cells[10].GetInnerHtml();
 						// 一言
-						dic["一言"] = row.Cells[4].GetInnerHtml();
+						dic["一言"] = row.Cells[11].GetInnerHtml();
 						// 評価
-						dic["追切"] = row.Cells[5].GetInnerHtml();
+						dic["追切"] = row.Cells[12].GetInnerHtml();
 
 						arr.Add(dic);
 					}
