@@ -27,14 +27,18 @@ namespace TBird.Web
 		{
 			AddDisposed((sender, e) =>
 			{
-				if (_driver != null)
-				{
-					_driver.Quit();
-					_driver.Close();
-					_driver.Dispose();
-					_driver = null;
-				}
+				DriverDispose();
 			});
+		}
+
+		private void DriverDispose()
+		{
+			if (_driver != null)
+			{
+				_driver.Quit();
+				_driver.Dispose();
+				_driver = null;
+			}
 		}
 
 		/// <summary>
@@ -82,17 +86,33 @@ namespace TBird.Web
 			{
 				Executing = true;
 
-				if (_driver == null)
+				for (var i = 0; i < 5; i++)
 				{
-					_driver = CreateDriver(true);
-
-					if (_initialize != null)
+					try
 					{
-						_initialize(_driver);
+						if (_driver == null)
+						{
+							_driver = CreateDriver(true);
+
+							if (_initialize != null)
+							{
+								_initialize(_driver);
+							}
+						}
+
+						return func(_driver);
+					}
+					catch (Exception ex)
+					{
+						// ｴﾗｰﾒｯｾｰｼﾞ表示
+						MessageService.Debug(ex.ToString());
+						// ﾄﾞﾗｲﾊﾞｰﾘｾｯﾄ
+						DriverDispose();
+						// 5秒待機してﾘﾄﾗｲ
+						await Task.Delay(5000);
 					}
 				}
-
-				return func(_driver);
+				throw new WebDriverTimeoutException("The process was not completed despite retrying the specified number of times.");
 			}
 		}
 	}
