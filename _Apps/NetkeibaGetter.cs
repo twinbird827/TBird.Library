@@ -1,11 +1,16 @@
-﻿using AngleSharp.Html.Dom;
+﻿using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Transactions;
 using TBird.Core;
+using TBird.DB.SQLite;
+using Tensorflow.Keras.Layers;
+using static TorchSharp.torch.utils;
 
 namespace Netkeiba
 {
@@ -17,7 +22,7 @@ namespace Netkeiba
 
 			var raceurl = $"https://db.netkeiba.com/race/{raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(raceurl))
+			using (var raceparser = await AppUtil.GetDocument(true, raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("race_table_01 nk_tb_common").FirstOrDefault() as IHtmlTableElement;
 
@@ -175,7 +180,7 @@ namespace Netkeiba
 			//			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}";
 			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}&type=2&rf=shutuba_submenu";
 
-			using (var raceparser = await AppUtil.GetDocument(url))
+			using (var raceparser = await AppUtil.GetDocument(true, url))
 			{
 				if (raceparser.GetElementById("All_Oikiri_Table") is IHtmlTableElement table)
 				{
@@ -221,7 +226,7 @@ namespace Netkeiba
 
 			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(raceurl))
+			using (var raceparser = await AppUtil.GetDocument(false, raceurl))
 			{
 				var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as IHtmlTableElement;
 
@@ -365,7 +370,7 @@ namespace Netkeiba
 		{
 			var dic = new Dictionary<string, string>();
 
-			using (var umaparser = await AppUtil.GetDocument($"https://db.netkeiba.com/horse/{umaid}/"))
+			using (var umaparser = await AppUtil.GetDocument(false, $"https://db.netkeiba.com/horse/{umaid}/"))
 			{
 				if (umaparser.GetElementsByClassName("db_prof_table no_OwnerUnit").FirstOrDefault() is IHtmlTableElement umatable1)
 				{
@@ -392,7 +397,7 @@ namespace Netkeiba
 
 			var url = $"https://race.netkeiba.com/race/result.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(url))
+			using (var raceparser = await AppUtil.GetDocument(false, url))
 			{
 				if (raceparser.GetElementsByClassName("RaceTable01 RaceCommon_Table ResultRefund Table_Show_All").FirstOrDefault() is IHtmlTableElement table)
 				{
@@ -421,7 +426,7 @@ namespace Netkeiba
 
 			var url = $"https://race.netkeiba.com/race/result.html?race_id={raceid}";
 
-			using (var raceparser = await AppUtil.GetDocument(url))
+			using (var raceparser = await AppUtil.GetDocument(false, url))
 			{
 				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "ワイド") is IHtmlTableElement table1)
 				{
@@ -472,5 +477,93 @@ namespace Netkeiba
 				.GetString(";");
 		}
 
+		private async IAsyncEnumerable<Dictionary<string, string>> GetKetto(string uma)
+		{
+			var url = $"https://db.netkeiba.com/horse/ped/{uma}/";
+
+			using (var ped = await AppUtil.GetDocument(false, url))
+			{
+				if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+				{
+					Func<IElement[], int, string> func = (tags, i) => tags
+						.Skip(i).Take(1)
+						.Select(x => x.GetHrefAttribute("href"))
+						.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/')[2] : string.Empty)
+						.FirstOrDefault() ?? string.Empty;
+					var rowspan16 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 16).ToArray();
+					var f = func(rowspan16, 0);
+					var m = func(rowspan16, 1);
+
+					yield return new Dictionary<string, string>()
+					{
+						{ "馬ID", uma },
+						{ "父ID", f },
+						{ "母ID", m }
+					};
+
+					var rowspan08 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 8).ToArray();
+					var ff = func(rowspan08, 0);
+					var fm = func(rowspan08, 1);
+
+					yield return new Dictionary<string, string>()
+					{
+						{ "馬ID", f },
+						{ "父ID", ff },
+						{ "母ID", fm }
+					};
+
+					var mf = func(rowspan08, 2);
+					var mm = func(rowspan08, 3);
+
+					yield return new Dictionary<string, string>()
+					{
+						{ "馬ID", m },
+						{ "父ID", mf },
+						{ "母ID", mm }
+					};
+				}
+			}
+		}
+
+		private async IAsyncEnumerable<Dictionary<string, object>> GetSanku(string uma)
+		{
+			var url = $"https://db.netkeiba.com/?pid=horse_sire&id={uma}&course=1&mode=1&type=0";
+
+			using (var ped = await AppUtil.GetDocument(false, url))
+			{
+				if (ped.GetElementsByClassName("nk_tb_common race_table_01").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+				{
+					foreach (var row in table.Rows.Skip(3))
+					{
+						var dic = new Dictionary<string, object>();
+
+						dic["馬ID"] = uma;
+						dic["年度"] = row.Cells[0].GetInnerHtml();
+						dic["順位"] = row.Cells[1].GetInnerHtml().GetSingle();
+						dic["出走頭数"] = row.Cells[2].GetInnerHtml().GetSingle();
+						dic["勝馬頭数"] = row.Cells[3].GetInnerHtml().GetSingle();
+						dic["出走回数"] = row.Cells[4].GetHrefInnerHtml().GetSingle();
+						dic["勝利回数"] = row.Cells[5].GetHrefInnerHtml().GetSingle();
+						dic["重出"] = row.Cells[6].GetHrefInnerHtml().GetSingle();
+						dic["重勝"] = row.Cells[7].GetHrefInnerHtml().GetSingle();
+						dic["特出"] = row.Cells[8].GetHrefInnerHtml().GetSingle();
+						dic["特勝"] = row.Cells[9].GetHrefInnerHtml().GetSingle();
+						dic["平出"] = row.Cells[10].GetHrefInnerHtml().GetSingle();
+						dic["平勝"] = row.Cells[11].GetHrefInnerHtml().GetSingle();
+						dic["芝出"] = row.Cells[12].GetHrefInnerHtml().GetSingle();
+						dic["芝勝"] = row.Cells[13].GetHrefInnerHtml().GetSingle();
+						dic["ダ出"] = row.Cells[14].GetHrefInnerHtml().GetSingle();
+						dic["ダ勝"] = row.Cells[15].GetHrefInnerHtml().GetSingle();
+						dic["EI"] = row.Cells[17].GetInnerHtml().GetSingle();
+						dic["賞金"] = row.Cells[18].GetInnerHtml().Replace(",", "").GetSingle();
+						dic["芝距"] = row.Cells[19].GetInnerHtml().Replace(",", "").GetSingle();
+						dic["ダ距"] = row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle();
+
+						yield return dic;
+					}
+				}
+			}
+
+		}
 	}
 }

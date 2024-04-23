@@ -59,11 +59,12 @@ namespace Netkeiba
 			}
 		}
 
-		public static async Task<IHtmlDocument> GetDocument(string url)
+		public static async Task<IHtmlDocument> GetDocument(bool login, string url)
 		{
-			using (await Locker.LockAsync(_guid))
+			//using (await Locker.LockAsync(_guid))
+			if (login)
 			{
-				var selenium = await TBirdSeleniumFactory.CreateSelenium(10);
+				var selenium = await TBirdSeleniumFactory.CreateSelenium(_pararell);
 
 				selenium.SetInitialize(driver =>
 				{
@@ -89,16 +90,22 @@ namespace Netkeiba
 
 					return _parser.ParseDocumentAsync(res);
 				}).RunAsync(async x => await x);
+			}
+			else
+			{
+				using (await Locker.LockAsync(_guid, _pararell))
+				{
+					var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
 
-				//var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+					var doc = await _parser.ParseDocumentAsync(res);
 
-				//var doc = await _parser.ParseDocumentAsync(res);
-
-				//return doc;
+					return doc;
+				}
 			}
 		}
 
 		private static string _guid = Guid.NewGuid().ToString();
+		private static int _pararell = 3;
 
 		private static HtmlParser _parser = new HtmlParser();
 		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");

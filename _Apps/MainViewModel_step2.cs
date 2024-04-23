@@ -3,6 +3,7 @@ using AngleSharp.Text;
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -53,13 +54,8 @@ namespace Netkeiba
 				// 血統情報の作成
 				await RefreshKetto(conn);
 
-				// ﾃｰﾌﾞﾙ作成
-				await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
-					"PRIMARY KEY (馬ID,年度))").GetString(" ")
-				);
-
 				// 産駒成績の更新
-				await RefreshSanku(conn, true, await conn.GetRows(r => r.Get<string>(0), "SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_sanku)"));
+				await RefreshSanku(conn);
 
 				// ﾚｰｽ情報の初期化
 				await InitializeModelBase(conn);
@@ -482,10 +478,14 @@ namespace Netkeiba
 
 		private async Task RefreshKetto(SQLiteControl conn)
 		{
-			// ﾃｰﾌﾞﾙ作成
-			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID,父ID,母ID, PRIMARY KEY (馬ID))");
+			var keys = await conn.ExistsColumn("t_ketto", "馬ID").RunAsync(exists =>
+			{
+				return exists
+					? "SELECT DISTINCT 馬ID FROM t_orig WHERE NOT EXISTS (SELECT * FROM t_ketto WHERE t_orig.馬ID = t_ketto.馬ID)"
+					: "SELECT DISTINCT 馬ID FROM t_orig";
+			}).RunAsync(async sql => await conn.GetRows(r => r.Get<string>(0), sql));
 
-			await RefreshKetto(conn, await conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT 馬ID FROM t_orig WHERE 馬ID NOT IN (SELECT 馬ID FROM t_ketto)"));
+			await RefreshKetto(conn, keys);
 		}
 
 		private async Task RefreshKetto(SQLiteControl conn, IEnumerable<string> keys)
@@ -493,130 +493,235 @@ namespace Netkeiba
 			// ﾃｰﾌﾞﾙ作成
 			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID,父ID,母ID, PRIMARY KEY (馬ID))");
 
-			var count = 0;
-
-			await conn.BeginTransaction();
-			foreach (var key in keys)
-			{
-				var url = $"https://db.netkeiba.com/horse/ped/{key}/";
-
-				if (await conn.GetRow("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(System.Data.DbType.String, key)).RunAsync(x => x["CNT"].GetInt32() > 0))
+			var kettolocker = Locker.GetNewLockKey();
+			var newkeys = await keys.Select(x => $"SELECT {x} 馬ID").GetString(" UNION ALL ")
+				.Run(sql =>
 				{
-					continue;
-				}
-
-				using (var ped = await AppUtil.GetDocument(url))
+					// 未登録のIDを抽出するSQLを作成する
+					return $"WITH w_ketto AS ({sql}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_ketto WHERE w_ketto.馬ID = t_ketto.馬ID)";
+				})
+				.Run(async sql =>
 				{
-					if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+					// 抽出した結果を返却する
+					return await conn.GetRows(r => r.Get<string>(0), sql);
+				})
+				.RunAsync(newkeys => newkeys.Select(async uma =>
+				{
+					using (await Locker.LockAsync(kettolocker, 3))
 					{
-						Func<IElement[], int, string> func = (tags, i) => tags
-							.Skip(i).Take(1)
-							.Select(x => x.GetHrefAttribute("href"))
-							.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/')[2] : string.Empty)
-							.FirstOrDefault() ?? string.Empty;
-						var rowspan16 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 16).ToArray();
-						var f = func(rowspan16, 0);
-						var m = func(rowspan16, 1);
+						// 並列数=3でﾃﾞｰﾀ取得
+						return GetKetto(uma);
+					}
+				}));
 
+			foreach (var chunk in newkeys.Chunk(100))
+			{
+				await conn.BeginTransaction();
+				foreach (var ketto in chunk)
+				{
+					await foreach (var dic in await ketto)
+					{
 						await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-							SQLiteUtil.CreateParameter(System.Data.DbType.String, key),
-							SQLiteUtil.CreateParameter(System.Data.DbType.String, f),
-							SQLiteUtil.CreateParameter(System.Data.DbType.String, m)
+							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["馬ID"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["父ID"]),
+							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["母ID"])
 						);
-
-						var rowspan08 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 8).ToArray();
-						var ff = func(rowspan08, 0);
-						var fm = func(rowspan08, 1);
-						var mf = func(rowspan08, 2);
-						var mm = func(rowspan08, 3);
-
-						if (!string.IsNullOrEmpty(f))
-						{
-							await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, f),
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, ff),
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, fm)
-							);
-						}
-
-						if (!string.IsNullOrEmpty(m))
-						{
-							await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, m),
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, mf),
-								SQLiteUtil.CreateParameter(System.Data.DbType.String, mm)
-							);
-						}
-
-						if (1000 < count++)
-						{
-							count = 0;
-							conn.Commit();
-							await conn.BeginTransaction();
-						}
 					}
 				}
+				conn.Commit();
 			}
-			conn.Commit();
+			//var count = 0;
+
+			//await conn.BeginTransaction();
+			//foreach (var key in keys)
+			//{
+			//	if (await conn.GetRow("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(System.Data.DbType.String, key)).RunAsync(x => x["CNT"].GetInt32() > 0))
+			//	{
+			//		continue;
+			//	}
+
+			//	using (var ped = await AppUtil.GetDocument(false, url))
+			//	{
+			//		if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+			//		{
+			//			Func<IElement[], int, string> func = (tags, i) => tags
+			//				.Skip(i).Take(1)
+			//				.Select(x => x.GetHrefAttribute("href"))
+			//				.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/')[2] : string.Empty)
+			//				.FirstOrDefault() ?? string.Empty;
+			//			var rowspan16 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 16).ToArray();
+			//			var f = func(rowspan16, 0);
+			//			var m = func(rowspan16, 1);
+
+			//			await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
+			//				SQLiteUtil.CreateParameter(System.Data.DbType.String, key),
+			//				SQLiteUtil.CreateParameter(System.Data.DbType.String, f),
+			//				SQLiteUtil.CreateParameter(System.Data.DbType.String, m)
+			//			);
+
+			//			var rowspan08 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 8).ToArray();
+			//			var ff = func(rowspan08, 0);
+			//			var fm = func(rowspan08, 1);
+			//			var mf = func(rowspan08, 2);
+			//			var mm = func(rowspan08, 3);
+
+			//			if (!string.IsNullOrEmpty(f))
+			//			{
+			//				await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
+			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, f),
+			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, ff),
+			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, fm)
+			//				);
+			//			}
+
+			//			if (!string.IsNullOrEmpty(m))
+			//			{
+			//				await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
+			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, m),
+			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, mf),
+			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, mm)
+			//				);
+			//			}
+
+			//			if (1000 < count++)
+			//			{
+			//				count = 0;
+			//				conn.Commit();
+			//				await conn.BeginTransaction();
+			//			}
+			//		}
+			//	}
+			//}
+			//conn.Commit();
 		}
 
-		private async Task RefreshSanku(SQLiteControl conn, bool transaction, IEnumerable<string> keys)
+		private async Task RefreshSanku(SQLiteControl conn)
 		{
-			var sql = Arr(
-				$"WITH w_ketto AS (SELECT 父ID,母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
-				$"SELECT DISTINCT 父ID FROM w_ketto",
-				transaction ? "WHERE 父ID NOT IN (SELECT 馬ID FROM t_sanku)" : string.Empty,
-				$"UNION",
-				$"SELECT DISTINCT 父ID FROM t_ketto WHERE 馬ID IN (SELECT 母ID FROM w_ketto)",
-				transaction ? "AND 父ID NOT IN (SELECT 馬ID FROM t_sanku)" : string.Empty
-			).GetString(" ");
-
-			using (var fathers = await conn.ExecuteReaderAsync(sql))
+			var keys = await conn.ExistsColumn("t_sanku", "馬ID").RunAsync(exists =>
 			{
-				foreach (var data in await conn.GetRows(x => x.Get<string>(0), sql))
+				var sqlbase = "SELECT DISTINCT 馬ID FROM t_ketto";
+
+				return exists
+					? $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_sanku WHERE t_ketto.馬ID = t_sanku.馬ID)"
+					: $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto";
+			}).RunAsync(async sql => await conn.GetRows(r => r.Get<string>(0), sql));
+
+			await RefreshSanku(conn, keys);
+		}
+
+		private async Task RefreshSanku(SQLiteControl conn, IEnumerable<string> keys)
+		{
+			var newkeys = await conn.ExistsColumn("t_sanku", "馬ID").RunAsync(async exists =>
+			{
+				var sql = Arr(
+					$"WITH w_ketto AS (SELECT 父ID, 母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
+					$"SELECT DISTINCT 父ID FROM w_ketto WHERE 父ID NOT IN (SELECT 馬ID FROM t_sanku)",
+					$"UNION",
+					$"SELECT DISTINCT 父ID FROM t_ketto WHERE 馬ID IN (SELECT 母ID FROM w_ketto) AND 父ID NOT IN (SELECT 馬ID FROM t_sanku)"
+				).GetString(" ");
+
+				return exists
+					? await conn.GetRows(r => r.Get<string>(0), sql)
+					: keys;
+			});
+
+			var sankulocker = Locker.GetNewLockKey();
+			var sankuarrs = keys.Select(async uma =>
+			{
+				using (await Locker.LockAsync(sankulocker, 3))
 				{
-					var url = $"https://db.netkeiba.com/?pid=horse_sire&id={data}&course=1&mode=1&type=0";
+					// 並列数=3でﾃﾞｰﾀ取得
+					return GetSanku(uma);
+				}
+			});
 
-					using (var ped = await AppUtil.GetDocument(url))
+			var create = false;
+			foreach (var chunk in sankuarrs.Chunk(100))
+			{
+				if (create) await conn.BeginTransaction();
+				foreach (var ketto in chunk)
+				{
+					await foreach (var dic in await ketto)
 					{
-						if (ped.GetElementsByClassName("nk_tb_common race_table_01").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+						if (!create)
 						{
-							if (transaction) await conn.BeginTransaction();
-							foreach (var row in table.Rows.Skip(3))
-							{
-								var dic = new Dictionary<string, object>();
+							create = true;
 
-								dic["馬ID"] = data;
-								dic["年度"] = row.Cells[0].GetInnerHtml();
-								dic["順位"] = row.Cells[1].GetInnerHtml().GetSingle();
-								dic["出走頭数"] = row.Cells[2].GetInnerHtml().GetSingle();
-								dic["勝馬頭数"] = row.Cells[3].GetInnerHtml().GetSingle();
-								dic["出走回数"] = row.Cells[4].GetHrefInnerHtml().GetSingle();
-								dic["勝利回数"] = row.Cells[5].GetHrefInnerHtml().GetSingle();
-								dic["重出"] = row.Cells[6].GetHrefInnerHtml().GetSingle();
-								dic["重勝"] = row.Cells[7].GetHrefInnerHtml().GetSingle();
-								dic["特出"] = row.Cells[8].GetHrefInnerHtml().GetSingle();
-								dic["特勝"] = row.Cells[9].GetHrefInnerHtml().GetSingle();
-								dic["平出"] = row.Cells[10].GetHrefInnerHtml().GetSingle();
-								dic["平勝"] = row.Cells[11].GetHrefInnerHtml().GetSingle();
-								dic["芝出"] = row.Cells[12].GetHrefInnerHtml().GetSingle();
-								dic["芝勝"] = row.Cells[13].GetHrefInnerHtml().GetSingle();
-								dic["ダ出"] = row.Cells[14].GetHrefInnerHtml().GetSingle();
-								dic["ダ勝"] = row.Cells[15].GetHrefInnerHtml().GetSingle();
-								dic["EI"] = row.Cells[17].GetInnerHtml().GetSingle();
-								dic["賞金"] = row.Cells[18].GetInnerHtml().Replace(",", "").GetSingle();
-								dic["芝距"] = row.Cells[19].GetInnerHtml().Replace(",", "").GetSingle();
-								dic["ダ距"] = row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle();
+							// ﾃｰﾌﾞﾙ作成
+							await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
+								"PRIMARY KEY (馬ID,年度))").GetString(" ")
+							);
 
-								await conn.ExecuteNonQueryAsync($"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Count).GetString(",")})",
-									dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? System.Data.DbType.String : System.Data.DbType.Single, x)).ToArray()
-								);
-							}
-							if (transaction) conn.Commit();
+							await conn.ExecuteNonQueryAsync(Arr(
+								"CREATE TABLE IF NOT EXISTS t_sanku (",
+								dic.Keys.Select(x => Arr("馬ID", "年度").Contains(x) ? x : $"{x} REAL").GetString(","),
+								",PRIMARY KEY (馬ID,年度))").GetString(" "));
+
+							await conn.BeginTransaction();
 						}
+
+						await conn.ExecuteNonQueryAsync(
+							$"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Keys.Count)})",
+							dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? DbType.String : DbType.Single, x)).ToArray()
+						);
 					}
 				}
+				conn.Commit();
 			}
+
+			//var sql = Arr(
+			//	$"WITH w_ketto AS (SELECT 父ID, 母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
+			//	$"SELECT DISTINCT 父ID FROM w_ketto WHERE 父ID NOT IN (SELECT 馬ID FROM t_sanku)",
+			//	$"UNION",
+			//	$"SELECT DISTINCT 父ID FROM t_ketto WHERE 馬ID IN (SELECT 母ID FROM w_ketto) AND 父ID NOT IN (SELECT 馬ID FROM t_sanku)"
+			//).GetString(" ");
+
+			//using (var fathers = await conn.ExecuteReaderAsync(sql))
+			//{
+			//	foreach (var data in await conn.GetRows(x => x.Get<string>(0), sql))
+			//	{
+			//		var url = $"https://db.netkeiba.com/?pid=horse_sire&id={data}&course=1&mode=1&type=0";
+
+			//		using (var ped = await AppUtil.GetDocument(false, url))
+			//		{
+			//			if (ped.GetElementsByClassName("nk_tb_common race_table_01").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+			//			{
+			//				if (transaction) await conn.BeginTransaction();
+			//				foreach (var row in table.Rows.Skip(3))
+			//				{
+			//					var dic = new Dictionary<string, object>();
+
+			//					dic["馬ID"] = data;
+			//					dic["年度"] = row.Cells[0].GetInnerHtml();
+			//					dic["順位"] = row.Cells[1].GetInnerHtml().GetSingle();
+			//					dic["出走頭数"] = row.Cells[2].GetInnerHtml().GetSingle();
+			//					dic["勝馬頭数"] = row.Cells[3].GetInnerHtml().GetSingle();
+			//					dic["出走回数"] = row.Cells[4].GetHrefInnerHtml().GetSingle();
+			//					dic["勝利回数"] = row.Cells[5].GetHrefInnerHtml().GetSingle();
+			//					dic["重出"] = row.Cells[6].GetHrefInnerHtml().GetSingle();
+			//					dic["重勝"] = row.Cells[7].GetHrefInnerHtml().GetSingle();
+			//					dic["特出"] = row.Cells[8].GetHrefInnerHtml().GetSingle();
+			//					dic["特勝"] = row.Cells[9].GetHrefInnerHtml().GetSingle();
+			//					dic["平出"] = row.Cells[10].GetHrefInnerHtml().GetSingle();
+			//					dic["平勝"] = row.Cells[11].GetHrefInnerHtml().GetSingle();
+			//					dic["芝出"] = row.Cells[12].GetHrefInnerHtml().GetSingle();
+			//					dic["芝勝"] = row.Cells[13].GetHrefInnerHtml().GetSingle();
+			//					dic["ダ出"] = row.Cells[14].GetHrefInnerHtml().GetSingle();
+			//					dic["ダ勝"] = row.Cells[15].GetHrefInnerHtml().GetSingle();
+			//					dic["EI"] = row.Cells[17].GetInnerHtml().GetSingle();
+			//					dic["賞金"] = row.Cells[18].GetInnerHtml().Replace(",", "").GetSingle();
+			//					dic["芝距"] = row.Cells[19].GetInnerHtml().Replace(",", "").GetSingle();
+			//					dic["ダ距"] = row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle();
+
+			//					await conn.ExecuteNonQueryAsync($"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Count).GetString(",")})",
+			//						dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? System.Data.DbType.String : System.Data.DbType.Single, x)).ToArray()
+			//					);
+			//				}
+			//				if (transaction) conn.Commit();
+			//			}
+			//		}
+			//	}
+			//}
 		}
 
 		private const float 着順RANK1 = 9.00F;
