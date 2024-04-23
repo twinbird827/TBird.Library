@@ -64,7 +64,7 @@ namespace Netkeiba
 			//using (await Locker.LockAsync(_guid))
 			if (login)
 			{
-				var selenium = await TBirdSeleniumFactory.CreateSelenium(_pararell);
+				var selenium = await TBirdSeleniumFactory.CreateSelenium(1);
 
 				selenium.SetInitialize(driver =>
 				{
@@ -89,6 +89,8 @@ namespace Netkeiba
 			{
 				using (await Locker.LockAsync(_guid, _pararell))
 				{
+					MainViewModel.AddLog($"req: {url}");
+
 					var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
 
 					var doc = await _parser.ParseDocumentAsync(res);

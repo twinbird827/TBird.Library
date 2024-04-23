@@ -114,6 +114,7 @@ namespace Netkeiba
 		});
 		private Dictionary<string, float> DEF;
 		private Dictionary<long, float> TOU;
+		private Dictionary<object, Dictionary<string, float>> OIK;
 
 		private async Task InitializeModelBase(SQLiteControl conn)
 		{
@@ -168,6 +169,26 @@ namespace Netkeiba
 				$"    AVG((芝距+ダ距)/2) 場距",
 				$"FROM t_sanku"
 			).GetString(" ")));
+
+			OIK = await conn.GetRows(Arr(
+				$"SELECT",
+				$"    追切場所,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間1 AS REAL) = 0 THEN NULL ELSE 追切時間1 END), 0) 追切時間1,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間2 AS REAL) = 0 THEN NULL ELSE 追切時間2 END), 0) 追切時間2,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間3 AS REAL) = 0 THEN NULL ELSE 追切時間3 END), 0) 追切時間3,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間4 AS REAL) = 0 THEN NULL ELSE 追切時間4 END), 0) 追切時間4,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間5 AS REAL) = 0 THEN NULL ELSE 追切時間5 END), 0) 追切時間5",
+				$"FROM",
+				$"    t_orig",
+				$"GROUP BY",
+				$"    追切場所"
+			).GetString(" ")).RunAsync(val =>
+			{
+				return val.ToDictionary(
+					x => x["追切場所"],
+					x => x.Where(x => x.Key != "追切場所").ToDictionary(y => y.Key, y => y.Value.GetSingle())
+				);
+			});
 		}
 
 		private float GetSingle(IEnumerable<float> arr, float def, Func<IEnumerable<float>, float> func)
@@ -279,6 +300,21 @@ namespace Netkeiba
 			馬情報.ForEach((arr, i) => dic[$"賞金平{i}"] = Median(arr, "賞金"));
 
 			馬情報.ForEach((arr, i) => dic[$"単勝平{i}"] = Median(arr, "単勝"));
+
+			馬情報.ForEach((arr, i) => dic[$"ﾀｲﾑ指数平{i}"] = Median(arr, "ﾀｲﾑ指数"));
+
+			馬情報.ForEach((arr, i) =>
+			{
+				Arr("追切時間1", "追切時間2", "追切時間3", "追切時間4", "追切時間5").ForEach(oik =>
+				{
+					dic[$"{oik}平{i}"] = Median(arr.Select(tmp =>
+					{
+						var avg = OIK[tmp["追切場所"]][oik];
+						var val = tmp[oik].GetSingle();
+						return val - avg;
+					}), 0F);
+				});
+			});
 
 			dic["体重"] = Median(馬情報[0], "体重");
 			//dic["増減"] = src["増減"].GetDouble();
@@ -507,13 +543,9 @@ namespace Netkeiba
 			}).WhenAll().RunAsync(arr =>
 			{
 				return arr.Where(x => x != null);
-			}).RunAsync(arr => arr.Select(async uma =>
+			}).RunAsync(arr => arr.Select(uma =>
 			{
-				using (await Locker.LockAsync(kettolocker, 3))
-				{
-					// 並列数=3でﾃﾞｰﾀ取得
-					return GetKetto($"{uma}");
-				}
+				return GetKetto($"{uma}");
 			}));
 
 			foreach (var chunk in newkeys.Chunk(100))
@@ -521,7 +553,7 @@ namespace Netkeiba
 				await conn.BeginTransaction();
 				foreach (var ketto in chunk)
 				{
-					await foreach (var dic in await ketto)
+					await foreach (var dic in ketto)
 					{
 						await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
 							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["馬ID"]),
@@ -604,7 +636,7 @@ namespace Netkeiba
 				var sqlbase = "SELECT DISTINCT 馬ID FROM t_ketto";
 
 				return exists
-					? $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_sanku WHERE t_ketto.馬ID = t_sanku.馬ID)"
+					? $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_sanku WHERE w_ketto.馬ID = t_sanku.馬ID)"
 					: $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto";
 			}).RunAsync(async sql => await conn.GetRows(r => r.Get<string>(0), sql));
 
@@ -628,13 +660,9 @@ namespace Netkeiba
 			});
 
 			var sankulocker = Locker.GetNewLockKey();
-			var sankuarrs = keys.Select(async uma =>
+			var sankuarrs = keys.Select(uma =>
 			{
-				using (await Locker.LockAsync(sankulocker, 3))
-				{
-					// 並列数=3でﾃﾞｰﾀ取得
-					return GetSanku(uma);
-				}
+				return GetSanku(uma);
 			});
 
 			var create = false;
@@ -643,7 +671,7 @@ namespace Netkeiba
 				if (create) await conn.BeginTransaction();
 				foreach (var ketto in chunk)
 				{
-					await foreach (var dic in await ketto)
+					await foreach (var dic in ketto)
 					{
 						if (!create)
 						{
@@ -663,7 +691,7 @@ namespace Netkeiba
 						}
 
 						await conn.ExecuteNonQueryAsync(
-							$"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Keys.Count)})",
+							$"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Keys.Count).GetString(",")})",
 							dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? DbType.String : DbType.Single, x)).ToArray()
 						);
 					}
