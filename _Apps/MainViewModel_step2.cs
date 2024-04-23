@@ -491,28 +491,30 @@ namespace Netkeiba
 		private async Task RefreshKetto(SQLiteControl conn, IEnumerable<string> keys)
 		{
 			// ﾃｰﾌﾞﾙ作成
-			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID,父ID,母ID, PRIMARY KEY (馬ID))");
+			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID, 父ID, 母ID, PRIMARY KEY (馬ID))");
 
 			var kettolocker = Locker.GetNewLockKey();
-			var newkeys = await keys.Select(x => $"SELECT {x} 馬ID").GetString(" UNION ALL ")
-				.Run(sql =>
+			var newkeys = await keys.Select(async uma =>
+			{
+				if (await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, uma)) > 0)
 				{
-					// 未登録のIDを抽出するSQLを作成する
-					return $"WITH w_ketto AS ({sql}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_ketto WHERE w_ketto.馬ID = t_ketto.馬ID)";
-				})
-				.Run(async sql =>
+					return null;
+				}
+				else
 				{
-					// 抽出した結果を返却する
-					return await conn.GetRows(r => r.Get<string>(0), sql);
-				})
-				.RunAsync(newkeys => newkeys.Select(async uma =>
+					return uma;
+				}
+			}).WhenAll().RunAsync(arr =>
+			{
+				return arr.Where(x => x != null);
+			}).RunAsync(arr => arr.Select(async uma =>
+			{
+				using (await Locker.LockAsync(kettolocker, 3))
 				{
-					using (await Locker.LockAsync(kettolocker, 3))
-					{
-						// 並列数=3でﾃﾞｰﾀ取得
-						return GetKetto(uma);
-					}
-				}));
+					// 並列数=3でﾃﾞｰﾀ取得
+					return GetKetto($"{uma}");
+				}
+			}));
 
 			foreach (var chunk in newkeys.Chunk(100))
 			{
