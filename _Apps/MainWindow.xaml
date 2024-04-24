@@ -81,7 +81,7 @@
 
 					<TextBlock Text="日時" />
 
-					<TextBlock Text="開催場所" />
+					<!--<TextBlock Text="開催場所" />-->
 
 					<TextBlock Text="上書き" />
 				</UniformGrid>
