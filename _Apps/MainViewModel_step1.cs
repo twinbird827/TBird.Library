@@ -134,108 +134,6 @@ namespace Netkeiba
 					Progress.Value += 1;
 				}
 
-				//foreach (var y in years)
-				//{
-				//	foreach (var c in counts)
-				//	{
-				//		foreach (var d in days)
-				//		{
-				//			Progress.Value += 1;
-
-				//			foreach (var b in basyos)
-				//			{
-				//				foreach (var r in races)
-				//				{
-				//					// raceid = year + basyo + count + day + race
-				//					var raceid = $"{y}{b.Value}{c}{d}{r}";
-
-				//					if (await conn.ExistsColumn("t_orig", "ﾚｰｽID"))
-				//					{
-				//						var cnt = await conn.ExecuteScalarAsync(
-				//							$"SELECT COUNT(*) FROM t_orig WHERE ﾚｰｽID = ?",
-				//							SQLiteUtil.CreateParameter(DbType.String, raceid)
-				//						);
-				//						if (0 < cnt.GetDouble()) break;
-				//					}
-
-				//					try
-				//					{
-				//						var racearr = await GetRaceResults(raceid).RunAsync(async arr =>
-				//						{
-				//							if (arr.Count != 0)
-				//							{
-				//								var oikiri = await GetOikiris(raceid);
-
-				//								arr.ForEach(row =>
-				//								{
-				//									var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-				//									row["追切場所"] = oik != null ? oik["追切場所"] : string.Empty;
-				//									row["追切馬場"] = oik != null ? oik["追切馬場"] : string.Empty;
-				//									row["追切騎手"] = oik != null ? oik["追切騎手"] : string.Empty;
-				//									row["追切時間1"] = oik != null ? oik["追切時間1"] : string.Empty;
-				//									row["追切時間2"] = oik != null ? oik["追切時間2"] : string.Empty;
-				//									row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
-				//									row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
-				//									row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
-				//									row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
-				//									row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
-				//									row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
-				//								});
-				//							}
-				//						});
-
-				//						if (racearr.Count == 0) break;
-
-				//						if (create)
-				//						{
-				//							create = false;
-
-				//							var integers = new[] { "開催日数", "着順" };
-				//							var keynames = racearr.First().Keys.Select(x => integers.Contains(x) ? $"{x} INTEGER" : $"{x} TEXT");
-				//							// ﾃｰﾌﾞﾙ作成
-				//							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_orig (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
-				//							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_shutuba (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
-
-				//							// ｲﾝﾃﾞｯｸｽ作成
-				//							var indexes = new Dictionary<string, string[]>()
-				//							{
-				//								{ "馬ID", new[] { "開催場所", "回り", "天候", "馬場", "馬場状態" } },
-				//								{ "騎手ID", new[] { "開催場所", "回り", "天候", "馬場", "馬場状態" } },
-				//								{ "調教師ID", new[] { "開催場所" } },
-				//								{ "馬主ID", new[] { "開催場所"} },
-				//							};
-				//							int index = 0;
-				//							foreach (var k in indexes)
-				//							{
-				//								await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順)");
-				//								foreach (var v in k.Value)
-				//								{
-				//									await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順, {v})");
-				//								}
-				//							}
-				//						}
-
-				//						await conn.BeginTransaction();
-				//						foreach (var x in racearr)
-				//						{
-				//							var sql = "INSERT INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
-				//							var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
-				//							await conn.ExecuteNonQueryAsync(sql, prm);
-				//						}
-				//						conn.Commit();
-
-				//						AddLog($"year: {y}, count: {c}, day:{d}, basyo:{b.Display}, race: {r}R, raceid: {raceid}");
-				//					}
-				//					catch (Exception ex)
-				//					{
-				//						MessageService.Exception(ex);
-				//					}
-				//				}
-				//			}
-				//		}
-				//	}
-				//}
-
 				// 血統情報の作成
 				await RefreshKetto(conn);
 
@@ -267,21 +165,7 @@ namespace Netkeiba
 				{
 					var oikiri = await GetOikiris(raceid);
 
-					arr.ForEach(row =>
-					{
-						var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-						row["追切場所"] = oik != null ? oik["追切場所"] : string.Empty;
-						row["追切馬場"] = oik != null ? oik["追切馬場"] : string.Empty;
-						row["追切騎手"] = oik != null ? oik["追切騎手"] : string.Empty;
-						row["追切時間1"] = oik != null ? oik["追切時間1"] : string.Empty;
-						row["追切時間2"] = oik != null ? oik["追切時間2"] : string.Empty;
-						row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
-						row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
-						row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
-						row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
-						row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
-						row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
-					});
+					arr.ForEach(row => SetOikiris(oikiri, row));
 				}
 			});
 		}

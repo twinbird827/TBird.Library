@@ -145,17 +145,7 @@ namespace Netkeiba
 					dic["賞金"] = $"{row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle()}";
 
 					// 追切情報の枠だけ用意する
-					dic["追切場所"] = string.Empty;
-					dic["追切馬場"] = string.Empty;
-					dic["追切騎手"] = string.Empty;
-					dic["追切時間1"] = string.Empty;
-					dic["追切時間2"] = string.Empty;
-					dic["追切時間3"] = string.Empty;
-					dic["追切時間4"] = string.Empty;
-					dic["追切時間5"] = string.Empty;
-					dic["追切強さ"] = string.Empty;
-					dic["追切一言"] = string.Empty;
-					dic["追切評価"] = string.Empty;
+					SetOikirisEmpty(dic);
 
 					arr.Add(dic);
 				}
@@ -218,6 +208,37 @@ namespace Netkeiba
 			}
 
 			return arr;
+		}
+
+		private void SetOikirisEmpty(Dictionary<string, string> dic)
+		{
+			dic["追切場所"] = string.Empty;
+			dic["追切馬場"] = string.Empty;
+			dic["追切騎手"] = string.Empty;
+			dic["追切時間1"] = string.Empty;
+			dic["追切時間2"] = string.Empty;
+			dic["追切時間3"] = string.Empty;
+			dic["追切時間4"] = string.Empty;
+			dic["追切時間5"] = string.Empty;
+			dic["追切強さ"] = string.Empty;
+			dic["追切一言"] = string.Empty;
+			dic["追切評価"] = string.Empty;
+		}
+
+		private void SetOikiris(List<Dictionary<string, string>> oikiri, Dictionary<string, string> row)
+		{
+			var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
+			row["追切場所"] = oik != null ? oik["追切場所"] : string.Empty;
+			row["追切馬場"] = oik != null ? oik["追切馬場"] : string.Empty;
+			row["追切騎手"] = oik != null ? oik["追切騎手"] : string.Empty;
+			row["追切時間1"] = oik != null ? oik["追切時間1"] : string.Empty;
+			row["追切時間2"] = oik != null ? oik["追切時間2"] : string.Empty;
+			row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
+			row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
+			row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
+			row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
+			row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
+			row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
 		}
 
 		private async Task<List<Dictionary<string, string>>> GetRaceShutubas(string raceid)
@@ -347,17 +368,7 @@ namespace Netkeiba
 					dic["賞金"] = "0";
 
 					// 追切情報の枠だけ用意する
-					dic["追切場所"] = string.Empty;
-					dic["追切馬場"] = string.Empty;
-					dic["追切騎手"] = string.Empty;
-					dic["追切時間1"] = string.Empty;
-					dic["追切時間2"] = string.Empty;
-					dic["追切時間3"] = string.Empty;
-					dic["追切時間4"] = string.Empty;
-					dic["追切時間5"] = string.Empty;
-					dic["追切強さ"] = string.Empty;
-					dic["追切一言"] = string.Empty;
-					dic["追切評価"] = string.Empty;
+					SetOikirisEmpty(dic);
 
 					arr.Add(dic);
 				}

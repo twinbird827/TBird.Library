@@ -457,11 +457,11 @@ namespace Netkeiba
 						$"    t_sanku.賞金 産賞金,",
 						$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差,",
 						$"    t_sanku.年度 年度",
-						$"FROM w_titi, t_sanku WHERE w_titi.父ID = t_sanku.馬ID AND CAST(t_sanku.年度 AS INTEGER) < {src["ﾚｰｽID"].ToString().Left(4)}"
+						$"FROM w_titi, t_sanku WHERE w_titi.父ID = t_sanku.馬ID AND CAST(t_sanku.年度 AS INTEGER) < {src["ﾚｰｽID"].Str().Left(4)}"
 					).GetString(" ")
 				).RunAsync(arr =>
 				{
-					return Arr(arr, arr.Where(x => x["年度"].GetInt64() > (src["ﾚｰｽID"].ToString().Left(4).GetInt64() - 4L)))
+					return Arr(arr, arr.Where(x => x["年度"].GetInt64() > (src["ﾚｰｽID"].Str().Left(4).GetInt64() - 4L)))
 						.SelectMany(lst => Enumerable.Range(1, 1).Select(i => arr.Where(x => x["LAYER"].GetInt32() <= i * 2).ToList()))
 						.ToArray();
 				});

@@ -199,18 +199,7 @@ namespace Netkeiba
 								var tya = tyaku.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
 								row["着順"] = tya != null ? tya["着順"] : string.Empty;
 
-								var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-								row["追切場所"] = oik != null ? oik["追切場所"] : string.Empty;
-								row["追切馬場"] = oik != null ? oik["追切馬場"] : string.Empty;
-								row["追切騎手"] = oik != null ? oik["追切騎手"] : string.Empty;
-								row["追切時間1"] = oik != null ? oik["追切時間1"] : string.Empty;
-								row["追切時間2"] = oik != null ? oik["追切時間2"] : string.Empty;
-								row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
-								row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
-								row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
-								row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
-								row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
-								row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
+								arr.ForEach(row => SetOikiris(oikiri, row));
 
 								var ban = await conn
 									.GetRows<string>("SELECT 馬主名, 馬主ID FROM t_orig WHERE 馬ID = ? LIMIT 1", SQLiteUtil.CreateParameter(DbType.String, row["馬ID"]))
