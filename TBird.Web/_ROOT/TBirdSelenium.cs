@@ -152,6 +152,15 @@ namespace TBird.Web
 				return _list.First(x => !x.Executing);
 			}
 		}
+
+		public static Disposer<object> GetDisposer()
+		{
+			return new Disposer<object>(new object(), _ =>
+			{
+				_list.ForEach(x => x.Dispose());
+				_list.Clear();
+			});
+		}
 	}
 
 	public static class TBirdSeleniumExtension
@@ -161,20 +170,26 @@ namespace TBird.Web
 		/// </summary>
 		/// <param name="sel">ﾌﾞﾗｳｻﾞ操作ｲﾝｽﾀﾝｽ</param>
 		/// <returns></returns>
-		public static Disposer<TBirdSelenium> GetPageWaiter(this TBirdSelenium sel)
+		public static void GoToUrl(this TBirdSelenium sel, string url)
 		{
-			return new Disposer<TBirdSelenium>(sel, x =>
+			for (var i = 0; i < 5; i++)
 			{
-				try
+				sel._driver.Navigate().GoToUrl(url);
+				var wait = new WebDriverWait(sel._driver, TimeSpan.FromMilliseconds(10));
+				var until = wait.Until(e =>
 				{
-					var wait = new WebDriverWait(sel._driver, TimeSpan.FromMilliseconds(10));
-					var until = wait.Until(e => e.FindElement(By.TagName(@"html")));
-				}
-				catch (Exception ex)
-				{
-					throw new ApplicationException("Page transition was not completed.", ex);
-				}
-			});
+					try
+					{
+						return e.FindElement(By.TagName(@"html"));
+					}
+					catch (Exception ex)
+					{
+						MessageService.Exception(ex);
+						return null;
+					}
+				});
+				if (until != null) return;
+			}
 		}
 	}
 }
