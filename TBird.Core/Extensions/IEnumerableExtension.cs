@@ -211,5 +211,15 @@ namespace TBird.Core
 		{
 			return (await array).Select(func);
 		}
+
+		public static async Task<IEnumerable<T>> WhereAsync<T>(this IEnumerable<T> array, Func<T, Task<bool>> func)
+		{
+			return await array
+				.Select(async x => await func(x) ? x : _dummy)
+				.WhenAll()
+				.RunAsync(x => x.OfType<T>());
+		}
+
+		private static object _dummy = new object();
 	}
 }
