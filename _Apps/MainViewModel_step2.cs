@@ -537,7 +537,11 @@ namespace Netkeiba
 			var newkeys = await keys.WhereAsync(async uma =>
 			{
 				return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, uma)) > 0;
-			});
+			}).RunAsync(arr => arr.ToArray());
+
+			Progress.Minimum = 0;
+			Progress.Maximum = newkeys.Length;
+			Progress.Value = 0;
 
 			foreach (var chunk in newkeys.Chunk(100))
 			{
@@ -555,72 +559,10 @@ namespace Netkeiba
 							);
 						}
 					}
+					Progress.Value += 1;
 				}
 				conn.Commit();
 			}
-			//var count = 0;
-
-			//await conn.BeginTransaction();
-			//foreach (var key in keys)
-			//{
-			//	if (await conn.GetRow("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(System.Data.DbType.String, key)).RunAsync(x => x["CNT"].GetInt32() > 0))
-			//	{
-			//		continue;
-			//	}
-
-			//	using (var ped = await AppUtil.GetDocument(false, url))
-			//	{
-			//		if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
-			//		{
-			//			Func<IElement[], int, string> func = (tags, i) => tags
-			//				.Skip(i).Take(1)
-			//				.Select(x => x.GetHrefAttribute("href"))
-			//				.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/')[2] : string.Empty)
-			//				.FirstOrDefault() ?? string.Empty;
-			//			var rowspan16 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 16).ToArray();
-			//			var f = func(rowspan16, 0);
-			//			var m = func(rowspan16, 1);
-
-			//			await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-			//				SQLiteUtil.CreateParameter(System.Data.DbType.String, key),
-			//				SQLiteUtil.CreateParameter(System.Data.DbType.String, f),
-			//				SQLiteUtil.CreateParameter(System.Data.DbType.String, m)
-			//			);
-
-			//			var rowspan08 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 8).ToArray();
-			//			var ff = func(rowspan08, 0);
-			//			var fm = func(rowspan08, 1);
-			//			var mf = func(rowspan08, 2);
-			//			var mm = func(rowspan08, 3);
-
-			//			if (!string.IsNullOrEmpty(f))
-			//			{
-			//				await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, f),
-			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, ff),
-			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, fm)
-			//				);
-			//			}
-
-			//			if (!string.IsNullOrEmpty(m))
-			//			{
-			//				await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, m),
-			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, mf),
-			//					SQLiteUtil.CreateParameter(System.Data.DbType.String, mm)
-			//				);
-			//			}
-
-			//			if (1000 < count++)
-			//			{
-			//				count = 0;
-			//				conn.Commit();
-			//				await conn.BeginTransaction();
-			//			}
-			//		}
-			//	}
-			//}
-			//conn.Commit();
 		}
 
 		private async Task RefreshSanku(SQLiteControl conn)
@@ -651,15 +593,19 @@ namespace Netkeiba
 				return exists
 					? await conn.GetRows(r => r.Get<string>(0), sql)
 					: keys;
-			});
+			}).RunAsync(arr => arr.ToArray());
+
+			Progress.Minimum = 0;
+			Progress.Maximum = newkeys.Length;
+			Progress.Value = 0;
 
 			var create = false;
 			foreach (var chunk in newkeys.Chunk(100))
 			{
 				if (create) await conn.BeginTransaction();
-				foreach (var ketto in chunk.Select(uma => GetSanku(uma)))
+				foreach (var sanku in chunk.Select(uma => GetSanku(uma)))
 				{
-					await foreach (var dic in ketto)
+					await foreach (var dic in sanku)
 					{
 						if (!create)
 						{
@@ -683,63 +629,10 @@ namespace Netkeiba
 							dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? DbType.String : DbType.Single, x)).ToArray()
 						);
 					}
+					Progress.Value += 1;
 				}
 				conn.Commit();
 			}
-
-			//var sql = Arr(
-			//	$"WITH w_ketto AS (SELECT 父ID, 母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
-			//	$"SELECT DISTINCT 父ID FROM w_ketto WHERE 父ID NOT IN (SELECT 馬ID FROM t_sanku)",
-			//	$"UNION",
-			//	$"SELECT DISTINCT 父ID FROM t_ketto WHERE 馬ID IN (SELECT 母ID FROM w_ketto) AND 父ID NOT IN (SELECT 馬ID FROM t_sanku)"
-			//).GetString(" ");
-
-			//using (var fathers = await conn.ExecuteReaderAsync(sql))
-			//{
-			//	foreach (var data in await conn.GetRows(x => x.Get<string>(0), sql))
-			//	{
-			//		var url = $"https://db.netkeiba.com/?pid=horse_sire&id={data}&course=1&mode=1&type=0";
-
-			//		using (var ped = await AppUtil.GetDocument(false, url))
-			//		{
-			//			if (ped.GetElementsByClassName("nk_tb_common race_table_01").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
-			//			{
-			//				if (transaction) await conn.BeginTransaction();
-			//				foreach (var row in table.Rows.Skip(3))
-			//				{
-			//					var dic = new Dictionary<string, object>();
-
-			//					dic["馬ID"] = data;
-			//					dic["年度"] = row.Cells[0].GetInnerHtml();
-			//					dic["順位"] = row.Cells[1].GetInnerHtml().GetSingle();
-			//					dic["出走頭数"] = row.Cells[2].GetInnerHtml().GetSingle();
-			//					dic["勝馬頭数"] = row.Cells[3].GetInnerHtml().GetSingle();
-			//					dic["出走回数"] = row.Cells[4].GetHrefInnerHtml().GetSingle();
-			//					dic["勝利回数"] = row.Cells[5].GetHrefInnerHtml().GetSingle();
-			//					dic["重出"] = row.Cells[6].GetHrefInnerHtml().GetSingle();
-			//					dic["重勝"] = row.Cells[7].GetHrefInnerHtml().GetSingle();
-			//					dic["特出"] = row.Cells[8].GetHrefInnerHtml().GetSingle();
-			//					dic["特勝"] = row.Cells[9].GetHrefInnerHtml().GetSingle();
-			//					dic["平出"] = row.Cells[10].GetHrefInnerHtml().GetSingle();
-			//					dic["平勝"] = row.Cells[11].GetHrefInnerHtml().GetSingle();
-			//					dic["芝出"] = row.Cells[12].GetHrefInnerHtml().GetSingle();
-			//					dic["芝勝"] = row.Cells[13].GetHrefInnerHtml().GetSingle();
-			//					dic["ダ出"] = row.Cells[14].GetHrefInnerHtml().GetSingle();
-			//					dic["ダ勝"] = row.Cells[15].GetHrefInnerHtml().GetSingle();
-			//					dic["EI"] = row.Cells[17].GetInnerHtml().GetSingle();
-			//					dic["賞金"] = row.Cells[18].GetInnerHtml().Replace(",", "").GetSingle();
-			//					dic["芝距"] = row.Cells[19].GetInnerHtml().Replace(",", "").GetSingle();
-			//					dic["ダ距"] = row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle();
-
-			//					await conn.ExecuteNonQueryAsync($"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Count).GetString(",")})",
-			//						dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? System.Data.DbType.String : System.Data.DbType.Single, x)).ToArray()
-			//					);
-			//				}
-			//				if (transaction) conn.Commit();
-			//			}
-			//		}
-			//	}
-			//}
 		}
 
 		private const float 着順RANK1 = 9.00F;
