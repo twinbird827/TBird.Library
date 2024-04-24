@@ -315,16 +315,7 @@ namespace Netkeiba
 						var avg = OIK[tmp["追切場所"]][$"追切時間{j}"];
 						var ksh = $"{tmp[$"追切騎手"]}" == "助手" ? 0.9F : 1.0F;
 						var tsu = $"{tmp[$"追切強さ"]}" == "馬也" ? 0.9F : 1.0F;
-						var val = tmp[$"追切時間{j}"].GetSingle().Run(jik => jik == 0 ? avg : jik * ksh * tsu);
-						return val - avg;
-					}), 0F);
-				});
-				Arr("追切時間1", "追切時間2", "追切時間3", "追切時間4", "追切時間5").ForEach(oik =>
-				{
-					dic[$"{oik}平{i}"] = Median(arr.Select(tmp =>
-					{
-						var avg = OIK[tmp["追切場所"]][oik];
-						var val = tmp[oik].GetSingle(avg - 1);
+						var val = tmp[$"追切時間{j}"].GetSingle().Run(jik => jik == 0 ? avg + 1 : jik * ksh * tsu);
 						return val - avg;
 					}), 0F);
 				});
@@ -569,11 +560,14 @@ namespace Netkeiba
 				{
 					await foreach (var dic in ketto)
 					{
-						await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
-							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["馬ID"]),
-							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["父ID"]),
-							SQLiteUtil.CreateParameter(System.Data.DbType.String, dic["母ID"])
-						);
+						if (!string.IsNullOrEmpty(dic["馬ID"]))
+						{
+							await conn.ExecuteNonQueryAsync("REPLACE INTO t_ketto (馬ID,父ID,母ID) VALUES (?, ?, ?)",
+								SQLiteUtil.CreateParameter(DbType.String, dic["馬ID"]),
+								SQLiteUtil.CreateParameter(DbType.String, dic["父ID"]),
+								SQLiteUtil.CreateParameter(DbType.String, dic["母ID"])
+							);
+						}
 					}
 				}
 				conn.Commit();

@@ -481,6 +481,13 @@ namespace Netkeiba
 		{
 			var url = $"https://db.netkeiba.com/horse/ped/{uma}/";
 
+			yield return new Dictionary<string, string>()
+			{
+				{ "馬ID", uma },
+				{ "父ID", string.Empty },
+				{ "母ID", string.Empty }
+			};
+
 			using (var ped = await AppUtil.GetDocument(false, url))
 			{
 				if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
