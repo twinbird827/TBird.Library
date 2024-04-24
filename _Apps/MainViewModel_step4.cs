@@ -248,7 +248,7 @@ namespace Netkeiba
 				await RefreshKetto(conn, 馬IDs);
 
 				// 産駒成績の更新
-				await RefreshSanku(conn, true, 馬IDs);
+				await RefreshSanku(conn, 馬IDs);
 
 				foreach (var racearr in racearrs)
 				{

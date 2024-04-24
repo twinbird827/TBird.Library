@@ -64,14 +64,11 @@ namespace Netkeiba
 			//using (await Locker.LockAsync(_guid))
 			if (login)
 			{
-				var selenium = await TBirdSeleniumFactory.CreateSelenium(_pararell);
+				var selenium = await TBirdSeleniumFactory.CreateSelenium(1);
 
 				selenium.SetInitialize(driver =>
 				{
-					using (selenium.GetPageWaiter())
-					{
-						driver.Url = @"https://regist.netkeiba.com/account/?pid=login";
-					}
+					selenium.GoToUrl(@"https://regist.netkeiba.com/account/?pid=login");
 
 					driver.FindElement(By.Name("login_id")).SendKeys(AppSetting.Instance.NetkeibaId);
 					driver.FindElement(By.Name("pswd")).SendKeys(AppSetting.Instance.NetkeibaPassword);
@@ -79,22 +76,21 @@ namespace Netkeiba
 				});
 
 				MainViewModel.AddLog($"req: {url}");
-				return await selenium.Execute(driver =>
+				return await selenium.Execute(async driver =>
 				{
-					using (selenium.GetPageWaiter())
-					{
-						driver.Navigate().GoToUrl(url);
-					}
+					selenium.GoToUrl(url);
 
 					var res = driver.PageSource;
 
-					return _parser.ParseDocumentAsync(res);
+					return await _parser.ParseDocumentAsync(res);
 				}).RunAsync(async x => await x);
 			}
 			else
 			{
 				using (await Locker.LockAsync(_guid, _pararell))
 				{
+					MainViewModel.AddLog($"req: {url}");
+
 					var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
 
 					var doc = await _parser.ParseDocumentAsync(res);
