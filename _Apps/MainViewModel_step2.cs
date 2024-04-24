@@ -45,10 +45,6 @@ namespace Netkeiba
 					.Where(id => !drops.Contains(id))
 					.ToArray();
 
-				Progress.Value = 0;
-				Progress.Minimum = 0;
-				Progress.Maximum = rac.Length;
-
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
@@ -62,6 +58,10 @@ namespace Netkeiba
 
 				// ﾚｰｽ情報の初期化
 				await InitializeModelBase(conn);
+
+				Progress.Value = 0;
+				Progress.Minimum = 0;
+				Progress.Maximum = rac.Length;
 
 				foreach (var raceid in rac)
 				{
@@ -136,6 +136,7 @@ namespace Netkeiba
 				$"AVG(単勝) 単勝,",
 				$"AVG(距離) 距離,",
 				$"AVG(上り) 上り,",
+				$"AVG(ﾀｲﾑ指数) ﾀｲﾑ指数,",
 				$"AVG(賞金) 賞金,",
 				$"AVG(斤量) 斤量",
 				$"FROM t_orig LEFT JOIN w_tou ON w_tou.ﾚｰｽID = t_orig.ﾚｰｽID"
@@ -327,7 +328,7 @@ namespace Netkeiba
 			dic["斤量割"] = dic["斤量"].GetSingle() / dic["体重"].GetSingle();
 			dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
 			//dic["一言"] = 一言.IndexOf(src["一言"]);
-			dic["追切"] = 追切.IndexOf(src["追切"]);
+			dic["追切評価"] = 追切.IndexOf(src["追切評価"]);
 
 			var tgt = Arr("開催場所", "馬場", "馬場状態");
 			Func<List<Dictionary<string, object>>, bool, int, IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, istgt, take) =>
@@ -581,7 +582,8 @@ namespace Netkeiba
 
 		private async Task RefreshSanku(SQLiteControl conn, IEnumerable<string> keys)
 		{
-			var newkeys = await conn.ExistsColumn("t_sanku", "馬ID").RunAsync(async exists =>
+			var existssanku = await conn.ExistsColumn("t_sanku", "馬ID");
+			var newkeys = await existssanku.Run(async exists =>
 			{
 				var sql = Arr(
 					$"WITH w_ketto AS (SELECT 父ID, 母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
@@ -599,17 +601,16 @@ namespace Netkeiba
 			Progress.Maximum = newkeys.Length;
 			Progress.Value = 0;
 
-			var create = false;
 			foreach (var chunk in newkeys.Chunk(100))
 			{
-				if (create) await conn.BeginTransaction();
+				if (existssanku) await conn.BeginTransaction();
 				foreach (var sanku in chunk.Select(uma => GetSanku(uma)))
 				{
 					await foreach (var dic in sanku)
 					{
-						if (!create)
+						if (!existssanku)
 						{
-							create = true;
+							existssanku = true;
 
 							// ﾃｰﾌﾞﾙ作成
 							await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
