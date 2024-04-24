@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
+using TBird.Web;
 using TBird.Wpf;
 using Tensorflow;
 
@@ -27,6 +28,7 @@ namespace Netkeiba
 
 		public IRelayCommand S4EXEC => RelayCommand.Create(async _ =>
 		{
+			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
 

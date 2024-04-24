@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -12,6 +13,7 @@ using System.Windows.Input;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
+using TBird.Web;
 using TBird.Wpf;
 
 namespace Netkeiba
@@ -22,6 +24,7 @@ namespace Netkeiba
 
 		public IRelayCommand S2EXEC => RelayCommand.Create(async _ =>
 		{
+			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var create = S2Overwrite.IsChecked || !await conn.ExistsColumn("t_model", "着順");
@@ -173,11 +176,11 @@ namespace Netkeiba
 			OIK = await conn.GetRows(Arr(
 				$"SELECT",
 				$"    追切場所,",
-				$"    IFNULL(AVG(CASE WHEN CAST(追切時間1 AS REAL) = 0 THEN NULL ELSE 追切時間1 END), 0) 追切時間1,",
-				$"    IFNULL(AVG(CASE WHEN CAST(追切時間2 AS REAL) = 0 THEN NULL ELSE 追切時間2 END), 0) 追切時間2,",
-				$"    IFNULL(AVG(CASE WHEN CAST(追切時間3 AS REAL) = 0 THEN NULL ELSE 追切時間3 END), 0) 追切時間3,",
-				$"    IFNULL(AVG(CASE WHEN CAST(追切時間4 AS REAL) = 0 THEN NULL ELSE 追切時間4 END), 0) 追切時間4,",
-				$"    IFNULL(AVG(CASE WHEN CAST(追切時間5 AS REAL) = 0 THEN NULL ELSE 追切時間5 END), 0) 追切時間5",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間1 AS REAL) = 0 THEN NULL ELSE 追切時間1 * (CASE WHEN 追切騎手 = '助手' THEN 0.9 ELSE 1.0 END) * (CASE WHEN 追切強さ = '馬也' THEN 0.9 ELSE 1.0 END) END), 0) 追切時間1,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間2 AS REAL) = 0 THEN NULL ELSE 追切時間2 * (CASE WHEN 追切騎手 = '助手' THEN 0.9 ELSE 1.0 END) * (CASE WHEN 追切強さ = '馬也' THEN 0.9 ELSE 1.0 END) END), 0) 追切時間2,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間3 AS REAL) = 0 THEN NULL ELSE 追切時間3 * (CASE WHEN 追切騎手 = '助手' THEN 0.9 ELSE 1.0 END) * (CASE WHEN 追切強さ = '馬也' THEN 0.9 ELSE 1.0 END) END), 0) 追切時間3,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間4 AS REAL) = 0 THEN NULL ELSE 追切時間4 * (CASE WHEN 追切騎手 = '助手' THEN 0.9 ELSE 1.0 END) * (CASE WHEN 追切強さ = '馬也' THEN 0.9 ELSE 1.0 END) END), 0) 追切時間4,",
+				$"    IFNULL(AVG(CASE WHEN CAST(追切時間5 AS REAL) = 0 THEN NULL ELSE 追切時間5 * (CASE WHEN 追切騎手 = '助手' THEN 0.9 ELSE 1.0 END) * (CASE WHEN 追切強さ = '馬也' THEN 0.9 ELSE 1.0 END) END), 0) 追切時間5",
 				$"FROM",
 				$"    t_orig",
 				$"GROUP BY",
@@ -305,12 +308,23 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) =>
 			{
+				Enumerable.Range(1, 5).ForEach(j =>
+				{
+					dic[$"追切時間{j}平{i}"] = Median(arr.Select(tmp =>
+					{
+						var avg = OIK[tmp["追切場所"]][$"追切時間{j}"];
+						var ksh = $"{tmp[$"追切騎手"]}" == "助手" ? 0.9F : 1.0F;
+						var tsu = $"{tmp[$"追切強さ"]}" == "馬也" ? 0.9F : 1.0F;
+						var val = tmp[$"追切時間{j}"].GetSingle().Run(jik => jik == 0 ? avg : jik * ksh * tsu);
+						return val - avg;
+					}), 0F);
+				});
 				Arr("追切時間1", "追切時間2", "追切時間3", "追切時間4", "追切時間5").ForEach(oik =>
 				{
 					dic[$"{oik}平{i}"] = Median(arr.Select(tmp =>
 					{
 						var avg = OIK[tmp["追切場所"]][oik];
-						var val = tmp[oik].GetSingle();
+						var val = tmp[oik].GetSingle(avg - 1);
 						return val - avg;
 					}), 0F);
 				});

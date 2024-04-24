@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
+using TBird.Web;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using Tensorflow.Keras.Layers;
@@ -42,6 +43,7 @@ namespace Netkeiba
 
 		public IRelayCommand S1EXEC => RelayCommand.Create(async _ =>
 		{
+			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			var years = Enumerable.Range(SYear, EYear - SYear + 1).Select(i => i.ToString(2)).ToArray();
 			var basyos = BasyoSources.Where(x => x.IsChecked).ToArray();
 			var counts = Enumerable.Range(1, 6).Select(i => i.ToString(2)).ToArray();

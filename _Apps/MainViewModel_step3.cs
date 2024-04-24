@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
+using TBird.Web;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 
@@ -38,6 +39,7 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
+			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
 			{
                     // 単4の予想結果
@@ -172,6 +174,7 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
+			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			var seconds = AppSetting.Instance.TrainingCount;
 			var metrics = Arr(BinaryClassificationMetric.AreaUnderRocCurve, BinaryClassificationMetric.F1Score);
 
