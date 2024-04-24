@@ -534,29 +534,15 @@ namespace Netkeiba
 			// ﾃｰﾌﾞﾙ作成
 			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID, 父ID, 母ID, PRIMARY KEY (馬ID))");
 
-			var kettolocker = Locker.GetNewLockKey();
-			var newkeys = await keys.Select(async uma =>
+			var newkeys = await keys.WhereAsync(async uma =>
 			{
-				if (await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, uma)) > 0)
-				{
-					return null;
-				}
-				else
-				{
-					return uma;
-				}
-			}).WhenAll().RunAsync(arr =>
-			{
-				return arr.Where(x => x != null);
-			}).RunAsync(arr => arr.Select(uma =>
-			{
-				return GetKetto($"{uma}");
-			}));
+				return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, uma)) > 0;
+			});
 
 			foreach (var chunk in newkeys.Chunk(100))
 			{
 				await conn.BeginTransaction();
-				foreach (var ketto in chunk)
+				foreach (var ketto in chunk.Select(uma => GetKetto(uma)))
 				{
 					await foreach (var dic in ketto)
 					{
@@ -667,17 +653,11 @@ namespace Netkeiba
 					: keys;
 			});
 
-			var sankulocker = Locker.GetNewLockKey();
-			var sankuarrs = keys.Select(uma =>
-			{
-				return GetSanku(uma);
-			});
-
 			var create = false;
-			foreach (var chunk in sankuarrs.Chunk(100))
+			foreach (var chunk in newkeys.Chunk(100))
 			{
 				if (create) await conn.BeginTransaction();
-				foreach (var ketto in chunk)
+				foreach (var ketto in chunk.Select(uma => GetSanku(uma)))
 				{
 					await foreach (var dic in ketto)
 					{
