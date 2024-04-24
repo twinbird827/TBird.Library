@@ -26,18 +26,18 @@ namespace TBird.Core
 		//    }
 		//}
 
-		/// <summary>
-		/// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
-		/// </summary>
-		/// <typeparam name="T">配列の型</typeparam>
-		/// <typeparam name="TResult">返却する値の型</typeparam>
-		/// <param name="source">配列</param>
-		/// <param name="func">返却する値を取得するﾛｼﾞｯｸ</param>
-		/// <returns></returns>
-		public static TResult MaxOrDefault<T, TResult>(this IEnumerable<T> source, Func<T, TResult> func)
-		{
-			return source.MaxOrDefault(func, default(TResult));
-		}
+		///// <summary>
+		///// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
+		///// </summary>
+		///// <typeparam name="T">配列の型</typeparam>
+		///// <typeparam name="TResult">返却する値の型</typeparam>
+		///// <param name="source">配列</param>
+		///// <param name="func">返却する値を取得するﾛｼﾞｯｸ</param>
+		///// <returns></returns>
+		//public static TResult MaxOrDefault<T, TResult>(this IEnumerable<T> source, Func<T, TResult> func)
+		//{
+		//	return source.MaxOrDefault(func, default(TResult));
+		//}
 
 		/// <summary>
 		/// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
@@ -53,18 +53,18 @@ namespace TBird.Core
 			return source.Any() ? source.Max(func) : def;
 		}
 
-		/// <summary>
-		/// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
-		/// </summary>
-		/// <typeparam name="T">配列の型</typeparam>
-		/// <typeparam name="TResult">返却する値の型</typeparam>
-		/// <param name="source">配列</param>
-		/// <param name="func">返却する値を取得するﾛｼﾞｯｸ</param>
-		/// <returns></returns>
-		public static TResult MinOrDefault<T, TResult>(this IEnumerable<T> source, Func<T, TResult> func)
-		{
-			return source.MinOrDefault(func, default(TResult));
-		}
+		///// <summary>
+		///// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
+		///// </summary>
+		///// <typeparam name="T">配列の型</typeparam>
+		///// <typeparam name="TResult">返却する値の型</typeparam>
+		///// <param name="source">配列</param>
+		///// <param name="func">返却する値を取得するﾛｼﾞｯｸ</param>
+		///// <returns></returns>
+		//public static TResult MinOrDefault<T, TResult>(this IEnumerable<T> source, Func<T, TResult> func)
+		//{
+		//	return source.MinOrDefault(func, default(TResult));
+		//}
 
 		/// <summary>
 		/// 最大値、またはﾃﾞﾌｫﾙﾄ値を取得します。
@@ -92,7 +92,7 @@ namespace TBird.Core
 			var i = 0;
 			return source.GetOrDefault(
 				// 一致したらｲﾝﾃﾞｯｸｽを返却 -> 不一致ならfalseになるようにi++
-				x => x.Equals(item) || i++ < 0,
+				x => (item != null && item.Equals(x)) || i++ < 0,
 				x => i,
 				-1
 			);
@@ -141,19 +141,19 @@ namespace TBird.Core
 				: def;
 		}
 
-		/// <summary>
-		/// 配列から条件に合致する値を取得します。合致する値がない場合、ﾃﾞﾌｫﾙﾄ値を取得します。
-		/// </summary>
-		/// <typeparam name="T">配列の型</typeparam>
-		/// <typeparam name="TResult">戻り値の型</typeparam>
-		/// <param name="array">配列</param>
-		/// <param name="where">条件</param>
-		/// <param name="get">戻り値の取得方法</param>
-		/// <returns></returns>
-		public static TResult GetOrDefault<T, TResult>(this IEnumerable<T> array, Func<T, bool> where, Func<T, TResult> get)
-		{
-			return GetOrDefault(array, where, get, default(TResult));
-		}
+		///// <summary>
+		///// 配列から条件に合致する値を取得します。合致する値がない場合、ﾃﾞﾌｫﾙﾄ値を取得します。
+		///// </summary>
+		///// <typeparam name="T">配列の型</typeparam>
+		///// <typeparam name="TResult">戻り値の型</typeparam>
+		///// <param name="array">配列</param>
+		///// <param name="where">条件</param>
+		///// <param name="get">戻り値の取得方法</param>
+		///// <returns></returns>
+		//public static TResult GetOrDefault<T, TResult>(this IEnumerable<T> array, Func<T, bool> where, Func<T, TResult> get)
+		//{
+		//	return GetOrDefault(array, where, get, default(TResult));
+		//}
 
 		/// <summary>
 		/// 配列の各行に対して、並列処理を実行します。
@@ -212,14 +212,31 @@ namespace TBird.Core
 			return (await array).Select(func);
 		}
 
+		/// <summary>
+		/// Null許容型の配列からNullを除外します。
+		/// </summary>
+		/// <typeparam name="T">配列の型</typeparam>
+		/// <param name="array">Nullを含む配列</param>
+		/// <returns></returns>
+		public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> array)
+		{
+			return array.OfType<T>();
+		}
+
+		/// <summary>
+		/// 配列を、非同期条件を満たすﾃﾞｰﾀのみに絞り込みます。
+		/// </summary>
+		/// <typeparam name="T">配列の型</typeparam>
+		/// <param name="array">配列</param>
+		/// <param name="func">非同期条件</param>
+		/// <returns></returns>
 		public static async Task<IEnumerable<T>> WhereAsync<T>(this IEnumerable<T> array, Func<T, Task<bool>> func)
 		{
+			var _dummy = new object();
 			return await array
 				.Select(async x => await func(x) ? x : _dummy)
 				.WhenAll()
 				.RunAsync(x => x.OfType<T>());
 		}
-
-		private static object _dummy = new object();
 	}
 }
