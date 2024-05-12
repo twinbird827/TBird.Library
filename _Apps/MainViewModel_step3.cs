@@ -441,7 +441,7 @@ namespace Netkeiba
 				new RegressionResult(savepath, rank, 1, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetRegressionResult(1, rank);
-			var bst = old == RegressionResult.Default || old.GetScore() < now.GetScore() ? now : old;
+			var bst = old == RegressionResult.Default || old.Rate < now.Rate ? now : old;
 
 			AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
 			AddLog($"MeanSquaredError: {trained.MeanSquaredError}");
@@ -557,7 +557,7 @@ namespace Netkeiba
 				new MultiClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetMultiClassificationResult(index, rank);
-			var bst = old == MultiClassificationResult.Default || old.GetScore() < now.GetScore() ? now : old;
+			var bst = old == MultiClassificationResult.Default || old.Rate < now.Rate ? now : old;
 
 			AddLog($"=============== Result of MultiClassification Model Data {rank} {index} {second} ===============");
 			AddLog($"LogLoss: {trained.LogLoss}");
