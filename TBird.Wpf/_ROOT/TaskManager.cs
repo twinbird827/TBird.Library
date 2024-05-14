@@ -20,7 +20,7 @@ namespace TBird.Wpf
 
 		public override Task ExecuteAsync(T parameter)
 		{
-			return WpfUtil.BackgroundAsync(() => base.ExecuteAsync(parameter));
+			return WpfUtil.ExecuteOnBACK(() => base.ExecuteAsync(parameter));
 		}
 	}
 }
