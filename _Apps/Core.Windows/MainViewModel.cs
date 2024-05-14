@@ -104,7 +104,7 @@ namespace Moviewer.Core.Windows
 
 			// お気に入り巡回ﾀｲﾏｰの起動
 			FavoriteChecker = new IntervalTimer(PatrolFavorites);
-			FavoriteChecker.Interval = TimeSpan.FromMinutes(10);
+			FavoriteChecker.Interval = TimeSpan.FromMinutes(5);
 			FavoriteChecker.Start();
 
 			OnClickMenu.Execute(MenuType.NicoRanking);
