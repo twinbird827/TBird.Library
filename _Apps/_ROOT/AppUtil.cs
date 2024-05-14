@@ -198,7 +198,7 @@ namespace Netkeiba
 
 		public static void DeleteEndress(string path)
 		{
-			_ = WpfUtil.BackgroundAsync(async () =>
+			_ = WpfUtil.ExecuteOnBACK(async () =>
 			{
 				while (File.Exists(path))
 				{
