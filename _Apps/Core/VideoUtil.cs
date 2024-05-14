@@ -41,7 +41,9 @@ namespace Moviewer.Core
 
 		public static void DelTemporary(MenuMode mode, string contentid, bool issave = true)
 		{
-			if (Temporaries.DelModel(mode, contentid) && issave) Save();
+			Temporaries.DelModel(mode, contentid);
+			AddHistory(mode, contentid, false);
+			if (issave) Save();
 		}
 
 		// **************************************************
