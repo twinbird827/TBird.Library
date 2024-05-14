@@ -15,9 +15,9 @@ namespace TBird.Core
 		/// <summary>
 		/// 内部用ﾛｯｸｲﾝｽﾀﾝｽ
 		/// </summary>
-		private static Manager _lock { get; } = new Manager();
+		private static Manager _lock { get; } = new Manager(1);
 
-		private static void AddManager(string key)
+		private static void AddManager(string key, int pararell)
 		{
 			if (_manages.ContainsKey(key)) return;
 
@@ -25,11 +25,11 @@ namespace TBird.Core
 			{
 				if (_manages.ContainsKey(key)) return;
 
-				_manages.Add(key, new Manager());
+				_manages.Add(key, new Manager(pararell));
 			}
 		}
 
-		private static async Task AddManagerAsync(string key)
+		private static async Task AddManagerAsync(string key, int pararell)
 		{
 			if (_manages.ContainsKey(key)) return;
 
@@ -37,7 +37,7 @@ namespace TBird.Core
 			{
 				if (_manages.ContainsKey(key)) return;
 
-				_manages.Add(key, new Manager());
+				_manages.Add(key, new Manager(pararell));
 			}
 		}
 
@@ -60,9 +60,9 @@ namespace TBird.Core
 		/// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
 		/// </summary>
 		/// <returns></returns>
-		public static async Task<IDisposable> LockAsync(string key)
+		public static async Task<IDisposable> LockAsync(string key, int pararell = 1)
 		{
-			await AddManagerAsync(key);
+			await AddManagerAsync(key, pararell);
 			return await _manages[key].LockAsync();
 		}
 
@@ -70,9 +70,9 @@ namespace TBird.Core
 		/// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
 		/// </summary>
 		/// <returns></returns>
-		public static IDisposable Lock(string key)
+		public static IDisposable Lock(string key, int pararell = 1)
 		{
-			AddManager(key);
+			AddManager(key, pararell);
 			return _manages[key].Lock();
 		}
 
@@ -110,9 +110,9 @@ namespace TBird.Core
 
 		private class Manager
 		{
-			public Manager()
+			public Manager(int pararell)
 			{
-				_slim = new SemaphoreSlim(1, 1);
+				_slim = new SemaphoreSlim(pararell, pararell);
 				_cnt = 0;
 			}
 

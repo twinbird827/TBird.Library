@@ -134,5 +134,10 @@ namespace TBird.Core
 		{
 			return arr;
 		}
+
+		protected decimal Calc(object x, object y, Func<decimal, decimal, decimal> func)
+		{
+			return func((decimal)x.GetDouble(), (decimal)y.GetDouble());
+		}
 	}
 }

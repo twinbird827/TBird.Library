@@ -9,6 +9,11 @@ namespace TBird.Core
 {
 	public static class ObjectExtension
 	{
+		public static string Str(this object value)
+		{
+			return $"{value}";
+		}
+
 		/// <summary>
 		/// 指定したｵﾌﾞｼﾞｪｸﾄがIDisposableを実装しているなら破棄します。
 		/// </summary>
@@ -29,7 +34,7 @@ namespace TBird.Core
 		/// <param name="def"></param>
 		/// <param name="func1"></param>
 		/// <returns></returns>
-		private static T Get<T>(this object value, T def, Func<decimal, T> func1)
+		private static T Get<T>(this object? value, T def, Func<decimal, T> func1)
 		{
 			if (value is T val)
 			{
@@ -74,22 +79,22 @@ namespace TBird.Core
 			}
 		}
 
-		public static double GetDouble(this object value, double def = 0D)
+		public static double GetDouble(this object? value, double def = 0D)
 		{
 			return value.Get(def, x => (double)x);
 		}
 
-		public static float GetSingle(this object value, float def = 0F)
+		public static float GetSingle(this object? value, float def = 0F)
 		{
 			return value.Get(def, x => (float)x);
 		}
 
-		public static int GetInt32(this object value, int def = 0)
+		public static int GetInt32(this object? value, int def = 0)
 		{
 			return value.Get(def, x => (int)x);
 		}
 
-		public static long GetInt64(this object value, long def = 0L)
+		public static long GetInt64(this object? value, long def = 0L)
 		{
 			return value.Get(def, x => (long)x);
 		}
