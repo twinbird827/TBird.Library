@@ -16,38 +16,32 @@ namespace TBird.Wpf
 		private static Dispatcher _dispatcher;
 
 		/// <summary>
-		/// 指定したﾃﾞｨｽﾊﾟｯﾁｬがUIｽﾚｯﾄﾞではない場合、ｱｲﾄﾞﾙ状態になったらｼｬｯﾄﾀﾞｳﾝします。
-		/// </summary>
-		/// <param name="dispatcher">対象ﾃﾞｨｽﾊﾟｯﾁｬ</param>
-		public static void BeginInvokeShutdown(Dispatcher dispatcher)
-		{
-			if (dispatcher != null && !OnUI(dispatcher.Thread))
-			{
-				dispatcher.BeginInvokeShutdown(DispatcherPriority.SystemIdle);
-			}
-		}
-
-		private static Disposer<Dispatcher> GetShutdownDispatcherDisposer() => new Disposer<Dispatcher>(Dispatcher.CurrentDispatcher, BeginInvokeShutdown);
-
-		/// <summary>
 		/// 現在のﾃﾞｨｽﾊﾟｯﾁｬがUI上かどうか確認します。
 		/// </summary>
 		/// <returns></returns>
+		public static bool OnUI()
+		{
+			// UIとｶﾚﾝﾄのﾃﾞｨｽﾊﾟｯﾁｬを比較した結果を返却
+			return OnUI(Thread.CurrentThread);
+		}
+
+		/// <summary>
+		/// 指定したｽﾚｯﾄﾞがUI上であるか確認します。
+		/// </summary>
+		/// <param name="thread"></param>
+		/// <returns></returns>
 		public static bool OnUI(Thread thread)
 		{
-			if (Application.Current == null) return false;
+			while (_dispatcher == null && Application.Current == null)
+			{
+				Thread.Sleep(1);
+			}
 
 			// UIのﾃﾞｨｽﾊﾟｯﾁｬ取得
 			_dispatcher = _dispatcher ?? Application.Current.Dispatcher;
 			// UIとｶﾚﾝﾄのﾃﾞｨｽﾊﾟｯﾁｬを比較した結果を返却
 			return _dispatcher.Thread == thread;
 		}
-
-		/// <summary>
-		/// 現在のﾃﾞｨｽﾊﾟｯﾁｬがUI上かどうか確認します。
-		/// </summary>
-		/// <returns></returns>
-		public static bool OnUI() => OnUI(Thread.CurrentThread);
 
 		public static SynchronizationContext GetContext()
 		{
@@ -65,7 +59,7 @@ namespace TBird.Wpf
 			if (!OnUI())
 			{
 				// 現在のｽﾚｯﾄﾞがUIのﾃﾞｨｽﾊﾟｯﾁｬ上ではない場合、UIのﾃﾞｨｽﾊﾟｯﾁｬ上で処理を実行する。
-				WaitDoEvents(_dispatcher.BeginInvoke(action));
+				_dispatcher.Invoke(action);
 			}
 			else
 			{
@@ -82,7 +76,7 @@ namespace TBird.Wpf
 			if (!OnUI())
 			{
 				// 現在のｽﾚｯﾄﾞがUIのﾃﾞｨｽﾊﾟｯﾁｬ上ではない場合、UIのﾃﾞｨｽﾊﾟｯﾁｬ上で処理を実行する。
-				return (T)WaitDoEvents(_dispatcher.BeginInvoke(action)).Result;
+				return _dispatcher.Invoke(action);
 			}
 			else
 			{
@@ -90,65 +84,60 @@ namespace TBird.Wpf
 			}
 		}
 
-		/// <summary>
-		/// UIｽﾚｯﾄﾞの処理を徐々に実行します。
-		/// </summary>
-		/// <param name="x">処理ﾀｽｸ</param>
-		/// <returns></returns>
-		private static DispatcherOperation WaitDoEvents(DispatcherOperation x)
+		public static Task ExecuteOnBACK(Func<Task> func)
 		{
-			using (GetShutdownDispatcherDisposer())
+			if (OnUI())
 			{
-				while (x.Status == DispatcherOperationStatus.Executing || x.Status == DispatcherOperationStatus.Pending)
-				{
-					x.Wait(TimeSpan.FromMilliseconds(32));
-					DoEvents();
-				}
-				return x;
+				return Task.Run(() => ExecuteOnBACK(func));
 			}
-		}
-
-		private static T ReturnAndShutdownDispatcher<T>(Func<T> func)
-		{
-			using (GetShutdownDispatcherDisposer())
+			using (GetDispatcherShutdownDisposable())
 			{
 				return func();
 			}
 		}
 
-		public static Task BackgroundAsync(Func<Task> func)
+		public static Task<T> ExecuteOnBACK<T>(Func<Task<T>> func)
 		{
-			return OnUI() ? Task.Run(func) : ReturnAndShutdownDispatcher(func);
-		}
-
-		public static Task<T> BackgroundAsync<T>(Func<Task<T>> func)
-		{
-			return OnUI() ? Task.Run(func) : ReturnAndShutdownDispatcher(func);
-		}
-
-		public static Task BackgroundAsync(Action action)
-		{
-			return BackgroundAsync(() => TaskUtil.WaitAsync(action));
-		}
-
-		public static Task<T> ExecuteOnBackground<T>(Func<T> func)
-		{
-			return BackgroundAsync(() => TaskUtil.WaitAsync(func));
-		}
-
-		/// <summary>
-		/// 画面ｲﾍﾞﾝﾄをすべて実行します。
-		/// </summary>
-		public static void DoEvents()
-		{
-			DispatcherFrame frame = new DispatcherFrame();
-			var callback = new DispatcherOperationCallback(obj =>
+			if (OnUI())
 			{
-				((DispatcherFrame)obj).Continue = false;
-				return null;
+				return Task.Run(() => ExecuteOnBACK(func));
+			}
+			using (GetDispatcherShutdownDisposable())
+			{
+				return func();
+			}
+		}
+
+		public static Task ExecuteOnBACK(Action action)
+		{
+			return ExecuteOnBACK(() => TaskUtil.WaitAsync(action));
+		}
+
+		public static Task<T> ExecuteOnBACK<T>(Func<T> func)
+		{
+			return ExecuteOnBACK(() => TaskUtil.WaitAsync(func));
+		}
+
+		public static IDisposable GetDispatcherShutdownDisposable()
+		{
+			return new Disposer<Dispatcher>(Dispatcher.CurrentDispatcher, x =>
+			{
+				if (x != null && !OnUI(x.Thread))
+				{
+					if (!x.HasShutdownStarted)
+					{
+						DispatcherFrame frame = new DispatcherFrame();
+						var callback = new DispatcherOperationCallback(obj =>
+						{
+							((DispatcherFrame)obj).Continue = false;
+							return null;
+						});
+						x.BeginInvoke(DispatcherPriority.Background, callback, frame);
+						Dispatcher.PushFrame(frame);
+						x.InvokeShutdown();
+					}
+				}
 			});
-			Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, callback, frame);
-			Dispatcher.PushFrame(frame);
 		}
 
 		/// <summary>

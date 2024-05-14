@@ -94,7 +94,7 @@ namespace TBird.Wpf
 						ChangeExecuting(true);
 
 						// 処理実行
-						await WpfUtil.BackgroundAsync(() => func(x).Cts(_cts));
+						await WpfUtil.ExecuteOnBACK(() => func(x).Cts(_cts));
 					}
 					catch (TimeoutException)
 					{
