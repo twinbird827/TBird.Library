@@ -38,7 +38,7 @@ namespace Netkeiba
 		public uint Label { get; set; }
 
 		[ColumnName("Score")]
-		public float[] Score { get; set; }
+		public float[] Score { get; set; } = new float[0];
 
 		[ColumnName("Probability")]
 		public float Probability { get; set; }

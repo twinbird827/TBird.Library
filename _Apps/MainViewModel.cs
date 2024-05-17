@@ -52,10 +52,12 @@ namespace Netkeiba
 
 		public ProgressViewModel Progress { get; } = new ProgressViewModel();
 
-		private static MainViewModel _this { get; set; }
+		private static MainViewModel? _this { get; set; }
 
 		public static void AddLog(string message)
 		{
+			if (_this == null) return;
+
 			if (_logmax < _this.LogSource.Count)
 			{
 				_this.LogSource.RemoveAt(_logmax);
