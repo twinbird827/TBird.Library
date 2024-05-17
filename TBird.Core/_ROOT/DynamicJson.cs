@@ -20,6 +20,7 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using TBird.Core;
 
 namespace Codeplex.Data
 {
@@ -33,13 +34,13 @@ namespace Codeplex.Data
 		// public static methods
 
 		/// <summary>from JsonSring to DynamicJson</summary>
-		public static dynamic Parse(string json)
+		public static dynamic? Parse(string json)
 		{
 			return Parse(json, Encoding.Unicode);
 		}
 
 		/// <summary>from JsonSring to DynamicJson</summary>
-		public static dynamic Parse(string json, Encoding encoding)
+		public static dynamic? Parse(string json, Encoding encoding)
 		{
 			using (var reader = JsonReaderWriterFactory.CreateJsonReader(encoding.GetBytes(json), XmlDictionaryReaderQuotas.Max))
 			{
@@ -48,7 +49,7 @@ namespace Codeplex.Data
 		}
 
 		/// <summary>from JsonSringStream to DynamicJson</summary>
-		public static dynamic Parse(Stream stream)
+		public static dynamic? Parse(Stream stream)
 		{
 			using (var reader = JsonReaderWriterFactory.CreateJsonReader(stream, XmlDictionaryReaderQuotas.Max))
 			{
@@ -57,7 +58,7 @@ namespace Codeplex.Data
 		}
 
 		/// <summary>from JsonSringStream to DynamicJson</summary>
-		public static dynamic Parse(Stream stream, Encoding encoding)
+		public static dynamic? Parse(Stream stream, Encoding encoding)
 		{
 			using (var reader = JsonReaderWriterFactory.CreateJsonReader(stream, encoding, XmlDictionaryReaderQuotas.Max, _ => { }))
 			{
@@ -73,7 +74,7 @@ namespace Codeplex.Data
 
 		// private static methods
 
-		private static dynamic ToValue(XElement element)
+		private static dynamic? ToValue(XElement element)
 		{
 			var type = (JsonType)Enum.Parse(typeof(JsonType), element.Attribute("type").Value);
 			switch (type)
@@ -134,7 +135,7 @@ namespace Codeplex.Data
 			return new XAttribute("type", type.ToString());
 		}
 
-		private static object CreateJsonNode(object obj)
+		private static object? CreateJsonNode(object obj)
 		{
 			var type = GetJsonType(obj);
 			switch (type)
@@ -147,7 +148,7 @@ namespace Codeplex.Data
 				case JsonType.@object:
 					return CreateXObject(obj);
 				case JsonType.array:
-					return CreateXArray(obj as IEnumerable);
+					return CreateXArray((obj as IEnumerable).NotNull());
 				case JsonType.@null:
 				default:
 					return null;
@@ -315,7 +316,7 @@ namespace Codeplex.Data
 		}
 
 		// IsDefined, if has args then TryGetMember
-		public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+		public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object? result)
 		{
 			if (args.Length > 0)
 			{
@@ -344,7 +345,7 @@ namespace Codeplex.Data
 			return true;
 		}
 
-		private bool TryGet(XElement element, out object result)
+		private bool TryGet(XElement element, out object? result)
 		{
 			if (element == null)
 			{
@@ -356,14 +357,14 @@ namespace Codeplex.Data
 			return true;
 		}
 
-		public override bool TryGetIndex(GetIndexBinder binder, object[] indexes, out object result)
+		public override bool TryGetIndex(GetIndexBinder binder, object[] indexes, out object? result)
 		{
 			return (IsArray)
 				? TryGet(xml.Elements().ElementAtOrDefault((int)indexes[0]), out result)
 				: TryGet(xml.Element((string)indexes[0]), out result);
 		}
 
-		public override bool TryGetMember(GetMemberBinder binder, out object result)
+		public override bool TryGetMember(GetMemberBinder binder, out object? result)
 		{
 			return (IsArray)
 				? TryGet(xml.Elements().ElementAtOrDefault(int.Parse(binder.Name)), out result)

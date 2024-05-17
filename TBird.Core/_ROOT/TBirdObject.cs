@@ -15,7 +15,7 @@ namespace TBird.Core
 			get => _Guid = _Guid ?? Locker.GetNewLockKey(this);
 			set => _Guid = value;
 		}
-		private string _Guid;
+		private string? _Guid;
 
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽの文字列表現を取得します。
@@ -50,7 +50,7 @@ namespace TBird.Core
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽ破棄時のｲﾍﾞﾝﾄ
 		/// </summary>
-		public event EventHandler Disposed;
+		public event EventHandler? Disposed;
 
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽ破棄時ｲﾍﾞﾝﾄを追加します。
@@ -60,7 +60,7 @@ namespace TBird.Core
 		public void AddDisposed(EventHandler handler)
 		{
 			// ｲﾝｽﾀﾝｽ破棄ｲﾍﾞﾝﾄ自体を破棄するﾊﾝﾄﾞﾗを作成する
-			EventHandler disposed = null; disposed = (sender, e) =>
+			EventHandler? disposed = null; disposed = (sender, e) =>
 			{
 				Disposed -= handler;
 				Disposed -= disposed;
@@ -76,8 +76,8 @@ namespace TBird.Core
 
 		protected virtual void DisposeManagedResource()
 		{
-			EventUtil.Raise(Disposed, this);
-			Disposed = null;
+			EventUtil.Raise(Disposed.NotNull(), this);
+			Disposed.NotNull().GetInvocationList().OfType<EventHandler>().ForEach(x => Disposed -= x);
 			Locker.Dispose(Lock);
 		}
 

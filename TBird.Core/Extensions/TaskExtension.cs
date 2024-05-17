@@ -21,7 +21,7 @@ namespace TBird.Core
 			}
 			if (task.Exception?.InnerException != null)
 			{
-				MessageService.Exception(task.Exception?.InnerException);
+				MessageService.Exception(task.Exception.InnerException);
 				return false;
 			}
 
@@ -36,14 +36,14 @@ namespace TBird.Core
 			}
 			else
 			{
-				return default(T);
+				throw new ArgumentNullException();
 			}
 		}
 
-		public static async Task Cts(this Task task, params CancellationTokenSource[] cancellations)
+		public static async Task Cts(this Task task, params CancellationTokenSource?[] cancellations)
 		{
 			var ccs = new TaskCompletionSource<bool>();
-			var arr = cancellations.Where(x => x != null).Select(x => x.Token).ToArray();
+			var arr = cancellations.WhereNotNull().Select(x => x.Token).ToArray();
 			using (var tmp = CancellationTokenSource.CreateLinkedTokenSource(arr))
 			using (tmp.Token.Register(() => ccs.TrySetResult(true)))
 			{
@@ -71,7 +71,7 @@ namespace TBird.Core
 		/// <param name="task">非同期ﾀｽｸ</param>
 		/// <param name="timeout">ﾀｲﾑｱｳﾄ時間</param>
 		/// <returns></returns>
-		public static Task Timeout(this Task task, TimeSpan timeout, CancellationTokenSource src)
+		public static Task Timeout(this Task task, TimeSpan timeout, CancellationTokenSource? src)
 		{
 			using (var cts = new CancellationTokenSource(timeout))
 			{
@@ -85,7 +85,7 @@ namespace TBird.Core
 		/// <param name="task">非同期ﾀｽｸ</param>
 		/// <param name="timeout">ﾀｲﾑｱｳﾄ時間</param>
 		/// <returns></returns>
-		public static async Task<T> Timeout<T>(this Task<T> task, TimeSpan timeout, CancellationTokenSource src)
+		public static async Task<T> Timeout<T>(this Task<T> task, TimeSpan timeout, CancellationTokenSource? src)
 		{
 			await ((Task)task).Timeout(timeout, src);
 			return task.Result;
