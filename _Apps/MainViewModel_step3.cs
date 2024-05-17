@@ -328,7 +328,7 @@ namespace Netkeiba
 				new BinaryClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
 			);
 			var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-			var bst = old == BinaryClassificationResult.Default || old.GetScore() < now.GetScore() ? now : old;
+			var bst = old == BinaryClassificationResult.Default || old.Rate < now.Rate ? now : old;
 
 			AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
 			AddLog($"Accuracy: {trained.Accuracy}");

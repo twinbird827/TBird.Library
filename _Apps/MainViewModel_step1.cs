@@ -122,7 +122,7 @@ namespace Netkeiba
 
 						foreach (var x in racearr)
 						{
-							var sql = "INSERT INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
+							var sql = "REPLACE INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
 							var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
 							await conn.ExecuteNonQueryAsync(sql, prm);
 						}

@@ -45,12 +45,6 @@ namespace Netkeiba
 			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
 		});
 
-		private IEnumerable<string> GetRaceIds()
-		{
-			var raceids = S4Text.Split('\n').Select(x => Regex.Match(x, @"\d{12}").Value).SelectMany(x => Enumerable.Range(1, 12).Select(i => x.Left(10) + i.ToString(2)));
-			return raceids.OrderBy(s => s);
-		}
-
 		private async Task CreatePredictionFile(string tag,
 				Dictionary<string, BinaryClassificationPredictionFactory> 以内1,
 				Dictionary<string, BinaryClassificationPredictionFactory> 以内2,
@@ -155,12 +149,6 @@ namespace Netkeiba
 					);
 				});
 
-				var raceids = GetRaceIds().ToArray();
-
-				Progress.Value = 0;
-				Progress.Minimum = 0;
-				Progress.Maximum = raceids.Length;
-
 				var iHeaders = 0;
 				var iBinaries1 = 0;
 				var iBinaries2 = 0;
@@ -172,19 +160,28 @@ namespace Netkeiba
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_shutuba WHERE 着順 IS NULL");
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_shutuba WHERE 着順 = ''");
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_shutuba WHERE 着順 = 0");
+				conn.Commit();
 
-				var racearrs = await raceids.Select(async raceid =>
+				var racebases = S4Text.Split('\n')
+					.Select(x => Regex.Match(x, @"\d{12}").Value.Left(10))
+					.SelectMany(x => Enumerable.Range(1, 12).Select(i => $"{x}{i.ToString(2)}"))
+					.OrderBy(x => x)
+					.ToArray();
+
+				Progress.Value = 0;
+				Progress.Minimum = 0;
+				Progress.Maximum = racebases.Length;
+
+				foreach (var raceid in racebases)
 				{
-					var lst = await conn.GetRows(
-						"SELECT * FROM t_shutuba WHERE ﾚｰｽID = ?",
-						SQLiteUtil.CreateParameter(DbType.String, raceid)
-					).RunAsync(tmp =>
-						tmp.Select(x => x.ToDictionary(y => y.Key, y => $"{y.Value}")).ToList()
-					);
-
-					return lst.Any()
-						? lst
-						: await GetRaceShutubas(raceid).RunAsync(async arr =>
+					var racearr = await raceid.Run(async id =>
+					{
+						return await conn.GetRows(
+							"SELECT * FROM t_shutuba WHERE ﾚｰｽID = ?",
+							SQLiteUtil.CreateParameter(DbType.String, id)
+						).RunAsync(lst =>
+							lst.Select(x => x.ToDictionary(y => y.Key, y => y.Value.Str())).ToList()
+						).RunAsync(async lst => lst.Any() ? lst : await GetRaceShutubas(raceid).RunAsync(async arr =>
 						{
 							if (arr.Count == 0) return;
 
@@ -217,40 +214,33 @@ namespace Netkeiba
 								row["馬主名"] = ban["馬主名"];
 								row["馬主ID"] = ban["馬主ID"];
 							}).WhenAll();
-						});
-				}).WhenAll();
+						}));
+					});
 
-				foreach (var racearr in racearrs)
-				{
+					if (!racearr.Any()) continue;
+
+					await conn.BeginTransaction();
 					foreach (var x in racearr)
 					{
 						var sql = "REPLACE INTO t_shutuba (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
 						var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
 						await conn.ExecuteNonQueryAsync(sql, prm);
 					}
-				}
+					conn.Commit();
 
-				// 馬ID
-				var 馬IDs = racearrs.SelectMany(arr => arr.Select(x => x["馬ID"])).Distinct();
+					// 馬ID
+					var 馬IDs = racearr.Select(x => x["馬ID"]).Distinct();
 
-				conn.Commit();
+					// 血統情報の作成
+					await RefreshKetto(conn, 馬IDs, false);
 
-				// 血統情報の作成
-				await RefreshKetto(conn, 馬IDs);
-
-				// 産駒成績の更新
-				await RefreshSanku(conn, 馬IDs);
-
-				foreach (var racearr in racearrs)
-				{
-					if (!racearr.Any()) continue;
-
-					var raceid = racearr.First()["ﾚｰｽID"];
-
-					var arr = new List<List<object>>();
+					// 産駒成績の更新
+					await RefreshSanku(conn, 馬IDs, false);
 
 					// ﾚｰｽ情報の初期化
 					await InitializeModelBase(conn);
+
+					var arr = new List<List<object>>();
 
 					// ﾓﾃﾞﾙﾃﾞｰﾀ作成
 					foreach (var m in await CreateRaceModel(conn, "t_shutuba", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
@@ -320,8 +310,20 @@ namespace Netkeiba
 							arr.OrderByDescending(x => x[j].GetDouble()).ForEach(x => x.Add(n++));
 						}
 
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
+
 						// 支払情報を出力
-						var payoutDetail = await GetPayout(raceid);
+						var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
+						{
+							if (rows.Any())
+							{
+								return rows.ToDictionary(x => $"{x["key"]}", x => $"{x["val"]}");
+							}
+							else
+							{
+								return await GetPayout(raceid.ToString());
+							}
+						});
 
 						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
 						{
@@ -329,11 +331,23 @@ namespace Netkeiba
 						}
 
 						lists[tag].AddRange(arr);
+
+						await conn.BeginTransaction();
+						foreach (var x in payoutDetail)
+						{
+							await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
+								SQLiteUtil.CreateParameter(DbType.String, raceid.ToString()),
+								SQLiteUtil.CreateParameter(DbType.String, x.Key),
+								SQLiteUtil.CreateParameter(DbType.String, x.Value)
+							);
+						}
+						conn.Commit();
 					}
 
 					AddLog($"End Step4 Race: {raceid}");
 
 					Progress.Value += 1;
+
 				}
 
 				await lists.Select(async x =>

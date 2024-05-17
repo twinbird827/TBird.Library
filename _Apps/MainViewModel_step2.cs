@@ -101,7 +101,7 @@ namespace Netkeiba
 						);
 
 						await conn.ExecuteNonQueryAsync(
-							$"INSERT INTO t_model ({head1.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", head1.Length).GetString(",")}, ?, ?)",
+							$"REPLACE INTO t_model ({head1.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", head1.Length).GetString(",")}, ?, ?)",
 							prms1.Concat(Arr(prms2)).Concat(Arr(prms3)).ToArray()
 						);
 					}
@@ -366,7 +366,7 @@ namespace Netkeiba
 					//dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
 					//dic[$"{key}A0{i.ToString(2)}"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
 					dic[$"{key}B1{iii}{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Average());
-					dic[$"{key}B2{iii}{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(50));
+					//dic[$"{key}B2{iii}{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(50));
 					dic[$"{key}B3{iii}{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(25));
 					dic[$"{key}B4{iii}{i.ToString(2)}"] = GetSingle(B, DEF["着順"], l => l.Percentile(75));
 					//dic[$"{key}C1{iii}{i.ToString(2)}"] = GetSingle(C, DEF["着順SRC"] / DEF["単勝"], l => l.Average());
@@ -388,7 +388,7 @@ namespace Netkeiba
 			Arr("騎手ID", "調教師ID", "馬主ID").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					$"SELECT ﾚｰｽID, ﾗﾝｸ2, 着順, 単勝, 備考, 距離, 開催場所, 馬場, 馬場状態, 回り FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
+					$"SELECT ﾚｰｽID, ﾗﾝｸ1, 着順, 単勝, 備考, 距離, 開催場所, 馬場, 馬場状態, 回り FROM t_orig WHERE {key} = ? AND 開催日数 < ? AND 開催日数 > ?",
 					SQLiteUtil.CreateParameter(System.Data.DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -535,14 +535,17 @@ namespace Netkeiba
 				: 1.0F
 			);
 
-			var RANK = $"{x["ﾗﾝｸ2"]}" switch
+			var RANK = $"{x["ﾗﾝｸ1"]}" switch
 			{
-				"RANK1" => 着順RANK1,
-				"RANK2" => 着順RANK2,
-				"RANK3" => 着順RANK3,
-				"RANK4" => 着順RANK4,
-				"RANK5" => 着順RANK5,
-				_ => 着順RANK5
+				"G1" => 着順G1,
+				"G2" => 着順G2,
+				"G3" => 着順G3,
+				"オープン" => 着順オープン,
+				"3勝" => 着順3勝,
+				"2勝" => 着順2勝,
+				"1勝" => 着順1勝,
+				"新馬" => 着順新馬,
+				_ => 着順未勝利
 			};
 
 			return (頭数 / 着順) * RANK * 備考;
@@ -566,19 +569,22 @@ namespace Netkeiba
 			await RefreshKetto(conn, keys);
 		}
 
-		private async Task RefreshKetto(SQLiteControl conn, IEnumerable<string> keys)
+		private async Task RefreshKetto(SQLiteControl conn, IEnumerable<string> keys, bool progress = true)
 		{
 			// ﾃｰﾌﾞﾙ作成
 			await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_ketto (馬ID, 父ID, 母ID, PRIMARY KEY (馬ID))");
 
 			var newkeys = await keys.WhereAsync(async uma =>
 			{
-				return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, uma)) > 0;
+				return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) CNT FROM t_ketto WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, uma)) == 0;
 			}).RunAsync(arr => arr.ToArray());
 
-			Progress.Minimum = 0;
-			Progress.Maximum = newkeys.Length;
-			Progress.Value = 0;
+			if (progress)
+			{
+				Progress.Minimum = 0;
+				Progress.Maximum = newkeys.Length;
+				Progress.Value = 0;
+			}
 
 			foreach (var chunk in newkeys.Chunk(100))
 			{
@@ -596,7 +602,7 @@ namespace Netkeiba
 							);
 						}
 					}
-					Progress.Value += 1;
+					if (progress) Progress.Value += 1;
 				}
 				conn.Commit();
 			}
@@ -616,7 +622,7 @@ namespace Netkeiba
 			await RefreshSanku(conn, keys);
 		}
 
-		private async Task RefreshSanku(SQLiteControl conn, IEnumerable<string> keys)
+		private async Task RefreshSanku(SQLiteControl conn, IEnumerable<string> keys, bool progress = true)
 		{
 			var existssanku = await conn.ExistsColumn("t_sanku", "馬ID");
 			var newkeys = await existssanku.Run(async exists =>
@@ -633,9 +639,12 @@ namespace Netkeiba
 					: keys;
 			}).RunAsync(arr => arr.ToArray());
 
-			Progress.Minimum = 0;
-			Progress.Maximum = newkeys.Length;
-			Progress.Value = 0;
+			if (progress)
+			{
+				Progress.Minimum = 0;
+				Progress.Maximum = newkeys.Length;
+				Progress.Value = 0;
+			}
 
 			foreach (var chunk in newkeys.Chunk(100))
 			{
@@ -666,7 +675,7 @@ namespace Netkeiba
 							dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? DbType.String : DbType.Single, x)).ToArray()
 						);
 					}
-					Progress.Value += 1;
+					if (progress) Progress.Value += 1;
 				}
 				conn.Commit();
 			}
@@ -677,10 +686,30 @@ namespace Netkeiba
 		private const float 着順RANK3 = 4.00F;
 		private const float 着順RANK4 = 1.00F;
 		private const float 着順RANK5 = 2.00F;
-		private readonly string 着順CASE = $"(CASE ﾗﾝｸ2 WHEN 'RANK1' THEN {着順RANK1} WHEN 'RANK2' THEN {着順RANK2} WHEN 'RANK3' THEN {着順RANK3} WHEN 'RANK4' THEN {着順RANK4} ELSE {着順RANK5} END)";
 
-		private const float 着順LQ = 0.50F;
-		private const float 着順UQ = 2.00F;
+		private readonly string 着順CASE = new[]
+		{
+			$"(CASE ﾗﾝｸ1",
+			$" WHEN 'G1'         THEN {着順G1}",
+			$" WHEN 'G2'         THEN {着順G2}",
+			$" WHEN 'G3'         THEN {着順G3}",
+			$" WHEN 'オープン'   THEN {着順オープン}",
+			$" WHEN '3勝'        THEN {着順3勝}",
+			$" WHEN '2勝'        THEN {着順2勝}",
+			$" WHEN '1勝'        THEN {着順1勝}",
+			$" WHEN '未勝利'     THEN {着順未勝利}",
+			$" WHEN '新馬'       THEN {着順新馬}",
+			$" ELSE {着順未勝利} END)",
+		}.GetString(" ");
 
+		private const float 着順G1 = 22.78125F;
+		private const float 着順G2 = 15.1875F;
+		private const float 着順G3 = 10.125F;
+		private const float 着順オープン = 6.75F;
+		private const float 着順3勝 = 4.50F;
+		private const float 着順2勝 = 3.00F;
+		private const float 着順1勝 = 2.00F;
+		private const float 着順新馬 = 1.50F;
+		private const float 着順未勝利 = 1.00F;
 	}
 }
