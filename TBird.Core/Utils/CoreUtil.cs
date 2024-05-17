@@ -41,7 +41,7 @@ namespace TBird.Core
 		/// <param name="pis">ﾌﾟﾛｾｽ実行情報</param>
 		public static void Execute(params ProcessStartInfo[] pis)
 		{
-			Process process = null;
+			Process? process = null;
 			foreach (var pi in pis)
 			{
 				pi.CreateNoWindow = true;
@@ -67,9 +67,12 @@ namespace TBird.Core
 				process = now;
 			}
 
-			using (process)
+			if (process != null)
 			{
-				process.WaitForExit();
+				using (process)
+				{
+					process.WaitForExit();
+				}
 			}
 		}
 

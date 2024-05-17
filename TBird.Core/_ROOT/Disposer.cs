@@ -5,7 +5,7 @@ namespace TBird.Core
 	public class Disposer<T> : IDisposable
 	{
 		protected T _value;
-		private Action<T> _dispose;
+		private Action<T>? _dispose;
 
 		/// <summary>
 		/// <see cref="IDisposable"/> を継承しないｸﾗｽで疑似的にusing句を利用するためのｲﾝｽﾀﾝｽを生成します。
@@ -29,9 +29,11 @@ namespace TBird.Core
 				if (disposing)
 				{
 					// TODO: マネージド状態を破棄します (マネージド オブジェクト)。
-					_dispose(_value);
-
-					_dispose = null;
+					if (_dispose != null)
+					{
+						_dispose(_value);
+						_dispose = null;
+					}
 				}
 
 				// TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、下のファイナライザーをオーバーライドします。

@@ -22,7 +22,7 @@ namespace TBird.Core
 		/// <param name="xml"><see cref="XElement"/>ｲﾝｽﾀﾝｽ</param>
 		/// <param name="name">属性の名前</param>
 		/// <returns></returns>
-		public static string AttributeS(this XElement xml, XName name, string def = null)
+		public static string? AttributeS(this XElement xml, XName name, string? def = null)
 		{
 			var attr = xml.Attribute(name);
 			return attr != null ? (string)attr : def;
@@ -72,7 +72,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static T AttributeE<T>(this XElement xml, XName name) where T : struct
 		{
-			return EnumUtil.ToEnum<T>(xml.AttributeS(name));
+			return EnumUtil.ToEnum<T>(xml.AttributeS(name).NotNull($"name: {name}"));
 		}
 
 		/// <summary>
@@ -93,7 +93,7 @@ namespace TBird.Core
 		/// <param name="xml"><see cref="XElement"/>ｲﾝｽﾀﾝｽ</param>
 		/// <param name="name">ｴﾚﾒﾝﾄの名前</param>
 		/// <returns></returns>
-		public static string ElementS(this XElement xml, XName name, string def = null)
+		public static string? ElementS(this XElement xml, XName name, string? def = null)
 		{
 			var attr = xml.Element(name);
 			return attr != null ? (string)attr : def;
@@ -143,7 +143,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static T ElementE<T>(this XElement xml, XName name) where T : struct
 		{
-			return EnumUtil.ToEnum<T>(xml.ElementS(name));
+			return EnumUtil.ToEnum<T>(xml.ElementS(name).NotNull($"name: {name}"));
 		}
 
 	}

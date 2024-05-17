@@ -8,7 +8,7 @@
 		{
 			get => _Instance = _Instance ?? new CoreSetting();
 		}
-		private static CoreSetting _Instance;
+		private static CoreSetting? _Instance;
 
 		public CoreSetting() : base(_path)
 		{
@@ -28,7 +28,7 @@
 			get => GetProperty(_ApplicationKey);
 			set => SetProperty(ref _ApplicationKey, value);
 		}
-		private string _ApplicationKey;
+		private string _ApplicationKey = string.Empty;
 
 		/// <summary>
 		/// 言語
@@ -38,7 +38,7 @@
 			get => GetProperty(_Language);
 			set => SetProperty(ref _Language, value);
 		}
-		private string _Language;
+		private string _Language = string.Empty;
 
 		/// <summary>
 		/// ﾃﾞﾊﾞｯｸﾞﾓｰﾄﾞかどうか

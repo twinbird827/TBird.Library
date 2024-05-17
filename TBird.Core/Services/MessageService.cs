@@ -82,7 +82,7 @@ namespace TBird.Core
 		/// <summary>
 		/// 処理を計測します。
 		/// </summary>
-		public static IDisposable Measure(string message = null,
+		public static IDisposable Measure(string? message = null,
 				[CallerMemberName] string callerMemberName = "",
 				[CallerFilePath] string callerFilePath = "",
 				[CallerLineNumber] int callerLineNumber = 0)

@@ -133,5 +133,7 @@ namespace TBird.Core
 		{
 			return await action(await target);
 		}
+
+		public static T NotNull<T>(this T? value, string message = "value can not null.") => value ?? throw new ArgumentNullException(message);
 	}
 }

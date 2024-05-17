@@ -12,7 +12,7 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="delay">待機時間(ﾐﾘ秒)</param>
 		/// <param name="token">ｷｬﾝｾﾙﾄｰｸﾝ</param>
-		public static async Task<bool> Delay(int delay, CancellationTokenSource cts)
+		public static async Task<bool> Delay(int delay, CancellationTokenSource? cts)
 		{
 			if (delay == 0)
 			{
@@ -122,7 +122,7 @@ namespace TBird.Core
 			return iar.IsCompleted;
 		}
 
-		public static Task<bool> WaitAsync(IAsyncResult iar, TimeSpan timeout, CancellationTokenSource cts = null)
+		public static Task<bool> WaitAsync(IAsyncResult iar, TimeSpan timeout, CancellationTokenSource? cts = null)
 		{
 			return WaitAsync(iar).Timeout(timeout, cts);
 		}
