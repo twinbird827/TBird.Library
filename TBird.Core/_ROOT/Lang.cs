@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -11,7 +12,7 @@ namespace TBird.Core
 		{
 			get => _Instance = _Instance ?? new Lang();
 		}
-		private static Lang _Instance;
+		private static Lang? _Instance;
 
 		/// <summary>
 		/// 言語ﾌｧｲﾙの配置ﾃﾞｨﾚｸﾄﾘ
@@ -44,8 +45,10 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="name">ｷｰ</param>
 		/// <returns></returns>
-		public string Get([CallerMemberName] string name = null)
+		public string Get([CallerMemberName] string? name = null)
 		{
+			if (name == null) throw new ArgumentNullException(nameof(name));
+
 			if (_items.ContainsKey(name))
 			{
 				if (_items[name].ContainsKey(CoreSetting.Instance.Language))

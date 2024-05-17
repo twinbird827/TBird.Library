@@ -8,7 +8,7 @@ namespace TBird.Core
 	public class FileAppendWriter : StreamWriter
 	{
 		private const int bufferSize = 1024 * 1024 * 10;
-		private Stream _stream;
+		private Stream? _stream;
 
 		public FileAppendWriter(string path) : this(path, Encoding.UTF8)
 		{
