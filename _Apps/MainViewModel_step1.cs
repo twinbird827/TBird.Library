@@ -116,6 +116,7 @@ namespace Netkeiba
 									await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順, {v})");
 								}
 							}
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig (ﾚｰｽID, 着順)");
 
 							await conn.BeginTransaction();
 						}

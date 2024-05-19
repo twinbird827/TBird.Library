@@ -64,7 +64,7 @@ namespace Netkeiba
 			//using (await Locker.LockAsync(_guid))
 			if (login)
 			{
-				var selenium = await TBirdSeleniumFactory.CreateSelenium(1);
+				var selenium = await TBirdSeleniumFactory.CreateSelenium(10);
 
 				selenium.SetInitialize(driver =>
 				{
