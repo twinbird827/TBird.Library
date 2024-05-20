@@ -284,8 +284,19 @@ namespace Netkeiba
 
 		private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
+			var dic = new Dictionary<string, object>();
+
 			// 時間変換用ﾌｧﾝｸｼｮﾝ
 			Func<object, float> func_time = v => v.Str().Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle());
+			// 通過順変換ﾌｧﾝｸｼｮﾝ
+			Func<object, double> func_tuka = v => v.Str().Split('-').Skip(1).Take(1).Select(x => x.GetDouble()).Average(TOU[src["ﾚｰｽID"].GetInt64()] / 2).Run(i =>
+			{
+				var tou = TOU[src["ﾚｰｽID"].GetInt64()];
+				var x1 = tou / 4;
+				var x2 = x1 * 2;
+				var x3 = x1 * 3;
+				return i <= x1 ? 0 : i <= x2 ? 2 : i <= x3 ? 4 : 6;
+			});
 
 			var 過去SQL = Arr(
 				$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ, t_top.ﾀｲﾑ指数 TOPﾀｲﾑ指数, t_top.上り TOP上り, t_top.斤量 TOP斤量",
@@ -298,10 +309,9 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(arr).Concat(Arr(1, 2, 3).Select(i => arr.Take(i).ToList())).ToArray();
+				return Arr(30, 3).Select(i => arr.Take(i).ToList()).ToArray();
 			});
 
-			var dic = new Dictionary<string, object>();
 			// ﾍｯﾀﾞ情報
 			dic["ﾚｰｽID"] = src["ﾚｰｽID"].GetInt64();
 			dic["開催日数"] = src["開催日数"].GetInt64();
@@ -322,8 +332,6 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
 
-			馬情報.ForEach((arr, i) => dic[$"賞金平{i}"] = Median(arr, "賞金"));
-
 			//馬情報.ForEach((arr, i) => dic[$"単勝平{i}"] = Median(arr, "単勝"));
 
 			dic["追切騎手"] = src["追切騎手"].Str() == "助手" ? 0 : 1;
@@ -340,98 +348,88 @@ namespace Netkeiba
 			dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
 			dic["追切評価"] = 追切.IndexOf(src["追切評価"]);
 
-			var tgt = Arr("開催場所", "馬場", "馬場状態", "回り");
-			Func<List<Dictionary<string, object>>, string[], int[], IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, tgtarr, takearr) =>
+			Func<List<Dictionary<string, object>>, string[], int[], int[], IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, tgtarr, takarr, kyoarr) =>
 			{
-				var lst1 = Arr(arr).Concat(tgtarr.Select(ttt => arr.Where(x => x[ttt].Str() == src[ttt].Str())));
-				var lst2 = lst1.SelectMany(x => takearr.Select(take => x.Take(take)));
-				return lst1.Concat(lst2).Select(x => x.ToList());
+				var l0 = kyoarr.Select(kyo => arr.Where(x => Calc(x["距離"], src["距離"], (x1, x2) => x2 - x1).Run(i => i < 0 ? i * -2 : i).Run(i => i <= kyo)));
+				var l1 = l0.Concat(l0.SelectMany(l => tgtarr.Select(tgt => l.Where(x => x[tgt].Str() == src[tgt].Str()))));
+				var l2 = l1.SelectMany(l => takarr.Select(tak => l.Take(tak)));
+				return l2.Select(l => l.ToList());
 			};
 
-			Action<string, List<Dictionary<string, object>>, int, int[]> ACTION情報 = (key, arr, i, xxx) =>
+			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
 			{
-				xxx.ForEach(iii =>
-				{
-					var X = arr.Where(x => Calc(x["距離"], src["距離"], (d1, d2) => d1 - d2).Run(d => d * 2 <= iii || d * -1 <= iii));
-					var A = X.Select(x => x["着順"].GetSingle()).ToArray();
-					var B = X.Select(x => GET着順(x)).ToArray();
-					var D = X.Select(x => x["ﾀｲﾑ指数"].GetSingle()).ToArray();
-					var E = X.Select(x => x["ﾀｲﾑ指数"].GetSingle() - x["TOPﾀｲﾑ指数"].GetSingle()).ToArray();
-					var F = X.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).ToArray();
-					var KEY = $"{key}{iii}{i.ToString(2)}";
+				dic[$"{KEY}0"] = GetSingle(arr, def, l => l.Average());
+				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Percentile(25));
+				//dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(75));
+			};
 
-					dic[$"{KEY}A0"] = GetSingle(A, DEF["着順SRC"], l => l.Average());
-					//dic[$"{KEY}A1"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(25));
-					//dic[$"{KEY}A2"] = GetSingle(A, DEF["着順SRC"], l => l.Percentile(75));
-					dic[$"{KEY}B0"] = GetSingle(B, DEF["着順"], l => l.Average());
-					//dic[$"{KEY}B1"] = GetSingle(B, DEF["着順"], l => l.Percentile(25));
-					//dic[$"{KEY}B2"] = GetSingle(B, DEF["着順"], l => l.Percentile(75));
-					dic[$"{KEY}D0"] = GetSingle(D, DEF["ﾀｲﾑ指数"], l => l.Average());
-					//dic[$"{KEY}D1"] = GetSingle(D, DEF["ﾀｲﾑ指数"], l => l.Percentile(25));
-					//dic[$"{KEY}D2"] = GetSingle(D, DEF["ﾀｲﾑ指数"], l => l.Percentile(75));
-					dic[$"{KEY}E0"] = GetSingle(E, DEF["ﾀｲﾑ差"], l => l.Average());
-					//dic[$"{KEY}E1"] = GetSingle(E, DEF["ﾀｲﾑ差"], l => l.Percentile(25));
-					//dic[$"{KEY}E2"] = GetSingle(E, DEF["ﾀｲﾑ差"], l => l.Percentile(75));
-					dic[$"{KEY}F0"] = GetSingle(F, DEF["勝時差"], l => l.Average());
-					//dic[$"{KEY}F1"] = GetSingle(F, DEF["勝時差"], l => l.Percentile(25));
-					//dic[$"{KEY}F2"] = GetSingle(F, DEF["勝時差"], l => l.Percentile(75));
-				});
+			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
+			{
+				var X = arr;
+				var A = X.Select(x => x["着順"].GetSingle()).ToArray();
+				var B = X.Select(x => GET着順(x)).ToArray();
+				var D = X.Select(x => x["ﾀｲﾑ指数"].GetSingle()).ToArray();
+				var E = X.Select(x => x["ﾀｲﾑ指数"].GetSingle() - x["TOPﾀｲﾑ指数"].GetSingle()).ToArray();
+				var F = X.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).ToArray();
+				var G = X.Select(x => x["賞金"].GetSingle()).ToArray();
+				var KEY = $"{key}{i.ToString(2)}";
+
+				ACTION情報0(A, $"{KEY}着順SRC", DEF["着順SRC"]);
+				ACTION情報0(B, $"{KEY}着順", DEF["着順"]);
+				ACTION情報0(D, $"{KEY}ﾀｲﾑ指数", DEF["ﾀｲﾑ指数"]);
+				ACTION情報0(E, $"{KEY}ﾀｲﾑ差", DEF["ﾀｲﾑ差"]);
+				ACTION情報0(F, $"{KEY}勝時差", DEF["勝時差"]);
+				ACTION情報0(G, $"{KEY}賞金", DEF["賞金"]);
 			};
 
 			// 出遅れ率
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, tgt, Arr(1, 2, 3, 20))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態", "回り"), Arr(3, 30), Arr(200, 800))).ForEach((arr, i) =>
 			{
-				ACTION情報("馬ID", arr, i, Arr(200, 800));
+				ACTION情報("馬ID", arr, i);
 			});
 
 			Arr("騎手ID"/*, "調教師ID", "馬主ID"*/).ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? ORDER BY t_orig.開催日数 DESC",
+					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, tgt, Arr(20, 40, 60, 200)));
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64())
+				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(200, 900)));
 
-				情報.ForEach((arr, i) => ACTION情報(key, arr, i, Arr(3600)));
+				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
 
-			// 得意距離、及び今回のﾚｰｽ距離との差
 			dic["距離"] = src["距離"].GetSingle();
 
 			馬情報.ForEach((arr, i) =>
 			{
+				// 得意距離、及び今回のﾚｰｽ距離との差
 				dic[$"距離得{i}"] = Median(arr, "距離");
 				dic[$"距離差{i}"] = dic["距離"].GetSingle() - dic[$"距離得{i}"].GetSingle();
-			});
 
-			// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-			Func<object, double> func_tuka = v => $"{v}".Split('-').Take(2).Select(x => x.GetDouble()).Average(TOU[dic["ﾚｰｽID"].GetInt64()] / 2);
-			馬情報.ForEach((arr, i) => dic[$"通過{i}"] = Median(arr.Select(x => (float)func_tuka(x["通過"])), TOU[dic["ﾚｰｽID"].GetInt64()] / 2));
+				// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
+				dic[$"通過{i}"] = Median(arr.Select(x => (float)func_tuka(x["通過"])), TOU[dic["ﾚｰｽID"].GetInt64()] / 2);
 
-			// 上り×斤量
-			馬情報.ForEach((arr, i) =>
-			{
-				dic[$"斤上{i}"] = Median(arr, "上り");
+				// 上り×斤量
+				dic[$"上り{i}"] = Median(arr, "上り");
 				dic[$"斤上{i}"] = Median(arr.Select(x => Get斤上(x)), DEF["斤上"]);
-			});
-
-			//// ﾀｲﾑの平均、ﾀｲﾑ平均×上り×斤量
-			馬情報.ForEach((arr, i) =>
-			{
+				dic[$"斤時{i}"] = dic[$"斤上{i}"].GetSingle() * (dic[$"通過{i}"].Str() switch
+				{
+					"0" => 0.95F,
+					"6" => 1.05F,
+					_ => 1.00F
+				});
+				// ﾀｲﾑの平均、ﾀｲﾑ平均×上り×斤量
 				dic[$"時間{i}"] = Median(arr.Select(x => x["距離"].GetSingle() / func_time(x["ﾀｲﾑ"])), DEF["時間"]);
 				dic[$"斤間{i}"] = dic[$"斤上{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
-			});
 
-			// 1着との差(上り×斤量)
-			馬情報.ForEach((arr, i) => dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"]));
+				// 1着との差(上り×斤量)
+				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"]);
 
-			// 出走間隔
-			馬情報.ForEach((arr, i) =>
-			{
+				// 出走間隔
 				dic[$"出走間隔{i}"] = dic["開催日数"].GetSingle() - GetSingle(arr.Select(x => x["開催日数"].GetSingle()), DEF["出走間隔"] * (i + 1), x => x.Max());
 			});
 
