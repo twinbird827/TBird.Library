@@ -258,18 +258,18 @@ namespace Netkeiba
 						var arr = racarr.Select(x => x[key].GetSingle()).Where(x => !float.IsNaN(x)).ToArray();
 						var std = Std(arr);
 
-						dic[$"{key}A1"] = val - arr.Average();
-						dic[$"{key}A2"] = val - arr.Percentile(25);
-						dic[$"{key}A3"] = val - arr.Percentile(75);
-						dic[$"{key}A4"] = val - arr.Percentile(50);
-						//dic[$"{key}A4"] = val - arr.Max();
-						//dic[$"{key}A5"] = val - arr.Min();
+						//dic[$"{key}A1"] = val - arr.Average();
+						//dic[$"{key}A2"] = val - arr.Percentile(25);
+						//dic[$"{key}A3"] = val - arr.Percentile(75);
+						//dic[$"{key}A4"] = val - arr.Percentile(50);
+						dic[$"{key}A5"] = val - arr.Max();
+						dic[$"{key}A6"] = val - arr.Min();
 						//dic[$"{key}A7"] = val * std;
-						//dic[$"{key}B0"] = val == 0 ? 0F : arr.Average() / val * 100;
-						////dic[$"{key}B1"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
+						//dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
 						//dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
 						//dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
-						//dic[$"{key}B6"] = val == 0 ? 0F : arr.Sum() / val;
+						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
+						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
 					}
 					catch
 					{
@@ -322,7 +322,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(30, 3).Select(i => arr.Take(i).ToList()).ToArray();
+				return Arr(9, 3).Select(i => arr.Take(i).ToList()).ToArray();
 			});
 
 			// ﾍｯﾀﾞ情報
@@ -393,7 +393,7 @@ namespace Netkeiba
 				//ACTION情報0(D, $"{KEY}ﾀｲﾑ指数", DEF["ﾀｲﾑ指数"]);
 				ACTION情報0(E, $"{KEY}ﾀｲﾑ差", DEF["ﾀｲﾑ差"]);
 				ACTION情報0(F, $"{KEY}勝時差", DEF["勝時差"]);
-				ACTION情報0(G, $"{KEY}賞金", DEF["賞金"]);
+				//ACTION情報0(G, $"{KEY}賞金", DEF["賞金"]);
 			};
 
 			// 出遅れ率
@@ -421,6 +421,15 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) =>
 			{
+				// 着順
+				dic[$"賞金{i}"] = Median(arr, "賞金");
+
+				// 着順
+				dic[$"着順{i}"] = Median(arr, "着順", DEF["着順SRC"]);
+
+				// ﾀｲﾑ指数
+				dic[$"ﾀｲﾑ指数{i}"] = Median(arr, "ﾀｲﾑ指数");
+
 				// 得意距離、及び今回のﾚｰｽ距離との差
 				dic[$"距離得{i}"] = Median(arr, "距離");
 				dic[$"距離差{i}"] = dic["距離"].GetSingle() - dic[$"距離得{i}"].GetSingle();
