@@ -76,8 +76,11 @@ namespace TBird.Core
 
 		protected virtual void DisposeManagedResource()
 		{
-			EventUtil.Raise(Disposed.NotNull(), this);
-			Disposed.NotNull().GetInvocationList().OfType<EventHandler>().ForEach(x => Disposed -= x);
+			if (Disposed != null)
+			{
+				EventUtil.Raise(Disposed, this);
+				Disposed.GetInvocationList().OfType<EventHandler>().ForEach(x => Disposed -= x);
+			}
 			Locker.Dispose(Lock);
 		}
 

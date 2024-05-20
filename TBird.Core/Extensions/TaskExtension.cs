@@ -43,7 +43,7 @@ namespace TBird.Core
 		public static async Task Cts(this Task task, params CancellationTokenSource?[] cancellations)
 		{
 			var ccs = new TaskCompletionSource<bool>();
-			var arr = cancellations.WhereNotNull().Select(x => x.Token).ToArray();
+			var arr = cancellations.NotNulls().Select(x => x.Token).ToArray();
 			using (var tmp = CancellationTokenSource.CreateLinkedTokenSource(arr))
 			using (tmp.Token.Register(() => ccs.TrySetResult(true)))
 			{

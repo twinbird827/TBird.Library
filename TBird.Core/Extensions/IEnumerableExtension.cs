@@ -218,7 +218,19 @@ namespace TBird.Core
 		/// <typeparam name="T">配列の型</typeparam>
 		/// <param name="array">Nullを含む配列</param>
 		/// <returns></returns>
+		/// <remarks>非推奨。そのうち消す</remarks>
 		public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> array)
+		{
+			return array.NotNulls();
+		}
+
+		/// <summary>
+		/// Null許容型の配列からNullを除外します。
+		/// </summary>
+		/// <typeparam name="T">配列の型</typeparam>
+		/// <param name="array">Nullを含む配列</param>
+		/// <returns></returns>
+		public static IEnumerable<T> NotNulls<T>(this IEnumerable<T?> array)
 		{
 			return array.OfType<T>();
 		}
