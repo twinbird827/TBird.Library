@@ -82,7 +82,7 @@ namespace TBird.Web
 		public async Task<T> Execute<T>(Func<ChromeDriver, T> func)
 		{
 			using (await Locker.LockAsync(Lock))
-			using (new Disposer<TBirdSelenium>(this, x => x.Executing = false))
+			using (this.Disposer(x => x.Executing = false))
 			{
 				Executing = true;
 
@@ -155,7 +155,7 @@ namespace TBird.Web
 
 		public static Disposer<object> GetDisposer()
 		{
-			return new Disposer<object>(new object(), _ =>
+			return new object().Disposer(_ =>
 			{
 				_list.ForEach(x => x.Dispose());
 				_list.Clear();
