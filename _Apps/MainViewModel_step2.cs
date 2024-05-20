@@ -341,13 +341,13 @@ namespace Netkeiba
 			dic["追切評価"] = 追切.IndexOf(src["追切評価"]);
 
 			var tgt = Arr("開催場所", "馬場", "馬場状態", "回り");
-			Func<List<Dictionary<string, object>>, bool, int, IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, istgt, take) =>
+			Func<List<Dictionary<string, object>>, string[], int[], IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, tgtarr, takearr) =>
 			{
-				var tgtlst = istgt ? tgt.Select(ttt => arr.Where(x => x[ttt].Str() == src[ttt].Str()).ToList()) : Enumerable.Empty<List<Dictionary<string, object>>>();
-				var tklst1 = arr.Take(take).ToList();
-				var tklst2 = tgtlst.Select(tmp => tmp.Take(take).ToList());
-				return Arr(arr, tklst1).Concat(tgtlst).Concat(tklst2);
+				var lst1 = Arr(arr).Concat(tgtarr.Select(ttt => arr.Where(x => x[ttt].Str() == src[ttt].Str())));
+				var lst2 = lst1.SelectMany(x => takearr.Select(take => x.Take(take)));
+				return lst1.Concat(lst2).Select(x => x.ToList());
 			};
+
 			Action<string, List<Dictionary<string, object>>, int, int[]> ACTION情報 = (key, arr, i, xxx) =>
 			{
 				xxx.ForEach(iii =>
@@ -382,7 +382,7 @@ namespace Netkeiba
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, true, 5)).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, tgt, Arr(1, 2, 3, 20))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i, Arr(200, 800));
 			});
@@ -390,11 +390,11 @@ namespace Netkeiba
 			Arr("騎手ID"/*, "調教師ID", "馬主ID"*/).ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ?",
+					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, key == "騎手ID", 20));
+				).RunAsync(arr => CREATE情報(arr, tgt, Arr(20, 40, 60, 200)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i, Arr(3600)));
 			});
@@ -514,12 +514,7 @@ namespace Netkeiba
 		{
 			var 頭数 = TOU[x["ﾚｰｽID"].GetInt64()];
 			var 着順 = x["着順"].GetSingle();
-			var 備考 = x["備考"].Str().Run(x => x.Contains("出遅")
-				? 1.2F
-				: x.Contains("不利")
-				? 1.4F
-				: 1.0F
-			);
+			var 備考 = 1.0F;
 
 			var RANK = x["ﾗﾝｸ1"].Str() switch
 			{
