@@ -141,13 +141,13 @@ namespace TBird.Core
 			public async Task<IDisposable> LockAsync()
 			{
 				await WaitAsync();
-				return new Disposer<Manager>(this, arg => arg.Release());
+				return this.Disposer(arg => arg.Release());
 			}
 
 			public IDisposable Lock()
 			{
 				Wait();
-				return new Disposer<Manager>(this, arg => arg.Release());
+				return this.Disposer(arg => arg.Release());
 			}
 		}
 	}
