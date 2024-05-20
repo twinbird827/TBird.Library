@@ -119,6 +119,7 @@ namespace Netkeiba
 		private Dictionary<string, float> DEF = new();
 		private Dictionary<long, float> TOU = new();
 		private Dictionary<object, Dictionary<string, float>> OIK = new();
+		private Dictionary<object, Dictionary<string, object>> TOP = new();
 
 		private async Task InitializeModelBase(SQLiteControl conn)
 		{
@@ -138,7 +139,7 @@ namespace Netkeiba
 				$"AVG(距離) 距離,",
 				$"AVG(上り) 上り,",
 				$"AVG(ﾀｲﾑ指数) ﾀｲﾑ指数,",
-				$"AVG(TOPﾀｲﾑ - ﾀｲﾑ指数) ﾀｲﾑ差,",
+				$"AVG(ﾀｲﾑ指数 - TOPﾀｲﾑ) ﾀｲﾑ差,",
 				$"AVG(賞金) 賞金,",
 				$"AVG(斤量) 斤量",
 				$"FROM t_orig LEFT JOIN w_tou ON w_tou.ﾚｰｽID = t_orig.ﾚｰｽID"
@@ -193,6 +194,16 @@ namespace Netkeiba
 				return val.ToDictionary(
 					x => x["追切場所"],
 					x => x.Where(x => x.Key != "追切場所").ToDictionary(y => y.Key, y => y.Value.GetSingle())
+				);
+			});
+
+			TOP = await conn.GetRows(Arr(
+				$"SELECT ﾚｰｽID, MIN(ﾀｲﾑ) ﾀｲﾑ, MAX(CAST(ﾀｲﾑ指数 AS INTEGER)) ﾀｲﾑ指数, MIN(CAST(上り AS REAL)) 上り, MAX(CAST(斤量 AS REAL)) 斤量 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID"
+			).GetString(" ")).RunAsync(val =>
+			{
+				return val.ToDictionary(
+					x => x["ﾚｰｽID"],
+					x => x.Where(x => x.Key != "ﾚｰｽID").ToDictionary(y => y.Key, y => y.Value)
 				);
 			});
 		}
@@ -250,6 +261,7 @@ namespace Netkeiba
 						dic[$"{key}A1"] = val - arr.Average();
 						dic[$"{key}A2"] = val - arr.Percentile(25);
 						dic[$"{key}A3"] = val - arr.Percentile(75);
+						dic[$"{key}A4"] = val - arr.Percentile(50);
 						//dic[$"{key}A4"] = val - arr.Max();
 						//dic[$"{key}A5"] = val - arr.Min();
 						//dic[$"{key}A7"] = val * std;
@@ -286,6 +298,7 @@ namespace Netkeiba
 
 		private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
+			var top = TOP[src["ﾚｰｽID"]];
 			var dic = new Dictionary<string, object>();
 
 			// 時間変換用ﾌｧﾝｸｼｮﾝ
@@ -301,9 +314,7 @@ namespace Netkeiba
 			});
 
 			var 過去SQL = Arr(
-				$" SELECT t_orig.*, t_top.ﾀｲﾑ TOPﾀｲﾑ, t_top.ﾀｲﾑ指数 TOPﾀｲﾑ指数, t_top.上り TOP上り, t_top.斤量 TOP斤量",
-				$" FROM t_orig",
-				$" LEFT OUTER JOIN t_orig t_top ON t_orig.ﾚｰｽID = t_top.ﾚｰｽID AND t_top.着順 = 1"
+				$" SELECT * FROM t_orig"
 			).GetString(" ");
 			var 馬情報 = await conn.GetRows(
 					過去SQL + $" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
@@ -336,7 +347,7 @@ namespace Netkeiba
 
 			//馬情報.ForEach((arr, i) => dic[$"単勝平{i}"] = Median(arr, "単勝"));
 
-			dic["追切騎手"] = src["追切騎手"].Str() == "助手" ? 0 : 1;
+			//dic["追切騎手"] = src["追切騎手"].Str() == "助手" ? 0 : 1;
 
 			dic["追切騎手平"] = Median(馬情報[0].Select(x => x["追切騎手"].Str() == "助手" ? 0F : 1F), 0F);
 
@@ -361,9 +372,9 @@ namespace Netkeiba
 			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
 			{
 				dic[$"{KEY}0"] = GetSingle(arr, def, l => l.Average());
-				dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
-				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Percentile(25));
-				//dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(75));
+				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
+				dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(25));
+				dic[$"{KEY}3"] = GetSingle(arr, def, l => l.Percentile(75));
 			};
 
 			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
@@ -372,14 +383,14 @@ namespace Netkeiba
 				var A = X.Select(x => x["着順"].GetSingle()).ToArray();
 				var B = X.Select(x => GET着順(x)).ToArray();
 				var D = X.Select(x => x["ﾀｲﾑ指数"].GetSingle()).ToArray();
-				var E = X.Select(x => x["ﾀｲﾑ指数"].GetSingle() - x["TOPﾀｲﾑ指数"].GetSingle()).ToArray();
-				var F = X.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(x["TOPﾀｲﾑ"])).ToArray();
+				var E = X.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()).ToArray();
+				var F = X.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(top["ﾀｲﾑ"])).ToArray();
 				var G = X.Select(x => x["賞金"].GetSingle()).ToArray();
 				var KEY = $"{key}{i.ToString(2)}";
 
-				ACTION情報0(A, $"{KEY}着順SRC", DEF["着順SRC"]);
+				//ACTION情報0(A, $"{KEY}着順SRC", DEF["着順SRC"]);
 				ACTION情報0(B, $"{KEY}着順", DEF["着順"]);
-				ACTION情報0(D, $"{KEY}ﾀｲﾑ指数", DEF["ﾀｲﾑ指数"]);
+				//ACTION情報0(D, $"{KEY}ﾀｲﾑ指数", DEF["ﾀｲﾑ指数"]);
 				ACTION情報0(E, $"{KEY}ﾀｲﾑ差", DEF["ﾀｲﾑ差"]);
 				ACTION情報0(F, $"{KEY}勝時差", DEF["勝時差"]);
 				ACTION情報0(G, $"{KEY}賞金", DEF["賞金"]);
@@ -389,7 +400,7 @@ namespace Netkeiba
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態", "回り"), Arr(3, 30), Arr(200, 800))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態", "回り"), Arr(3, 30), Arr(800))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
@@ -401,7 +412,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(200, 900)));
+				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(900)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
@@ -431,7 +442,7 @@ namespace Netkeiba
 				dic[$"斤間{i}"] = dic[$"斤上{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
 
 				// 1着との差(上り×斤量)
-				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(x, "TOP上り", "TOP斤量")), DEF["勝上差"]);
+				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(top)), DEF["勝上差"]);
 
 				// 出走間隔
 				dic[$"出走間隔{i}"] = dic["開催日数"].GetSingle() - GetSingle(arr.Select(x => x["開催日数"].GetSingle()), DEF["出走間隔"] * (i + 1), x => x.Max());
@@ -679,7 +690,7 @@ namespace Netkeiba
 			$" ELSE {着順未勝利__} END)",
 		}.GetString(" ");
 
-		private const float 倍率 = 1.50F;
+		private const float 倍率 = 1.25F;
 		private const float 着順未勝利__ = 1.00F;
 		private const float 着順新馬____ = 倍率 * 着順未勝利__;
 		private const float 着順1勝_____ = 倍率 * 着順新馬____;
