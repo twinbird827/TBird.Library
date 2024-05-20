@@ -350,10 +350,10 @@ namespace Netkeiba
 
 			Func<List<Dictionary<string, object>>, string[], int[], int[], IEnumerable<List<Dictionary<string, object>>>> CREATE情報 = (arr, tgtarr, takarr, kyoarr) =>
 			{
-				var l0 = kyoarr.Select(kyo => arr.Where(x => Calc(x["距離"], src["距離"], (x1, x2) => x2 - x1).Run(i => i < 0 ? i * -2 : i).Run(i => i <= kyo)));
-				var l1 = l0.Concat(l0.SelectMany(l => tgtarr.Select(tgt => l.Where(x => x[tgt].Str() == src[tgt].Str()))));
+				var l0 = kyoarr.Select(kyo => arr.Where(x => Calc(x["距離"], src["距離"], (x1, x2) => x2 - x1).Run(i => i < 0 ? i * -2 : i).Run(i => i <= kyo))).ToArray();
+				var l1 = l0.Concat(l0.SelectMany(l => tgtarr.Select(tgt => l.Where(x => x[tgt].Str() == src[tgt].Str())))).ToArray();
 				var l2 = l1.SelectMany(l => takarr.Select(tak => l.Take(tak)));
-				return l2.Select(l => l.ToList());
+				return l2.Select(l => l.ToList()).ToArray();
 			};
 
 			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
@@ -394,9 +394,10 @@ namespace Netkeiba
 			Arr("騎手ID"/*, "調教師ID", "馬主ID"*/).ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
+					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64())
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
 				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(200, 900)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
