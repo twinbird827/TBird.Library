@@ -219,6 +219,8 @@ namespace Netkeiba
 
 		private float Std(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.StandardDeviation() : 0F);
 
+		private float Var(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.Variance() : 0F);
+
 		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			// 同ﾚｰｽの平均を取りたいときに使用する
@@ -359,6 +361,7 @@ namespace Netkeiba
 			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
 			{
 				dic[$"{KEY}0"] = GetSingle(arr, def, l => l.Average());
+				dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
 				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Percentile(25));
 				//dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(75));
 			};
