@@ -135,5 +135,10 @@ namespace TBird.Core
 		}
 
 		public static T NotNull<T>(this T? value, string message = "value can not null.") => value ?? throw new ArgumentNullException(message);
+
+		public static Disposer<T> Disposer<T>(this T value, Action<T> action)
+		{
+			return new Disposer<T>(value, action);
+		}
 	}
 }

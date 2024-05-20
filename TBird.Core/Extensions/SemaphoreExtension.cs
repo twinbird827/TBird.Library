@@ -9,7 +9,7 @@ namespace TBird.Core
 		public static async Task<IDisposable> LockAsync(this SemaphoreSlim slim)
 		{
 			await slim.WaitAsync();
-			return new Disposer<SemaphoreSlim>(slim, arg => arg.Release());
+			return slim.Disposer(arg => arg.Release());
 		}
 	}
 }

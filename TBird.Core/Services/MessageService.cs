@@ -94,7 +94,7 @@ namespace TBird.Core
 			// 開始ﾒｯｾｰｼﾞ
 			Debug($"{message} start timing.", callerMemberName, callerFilePath, callerLineNumber);
 			// Dispose処理で終了ﾒｯｾｰｼﾞ
-			return new Disposer<Stopwatch>(stopwatch, x => Debug($"{message} process took {x.Elapsed:d\\.hh\\:mm\\:ss\\.fff} (...TimeSpan)", callerMemberName, callerFilePath, callerLineNumber));
+			return stopwatch.Disposer(x => Debug($"{message} process took {x.Elapsed:d\\.hh\\:mm\\:ss\\.fff} (...TimeSpan)", callerMemberName, callerFilePath, callerLineNumber));
 		}
 
 		public static void AppendLogfile(string message)

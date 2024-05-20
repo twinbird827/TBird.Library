@@ -120,7 +120,7 @@ namespace TBird.Wpf
 
 		public static IDisposable GetDispatcherShutdownDisposable()
 		{
-			return new Disposer<Dispatcher>(Dispatcher.CurrentDispatcher, x =>
+			return Dispatcher.CurrentDispatcher.Disposer(x =>
 			{
 				if (x != null && !OnUI(x.Thread))
 				{
