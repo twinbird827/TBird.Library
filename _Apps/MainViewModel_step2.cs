@@ -270,8 +270,8 @@ namespace Netkeiba
 						dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
 						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
 						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
-						dic[$"{key}B6"] = val == 0 ? 0F : arr.Percentile(5) / val * 100;
-						dic[$"{key}B7"] = val == 0 ? 0F : arr.Percentile(95) / val * 100;
+						dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
+						dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
 					}
 					catch
 					{
@@ -324,7 +324,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(9, 2, 4).Select(i => arr.Take(i).ToList()).ToArray();
+				return Arr(2, 4, 6, 8).Select(i => arr.Take(i).ToList()).ToArray();
 			});
 
 			// ﾍｯﾀﾞ情報
@@ -377,6 +377,8 @@ namespace Netkeiba
 				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
 				dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(25));
 				dic[$"{KEY}3"] = GetSingle(arr, def, l => l.Percentile(75));
+				dic[$"{KEY}4"] = GetSingle(arr, def, l => l.Min());
+				dic[$"{KEY}5"] = GetSingle(arr, def, l => l.Max());
 			};
 
 			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
@@ -402,7 +404,7 @@ namespace Netkeiba
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態", "回り"), Arr(2, 4, 30), Arr(800))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(2, 4, 6, 30), Arr(200, 2000))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
@@ -414,7 +416,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(900)));
+				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(2000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
