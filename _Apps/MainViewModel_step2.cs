@@ -416,7 +416,19 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(2000)));
+				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(200, 2000)));
+
+				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
+			});
+
+			Arr("調教師ID", "馬主ID").ForEach(async key =>
+			{
+				var 情報 = await conn.GetRows(
+					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? ORDER BY t_orig.開催日数 DESC",
+					SQLiteUtil.CreateParameter(DbType.String, src[key]),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(40, 400), Arr(200, 2000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
