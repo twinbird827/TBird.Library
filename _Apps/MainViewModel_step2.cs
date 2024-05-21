@@ -262,14 +262,16 @@ namespace Netkeiba
 						//dic[$"{key}A2"] = val - arr.Percentile(25);
 						//dic[$"{key}A3"] = val - arr.Percentile(75);
 						//dic[$"{key}A4"] = val - arr.Percentile(50);
-						dic[$"{key}A5"] = val - arr.Max();
-						dic[$"{key}A6"] = val - arr.Min();
+						//dic[$"{key}A5"] = val - arr.Max();
+						//dic[$"{key}A6"] = val - arr.Min();
 						//dic[$"{key}A7"] = val * std;
-						//dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
-						//dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
-						//dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
+						dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
+						dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
+						dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
 						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
 						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
+						dic[$"{key}B6"] = val == 0 ? 0F : arr.Percentile(5) / val * 100;
+						dic[$"{key}B7"] = val == 0 ? 0F : arr.Percentile(95) / val * 100;
 					}
 					catch
 					{
@@ -380,19 +382,19 @@ namespace Netkeiba
 			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
 			{
 				var X = arr;
-				var A = X.Select(x => x["着順"].GetSingle()).ToArray();
+				//var A = X.Select(x => x["着順"].GetSingle()).ToArray();
 				var B = X.Select(x => GET着順(x)).ToArray();
-				var D = X.Select(x => x["ﾀｲﾑ指数"].GetSingle()).ToArray();
-				var E = X.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()).ToArray();
-				var F = X.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(top["ﾀｲﾑ"])).ToArray();
-				var G = X.Select(x => x["賞金"].GetSingle()).ToArray();
+				//var D = X.Select(x => x["ﾀｲﾑ指数"].GetSingle()).ToArray();
+				//var E = X.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()).ToArray();
+				//var F = X.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(top["ﾀｲﾑ"])).ToArray();
+				//var G = X.Select(x => x["賞金"].GetSingle()).ToArray();
 				var KEY = $"{key}{i.ToString(2)}";
 
 				//ACTION情報0(A, $"{KEY}着順SRC", DEF["着順SRC"]);
 				ACTION情報0(B, $"{KEY}着順", DEF["着順"]);
 				//ACTION情報0(D, $"{KEY}ﾀｲﾑ指数", DEF["ﾀｲﾑ指数"]);
-				ACTION情報0(E, $"{KEY}ﾀｲﾑ差", DEF["ﾀｲﾑ差"]);
-				ACTION情報0(F, $"{KEY}勝時差", DEF["勝時差"]);
+				//ACTION情報0(E, $"{KEY}ﾀｲﾑ差", DEF["ﾀｲﾑ差"]);
+				//ACTION情報0(F, $"{KEY}勝時差", DEF["勝時差"]);
 				//ACTION情報0(G, $"{KEY}賞金", DEF["賞金"]);
 			};
 
@@ -430,6 +432,9 @@ namespace Netkeiba
 				// ﾀｲﾑ指数
 				dic[$"ﾀｲﾑ指数{i}"] = Median(arr, "ﾀｲﾑ指数");
 
+				// 1着との差(ﾀｲﾑ指数)
+				dic[$"ﾀｲﾑ差{i}"] = Median(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"]);
+
 				// 得意距離、及び今回のﾚｰｽ距離との差
 				dic[$"距離得{i}"] = Median(arr, "距離");
 				dic[$"距離差{i}"] = dic["距離"].GetSingle() - dic[$"距離得{i}"].GetSingle();
@@ -452,6 +457,9 @@ namespace Netkeiba
 
 				// 1着との差(上り×斤量)
 				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(top)), DEF["勝上差"]);
+
+				// 1着との差(ﾀｲﾑ)
+				dic[$"勝時差{i}"] = Median(arr.Select(x => func_time(x["ﾀｲﾑ"]) - func_time(top["ﾀｲﾑ"])), DEF["勝時差"]);
 
 				// 出走間隔
 				dic[$"出走間隔{i}"] = dic["開催日数"].GetSingle() - GetSingle(arr.Select(x => x["開催日数"].GetSingle()), DEF["出走間隔"] * (i + 1), x => x.Max());
@@ -517,12 +525,12 @@ namespace Netkeiba
 					//dic[$"産駒特出{i}"] = Median(arr, "特出");
 					//dic[$"産駒特勝{i}"] = Median(arr, "特勝");
 					//dic[$"産駒特勝率{i}"] = Median(arr, "特勝率");
-					//dic[$"産駒平出{i}"] = Median(arr, "平出");
-					//dic[$"産駒平勝{i}"] = Median(arr, "平勝");
-					//dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
-					//dic[$"産駒場出{i}"] = Median(arr, "場出");
-					//dic[$"産駒場勝{i}"] = Median(arr, "場勝");
-					//dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
+					dic[$"産駒平出{i}"] = Median(arr, "平出");
+					dic[$"産駒平勝{i}"] = Median(arr, "平勝");
+					dic[$"産駒平勝率{i}"] = Median(arr, "平勝率");
+					dic[$"産駒場出{i}"] = Median(arr, "場出");
+					dic[$"産駒場勝{i}"] = Median(arr, "場勝");
+					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率");
 					dic[$"産駒EI{i}"] = Median(arr, "EI");
 					dic[$"産駒賞金{i}"] = Median(arr, "産賞金");
 					dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
@@ -699,7 +707,7 @@ namespace Netkeiba
 			$" ELSE {着順未勝利__} END)",
 		}.GetString(" ");
 
-		private const float 倍率 = 1.25F;
+		private const float 倍率 = 1.5F;
 		private const float 着順未勝利__ = 1.00F;
 		private const float 着順新馬____ = 倍率 * 着順未勝利__;
 		private const float 着順1勝_____ = 倍率 * 着順新馬____;
