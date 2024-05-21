@@ -268,10 +268,10 @@ namespace Netkeiba
 						dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
 						dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
 						dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
-						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
-						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
-						dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
-						dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
+						dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
+						dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
+						//dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
+						//dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
 					}
 					catch
 					{
@@ -324,7 +324,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(2, 4, 6, 8).Select(i => arr.Take(i).ToList()).ToArray();
+				return Arr(100, 1, 2, 3).Select(i => arr.Take(i).ToList()).ToArray();
 			});
 
 			// ﾍｯﾀﾞ情報
@@ -344,10 +344,6 @@ namespace Netkeiba
 			dic["馬性"] = 馬性.IndexOf(src["馬性"]);
 			dic["馬齢"] = src["馬齢"].GetSingle();
 			dic["斤量"] = src["斤量"].GetSingle();
-
-			馬情報.ForEach((arr, i) => dic[$"斤量平{i}"] = Median(arr, "斤量"));
-
-			//馬情報.ForEach((arr, i) => dic[$"単勝平{i}"] = Median(arr, "単勝"));
 
 			//dic["追切騎手"] = src["追切騎手"].Str() == "助手" ? 0 : 1;
 
@@ -377,8 +373,9 @@ namespace Netkeiba
 				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
 				dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(25));
 				dic[$"{KEY}3"] = GetSingle(arr, def, l => l.Percentile(75));
-				dic[$"{KEY}4"] = GetSingle(arr, def, l => l.Min());
-				dic[$"{KEY}5"] = GetSingle(arr, def, l => l.Max());
+				//dic[$"{KEY}4"] = GetSingle(arr, def, l => l.Min());
+				//dic[$"{KEY}5"] = GetSingle(arr, def, l => l.Max());
+				dic[$"{KEY}6"] = GetSingle(arr, def, l => l.Percentile(50));
 			};
 
 			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
@@ -409,14 +406,14 @@ namespace Netkeiba
 				ACTION情報("馬ID", arr, i);
 			});
 
-			Arr("騎手ID"/*, "調教師ID", "馬主ID"*/).ForEach(async key =>
+			Arr("騎手ID").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
 					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(200, 2000)));
+				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(2000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
@@ -428,7 +425,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(40, 400), Arr(200, 2000)));
+				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(40, 400), Arr(2000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
@@ -437,6 +434,8 @@ namespace Netkeiba
 
 			馬情報.ForEach((arr, i) =>
 			{
+				dic[$"斤量{i}"] = Median(arr, "斤量");
+
 				// 着順
 				dic[$"賞金{i}"] = Median(arr, "賞金");
 
