@@ -371,18 +371,18 @@ namespace Netkeiba
 				var l0 = kyoarr.Select(kyo => arr.Where(x => Calc(x["距離"], src["距離"], (x1, x2) => x2 - x1).Run(i => i < 0 ? i * -2 : i).Run(i => i <= kyo))).ToArray();
 				var l1 = l0.Concat(l0.SelectMany(l => tgtarr.Select(tgt => l.Where(x => x[tgt].Str() == src[tgt].Str())))).ToArray();
 				var l2 = l1.SelectMany(l => takarr.Select(tak => l.Take(tak)));
-				return l2.Select(l => l.ToList()).ToArray();
+				return l1.Concat(l2).Select(l => l.ToList()).ToArray();
 			};
 
 			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
 			{
-				dic[$"{KEY}A0"] = GetSingle(arr, def, l => l.Average());
-				//dic[$"{KEY}A1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
-				dic[$"{KEY}A2"] = GetSingle(arr, def, l => l.Percentile(25));
-				dic[$"{KEY}A3"] = GetSingle(arr, def, l => l.Percentile(75));
-				//dic[$"{KEY}A4"] = GetSingle(arr, def, l => l.Min());
-				//dic[$"{KEY}A5"] = GetSingle(arr, def, l => l.Max());
-				dic[$"{KEY}A6"] = GetSingle(arr, def, l => l.Percentile(50));
+				//dic[$"{KEY}A0"] = GetSingle(arr, def, l => l.Average());
+				////dic[$"{KEY}A1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
+				//dic[$"{KEY}A2"] = GetSingle(arr, def, l => l.Percentile(25));
+				//dic[$"{KEY}A3"] = GetSingle(arr, def, l => l.Percentile(75));
+				////dic[$"{KEY}A4"] = GetSingle(arr, def, l => l.Min());
+				////dic[$"{KEY}A5"] = GetSingle(arr, def, l => l.Max());
+				//dic[$"{KEY}A6"] = GetSingle(arr, def, l => l.Percentile(50));
 
 				//dic[$"{KEY}B0"] = GetSingle(arr, def, l => l.Average());
 				//dic[$"{KEY}B1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
@@ -419,7 +419,7 @@ namespace Netkeiba
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(2, 4, 6, 30), Arr(2000))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(3, 6, 30), Arr(2000))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
