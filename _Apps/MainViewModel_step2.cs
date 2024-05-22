@@ -132,7 +132,7 @@ namespace Netkeiba
 			DEF = await conn.GetRow<float>(Arr(
 				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(馬番) 頭数, MAX(ﾀｲﾑ指数) TOPﾀｲﾑ FROM t_orig GROUP BY ﾚｰｽID)",
 				$"SELECT",
-				$"AVG((頭数 / 着順) * {着順CASE}) 着順,",
+				$"AVG((頭数 / POW(1.5, 着順-1)) * {着順CASE}) 着順,",
 				$"AVG(着順) 着順SRC,",
 				$"AVG(体重) 体重,",
 				$"AVG(単勝) 単勝,",
@@ -590,7 +590,7 @@ namespace Netkeiba
 				_ => 着順未勝利__
 			};
 
-			return (頭数 / 着順) * RANK * 備考;
+			return (頭数 / Math.Pow(1.5, 着順 - 1).GetSingle()) * RANK * 備考;
 		}
 
 		private float Get斤上(float 上り, float 斤量) => 上り.GetSingle() * 600F / (斤量.GetSingle() + 545F);
@@ -738,7 +738,7 @@ namespace Netkeiba
 			$" ELSE {着順未勝利__} END)",
 		}.GetString(" ");
 
-		private const float 倍率 = 1.5F;
+		private const float 倍率 = 1.1F;
 		private const float 着順未勝利__ = 1.00F;
 
 		private const float 着順新馬____ = 倍率 * 着順未勝利__;
