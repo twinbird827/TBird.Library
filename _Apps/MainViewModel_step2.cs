@@ -265,13 +265,20 @@ namespace Netkeiba
 						//dic[$"{key}A5"] = val - arr.Max();
 						//dic[$"{key}A6"] = val - arr.Min();
 						//dic[$"{key}A7"] = val * std;
-						dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
-						dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
-						dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
-						dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
-						dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
+						//dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
+						//dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
+						//dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
+						//dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
+						//dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
 						//dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
 						//dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
+
+						dic[$"{key}C1"] = val - arr.Percentile(10);
+						dic[$"{key}C2"] = val - arr.Percentile(30);
+						dic[$"{key}C3"] = val - arr.Percentile(50);
+						dic[$"{key}C4"] = val - arr.Percentile(70);
+						dic[$"{key}C5"] = val - arr.Percentile(90);
+
 					}
 					catch
 					{
@@ -369,13 +376,24 @@ namespace Netkeiba
 
 			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
 			{
-				dic[$"{KEY}0"] = GetSingle(arr, def, l => l.Average());
-				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
-				dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(25));
-				dic[$"{KEY}3"] = GetSingle(arr, def, l => l.Percentile(75));
-				//dic[$"{KEY}4"] = GetSingle(arr, def, l => l.Min());
-				//dic[$"{KEY}5"] = GetSingle(arr, def, l => l.Max());
-				dic[$"{KEY}6"] = GetSingle(arr, def, l => l.Percentile(50));
+				dic[$"{KEY}A0"] = GetSingle(arr, def, l => l.Average());
+				//dic[$"{KEY}A1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
+				dic[$"{KEY}A2"] = GetSingle(arr, def, l => l.Percentile(25));
+				dic[$"{KEY}A3"] = GetSingle(arr, def, l => l.Percentile(75));
+				//dic[$"{KEY}A4"] = GetSingle(arr, def, l => l.Min());
+				//dic[$"{KEY}A5"] = GetSingle(arr, def, l => l.Max());
+				dic[$"{KEY}A6"] = GetSingle(arr, def, l => l.Percentile(50));
+
+				//dic[$"{KEY}B0"] = GetSingle(arr, def, l => l.Average());
+				//dic[$"{KEY}B1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
+				dic[$"{KEY}B2"] = GetSingle(arr, def, l => l.Percentile(10));
+				dic[$"{KEY}B3"] = GetSingle(arr, def, l => l.Percentile(30));
+				dic[$"{KEY}B4"] = GetSingle(arr, def, l => l.Percentile(50));
+				dic[$"{KEY}B5"] = GetSingle(arr, def, l => l.Percentile(70));
+				dic[$"{KEY}B6"] = GetSingle(arr, def, l => l.Percentile(90));
+				//dic[$"{KEY}B7"] = GetSingle(arr, def, l => l.Min());
+				//dic[$"{KEY}B8"] = GetSingle(arr, def, l => l.Max());
+
 			};
 
 			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
@@ -401,7 +419,7 @@ namespace Netkeiba
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(2, 4, 6, 30), Arr(200, 2000))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(2, 4, 6, 30), Arr(2000))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
@@ -722,6 +740,7 @@ namespace Netkeiba
 
 		private const float 倍率 = 1.5F;
 		private const float 着順未勝利__ = 1.00F;
+
 		private const float 着順新馬____ = 倍率 * 着順未勝利__;
 		private const float 着順1勝_____ = 倍率 * 着順新馬____;
 		private const float 着順2勝_____ = 倍率 * 着順1勝_____;
@@ -730,5 +749,14 @@ namespace Netkeiba
 		private const float 着順G3______ = 倍率 * 着順オープン;
 		private const float 着順G2______ = 倍率 * 着順G3______;
 		private const float 着順G1______ = 倍率 * 着順G2______;
+		//private const float 着順新馬____ = 2.00F;
+
+		//private const float 着順1勝_____ = 4.00F;
+		//private const float 着順2勝_____ = 4.00F;
+		//private const float 着順3勝_____ = 8.00F;
+		//private const float 着順オープン = 8.00F;
+		//private const float 着順G3______ = 16.00F;
+		//private const float 着順G2______ = 16.00F;
+		//private const float 着順G1______ = 16.00F;
 	}
 }
