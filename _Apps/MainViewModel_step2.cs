@@ -36,7 +36,7 @@ namespace Netkeiba
 
 				var maxdate = await conn.ExecuteScalarAsync("SELECT MAX(開催日数) FROM t_orig");
 				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
-				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
+				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.4).Add(mindate.GetDouble());
 				var racbase = await conn.GetRows(r => r.Get<string>(0),
 					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? ORDER BY ﾚｰｽID DESC",
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
@@ -132,7 +132,7 @@ namespace Netkeiba
 			DEF = await conn.GetRow<float>(Arr(
 				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(馬番) 頭数, MAX(ﾀｲﾑ指数) TOPﾀｲﾑ FROM t_orig GROUP BY ﾚｰｽID)",
 				$"SELECT",
-				$"AVG((頭数 / POW(1.5, 着順-1)) * {着順CASE}) 着順,",
+				$"AVG((頭数 / 着順) * {着順CASE}) 着順,",
 				$"AVG(着順) 着順SRC,",
 				$"AVG(体重) 体重,",
 				$"AVG(単勝) 単勝,",
@@ -213,6 +213,16 @@ namespace Netkeiba
 			return arr.Where(x => !float.IsNaN(x)).Any() ? func(arr.Where(x => !float.IsNaN(x))) : def;
 		}
 
+		private float GetSingle(IEnumerable<Dictionary<string, object>> arr, string n, Func<IEnumerable<float>, float> func)
+		{
+			return GetSingle(arr, n, DEF[n], func);
+		}
+
+		private float GetSingle(IEnumerable<Dictionary<string, object>> arr, string n, float def, Func<IEnumerable<float>, float> func)
+		{
+			return GetSingle(arr.Select(x => x[n].GetSingle()), def, func);
+		}
+
 		private float Median(IEnumerable<float> arr, float def)
 		{
 			return GetSingle(arr, def, ret => ret.Average());
@@ -273,11 +283,18 @@ namespace Netkeiba
 						//dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
 						//dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
 
-						dic[$"{key}C1"] = val - arr.Percentile(10);
-						dic[$"{key}C2"] = val - arr.Percentile(30);
-						dic[$"{key}C3"] = val - arr.Percentile(50);
-						dic[$"{key}C4"] = val - arr.Percentile(70);
-						dic[$"{key}C5"] = val - arr.Percentile(90);
+						//dic[$"{key}C1"] = val == 0 ? 0F : arr.Percentile(10) / val * 100;
+						//dic[$"{key}C2"] = val == 0 ? 0F : arr.Percentile(30) / val * 100;
+						//dic[$"{key}C3"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
+						//dic[$"{key}C4"] = val == 0 ? 0F : arr.Percentile(70) / val * 100;
+						//dic[$"{key}C5"] = val == 0 ? 0F : arr.Percentile(90) / val * 100;
+
+						//dic[$"{key}D0"] = val - arr.Average();
+						dic[$"{key}D1"] = val - arr.Percentile(10);
+						dic[$"{key}D2"] = val - arr.Percentile(30);
+						dic[$"{key}D3"] = val - arr.Percentile(50);
+						dic[$"{key}D4"] = val - arr.Percentile(70);
+						dic[$"{key}D5"] = val - arr.Percentile(90);
 
 					}
 					catch
@@ -376,13 +393,13 @@ namespace Netkeiba
 
 			Action<float[], string, float> ACTION情報0 = (arr, KEY, def) =>
 			{
-				//dic[$"{KEY}A0"] = GetSingle(arr, def, l => l.Average());
-				////dic[$"{KEY}A1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
-				//dic[$"{KEY}A2"] = GetSingle(arr, def, l => l.Percentile(25));
-				//dic[$"{KEY}A3"] = GetSingle(arr, def, l => l.Percentile(75));
-				////dic[$"{KEY}A4"] = GetSingle(arr, def, l => l.Min());
-				////dic[$"{KEY}A5"] = GetSingle(arr, def, l => l.Max());
-				//dic[$"{KEY}A6"] = GetSingle(arr, def, l => l.Percentile(50));
+				//dic[$"{KEY}0"] = GetSingle(arr, def, l => l.Average());
+				//dic[$"{KEY}1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
+				//dic[$"{KEY}2"] = GetSingle(arr, def, l => l.Percentile(25));
+				//dic[$"{KEY}3"] = GetSingle(arr, def, l => l.Percentile(75));
+				//dic[$"{KEY}4"] = GetSingle(arr, def, l => l.Min());
+				//dic[$"{KEY}5"] = GetSingle(arr, def, l => l.Max());
+				//dic[$"{KEY}6"] = GetSingle(arr, def, l => l.Percentile(50));
 
 				//dic[$"{KEY}B0"] = GetSingle(arr, def, l => l.Average());
 				//dic[$"{KEY}B1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
@@ -393,7 +410,6 @@ namespace Netkeiba
 				dic[$"{KEY}B6"] = GetSingle(arr, def, l => l.Percentile(90));
 				//dic[$"{KEY}B7"] = GetSingle(arr, def, l => l.Min());
 				//dic[$"{KEY}B8"] = GetSingle(arr, def, l => l.Max());
-
 			};
 
 			Action<string, List<Dictionary<string, object>>, int> ACTION情報 = (key, arr, i) =>
@@ -419,7 +435,7 @@ namespace Netkeiba
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle();
 
 			// 着順平均
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(3, 6, 30), Arr(2000))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場", "馬場状態"), Arr(3, 6, 30), Arr(3000))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
@@ -431,7 +447,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 400), Arr(2000)));
+				).RunAsync(arr => CREATE情報(arr, Arr("開催場所", "馬場", "馬場状態", "回り"), Arr(40, 4000), Arr(3000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
@@ -443,7 +459,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(40, 400), Arr(2000)));
+				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(40, 4000), Arr(3000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
@@ -457,14 +473,25 @@ namespace Netkeiba
 				// 着順
 				dic[$"賞金{i}"] = Median(arr, "賞金");
 
-				// 着順
-				dic[$"着順{i}"] = Median(arr, "着順", DEF["着順SRC"]);
+				//// 着順
+				dic[$"着順0{i}"] = GetSingle(arr, "着順", DEF["着順SRC"], x => x.Average());
+				//dic[$"着順1{i}"] = GetSingle(arr, "着順", DEF["着順SRC"], x => x.Percentile(25));
+				//dic[$"着順2{i}"] = GetSingle(arr, "着順", DEF["着順SRC"], x => x.Percentile(50));
+				//dic[$"着順3{i}"] = GetSingle(arr, "着順", DEF["着順SRC"], x => x.Percentile(75));
 
-				// ﾀｲﾑ指数
-				dic[$"ﾀｲﾑ指数{i}"] = Median(arr, "ﾀｲﾑ指数");
+				//// ﾀｲﾑ指数
+				dic[$"ﾀｲﾑ指数0{i}"] = GetSingle(arr, "ﾀｲﾑ指数", x => x.Average());
+				//dic[$"ﾀｲﾑ指数1{i}"] = GetSingle(arr, "ﾀｲﾑ指数", x => x.Percentile(25));
+				//dic[$"ﾀｲﾑ指数2{i}"] = GetSingle(arr, "ﾀｲﾑ指数", x => x.Percentile(50));
+				//dic[$"ﾀｲﾑ指数3{i}"] = GetSingle(arr, "ﾀｲﾑ指数", x => x.Percentile(75));
 
 				// 1着との差(ﾀｲﾑ指数)
-				dic[$"ﾀｲﾑ差{i}"] = Median(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"]);
+				dic[$"ﾀｲﾑ差0{i}"] = GetSingle(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"], x => x.Average());
+				//dic[$"ﾀｲﾑ差1{i}"] = GetSingle(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"], x => x.Percentile(25));
+				//dic[$"ﾀｲﾑ差2{i}"] = GetSingle(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"], x => x.Percentile(50));
+				//dic[$"ﾀｲﾑ差3{i}"] = GetSingle(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"], x => x.Percentile(75));
+				//dic[$"ﾀｲﾑ差4{i}"] = GetSingle(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"], x => x.Min());
+				//dic[$"ﾀｲﾑ差5{i}"] = GetSingle(arr.Select(x => x["ﾀｲﾑ指数"].GetSingle() - top["ﾀｲﾑ指数"].GetSingle()), DEF["ﾀｲﾑ差"], x => x.Max());
 
 				// 得意距離、及び今回のﾚｰｽ距離との差
 				dic[$"距離得{i}"] = Median(arr, "距離");
@@ -590,7 +617,8 @@ namespace Netkeiba
 				_ => 着順未勝利__
 			};
 
-			return (頭数 / Math.Pow(1.5, 着順 - 1).GetSingle()) * RANK * 備考;
+			return (頭数 / 着順) * RANK * 備考;
+			//return (頭数 / Math.Pow(1.5, 着順 - 1).GetSingle()) * RANK * 備考;
 		}
 
 		private float Get斤上(float 上り, float 斤量) => 上り.GetSingle() * 600F / (斤量.GetSingle() + 545F);
@@ -738,9 +766,8 @@ namespace Netkeiba
 			$" ELSE {着順未勝利__} END)",
 		}.GetString(" ");
 
-		private const float 倍率 = 1.1F;
+		private const float 倍率 = 1.50F;
 		private const float 着順未勝利__ = 1.00F;
-
 		private const float 着順新馬____ = 倍率 * 着順未勝利__;
 		private const float 着順1勝_____ = 倍率 * 着順新馬____;
 		private const float 着順2勝_____ = 倍率 * 着順1勝_____;
@@ -749,14 +776,5 @@ namespace Netkeiba
 		private const float 着順G3______ = 倍率 * 着順オープン;
 		private const float 着順G2______ = 倍率 * 着順G3______;
 		private const float 着順G1______ = 倍率 * 着順G2______;
-		//private const float 着順新馬____ = 2.00F;
-
-		//private const float 着順1勝_____ = 4.00F;
-		//private const float 着順2勝_____ = 4.00F;
-		//private const float 着順3勝_____ = 8.00F;
-		//private const float 着順オープン = 8.00F;
-		//private const float 着順G3______ = 16.00F;
-		//private const float 着順G2______ = 16.00F;
-		//private const float 着順G1______ = 16.00F;
 	}
 }
