@@ -109,6 +109,7 @@ namespace Netkeiba
 					dic["騎手ID"] = row.Cells[6].GetHrefAttribute("href").Split('/')[4];
 					// ﾀｲﾑ
 					dic["ﾀｲﾑ"] = row.Cells[7].GetInnerHtml();
+					dic["ﾀｲﾑ変換"] = dic["ﾀｲﾑ"].Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle()).Str();
 					// 着差
 					dic["着差"] = row.Cells[8].GetInnerHtml();
 					// ﾀｲﾑ指数(有料)
@@ -195,6 +196,12 @@ namespace Netkeiba
 						dic["追切時間3"] = li[2];
 						dic["追切時間4"] = li[3];
 						dic["追切時間5"] = li[4];
+						var cl = row.Cells[8].GetElementsByTagName("li").Select(x => x.GetAttribute("class") ?? "").ToArray();
+						dic["追切基準1"] = cl[0];
+						dic["追切基準2"] = cl[1];
+						dic["追切基準3"] = cl[2];
+						dic["追切基準4"] = cl[3];
+						dic["追切基準5"] = cl[4];
 						// 追切強さ
 						dic["追切強さ"] = row.Cells[10].GetInnerHtml();
 						// 追切一言
@@ -220,6 +227,11 @@ namespace Netkeiba
 			dic["追切時間3"] = string.Empty;
 			dic["追切時間4"] = string.Empty;
 			dic["追切時間5"] = string.Empty;
+			dic["追切基準1"] = string.Empty;
+			dic["追切基準2"] = string.Empty;
+			dic["追切基準3"] = string.Empty;
+			dic["追切基準4"] = string.Empty;
+			dic["追切基準5"] = string.Empty;
 			dic["追切強さ"] = string.Empty;
 			dic["追切一言"] = string.Empty;
 			dic["追切評価"] = string.Empty;
@@ -236,6 +248,11 @@ namespace Netkeiba
 			row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
 			row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
 			row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
+			row["追切基準1"] = oik != null ? oik["追切基準1"] : string.Empty;
+			row["追切基準2"] = oik != null ? oik["追切基準2"] : string.Empty;
+			row["追切基準3"] = oik != null ? oik["追切基準3"] : string.Empty;
+			row["追切基準4"] = oik != null ? oik["追切基準4"] : string.Empty;
+			row["追切基準5"] = oik != null ? oik["追切基準5"] : string.Empty;
 			row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
 			row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
 			row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
@@ -336,6 +353,8 @@ namespace Netkeiba
 					dic["騎手ID"] = row.Cells[6].GetHrefAttribute("href").Split('/').Reverse().ToArray()[1];
 					// ﾀｲﾑ(なし)
 					dic["ﾀｲﾑ"] = "0:00.0";
+					dic["ﾀｲﾑ変換"] = dic["ﾀｲﾑ"].Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle()).Str();
+
 					// 着差(なし)
 					dic["着差"] = "0";
 					// ﾀｲﾑ指数(有料)

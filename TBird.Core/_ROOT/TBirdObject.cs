@@ -79,7 +79,7 @@ namespace TBird.Core
 			if (Disposed != null)
 			{
 				EventUtil.Raise(Disposed, this);
-				Disposed.GetInvocationList().OfType<EventHandler>().ForEach(x => Disposed -= x);
+				Disposed = null;
 			}
 			Locker.Dispose(Lock);
 		}
