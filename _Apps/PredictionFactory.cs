@@ -71,7 +71,7 @@ namespace Netkeiba
 
 		public override float Predict(float[] features, long raceid)
 		{
-			return base.Predict(features, raceid) * (_index < 5 ? 1 : -1);
+			return base.Predict(features, raceid) * (_index < 6 ? 1 : -1);
 		}
 
 		protected override PredictionResult GetResult(string rank, int index)
@@ -94,7 +94,7 @@ namespace Netkeiba
 
 		public override float Predict(float[] features, long raceid)
 		{
-			return base.Predict(features, raceid) * (_index < 5 ? 1 : -1);
+			return base.Predict(features, raceid) * (_index < 6 ? 1 : -1);
 		}
 
 		protected override PredictionResult GetResult(string rank, int index)

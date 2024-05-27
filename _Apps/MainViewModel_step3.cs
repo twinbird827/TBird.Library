@@ -198,10 +198,15 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 4) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 5) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > 1) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 4) },
+				{ 3, r => 着勝(r).Run(x => x.着順 <= 5) },
+				{ 4, r => 着勝(r).Run(x => x.着順 <= 6) },
+				{ 5, r => 着勝(r).Run(x => x.着順 <= 7) },
+				{ 6, r => 着勝(r).Run(x => x.着順 > 1) },
+				{ 7, r => 着勝(r).Run(x => x.着順 > 2) },
+				{ 8, r => 着勝(r).Run(x => x.着順 > 3) },
+				{ 9, r => 着勝(r).Run(x => x.着順 > 4) },
 			};
 
 			//try
@@ -227,7 +232,7 @@ namespace Netkeiba
 						var index = args[2].GetInt32();
 						var rank = args[1];
 
-						await BinaryClassification(index, rank, second, BinaryClassificationMetric.AreaUnderRocCurve, dic[index]).TryCatch();
+						await BinaryClassification(index, rank, second, metric, dic[index]).TryCatch();
 					}
 				}
 
