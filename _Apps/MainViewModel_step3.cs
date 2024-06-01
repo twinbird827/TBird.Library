@@ -176,7 +176,7 @@ namespace Netkeiba
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			var seconds = AppSetting.Instance.TrainingCount;
-			var metrics = Arr(BinaryClassificationMetric.AreaUnderRocCurve, BinaryClassificationMetric.F1Score);
+			var metrics = Arr(BinaryClassificationMetric.AreaUnderRocCurve);
 
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
@@ -198,15 +198,10 @@ namespace Netkeiba
 
 			var dic = new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 3) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 4) },
-				{ 3, r => 着勝(r).Run(x => x.着順 <= 5) },
-				{ 4, r => 着勝(r).Run(x => x.着順 <= 6) },
-				{ 5, r => 着勝(r).Run(x => x.着順 <= 7) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > 1) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > 2) },
-				{ 8, r => 着勝(r).Run(x => x.着順 > 3) },
-				{ 9, r => 着勝(r).Run(x => x.着順 > 4) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 5) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 7) },
+				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
+				{ 7, r => 着勝(r).Run(x => x.着順 > 3) },
 			};
 
 			//try

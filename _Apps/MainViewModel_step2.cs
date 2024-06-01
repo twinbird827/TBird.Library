@@ -132,7 +132,7 @@ namespace Netkeiba
 			DEF = await conn.GetRow<float>(Arr(
 				$"WITH w_tou AS (SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID)",
 				$"SELECT",
-				$"AVG(頭数 / POW({累乗倍率}, (着順 - 1)) * {着順CASE}) 着順,",
+				$"AVG((頭数 + {頭数固定}) / {頭数倍率} / ({累乗倍率} * 着順) * {着順CASE}) 着順,",
 				$"AVG(着順) 着順SRC,",
 				$"AVG(体重) 体重,",
 				$"AVG(単勝) 単勝,",
@@ -213,7 +213,7 @@ namespace Netkeiba
 
 		private float Median(IEnumerable<float> arr, float def)
 		{
-			return GetSingle(arr, def, ret => ret.Average());
+			return GetSingle(arr, def, ret => ret.Percentile(50));
 		}
 
 		private float Median(IEnumerable<Dictionary<string, object>> arr, string n)
@@ -271,11 +271,16 @@ namespace Netkeiba
 						//dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
 						//dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
 
-						dic[$"{key}C1"] = val - arr.Percentile(10);
+						//dic[$"{key}C1"] = val - arr.Percentile(10);
 						dic[$"{key}C2"] = val - arr.Percentile(30);
 						dic[$"{key}C3"] = val - arr.Percentile(50);
 						dic[$"{key}C4"] = val - arr.Percentile(70);
-						dic[$"{key}C5"] = val - arr.Percentile(90);
+						//dic[$"{key}C5"] = val - arr.Percentile(90);
+
+						dic[$"{key}D1"] = val - arr.Percentile(20);
+						dic[$"{key}D2"] = val - arr.Percentile(40);
+						dic[$"{key}D3"] = val - arr.Percentile(60);
+						dic[$"{key}D4"] = val - arr.Percentile(80);
 
 					}
 					catch
@@ -395,9 +400,9 @@ namespace Netkeiba
 				//dic[$"{KEY}B0"] = GetSingle(arr, def, l => l.Average());
 				//dic[$"{KEY}B1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
 				//dic[$"{KEY}B2"] = GetSingle(arr, def, l => l.Percentile(10));
-				dic[$"{KEY}B3"] = GetSingle(arr, def, l => l.Percentile(30));
+				//dic[$"{KEY}B3"] = GetSingle(arr, def, l => l.Percentile(30));
 				dic[$"{KEY}B4"] = GetSingle(arr, def, l => l.Percentile(50));
-				dic[$"{KEY}B5"] = GetSingle(arr, def, l => l.Percentile(70));
+				//dic[$"{KEY}B5"] = GetSingle(arr, def, l => l.Percentile(70));
 				//dic[$"{KEY}B6"] = GetSingle(arr, def, l => l.Percentile(90));
 				//dic[$"{KEY}B7"] = GetSingle(arr, def, l => l.Min());
 				//dic[$"{KEY}B8"] = GetSingle(arr, def, l => l.Max());
@@ -422,7 +427,13 @@ namespace Netkeiba
 				//ACTION情報0(F, $"{KEY}勝時差", DEF["勝時差"]);
 				//ACTION情報0(G, $"{KEY}賞金", DEF["賞金"]);
 
-				dic[$"{KEY}連体"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() < 4), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
+				// 着順
+				dic[$"{KEY}着順SRC"] = Median(arr, "着順", DEF["着順SRC"]);
+
+
+				dic[$"{KEY}連体2"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 2), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
+				dic[$"{KEY}連体4"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 4), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
+				dic[$"{KEY}連体6"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 6), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
 			};
 
 			// 出遅れ率
@@ -466,9 +477,6 @@ namespace Netkeiba
 
 				// 着順
 				dic[$"賞金{i}"] = Median(arr, "賞金");
-
-				// 着順
-				dic[$"着順{i}"] = Median(arr, "着順", DEF["着順SRC"]);
 
 				//// ﾀｲﾑ指数
 				//dic[$"ﾀｲﾑ指数{i}"] = Median(arr, "ﾀｲﾑ指数");
@@ -601,7 +609,7 @@ namespace Netkeiba
 				_ => 着順未勝利__
 			};
 
-			return (頭数 / Math.Pow(累乗倍率, 着順 - 1).GetSingle()) * RANK * 備考;
+			return ((頭数 + 頭数固定) / 頭数倍率 / (累乗倍率 * 着順)) * RANK * 備考;
 		}
 
 		private float Get斤上(float 上り, float 斤量) => 上り.GetSingle() * 600F / (斤量.GetSingle() + 545F);
@@ -749,16 +757,18 @@ namespace Netkeiba
 			$" ELSE {着順未勝利__} END)",
 		}.GetString(" ");
 
-		private readonly static float 累乗倍率 = 1.75F;
-		private readonly static float 着順新馬____ = Math.Pow(1.00000, 3F).GetSingle();
-		private readonly static float 着順未勝利__ = Math.Pow(1.23636, 3F).GetSingle();
-		private readonly static float 着順1勝_____ = Math.Pow(1.49091, 3F).GetSingle();
-		private readonly static float 着順2勝_____ = Math.Pow(1.58182, 3F).GetSingle();
-		private readonly static float 着順3勝_____ = Math.Pow(1.73636, 3F).GetSingle();
-		private readonly static float 着順オープン = Math.Pow(1.76364, 3F).GetSingle();
-		private readonly static float 着順G3______ = Math.Pow(1.87273, 3F).GetSingle();
-		private readonly static float 着順G2______ = Math.Pow(1.83636, 3F).GetSingle();
-		private readonly static float 着順G1______ = Math.Pow(1.89091, 3F).GetSingle();
+		private readonly static float 頭数固定 = 12F;
+		private readonly static float 頭数倍率 = 4.5F;
+		private readonly static float 累乗倍率 = 2.50F;
+		private readonly static float 着順新馬____ = Math.Pow(1.00000, 1F).GetSingle();
+		private readonly static float 着順未勝利__ = Math.Pow(1.23636, 1F).GetSingle();
+		private readonly static float 着順1勝_____ = Math.Pow(1.49091, 1F).GetSingle();
+		private readonly static float 着順2勝_____ = Math.Pow(1.58182, 1F).GetSingle();
+		private readonly static float 着順3勝_____ = Math.Pow(1.73636, 1F).GetSingle();
+		private readonly static float 着順オープン = Math.Pow(1.76364, 1F).GetSingle();
+		private readonly static float 着順G3______ = Math.Pow(1.87273, 1F).GetSingle();
+		private readonly static float 着順G2______ = Math.Pow(1.83636, 1F).GetSingle();
+		private readonly static float 着順G1______ = Math.Pow(1.89091, 1F).GetSingle();
 
 		//private const float 着順新馬____ = 2.00F;
 

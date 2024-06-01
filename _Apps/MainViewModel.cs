@@ -32,7 +32,7 @@ namespace Netkeiba
 			CreateModels = CreateModelSources.ToBindableContextCollection();
 
 			CreateModelSources.AddRange(Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
-				.SelectMany(x => Arr(1, 2, 3, 4, 5, 6, 7, 8, 9).Select(i => $"B-{x}-{i}"))
+				.SelectMany(x => Arr(1, 2, 6, 7).Select(i => $"B-{x}-{i}"))
 				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
 			);
 			CreateModelSources.AddRange(Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
