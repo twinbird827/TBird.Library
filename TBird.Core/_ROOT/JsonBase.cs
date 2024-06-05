@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace TBird.Core
 {
-	public abstract class JsonBase
+	public abstract class JsonBase : TBirdObject
 	{
 		// 読み込みﾌﾗｸﾞ
 		internal static bool _load = false;
@@ -16,7 +16,7 @@ namespace TBird.Core
 		internal static object _lock = new object();
 
 		// 設定ﾌｧｲﾙ
-		internal string _basepath;
+		internal string? _basepath;
 
 		// 暗号化ﾌﾗｸﾞ
 		internal bool _encrypt;
@@ -79,9 +79,8 @@ namespace TBird.Core
 		/// <typeparam name="T">ﾌﾟﾛﾊﾟﾃｨの型</typeparam>
 		/// <param name="storage">ﾌﾟﾛﾊﾟﾃｨの値を保持する変数</param>
 		/// <param name="value">変更後の値</param>
-		/// <param name="propertyName">ﾌﾟﾛﾊﾟﾃｨ名</param>
 		/// <returns></returns>
-		protected bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
+		protected bool SetProperty<T>(ref T storage, T value)
 		{
 			if (object.Equals(storage, value)) return false;
 
@@ -114,9 +113,8 @@ namespace TBird.Core
 		/// <typeparam name="T">ﾌﾟﾛﾊﾟﾃｨの型</typeparam>
 		/// <param name="storage">ﾌﾟﾛﾊﾟﾃｨの値を保持する変数</param>
 		/// <param name="value">変更後の値</param>
-		/// <param name="propertyName">ﾌﾟﾛﾊﾟﾃｨ名</param>
 		/// <returns></returns>
-		protected bool SetEncryptProperty(ref string storage, string value, [CallerMemberName] string propertyName = null)
+		protected bool SetEncryptProperty(ref string storage, string value)
 		{
 			if (object.Equals(storage, value)) return false;
 
@@ -147,7 +145,7 @@ namespace TBird.Core
 			{
 				return false;
 			}
-			TType src;
+			TType? src;
 			lock (_lock)
 			{
 				// 既存ﾌｧｲﾙ読込
@@ -159,7 +157,7 @@ namespace TBird.Core
 				if (src != null)
 				{
 					// 既存ﾌｧｲﾙが存在するならﾌｧｲﾙの設定値で上書き
-					var props = typeof(TType).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+					var props = typeof(TType).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
 					_encrypt = false;
 					props.AsParallel().ForAll(prop =>
@@ -183,18 +181,20 @@ namespace TBird.Core
 		/// ｼﾘｱﾗｲｽﾞ化された設定ﾌｧｲﾙの内容を復元します。
 		/// </summary>
 		/// <returns></returns>
-		private TType Deserialize()
+		private TType? Deserialize()
 		{
 			try
 			{
 				if (File.Exists(_basepath))
 				{
 					var json = DynamicJson.Parse(File.ReadAllText(_basepath));
-					return json.Deserialize<TType>();
+					return json != null
+						? json.Deserialize<TType>()
+						: default;
 				}
 				else
 				{
-					return default(TType);
+					return default;
 				}
 			}
 			catch (Exception ex)

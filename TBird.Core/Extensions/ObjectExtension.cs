@@ -1,9 +1,19 @@
 ﻿using System;
+using System.CodeDom;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace TBird.Core
 {
 	public static class ObjectExtension
 	{
+		public static string Str(this object value)
+		{
+			return $"{value}";
+		}
+
 		/// <summary>
 		/// 指定したｵﾌﾞｼﾞｪｸﾄがIDisposableを実装しているなら破棄します。
 		/// </summary>
@@ -17,78 +27,118 @@ namespace TBird.Core
 		}
 
 		/// <summary>
-		/// ｵﾌﾞｼﾞｪｸﾄを倍精度浮動小数点数に変換し、変換できたかどうかを取得します。
+		///
 		/// </summary>
-		/// <param name="value">対象ｵﾌﾞｼﾞｪｸﾄ</param>
-		/// <param name="result">変換できた場合は変換値を格納する参照変数</param>
-		public static bool TryDecimal(this object value, out decimal result)
+		/// <typeparam name="T"></typeparam>
+		/// <param name="value"></param>
+		/// <param name="def"></param>
+		/// <param name="func1"></param>
+		/// <returns></returns>
+		private static T Get<T>(this object? value, T def, Func<decimal, T> func1)
 		{
-			decimal x;
-			if (value is double)
+			if (value is T val)
 			{
-				result = (decimal)(double)value;
+				return val;
 			}
-			else if (value is float)
+
+			if (value is double x1)
 			{
-				result = (decimal)(float)value;
+				return func1((decimal)x1);
 			}
-			else if (value is int)
+			else if (value is float x2)
 			{
-				result = (int)value;
+				return func1((decimal)x2);
 			}
-			else if (value is long)
+			else if (value is int x3)
 			{
-				result = (long)value;
+				return func1((decimal)x3);
 			}
-			else if (value is short)
+			else if (value is long x4)
 			{
-				result = (short)value;
+				return func1((decimal)x4);
 			}
-			else if (value is uint)
+			else if (value is short x5)
 			{
-				result = (short)value;
+				return func1((decimal)x5);
 			}
-			else if (value is string && decimal.TryParse((string)value, out x))
+			else if (value is uint x6)
 			{
-				result = x;
+				return func1((decimal)x6);
 			}
-			else if (value != null && decimal.TryParse(value.ToString(), out x))
+			else if (value is string && decimal.TryParse((string)value, out decimal x7))
 			{
-				result = x;
+				return func1(x7);
+			}
+			else if (value != null && decimal.TryParse(value.ToString(), out decimal x8))
+			{
+				return func1(x8);
 			}
 			else
 			{
-				result = 0;
-				return false;
-			}
-
-			return true;
-		}
-
-		public static double GetDouble(this object value)
-		{
-			decimal result;
-			if (value.TryDecimal(out result))
-			{
-				return (double)result;
-			}
-			else
-			{
-				return 0d;
+				return def;
 			}
 		}
 
-		public static int GetInt32(this object value)
+		public static double GetDouble(this object? value, double def = 0D)
 		{
-			decimal result;
-			if (value.TryDecimal(out result))
-			{
-				return (int)result;
-			}
-			else
-			{
-				return 0;
-			}
+			return value.Get(def, x => (double)x);
+		}
+
+		public static float GetSingle(this object? value, float def = 0F)
+		{
+			return value.Get(def, x => (float)x);
+		}
+
+		public static int GetInt32(this object? value, int def = 0)
+		{
+			return value.Get(def, x => (int)x);
+		}
+
+		public static long GetInt64(this object? value, long def = 0L)
+		{
+			return value.Get(def, x => (long)x);
+		}
+
+		public static T Run<T>(this T target, Action<T> action)
+		{
+			action(target);
+			return target;
+		}
+
+		public static TResult Run<T, TResult>(this T target, Func<T, TResult> action)
+		{
+			return action(target);
+		}
+
+		public static async Task<T> RunAsync<T>(this Task<T> target, Action<T> action)
+		{
+			var x = await target;
+			action(x);
+			return x;
+		}
+
+		public static async Task<T> RunAsync<T>(this Task<T> target, Func<T, Task> action)
+		{
+			var x = await target;
+			await action(x);
+			return x;
+		}
+
+		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, TResult> action)
+		{
+			return action(await target);
+		}
+
+		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, Task<TResult>> action)
+		{
+			return await action(await target);
+		}
+
+		public static T NotNull<T>(this T? value, string message = "value can not null.") => value ?? throw new ArgumentNullException(message);
+
+		public static Disposer<T> Disposer<T>(this T value, Action<T> action)
+		{
+			return new Disposer<T>(value, action);
 		}
 	}
 }

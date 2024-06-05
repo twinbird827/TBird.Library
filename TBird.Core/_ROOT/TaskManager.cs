@@ -61,7 +61,7 @@ namespace TBird.Core
 			Execute(default(T));
 		}
 
-		public virtual void Execute(T parameter)
+		public virtual void Execute(T? parameter)
 		{
 			ExecuteAsync(parameter).Wait();
 		}
@@ -71,11 +71,11 @@ namespace TBird.Core
 			return ExecuteAsync(default(T));
 		}
 
-		public virtual async Task ExecuteAsync(T parameter)
+		public virtual async Task ExecuteAsync(T? parameter)
 		{
 			if (IsDisposed) return;
 
-			using (await Locker.LockAsync(Lock))
+			//using (await Locker.LockAsync(Lock))
 			{
 				try
 				{
@@ -90,11 +90,11 @@ namespace TBird.Core
 						{
 							await ExecuteAsync(b);
 						}
-						else if (x is Action<T> c)
+						else if (x is Action<T?> c)
 						{
 							await ExecuteAsync(() => c(parameter));
 						}
-						else if (x is Func<T, Task> d)
+						else if (x is Func<T?, Task> d)
 						{
 							await ExecuteAsync(() => d(parameter));
 						}
@@ -106,11 +106,11 @@ namespace TBird.Core
 						{
 							nextloop = await ExecuteAsync(f);
 						}
-						else if (x is Func<T, bool> g)
+						else if (x is Func<T?, bool> g)
 						{
 							nextloop = await ExecuteAsync(() => g(parameter));
 						}
-						else if (x is Func<T, Task<bool>> h)
+						else if (x is Func<T?, Task<bool>> h)
 						{
 							nextloop = await ExecuteAsync(() => h(parameter));
 						}

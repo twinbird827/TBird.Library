@@ -38,6 +38,15 @@ namespace TBird.Wpf.Controls
 			return RelayCommand.Create(_ => DialogResult = false);
 		}
 
+		public void Show(Func<Window> func)
+		{
+			WpfUtil.ExecuteOnUI(() =>
+			{
+				var window = func();
+				window.DataContext = this;
+				window.Show();
+			});
+		}
 		public bool ShowDialog(Func<Window> func)
 		{
 			return WpfUtil.ExecuteOnUI(() =>
