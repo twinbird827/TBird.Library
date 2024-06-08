@@ -399,9 +399,9 @@ namespace Netkeiba
 				//dic[$"{KEY}B0"] = GetSingle(arr, def, l => l.Average());
 				//dic[$"{KEY}B1"] = GetSingle(arr, def, l => l.Average()) + Var(arr);
 				//dic[$"{KEY}B2"] = GetSingle(arr, def, l => l.Percentile(10));
-				//dic[$"{KEY}B3"] = GetSingle(arr, def, l => l.Percentile(30));
-				dic[$"{KEY}B4"] = GetSingle(arr, def, l => l.Percentile(50));
-				//dic[$"{KEY}B5"] = GetSingle(arr, def, l => l.Percentile(70));
+				dic[$"{KEY}B3"] = GetSingle(arr, def, l => l.Percentile(30));
+				//dic[$"{KEY}B4"] = GetSingle(arr, def, l => l.Percentile(50));
+				dic[$"{KEY}B5"] = GetSingle(arr, def, l => l.Percentile(70));
 				//dic[$"{KEY}B6"] = GetSingle(arr, def, l => l.Percentile(90));
 				//dic[$"{KEY}B7"] = GetSingle(arr, def, l => l.Min());
 				//dic[$"{KEY}B8"] = GetSingle(arr, def, l => l.Max());
@@ -429,10 +429,9 @@ namespace Netkeiba
 				// 着順
 				dic[$"{KEY}着順SRC"] = Median(arr, "着順", DEF["着順SRC"]);
 
-
-				dic[$"{KEY}連体2"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 2), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
-				dic[$"{KEY}連体4"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 4), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
-				dic[$"{KEY}連体6"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 6), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
+				//dic[$"{KEY}連体2"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 2), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
+				//dic[$"{KEY}連体4"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 4), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
+				//dic[$"{KEY}連体6"] = arr.Any() ? Calc(arr.Count(x => x["着順"].GetSingle() <= 6), arr.Count, (x1, x2) => x1 / x2).GetSingle() * 100F : 0F;
 			};
 
 			// 出遅れ率
@@ -582,7 +581,7 @@ namespace Netkeiba
 					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率") * 100F;
 					dic[$"産駒EI{i}"] = Median(arr, "EI") * 100F;
 					dic[$"産駒賞金{i}"] = Median(arr, "産賞金");
-					//dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
+					dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
 				});
 			}
 
