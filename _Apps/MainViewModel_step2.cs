@@ -272,9 +272,9 @@ namespace Netkeiba
 						//dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
 
 						//dic[$"{key}C1"] = val - arr.Percentile(10);
-						dic[$"{key}C2"] = val - arr.Percentile(30);
-						dic[$"{key}C3"] = val - arr.Percentile(50);
-						dic[$"{key}C4"] = val - arr.Percentile(70);
+						//dic[$"{key}C2"] = val - arr.Percentile(30);
+						//dic[$"{key}C3"] = val - arr.Percentile(50);
+						//dic[$"{key}C4"] = val - arr.Percentile(70);
 						//dic[$"{key}C5"] = val - arr.Percentile(90);
 
 						dic[$"{key}D1"] = val - arr.Percentile(20);
@@ -310,7 +310,6 @@ namespace Netkeiba
 
 		private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
-			var top = TOP[src["ﾚｰｽID"]];
 			var dic = new Dictionary<string, object>();
 
 			// 通過順変換ﾌｧﾝｸｼｮﾝ
@@ -506,10 +505,10 @@ namespace Netkeiba
 				dic[$"斤間{i}"] = dic[$"斤上{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
 
 				// 1着との差(上り×斤量)
-				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(top)), DEF["勝上差"]);
+				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"]])), DEF["勝上差"]);
 
 				// 1着との差(ﾀｲﾑ)
-				dic[$"勝時差{i}"] = Median(arr.Select(x => x["ﾀｲﾑ変換"].GetSingle() - top["ﾀｲﾑ変換"].GetSingle()), DEF["勝時差"]);
+				dic[$"勝時差{i}"] = Median(arr.Select(x => x["ﾀｲﾑ変換"].GetSingle() - TOP[x["ﾚｰｽID"]]["ﾀｲﾑ変換"].GetSingle()), DEF["勝時差"]);
 			});
 
 			// 出走間隔

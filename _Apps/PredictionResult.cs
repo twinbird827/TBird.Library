@@ -34,7 +34,7 @@ namespace Netkeiba
 
 		public float GetScore()
 		{
-			return Score * Score * Rate;
+			return Score * Rate * Rate;
 		}
 
 		public override string ToString()
