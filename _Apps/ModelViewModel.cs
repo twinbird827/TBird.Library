@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using TBird.Core;
 using TBird.DB;
+using TBird.DB.SQLite;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
@@ -106,6 +107,7 @@ namespace Netkeiba
 				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
 				AppSetting.Instance.Correls = _correls;
 				AppSetting.Instance.Correl = Correl;
+				AppSetting.Instance.DicCor = _diccor;
 				AppSetting.Instance.NetkeibaId = NetkeibaId;
 				AppSetting.Instance.NetkeibaPassword = NetkeibaPassword;
 				AppSetting.Instance.Save();
@@ -127,28 +129,63 @@ namespace Netkeiba
 
 			ClickCorrelation = RelayCommand.Create(async _ =>
 			{
-				var tgt = new List<double>();
-				var features = new List<double>[3000];
-				for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
+				_diccor.Clear();
 
-				using (var conn = AppUtil.CreateSQLiteControl())
+				var messages = new StringBuilder();
+
+				foreach (var rank in Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5"))
 				{
-					using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model ORDER BY ﾚｰｽID, 馬番");
+					var tgt = new List<double>();
+					var features = new List<double>[3000];
+					for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
 
-					while (await reader.ReadAsync())
+					using (var conn = AppUtil.CreateSQLiteControl())
 					{
-						tgt.Add(reader.Get<double>(0));
+						var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 
-						reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
+						using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model WHERE ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番", SQLiteUtil.CreateParameter(DbType.Int64, ﾗﾝｸ2.IndexOf(rank)));
+
+						while (await reader.ReadAsync())
 						{
-							features[i].Add(x);
-						});
+							tgt.Add(reader.Get<double>(0));
+
+							reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
+							{
+								features[i].Add(x);
+							});
+						}
 					}
+
+					_diccor[rank] = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+
+					messages.AppendLine($"{rank}:{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_diccor[rank].Length}個の要素を除外します。");
+					//_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
 				}
 
-				_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+				MessageService.Info(messages.ToString());
 
-				MessageService.Info($"{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_correls.Length}個の要素を除外します。");
+				//var tgt = new List<double>();
+				//var features = new List<double>[3000];
+				//for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
+
+				//using (var conn = AppUtil.CreateSQLiteControl())
+				//{
+				//	using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model ORDER BY ﾚｰｽID, 馬番");
+
+				//	while (await reader.ReadAsync())
+				//	{
+				//		tgt.Add(reader.Get<double>(0));
+
+				//		reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
+				//		{
+				//			features[i].Add(x);
+				//		});
+				//	}
+				//}
+
+				//_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+
+				//MessageService.Info($"{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_correls.Length}個の要素を除外します。");
 			});
 		}
 
@@ -271,6 +308,8 @@ namespace Netkeiba
 		private string _Correl = AppSetting.Instance.Correl;
 
 		private string[] _correls = Enumerable.Empty<string>().ToArray();
+
+		private Dictionary<string, string[]> _diccor = new();
 
 		public IRelayCommand ClickCorrelation { get; }
 

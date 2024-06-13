@@ -264,7 +264,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
-				x.IgnoredColumnNames.AddRange(AppSetting.Instance.Correls);
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor[rank]);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -377,7 +377,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
-				x.IgnoredColumnNames.AddRange(AppSetting.Instance.Correls);
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor[rank]);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -484,7 +484,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
-				x.IgnoredColumnNames.AddRange(AppSetting.Instance.Correls);
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor[rank]);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{

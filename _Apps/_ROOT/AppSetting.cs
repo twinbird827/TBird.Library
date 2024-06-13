@@ -1,4 +1,5 @@
 ﻿using Microsoft.ML.AutoML;
+using System.Collections.Generic;
 using System.Linq;
 using TBird.Core;
 
@@ -190,6 +191,13 @@ namespace Netkeiba
 			set => SetProperty(ref _Correls, value);
 		}
 		public string[] _Correls = Enumerable.Empty<string>().ToArray();
+
+		public Dictionary<string, string[]> DicCor
+		{
+			get => GetProperty(_DicCor);
+			set => SetProperty(ref _DicCor, value);
+		}
+		public Dictionary<string, string[]> _DicCor = new();
 
 		public string Correl
 		{
