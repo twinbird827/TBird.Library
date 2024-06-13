@@ -71,7 +71,7 @@ namespace Netkeiba
 					// ﾚｰｽ毎の纏まり
 					var racarr = await CreateRaceModel(conn, "t_orig", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
 					var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ2", "馬ID");
-					var head2 = Arr("着順", "単勝", "人気");
+					var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気");
 
 					AppSetting.Instance.Features = null;
 
@@ -358,7 +358,9 @@ namespace Netkeiba
 
 			//dic["追切騎手"] = src["追切騎手"].Str() == "助手" ? 0 : 1;
 
-			dic["追切騎手平"] = Median(馬情報[0].Select(x => x["追切騎手"].Str() == "助手" ? 0F : 1F), 0F);
+			var ft = TOU[dic["ﾚｰｽID"].GetInt64()] / 3;
+			//dic["追切騎手平"] = Median(馬情報[0].Select(x => x["追切騎手"].Str() == "助手" ? 0F : 1F), 0F);
+			dic["枠"] = dic["馬番"].GetSingle().Run(x => x <= ft ? 0 : x <= ft * 2 ? 1 : 2);
 
 			//Enumerable.Range(1, 5).ForEach(j =>
 			//{
@@ -398,8 +400,8 @@ namespace Netkeiba
 			}).Sum();
 			dic[$"追切基準A"] = dic[$"追切基準S"].GetSingle() / 5F * 100F;
 
-			dic["体重"] = Median(馬情報[0], "体重");
-			dic["斤量割"] = dic["斤量"].GetSingle() / dic["体重"].GetSingle() * 100F;
+			//dic["体重"] = Median(馬情報[0], "体重");
+			//dic["斤量割"] = dic["斤量"].GetSingle() / dic["体重"].GetSingle() * 100F;
 			dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
 			dic["追切評価"] = 追切.IndexOf(src["追切評価"]);
 
@@ -490,12 +492,12 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(200), Arr(3000)));
+				).RunAsync(arr => CREATE情報(arr, new string[] { }, Arr(50), Arr(3000)));
 
 				情報.ForEach((arr, i) => ACTION情報(key, arr, i));
 			});
 
-			dic["距離"] = src["距離"].GetSingle();
+			//dic["距離"] = src["距離"].GetSingle();
 
 			馬情報.ForEach((arr, i) =>
 			{
@@ -513,7 +515,7 @@ namespace Netkeiba
 				// 得意距離、及び今回のﾚｰｽ距離との差
 				//dic[$"距離得{i}"] = Median(arr, "距離");
 				//dic[$"距離差{i}"] = dic["距離"].GetSingle() - dic[$"距離得{i}"].GetSingle();
-				dic[$"距離差{i}"] = dic["距離"].GetSingle() - Median(arr, "距離");
+				//dic[$"距離差{i}"] = dic["距離"].GetSingle() - Median(arr, "距離");
 
 				// 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
 				dic[$"通過{i}"] = Median(arr.Select(x => (float)func_tuka(x["通過"])), TOU[dic["ﾚｰｽID"].GetInt64()] / 2);
@@ -528,8 +530,8 @@ namespace Netkeiba
 					_ => 1.05F
 				});
 				// ﾀｲﾑの平均、ﾀｲﾑ平均×上り×斤量
-				dic[$"時間{i}"] = Median(arr.Select(x => x["距離"].GetSingle() / x["ﾀｲﾑ変換"].GetSingle()), DEF["時間"]);
-				dic[$"斤間{i}"] = dic[$"斤上{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
+				//dic[$"時間{i}"] = Median(arr.Select(x => x["距離"].GetSingle() / x["ﾀｲﾑ変換"].GetSingle()), DEF["時間"]);
+				//dic[$"斤間{i}"] = dic[$"斤上{i}"].GetSingle() * dic[$"時間{i}"].GetSingle();
 
 				// 1着との差(上り×斤量)
 				dic[$"勝上差{i}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"]])), DEF["勝上差"]);
@@ -588,7 +590,7 @@ namespace Netkeiba
 				});
 				産駒情報.ForEach((arr, i) =>
 				{
-					dic[$"産駒順位{i}"] = Median(arr, "順位");
+					//dic[$"産駒順位{i}"] = Median(arr, "順位");
 					//dic[$"産駒出走頭数{i}"] = Median(arr, "出走頭数");
 					dic[$"産駒勝馬頭数{i}"] = Median(arr, "勝馬頭数");
 					dic[$"産駒勝馬率{i}"] = Median(arr, "勝馬率") * 100F;
@@ -596,14 +598,14 @@ namespace Netkeiba
 					dic[$"産駒勝利回数{i}"] = Median(arr, "勝利回数");
 					dic[$"産駒勝利率{i}"] = Median(arr, "勝利率") * 100F;
 					//dic[$"産駒重出{i}"] = Median(arr, "重出");
-					dic[$"産駒重勝{i}"] = Median(arr, "重勝");
-					dic[$"産駒重勝率{i}"] = Median(arr, "重勝率") * 100F;
+					//dic[$"産駒重勝{i}"] = Median(arr, "重勝");
+					//dic[$"産駒重勝率{i}"] = Median(arr, "重勝率") * 100F;
 					//dic[$"産駒特出{i}"] = Median(arr, "特出");
 					//dic[$"産駒特勝{i}"] = Median(arr, "特勝");
 					//dic[$"産駒特勝率{i}"] = Median(arr, "特勝率") * 100F;
 					//dic[$"産駒平出{i}"] = Median(arr, "平出");
-					dic[$"産駒平勝{i}"] = Median(arr, "平勝");
-					dic[$"産駒平勝率{i}"] = Median(arr, "平勝率") * 100F;
+					//dic[$"産駒平勝{i}"] = Median(arr, "平勝");
+					//dic[$"産駒平勝率{i}"] = Median(arr, "平勝率") * 100F;
 					//dic[$"産駒場出{i}"] = Median(arr, "場出");
 					dic[$"産駒場勝{i}"] = Median(arr, "場勝");
 					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率") * 100F;
@@ -765,7 +767,7 @@ namespace Netkeiba
 				_ => 着順未勝利__
 			};
 
-			return 着順 > 頭数 * 2 / 3 
+			return 着順 > 頭数 * 2 / 3
 				? 0F
 				: (頭数 + 頭数固定) / (float)Math.Pow(着順 + 着順固定, 着順倍率) * RANK * 備考 * 100F;
 			//return ((頭数 + 頭数固定) / 頭数倍率 / (累乗倍率 * 着順)) * RANK * 備考;
