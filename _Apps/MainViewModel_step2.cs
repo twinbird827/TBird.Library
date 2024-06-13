@@ -578,7 +578,7 @@ namespace Netkeiba
 						$"    IFNULL(t_sanku.{産駒馬場}勝 / t_sanku.{産駒馬場}出, 0) 場勝率,",
 						$"    t_sanku.EI,",
 						$"    t_sanku.賞金 産賞金,",
-						$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差,",
+						//$"    {dic["距離"]} - t_sanku.{産駒馬場}距 距離差,",
 						$"    t_sanku.年度 年度",
 						$"FROM w_titi, t_sanku WHERE w_titi.父ID = t_sanku.馬ID AND CAST(t_sanku.年度 AS INTEGER) < {src["ﾚｰｽID"].Str().Left(4)}"
 					).GetString(" ")
