@@ -590,25 +590,25 @@ namespace Netkeiba
 				{
 					dic[$"産駒順位{i}"] = Median(arr, "順位");
 					//dic[$"産駒出走頭数{i}"] = Median(arr, "出走頭数");
-					//dic[$"産駒勝馬頭数{i}"] = Median(arr, "勝馬頭数");
+					dic[$"産駒勝馬頭数{i}"] = Median(arr, "勝馬頭数");
 					dic[$"産駒勝馬率{i}"] = Median(arr, "勝馬率") * 100F;
 					//dic[$"産駒出走回数{i}"] = Median(arr, "出走回数");
-					//dic[$"産駒勝利回数{i}"] = Median(arr, "勝利回数");
+					dic[$"産駒勝利回数{i}"] = Median(arr, "勝利回数");
 					dic[$"産駒勝利率{i}"] = Median(arr, "勝利率") * 100F;
 					//dic[$"産駒重出{i}"] = Median(arr, "重出");
-					//dic[$"産駒重勝{i}"] = Median(arr, "重勝");
+					dic[$"産駒重勝{i}"] = Median(arr, "重勝");
 					dic[$"産駒重勝率{i}"] = Median(arr, "重勝率") * 100F;
 					//dic[$"産駒特出{i}"] = Median(arr, "特出");
 					//dic[$"産駒特勝{i}"] = Median(arr, "特勝");
-					dic[$"産駒特勝率{i}"] = Median(arr, "特勝率") * 100F;
+					//dic[$"産駒特勝率{i}"] = Median(arr, "特勝率") * 100F;
 					//dic[$"産駒平出{i}"] = Median(arr, "平出");
-					//dic[$"産駒平勝{i}"] = Median(arr, "平勝");
+					dic[$"産駒平勝{i}"] = Median(arr, "平勝");
 					dic[$"産駒平勝率{i}"] = Median(arr, "平勝率") * 100F;
 					//dic[$"産駒場出{i}"] = Median(arr, "場出");
-					//dic[$"産駒場勝{i}"] = Median(arr, "場勝");
+					dic[$"産駒場勝{i}"] = Median(arr, "場勝");
 					dic[$"産駒場勝率{i}"] = Median(arr, "場勝率") * 100F;
 					dic[$"産駒EI{i}"] = Median(arr, "EI") * 100F;
-					dic[$"産駒賞金{i}"] = Median(arr, "産賞金");
+					//dic[$"産駒賞金{i}"] = Median(arr, "産賞金");
 					//dic[$"産駒距離差{i}"] = Median(arr, "距離差", dic["距離"].GetSingle() - DEF["場距"]);
 				});
 			}
