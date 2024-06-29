@@ -82,7 +82,7 @@ namespace TBird.IO.Img
 					(int)scale.Multiply(before.Height)
 				);
 
-				using (var afterwriter = File.OpenWrite(FileUtil.GetFullPathWithoutExtension(src) + ".jpeg"))
+				using (var afterwriter = File.OpenWrite(FileUtil.GetFullPathWithoutExtension(src) + ".jpg"))
 				using (var after = before.Resize(info, SKFilterQuality.High))
 				{
 					after.Encode(afterwriter, SKEncodedImageFormat.Jpeg, quality);

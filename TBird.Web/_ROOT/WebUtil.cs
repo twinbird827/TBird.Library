@@ -50,7 +50,11 @@ namespace TBird.Web
 					_factory = _service.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
 				}
 			}
-			return _factory.CreateClient(_name);
+
+			return _factory.CreateClient(_name).Run(x =>
+			{
+				x.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+			});
 		}
 
 		private static object _createclient = new object();
@@ -97,6 +101,24 @@ namespace TBird.Web
 		public static async Task<string> GetStringAsync(string url)
 		{
 			return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url));
+		}
+
+		public static async Task<string> GetStringAsync(string url, Encoding srcenc, Encoding dstenc)
+		{
+			return dstenc.GetString(Encoding.Convert(srcenc, dstenc, await GetBytesAsync(url)));
+		}
+
+		public static async Task<byte[]> GetBytesAsync(string url)
+		{
+			var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+			if (response.IsSuccessStatusCode)
+			{
+				return await response.Content.ReadAsByteArrayAsync();
+			}
+			else
+			{
+				return await GetBytesAsync(url);
+			}
 		}
 
 		/// <summary>

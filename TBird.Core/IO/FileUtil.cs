@@ -1,5 +1,7 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -134,6 +136,27 @@ namespace TBird.Core
 		public static string GetTempFilePath(string extension)
 		{
 			return Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString() + extension);
+		}
+
+		public static Task AppendLinesAsync(string path, IEnumerable<string> lines)
+		{
+			return AppendLinesAsync(path, Encoding.UTF8, lines);
+		}
+
+		public static async Task AppendLinesAsync(string path, Encoding encoding, IEnumerable<string> lines)
+		{
+			var buffer = 1024 * 1024 * 10;
+			using (var fs = new FileStream(path, File.Exists(path) ? FileMode.Append : FileMode.CreateNew, FileAccess.Write, FileShare.None, buffer, true))
+			using (var sw = new StreamWriter(fs, encoding, buffer))
+			{
+				sw.AutoFlush = false;
+
+				foreach (var line in lines)
+				{
+					await sw.WriteLineAsync(line);
+				}
+				await sw.FlushAsync();
+			}
 		}
 	}
 }

@@ -36,7 +36,7 @@ namespace TBird.Web
 		public static int GetUnusedPort()
 		{
 			var listener = new TcpListener(IPAddress.Loopback, 0);
-			using (new Disposer<TcpListener>(listener, x => x.Stop()))
+			using (listener.Disposer(x => x.Stop()))
 			{
 				listener.Start();
 				return ((IPEndPoint)listener.LocalEndpoint).Port;
