@@ -196,12 +196,21 @@ namespace Netkeiba
 
 			Func<DbDataReader, (float 着順, float 単勝)> 着勝 = r => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
-			var dic = new Dictionary<int, Func<DbDataReader, object>>()
+			Func<int, int, int, int, Dictionary<int, Func<DbDataReader, object>>> RANK別 = (i1, i2, i3, i4) => new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 5) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 7) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > 2) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > 3) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= i1) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= i2) },
+				{ 6, r => 着勝(r).Run(x => x.着順 > i3) },
+				{ 7, r => 着勝(r).Run(x => x.着順 > i4) },
+			};
+			
+			var dic = new Dictionary<string, Dictionary<int, Func<DbDataReader, object>>>()
+			{
+				{ "RANK1", RANK別(6, 7, 6, 7) },
+				{ "RANK2", RANK別(3, 4, 1, 2) },
+				{ "RANK3", RANK別(3, 4, 1, 2) },
+				{ "RANK4", RANK別(1, 2, 1, 2) },
+				{ "RANK5", RANK別(1, 2, 1, 2) }
 			};
 
 			//try
@@ -227,7 +236,7 @@ namespace Netkeiba
 						var index = args[2].GetInt32();
 						var rank = args[1];
 
-						await BinaryClassification(index, rank, second, metric, dic[index]).TryCatch();
+						await BinaryClassification(index, rank, second, metric, dic[rank][index]).TryCatch();
 					}
 				}
 
@@ -264,7 +273,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
-				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor[rank]);
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor.First(c => c.Key == rank).Value);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -377,7 +386,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
-				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor[rank]);
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor.First(c => c.Key == rank).Value);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{
@@ -484,7 +493,7 @@ namespace Netkeiba
 			{
 				x.LabelColumnName = Label;
 				x.SamplingKeyColumnName = Group;
-				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor[rank]);
+				x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor.First(c => c.Key == rank).Value);
 			}), groupColumns: false);
 			columnInference.TextLoaderOptions.Run(x =>
 			{

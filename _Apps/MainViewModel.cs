@@ -45,7 +45,7 @@ namespace Netkeiba
 			//);
 
 			EYear = DateTime.Now.Year;
-			SYear = EYear - 1;
+			SYear = EYear;
 
 			AppSetting.Instance.Save();
 		}
