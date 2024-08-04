@@ -151,11 +151,14 @@ namespace Netkeiba
 
 		private static readonly string[] ﾗﾝｸ = new[]
 		{
-			"G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "1600万下", "２勝クラス", "1000万下", "１勝クラス", "500万下", "未勝利", "新馬"
+			"GIII", "GII", "GI", "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "3勝クラス", "(3勝)", "1600万下", "２勝クラス", "2勝クラス", "1000万下", "１勝クラス", "1勝クラス", "500万下", "未勝利", "新馬"
 		};
 
 		private static readonly Dictionary<string, string> ﾗﾝｸ1 = new()
 		{
+			{ "GIII", "G3" },
+			{ "GII", "G2" },
+			{ "GI", "G1" },
 			{ "G1)", "G1" },
 			{ "G2)", "G2" },
 			{ "G3)", "G3" },
@@ -163,14 +166,17 @@ namespace Netkeiba
 			{ "(L)", "オープン" },
 			{ "オープン", "オープン" },
 			{ "３勝クラス", "3勝" },
+			{ "3勝クラス", "3勝" },
+			{ "(3勝)", "3勝" },
 			{ "1600万下", "3勝" },
 			{ "２勝クラス", "2勝" },
+			{ "2勝クラス", "2勝" },
 			{ "1000万下", "2勝" },
 			{ "１勝クラス", "1勝" },
+			{ "1勝クラス", "1勝" },
 			{ "500万下", "1勝" },
 			{ "未勝利", "未勝利" },
 			{ "新馬", "新馬" },
-			{ "", "2勝" },
 		};
 
 		public static string Getﾗﾝｸ1(string ﾚｰｽ名, string ｸﾗｽ)
@@ -178,7 +184,7 @@ namespace Netkeiba
 			return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
 		}
 
-		private static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
+		public static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
 		{
 			{ "G1", "RANK1" },
 			{ "G2", "RANK1" },

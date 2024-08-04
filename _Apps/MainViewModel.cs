@@ -31,11 +31,13 @@ namespace Netkeiba
 
 			CreateModels = CreateModelSources.ToBindableContextCollection();
 
-			CreateModelSources.AddRange(Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
-				.SelectMany(x => Arr(1, 2, 6, 7).Select(i => $"B-{x}-{i}"))
+			var ranks = AppUtil.ﾗﾝｸ2.Keys;
+
+			CreateModelSources.AddRange(ranks
+				.SelectMany(x => Arr(1, 2, 3, 4, 6, 7, 8, 9).Select(i => $"B-{x}-{i}"))
 				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
 			);
-			CreateModelSources.AddRange(Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
+			CreateModelSources.AddRange(ranks
 				.SelectMany(x => Arr(1).Select(i => $"R-{x}-{i}"))
 				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
 			);

@@ -1,4 +1,5 @@
-﻿using Microsoft.ML;
+﻿using AngleSharp.Common;
+using Microsoft.ML;
 using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
 using System;
@@ -114,9 +115,9 @@ namespace Netkeiba
 				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
 			}
 
-			var ranks = new[] { "RANK1", "RANK2", "RANK3", "RANK4", "RANK5" };
+			var ranks = AppUtil.ﾗﾝｸ2.Keys;
 
-			var bbbb = await PredictionModel(pays, Arr(
+			var bbbb = PredictionModel(pays, Arr(
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3)),
@@ -124,7 +125,7 @@ namespace Netkeiba
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8))
 			).SelectMany(tmp => tmp).ToArray());
-			var cccc = await PredictionModel(pays, Arr(
+			var cccc = PredictionModel(pays, Arr(
 				ranks.Select(rank => new RegressionPredictionFactory(mlContext, rank, 1))
 			).SelectMany(tmp => tmp).ToArray());
 
@@ -196,22 +197,19 @@ namespace Netkeiba
 
 			Func<DbDataReader, (float 着順, float 単勝)> 着勝 = r => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
-			Func<int, int, int, int, Dictionary<int, Func<DbDataReader, object>>> RANK別 = (i1, i2, i3, i4) => new Dictionary<int, Func<DbDataReader, object>>()
+			Func<int, int, int, int, int, int, int, int, Dictionary<int, Func<DbDataReader, object>>> RANK別2 = (i1, i2, i3, i4, j1, j2, j3, j4) => new Dictionary<int, Func<DbDataReader, object>>()
 			{
 				{ 1, r => 着勝(r).Run(x => x.着順 <= i1) },
 				{ 2, r => 着勝(r).Run(x => x.着順 <= i2) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > i3) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > i4) },
+				{ 3, r => 着勝(r).Run(x => x.着順 <= i3) },
+				{ 4, r => 着勝(r).Run(x => x.着順 <= i4) },
+				{ 6, r => 着勝(r).Run(x => x.着順 > j1) },
+				{ 7, r => 着勝(r).Run(x => x.着順 > j2) },
+				{ 8, r => 着勝(r).Run(x => x.着順 > j3) },
+				{ 9, r => 着勝(r).Run(x => x.着順 > j4) },
 			};
-			
-			var dic = new Dictionary<string, Dictionary<int, Func<DbDataReader, object>>>()
-			{
-				{ "RANK1", RANK別(6, 7, 6, 7) },
-				{ "RANK2", RANK別(3, 4, 1, 2) },
-				{ "RANK3", RANK別(3, 4, 1, 2) },
-				{ "RANK4", RANK別(1, 2, 1, 2) },
-				{ "RANK5", RANK別(1, 2, 1, 2) }
-			};
+
+			var dic = AppUtil.ﾗﾝｸ2.Keys.ToDictionary(x => x, _ => RANK別2(4, 5, 6, 7, 3, 4, 5, 6));
 
 			//try
 			//{
@@ -606,10 +604,9 @@ namespace Netkeiba
 			using (var conn = AppUtil.CreateSQLiteControl())
 			using (var file = new FileAppendWriter(path))
 			{
-				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
-				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番",
+				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番",
 					SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-					SQLiteUtil.CreateParameter(DbType.Int64, ﾗﾝｸ2.IndexOf(rank))
+					SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(rank))
 				);
 
 				var next = await reader.ReadAsync();
@@ -646,7 +643,6 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var rank2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
 				{
                     // 複2の予想結果
@@ -687,9 +683,9 @@ namespace Netkeiba
 
 				var rets = new List<float>();
 
-				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
+				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
 						SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-						SQLiteUtil.CreateParameter(DbType.Int64, rank2.IndexOf(rank))
+						SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(rank))
 					))
 				{
 					var racs = new List<List<object>>();
@@ -757,19 +753,17 @@ namespace Netkeiba
 			}
 		}
 
-		private async Task<Dictionary<PredictionResult, Task<(float score, float rate)[]>>> PredictionModel<TSrc, TDst>((int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+		private Dictionary<PredictionResult, Task<(float score, float rate)[]>> PredictionModel<TSrc, TDst>((int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var rank2 = await AppUtil.Getﾗﾝｸ2(conn);
-
 				return factories.ToDictionary(fac => fac.GetResult(), async fac =>
 				{
 					var rets = new List<float[]>();
 
-					foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
+					foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
 							SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-							SQLiteUtil.CreateParameter(DbType.Int64, rank2.IndexOf(fac.GetResult().Rank))
+							SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(fac.GetResult().Rank))
 						))
 					{
 						var racs = new List<List<object>>();

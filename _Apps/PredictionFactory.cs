@@ -76,7 +76,7 @@ namespace Netkeiba
 
 		protected override PredictionResult GetResult(string rank, int index)
 		{
-			return AppSetting.Instance.GetBinaryClassificationResult(index, rank);
+			return AppSetting.Instance.GetBinaryClassificationResult(index - 1 - (index < 6 ? 0 : 5), index < 6, rank);
 		}
 	}
 

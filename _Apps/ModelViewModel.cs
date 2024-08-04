@@ -133,7 +133,7 @@ namespace Netkeiba
 
 				var messages = new StringBuilder();
 
-				foreach (var rank in Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5"))
+				foreach (var rank in AppUtil.ﾗﾝｸ2.Keys)
 				{
 					var tgt = new List<double>();
 					var features = new List<double>[3000];
@@ -141,9 +141,7 @@ namespace Netkeiba
 
 					using (var conn = AppUtil.CreateSQLiteControl())
 					{
-						var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
-
-						using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model WHERE ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番", SQLiteUtil.CreateParameter(DbType.Int64, ﾗﾝｸ2.IndexOf(rank)));
+						using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model WHERE ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番", SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(rank)));
 
 						while (await reader.ReadAsync())
 						{

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using TBird.Core;
+using Tensorflow;
 
 namespace Netkeiba
 {
@@ -133,6 +134,18 @@ namespace Netkeiba
 		{
 			BinaryClassificationResults = Arr(now).Concat(BinaryClassificationResults.Where(x => !x.Equals(old))).ToArray();
 			Save();
+		}
+
+		public BinaryClassificationResult GetBinaryClassificationResult(int skip, bool left, string rank)
+		{
+			return BinaryClassificationResults
+				.Where(x => x.Rank == rank && (left ? x.Index < 6 : 6 <= x.Index))
+				.OrderByDescending(x => x.GetScore())
+				.Skip(skip).FirstOrDefault() ?? BinaryClassificationResult.Default;
+			//return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
+			//{
+			//	return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? BinaryClassificationResult.Default;
+			//});
 		}
 
 		public BinaryClassificationResult GetBinaryClassificationResult(int index, string rank)
