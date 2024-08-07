@@ -38,7 +38,7 @@ namespace Netkeiba
 				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
 				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
 				var racbase = await conn.GetRows(r => r.Get<string>(0),
-					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? AND 回り <> '障' ORDER BY ﾚｰｽID DESC",
+					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? AND 回り <> '障' AND t_orig.馬齢 > 2 ORDER BY ﾚｰｽID DESC",
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
 				);
 
@@ -144,7 +144,7 @@ namespace Netkeiba
 						$"0 賞金,",
 						$"AVG(t_orig.斤量) 斤量",
 						$"FROM t_orig",
-						$"WHERE t_orig.回り <> '障' AND t_orig.ﾗﾝｸ1 = ?"
+						$"WHERE t_orig.回り <> '障' AND t_orig.馬齢 > 2 AND t_orig.ﾗﾝｸ1 = ?"
 					).GetString(" "), SQLiteUtil.CreateParameter(DbType.String, rank == "新馬" ? "未勝利" : rank));
 
 				dic["斤上"] = Get斤上(dic["上り"], dic["斤量"]);
@@ -235,6 +235,8 @@ namespace Netkeiba
 						dic[$"{key}C2"] = val - arr.Percentile(30);
 						dic[$"{key}C3"] = val - arr.Percentile(50);
 						dic[$"{key}C4"] = val - arr.Percentile(70);
+						dic[$"{key}C9"] = Arr(dic[$"{key}C2"], dic[$"{key}C3"], dic[$"{key}C4"]).Average(x => x.GetSingle());
+
 						//dic[$"{key}C5"] = val - arr.Percentile(90);
 
 						//dic[$"{key}D1"] = val - arr.Percentile(20);
@@ -714,15 +716,15 @@ namespace Netkeiba
 		}
 
 		private readonly static float 頭数固定 = 15F;
-		private readonly static float 着順倍率 = 4.0F / 7.0F;
-		private readonly static float 着順新馬____ = 1.00F.Pow(1.5F);
-		private readonly static float 着順未勝利__ = 1.25F.Pow(1.5F);
-		private readonly static float 着順1勝_____ = 1.50F.Pow(1.5F);
-		private readonly static float 着順2勝_____ = 1.75F.Pow(1.5F);
-		private readonly static float 着順3勝_____ = 2.00F.Pow(1.5F);
-		private readonly static float 着順オープン = 2.25F.Pow(1.5F);
-		private readonly static float 着順G3______ = 2.50F.Pow(1.5F);
-		private readonly static float 着順G2______ = 2.75F.Pow(1.5F);
-		private readonly static float 着順G1______ = 3.00F.Pow(1.5F);
+		private readonly static float 着順倍率 = 2.0F / 3.0F;
+		private readonly static float 着順新馬____ = 1.00F.Pow(1.750F);
+		private readonly static float 着順未勝利__ = 1.25F.Pow(1.750F);
+		private readonly static float 着順1勝_____ = 1.50F.Pow(1.750F);
+		private readonly static float 着順2勝_____ = 1.75F.Pow(1.750F);
+		private readonly static float 着順3勝_____ = 2.00F.Pow(1.750F);
+		private readonly static float 着順オープン = 2.25F.Pow(1.750F);
+		private readonly static float 着順G3______ = 2.50F.Pow(1.750F);
+		private readonly static float 着順G2______ = 2.75F.Pow(1.750F);
+		private readonly static float 着順G1______ = 3.00F.Pow(1.750F);
 	}
 }

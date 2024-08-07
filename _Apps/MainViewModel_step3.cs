@@ -209,7 +209,7 @@ namespace Netkeiba
 				{ 9, r => 着勝(r).Run(x => x.着順 > j4) },
 			};
 
-			var dic = AppUtil.ﾗﾝｸ2.Keys.ToDictionary(x => x, _ => RANK別2(4, 5, 6, 7, 3, 4, 5, 6));
+			var dic = AppUtil.ﾗﾝｸ2.Keys.ToDictionary(x => x, _ => RANK別2(5, 6, 7, 8, 3, 4, 5, 6));
 
 			//try
 			//{
