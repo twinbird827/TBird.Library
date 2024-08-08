@@ -33,14 +33,13 @@ namespace Netkeiba
 
 			var ranks = AppUtil.ﾗﾝｸ2.Keys;
 
-			CreateModelSources.AddRange(ranks
-				.SelectMany(x => Arr(1, 2, 3, 4, 6, 7, 8, 9).Select(i => $"B-{x}-{i}"))
-				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
-			);
-			CreateModelSources.AddRange(ranks
-				.SelectMany(x => Arr(1).Select(i => $"R-{x}-{i}"))
-				.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })
-			);
+			CreateModelSources.AddRange(ranks.Select(rank => new TreeCheckboxViewModel(new CheckboxItemModel(rank, rank),
+				Arr(1, 2, 3, 4, 6, 7, 8, 9)
+					.Select(i => $"B-{rank}-{i}")
+					.Concat(Arr($"R-{rank}-1"))
+					.Select(s => new TreeCheckboxViewModel(new CheckboxItemModel(s, s)))
+			)));
+
 			//CreateModelSources.AddRange(Arr("RANK1", "RANK2", "RANK3", "RANK4", "RANK5")
 			//	.SelectMany(x => Arr(1).Select(i => $"M-{x}-{i}"))
 			//	.Select(x => new CheckboxItemModel(x, x) { IsChecked = true })

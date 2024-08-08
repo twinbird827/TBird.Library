@@ -25,18 +25,19 @@ namespace Netkeiba
 		private const string Label = "着順";
 		private const string Group = "ﾚｰｽID";
 
-		public BindableCollection<CheckboxItemModel> CreateModelSources { get; } = new BindableCollection<CheckboxItemModel>();
+		public BindableCollection<TreeCheckboxViewModel> CreateModelSources { get; } = new BindableCollection<TreeCheckboxViewModel>();
 
-		public BindableContextCollection<CheckboxItemModel> CreateModels { get; }
+		public BindableContextCollection<TreeCheckboxViewModel> CreateModels { get; }
+
+		private IEnumerable<CheckboxItemModel> GetCheckes() => CreateModels.SelectMany(x => x.Children).Select(x => x.Value);
 
 		private long tgtdate;
 
 		public IRelayCommand S3EXECCHECK => RelayCommand.Create(_ =>
 		{
-			var check = CreateModelSources.Count(x => !x.IsChecked) < CreateModelSources.Count(x => x.IsChecked);
-
-			CreateModelSources.ForEach(x => x.IsChecked = !check);
+			CreateModelSources.ForEach(x => x.Value.IsChecked = _check = !_check);
 		});
+		private bool _check = false;
 
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
@@ -190,8 +191,8 @@ namespace Netkeiba
 			Progress.Value = 0;
 			Progress.Minimum = 0;
 			Progress.Maximum =
-				seconds * CreateModels.Count(x => x.IsChecked && x.Value.StartsWith("B-")) * metrics.Length +
-				seconds * CreateModels.Count(x => x.IsChecked && x.Value.StartsWith("R-"));
+				seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("B-")) * metrics.Length +
+				seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("R-"));
 
 			AppSetting.Instance.Save();
 
@@ -228,7 +229,7 @@ namespace Netkeiba
 
 				foreach (var metric in metrics)
 				{
-					foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("B-")))
+					foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("B-")))
 					{
 						var args = x.Value.Split("-");
 						var index = args[2].GetInt32();
@@ -238,13 +239,13 @@ namespace Netkeiba
 					}
 				}
 
-				foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("R-")))
+				foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("R-")))
 				{
 					var args = x.Value.Split("-");
 					await Regression(args[1], second).TryCatch();
 				};
 
-				foreach (var x in CreateModels.Where(x => x.IsChecked && x.Value.StartsWith("M-")))
+				foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("M-")))
 				{
 					var args = x.Value.Split("-");
 					await MultiClassClassification(1, args[1], second).TryCatch();

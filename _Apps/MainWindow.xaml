@@ -133,20 +133,14 @@
 
 			<GroupBox Grid.Column="1" Header="STEP3: 学習実行">
 				<DockPanel>
-					<ScrollViewer DockPanel.Dock="Left" MaxHeight="150" VerticalScrollBarVisibility="Visible">
-						<ItemsControl ItemsSource="{Binding CreateModels}">
-							<ItemsControl.ItemsPanel>
-								<ItemsPanelTemplate>
-									<StackPanel Orientation="Vertical" />
-								</ItemsPanelTemplate>
-							</ItemsControl.ItemsPanel>
-							<ItemsControl.ItemTemplate>
-								<DataTemplate>
-									<CheckBox IsChecked="{Binding IsChecked}" Content="{Binding Display}" />
-								</DataTemplate>
-							</ItemsControl.ItemTemplate>
-						</ItemsControl>
-					</ScrollViewer>
+					<TreeView ItemsSource="{Binding CreateModels}" DockPanel.Dock="Left" MaxHeight="150" Width="150" ScrollViewer.VerticalScrollBarVisibility="Visible">
+						<TreeView.ItemTemplate>
+							<HierarchicalDataTemplate ItemsSource="{Binding Children}">
+								<CheckBox IsChecked="{Binding Value.IsChecked}" Content="{Binding Value.Display}" />
+							</HierarchicalDataTemplate>
+						</TreeView.ItemTemplate>
+					</TreeView>
+
 					<DockPanel Width="200">
 						<Button DockPanel.Dock="Top" Content="全選択／解除" Command="{Binding S3EXECCHECK}" />
 						<Button DockPanel.Dock="Top" Content="モデル検証" Command="{Binding S3EXECPREDICT}" />
