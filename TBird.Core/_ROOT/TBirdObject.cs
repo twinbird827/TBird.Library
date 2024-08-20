@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using TBird.Core.Utils;
 
 namespace TBird.Core
@@ -13,7 +15,7 @@ namespace TBird.Core
 			get => _Guid = _Guid ?? Locker.GetNewLockKey(this);
 			set => _Guid = value;
 		}
-		private string _Guid;
+		private string? _Guid;
 
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽの文字列表現を取得します。
@@ -48,7 +50,7 @@ namespace TBird.Core
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽ破棄時のｲﾍﾞﾝﾄ
 		/// </summary>
-		public event EventHandler Disposed;
+		public event EventHandler? Disposed;
 
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽ破棄時ｲﾍﾞﾝﾄを追加します。
@@ -58,7 +60,7 @@ namespace TBird.Core
 		public void AddDisposed(EventHandler handler)
 		{
 			// ｲﾝｽﾀﾝｽ破棄ｲﾍﾞﾝﾄ自体を破棄するﾊﾝﾄﾞﾗを作成する
-			EventHandler disposed = null; disposed = (sender, e) =>
+			EventHandler? disposed = null; disposed = (sender, e) =>
 			{
 				Disposed -= handler;
 				Disposed -= disposed;
@@ -74,8 +76,11 @@ namespace TBird.Core
 
 		protected virtual void DisposeManagedResource()
 		{
-			EventUtil.Raise(Disposed, this);
-			Disposed = null;
+			if (Disposed != null)
+			{
+				EventUtil.Raise(Disposed, this);
+				Disposed = null;
+			}
 			Locker.Dispose(Lock);
 		}
 
@@ -123,9 +128,19 @@ namespace TBird.Core
 			if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
 		}
 
+		protected IEnumerable<T> ArrMany<T>(IEnumerable<T>[] arr)
+		{
+			return arr.SelectMany(x => x);
+		}
+
 		protected T[] Arr<T>(params T[] arr)
 		{
 			return arr;
+		}
+
+		protected decimal Calc(object x, object y, Func<decimal, decimal, decimal> func)
+		{
+			return func((decimal)x.GetDouble(), (decimal)y.GetDouble());
 		}
 	}
 }

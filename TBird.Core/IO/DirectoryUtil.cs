@@ -14,8 +14,9 @@ namespace TBird.Core
 		/// ﾃﾞｨﾚｸﾄﾘを作成します。
 		/// </summary>
 		/// <param name="dir"></param>
-		public static void Create(string dir)
+		public static void Create(string? dir)
 		{
+			if (dir == null) throw new NullReferenceException($"{typeof(DirectoryUtil).Str()}.{nameof(Create)} {nameof(dir)}");
 			Directory.CreateDirectory(ToShort(dir));
 		}
 

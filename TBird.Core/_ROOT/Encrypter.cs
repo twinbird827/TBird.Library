@@ -104,7 +104,7 @@ namespace TBird.Core
 				using (ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
 				{
 					// byte配列を暗号化→文字列に変換して返却
-					string decryptString = null;
+					string? decryptString = null;
 
 					try
 					{

@@ -12,7 +12,7 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="delay">待機時間(ﾐﾘ秒)</param>
 		/// <param name="token">ｷｬﾝｾﾙﾄｰｸﾝ</param>
-		public static async Task<bool> Delay(int delay, CancellationTokenSource cts)
+		public static async Task<bool> Delay(int delay, CancellationTokenSource? cts)
 		{
 			if (delay == 0)
 			{
@@ -29,6 +29,31 @@ namespace TBird.Core
 		public static async Task<bool> Delay(int delay)
 		{
 			return await Delay(delay, null);
+		}
+
+		/// <summary>
+		/// 条件を満たすまで待機します。
+		/// </summary>
+		/// <param name="func">条件</param>
+		/// <param name="token">ｷｬﾝｾﾙﾄｰｸﾝ</param>
+		/// <returns></returns>
+		public static async Task<bool> Delay(Func<bool> func, CancellationToken token)
+		{
+			while (!func() && !token.IsCancellationRequested)
+			{
+				await Task.Delay(16);
+			}
+			return !token.IsCancellationRequested;
+		}
+
+		/// <summary>
+		/// 条件を満たすまで待機します。
+		/// </summary>
+		/// <param name="func">条件</param>
+		/// <returns></returns>
+		public static Task<bool> Delay(Func<bool> func)
+		{
+			return Delay(func, CancellationToken.None);
 		}
 
 		/// <summary>
@@ -97,7 +122,7 @@ namespace TBird.Core
 			return iar.IsCompleted;
 		}
 
-		public static Task<bool> WaitAsync(IAsyncResult iar, TimeSpan timeout, CancellationTokenSource cts = null)
+		public static Task<bool> WaitAsync(IAsyncResult iar, TimeSpan timeout, CancellationTokenSource? cts = null)
 		{
 			return WaitAsync(iar).Timeout(timeout, cts);
 		}

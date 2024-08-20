@@ -5,7 +5,7 @@ namespace TBird.Core
 {
 	public static class DynamicUtil
 	{
-		public static object O(dynamic value, string key)
+		public static object? O(dynamic value, string key)
 		{
 			var keyarr = key.Split('.');
 			var keyfst = keyarr[0];
@@ -19,7 +19,7 @@ namespace TBird.Core
 				: O(keyvalue, keyarr.Skip(1).GetString("."));
 		}
 
-		public static T T<T>(dynamic value, string key, Func<string, T> func)
+		public static T? T<T>(dynamic value, string key, Func<string, T> func)
 		{
 			var keyvalue = O(value, key);
 			return keyvalue == null
@@ -29,9 +29,9 @@ namespace TBird.Core
 				: func(keyvalue is string s ? s : $"{keyvalue}");
 		}
 
-		public static T T<T>(dynamic value, string key)
+		public static T? T<T>(dynamic value, string key)
 		{
-			Func<string, T> func = s => default;
+			Func<string, T?> func = s => default;
 			return T<T>(value, key, func);
 		}
 
