@@ -59,8 +59,15 @@ namespace TBird.Core
 		/// <param name="overwrite">移動先ﾊﾟｽにﾌｧｲﾙが既に存在していたら上書きするかどうか</param>
 		public static void Move(string src, string dst, bool overwrite = true)
 		{
-			if (overwrite) BeforeCreate(dst);
-
+			if (overwrite)
+			{
+				BeforeCreate(dst);
+			}
+			else if (src != dst && Exists(dst).Result)
+			{
+				Move(src, GetFullPathWithoutExtension(dst) + "-COPY" + Path.GetExtension(dst).NotNull(), overwrite);
+				return;
+			}
 			File.Move(ToShort(src), ToShort(dst));
 		}
 
