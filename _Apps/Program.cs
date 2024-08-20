@@ -13,7 +13,7 @@ Console.WriteLine($"1: 処理が完了したらPDFﾌｧｲﾙを削除する。
 Console.WriteLine($"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}");
 
 // ｵﾌﾟｼｮﾝを選択
-var option = MyCode.GetOption(Console.ReadLine());
+var option = MyCode.GetOption(args.FirstOrDefault(x => x.StartsWith('/')).Run(x => x != null ? x.Substring(1, 1) : Console.ReadLine()));
 
 var task = MyCode.Execute(option, args);
 
