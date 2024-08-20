@@ -13,7 +13,7 @@ Console.WriteLine("1: 画像縮小をｽｷｯﾌﾟする。");
 Console.WriteLine($"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}");
 
 // ｵﾌﾟｼｮﾝを選択
-var option = Process.GetOption(Console.ReadLine());
+var option = Process.GetOption(args.FirstOrDefault(x => x.StartsWith('/')).Run(x => x != null ? x.Substring(1, 1) : Console.ReadLine()));
 
 var task = Process.Execute(option, args);
 
