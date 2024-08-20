@@ -18,6 +18,9 @@ namespace EBook2PDF
 
 				// 変換結果格納ﾃﾞｨﾚｸﾄﾘ
 				OutputDir = Directories.DownloadDirectory;
+
+				//
+				PDF2JPG = @"..\_Tools\PDF2JPG\PDF2JPG.exe";
 			}
 		}
 
@@ -41,6 +44,13 @@ namespace EBook2PDF
 			set => SetProperty(ref _OutputDir, value);
 		}
 		private string _OutputDir = string.Empty;
+
+		public string PDF2JPG
+		{
+			get => GetProperty(_PDF2JPG);
+			set => SetProperty(ref _PDF2JPG, value);
+		}
+		private string _PDF2JPG = string.Empty;
 
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using TBird.Core;
 using TBird.IO.Html;
@@ -15,7 +16,7 @@ namespace EBook2PDF
 			Console.WriteLine($"1: 処理が完了したらHTMLﾌｧｲﾙを削除する。");
 			Console.WriteLine($"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}");
 
-			AppSetting.Instance.Option = Math.Min(CoreUtil.Nvl(Console.ReadLine(), AppSetting.Instance.Option).GetInt32(), 1);
+			AppSetting.Instance.Option = Math.Min(CoreUtil.Nvl(Console.ReadLine().NotNull(), AppSetting.Instance.Option).GetInt32(), 1);
 
 			var executes = await args
 				.SelectMany(GetFiles)
@@ -84,6 +85,23 @@ namespace EBook2PDF
 
 			// ﾌｧｲﾙ名をﾀｲﾄﾙにする。
 			ChangeFilename(srcpdf, dstpdf, epub);
+
+			// 同PC上にPDF2JPGが存在するなら
+			if (await FileUtil.Exists(AppSetting.Instance.PDF2JPG))
+			{
+				await CoreUtil.ExecuteAsync(new ProcessStartInfo()
+				{
+					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.PDF2JPG),
+					FileName = AppSetting.Instance.PDF2JPG,
+					Arguments = $"\"{dstpdf}\"",
+					UseShellExecute = false,
+					CreateNoWindow = true,
+					RedirectStandardOutput = true,
+				}, Console.WriteLine);
+
+				// ｶﾊﾞｰを移動する
+				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(FileUtil.GetFullPathWithoutExtension(dstpdf), @"000.jpg"));
+			}
 
 			// HTMLﾌｫﾙﾀﾞは不要なので削除
 			if (AppSetting.Instance.Option == 1) DirectoryUtil.Delete(src);
@@ -161,7 +179,7 @@ namespace EBook2PDF
 					if (!File.Exists(target)) break;
 					var dir = Path.GetDirectoryName(target);
 					if (dir == null) break;
-					FileUtil.Move(target, Path.Combine(dir, title + Path.GetExtension(target)));
+					FileUtil.Move(target, Path.Combine(dir, title + Path.GetExtension(target)), false);
 				}
 			}
 		}
