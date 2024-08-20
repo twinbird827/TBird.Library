@@ -93,22 +93,26 @@ namespace EBook2PDF
 				{
 					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.PDF2JPG),
 					FileName = AppSetting.Instance.PDF2JPG,
-					Arguments = $"\"{dstpdf}\"",
+					Arguments = $"/{AppSetting.Instance.Option} \"{dstpdf}\"",
 					UseShellExecute = false,
 					CreateNoWindow = true,
 					RedirectStandardOutput = true,
 				}, Console.WriteLine);
 
-				// ｶﾊﾞｰを移動する
-				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(FileUtil.GetFullPathWithoutExtension(dstpdf), @"000.jpg"));
+				// PDF->JPG変換後のﾌｫﾙﾀﾞﾊﾟｽ
+				var dstjpg = FileUtil.GetFullPathWithoutExtension(dstpdf);
 
+				// ｶﾊﾞｰを移動する
+				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(dstjpg, @"000.jpg"));
+
+				// ZIP圧縮
 				if (await FileUtil.Exists(AppSetting.Instance.ZIPCONV))
 				{
 					await CoreUtil.ExecuteAsync(new ProcessStartInfo()
 					{
 						WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.ZIPCONV),
 						FileName = AppSetting.Instance.ZIPCONV,
-						Arguments = $"\"{FileUtil.GetFullPathWithoutExtension(dstpdf)}\"",
+						Arguments = $"/0 \"{dstjpg}\"",
 						UseShellExecute = false,
 						CreateNoWindow = true,
 						RedirectStandardOutput = true,
