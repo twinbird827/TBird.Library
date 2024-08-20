@@ -19,8 +19,11 @@ namespace EBook2PDF
 				// 変換結果格納ﾃﾞｨﾚｸﾄﾘ
 				OutputDir = Directories.DownloadDirectory;
 
-				//
+				// PDFをJPGに変換する自作ｱﾌﾟﾘのﾊﾟｽ
 				PDF2JPG = @"..\_Tools\PDF2JPG\PDF2JPG.exe";
+
+				// ﾌｫﾙﾀﾞをZIP圧縮する自作ｱﾌﾟﾘのﾊﾟｽ
+				ZIPCONV = @"..\_Tools\ZIPConverter\ZIPConverter.exe";
 			}
 		}
 
@@ -51,6 +54,13 @@ namespace EBook2PDF
 			set => SetProperty(ref _PDF2JPG, value);
 		}
 		private string _PDF2JPG = string.Empty;
+
+		public string ZIPCONV
+		{
+			get => GetProperty(_ZIPCONV);
+			set => SetProperty(ref _ZIPCONV, value);
+		}
+		private string _ZIPCONV = string.Empty;
 
 	}
 }

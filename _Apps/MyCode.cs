@@ -101,6 +101,19 @@ namespace EBook2PDF
 
 				// ｶﾊﾞｰを移動する
 				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(FileUtil.GetFullPathWithoutExtension(dstpdf), @"000.jpg"));
+
+				if (await FileUtil.Exists(AppSetting.Instance.ZIPCONV))
+				{
+					await CoreUtil.ExecuteAsync(new ProcessStartInfo()
+					{
+						WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.ZIPCONV),
+						FileName = AppSetting.Instance.ZIPCONV,
+						Arguments = $"\"{FileUtil.GetFullPathWithoutExtension(dstpdf)}\"",
+						UseShellExecute = false,
+						CreateNoWindow = true,
+						RedirectStandardOutput = true,
+					}, Console.WriteLine);
+				}
 			}
 
 			// HTMLﾌｫﾙﾀﾞは不要なので削除
