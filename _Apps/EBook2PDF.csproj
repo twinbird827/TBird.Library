@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\TBird.Console\TBird.Console.csproj" />
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
     <ProjectReference Include="..\TBird.IO.Pdf\TBird.IO.Pdf.csproj" />
     <ProjectReference Include="..\TBird.IO\TBird.IO.csproj" />

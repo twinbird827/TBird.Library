@@ -2,7 +2,7 @@
   "profiles": {
     "EBook2PDF": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\Work\\Temp"
+      "commandLineArgs": "\"C:\\Work\\My Kindle Content\\B085DQGRJT_EBOK\""
     }
   }
 }

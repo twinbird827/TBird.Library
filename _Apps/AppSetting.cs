@@ -11,7 +11,7 @@ namespace EBook2PDF
 			if (!Load())
 			{
 				// ｵﾌﾟｼｮﾝ
-				Option = 0;
+				Option = "0";
 
 				// 変換実行ﾌｧｲﾙ
 				Calibre = @"C:\Program Files\Calibre2\ebook-convert.exe";
@@ -20,19 +20,16 @@ namespace EBook2PDF
 				OutputDir = Directories.DownloadDirectory;
 
 				// PDFをJPGに変換する自作ｱﾌﾟﾘのﾊﾟｽ
-				PDF2JPG = @"..\_Tools\PDF2JPG\PDF2JPG.exe";
-
-				// ﾌｫﾙﾀﾞをZIP圧縮する自作ｱﾌﾟﾘのﾊﾟｽ
-				ZIPCONV = @"..\_Tools\ZIPConverter\ZIPConverter.exe";
+				PDF2JPG = @"..\PDF2JPG\PDF2JPG.exe";
 			}
 		}
 
-		public int Option
+		public string Option
 		{
 			get => GetProperty(_Option);
 			set => SetProperty(ref _Option, value);
 		}
-		private int _Option = 0;
+		private string _Option = "0";
 
 		public string Calibre
 		{
@@ -54,13 +51,5 @@ namespace EBook2PDF
 			set => SetProperty(ref _PDF2JPG, value);
 		}
 		private string _PDF2JPG = string.Empty;
-
-		public string ZIPCONV
-		{
-			get => GetProperty(_ZIPCONV);
-			set => SetProperty(ref _ZIPCONV, value);
-		}
-		private string _ZIPCONV = string.Empty;
-
 	}
 }

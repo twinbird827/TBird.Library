@@ -1,22 +1,35 @@
-﻿using System.Diagnostics;
-using System.Security.Cryptography;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows;
+using TBird.Console;
 using TBird.Core;
 using TBird.IO.Html;
 using TBird.IO.Pdf;
 
 namespace EBook2PDF
 {
-	internal class MyCode
+	public class MyExecuter : ConsoleAsyncExecuter
 	{
-		public static async Task Execute(string[] args)
+		protected override Dictionary<string, string> GetOptions(Dictionary<string, string> options)
 		{
-			Console.WriteLine("起動ｵﾌﾟｼｮﾝを選択してください。");
-			Console.WriteLine($"0: HTMLﾌｧｲﾙを残す。");
-			Console.WriteLine($"1: 処理が完了したらHTMLﾌｧｲﾙを削除する。");
-			Console.WriteLine($"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}");
+			SetOption(options, "O", AppSetting.Instance.Option,
+				$"起動ｵﾌﾟｼｮﾝを選択してください。",
+				$"0: HTMLﾌｧｲﾙを残す。",
+				$"1: 処理が完了したらHTMLﾌｧｲﾙを削除する。",
+				$"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}"
+			);
 
-			AppSetting.Instance.Option = Math.Min(CoreUtil.Nvl(Console.ReadLine().NotNull(), AppSetting.Instance.Option).GetInt32(), 1);
+			return options;
+		}
+
+		protected override async Task ProcessAsync(Dictionary<string, string> options, string[] args)
+		{
+			var option = int.Parse(AppSetting.Instance.Option = options["O"]);
 
 			var executes = await args
 				.SelectMany(GetFiles)
@@ -27,10 +40,12 @@ namespace EBook2PDF
 			// 実行ﾊﾟﾗﾒｰﾀに対して処理実行
 			var results = executes;
 
+			AppSetting.Instance.Save();
+
 			if (results.Contains(false))
 			{
 				// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
-				Console.ReadLine();
+				Pause(options);
 			}
 		}
 
@@ -84,7 +99,7 @@ namespace EBook2PDF
 			PdfUtil.PutPageNumber(dstpdf);
 
 			// ﾌｧｲﾙ名をﾀｲﾄﾙにする。
-			ChangeFilename(srcpdf, dstpdf, epub);
+			ChangeFilename(srcpdf, ref dstpdf, epub);
 
 			// 同PC上にPDF2JPGが存在するなら
 			if (await FileUtil.Exists(AppSetting.Instance.PDF2JPG))
@@ -93,7 +108,7 @@ namespace EBook2PDF
 				{
 					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.PDF2JPG),
 					FileName = AppSetting.Instance.PDF2JPG,
-					Arguments = $"/{AppSetting.Instance.Option} \"{dstpdf}\"",
+					Arguments = $"/H /O={AppSetting.Instance.Option} \"{dstpdf}\"",
 					UseShellExecute = false,
 					CreateNoWindow = true,
 					RedirectStandardOutput = true,
@@ -104,24 +119,10 @@ namespace EBook2PDF
 
 				// ｶﾊﾞｰを移動する
 				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(dstjpg, @"000.jpg"));
-
-				// ZIP圧縮
-				if (await FileUtil.Exists(AppSetting.Instance.ZIPCONV))
-				{
-					await CoreUtil.ExecuteAsync(new ProcessStartInfo()
-					{
-						WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.ZIPCONV),
-						FileName = AppSetting.Instance.ZIPCONV,
-						Arguments = $"/0 \"{dstjpg}\"",
-						UseShellExecute = false,
-						CreateNoWindow = true,
-						RedirectStandardOutput = true,
-					}, Console.WriteLine);
-				}
 			}
 
 			// HTMLﾌｫﾙﾀﾞは不要なので削除
-			if (AppSetting.Instance.Option == 1) DirectoryUtil.Delete(src);
+			if (AppSetting.Instance.Option == "1") DirectoryUtil.Delete(src);
 
 			return true;
 		}
@@ -146,7 +147,16 @@ namespace EBook2PDF
 				RedirectStandardOutput = true,
 			};
 
-			return CoreUtil.ExecuteAsync(info, Console.WriteLine);
+			var tmp = Console.OutputEncoding;
+			Console.OutputEncoding = Encoding.UTF8;
+			try
+			{
+				return CoreUtil.ExecuteAsync(info, Console.WriteLine);
+			}
+			finally
+			{
+				Console.OutputEncoding = tmp;
+			}
 		}
 
 		private static IEnumerable<string> GetFiles(string dir)
@@ -182,7 +192,7 @@ namespace EBook2PDF
 			}
 		}
 
-		public static void ChangeFilename(string srchtml, string pdf, string epub)
+		public static void ChangeFilename(string srchtml, ref string pdf, string epub)
 		{
 			var src = File.ReadAllText(srchtml);
 
@@ -196,9 +206,12 @@ namespace EBook2PDF
 					if (!File.Exists(target)) break;
 					var dir = Path.GetDirectoryName(target);
 					if (dir == null) break;
-					FileUtil.Move(target, Path.Combine(dir, title + Path.GetExtension(target)), false);
+					var dst = Path.Combine(dir, title + Path.GetExtension(target));
+					FileUtil.Move(target, dst, false);
+					if (target == pdf) pdf = dst;
 				}
 			}
 		}
+
 	}
 }
