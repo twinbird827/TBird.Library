@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.6.33815.320
@@ -36,6 +36,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EBook2PDF", "EBook2PDF.csproj", "{500F02E1-3651-4C96-84B9-1880CCE6371B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{E6BF0486-B0EF-4B3F-8DC4-71B976ACD6F2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Console", "..\TBird.Console\TBird.Console.csproj", "{3E0B0033-5090-4045-9123-F7D535649644}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -107,6 +109,10 @@ Global
 		{500F02E1-3651-4C96-84B9-1880CCE6371B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{500F02E1-3651-4C96-84B9-1880CCE6371B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{500F02E1-3651-4C96-84B9-1880CCE6371B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E0B0033-5090-4045-9123-F7D535649644}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E0B0033-5090-4045-9123-F7D535649644}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E0B0033-5090-4045-9123-F7D535649644}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E0B0033-5090-4045-9123-F7D535649644}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
