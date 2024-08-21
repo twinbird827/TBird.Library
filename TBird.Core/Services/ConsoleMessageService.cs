@@ -80,7 +80,7 @@ namespace TBird.Core
 
 		private void Writeline(string message)
 		{
-			System.Diagnostics.Debug.WriteLine(message);
+			System.Console.WriteLine(message);
 		}
 	}
 }
