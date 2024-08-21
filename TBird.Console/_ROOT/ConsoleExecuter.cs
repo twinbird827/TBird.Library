@@ -17,6 +17,7 @@ namespace TBird.Console
 		private bool IsArgs(string x) => !IsOption(x);
 
 		private void WriteLine(string message) => System.Console.WriteLine(message);
+
 		private void Write(string message) => System.Console.Write(message);
 
 		private string ReadLine() => System.Console.ReadLine().NotNull();
@@ -84,7 +85,7 @@ namespace TBird.Console
 		{
 			messages.ForEach(x => System.Console.WriteLine(x));
 
-			Write($"INPUT:");
+			Write($"INPUT: ");
 			var v = options.ContainsKey(key) ? options[key] : CoreUtil.Nvl(ReadLine(), def);
 			if (options.ContainsKey(key)) WriteLine(v);
 
