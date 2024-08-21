@@ -25,7 +25,7 @@ namespace PDF2JPG
 
 		protected override async Task ProcessAsync(Dictionary<string, string> options, string[] args)
 		{
-			var option = int.Parse(options["0"]);
+			var option = int.Parse(options["O"]);
 
 			var executes = args.AsParallel().Select(async arg =>
 			{
