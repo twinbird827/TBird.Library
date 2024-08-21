@@ -38,7 +38,7 @@ namespace TBird.Console
 			var b = args
 				.Where(IsOption)
 				.Select(x => x.Substring(1).Split('='))
-				.ToDictionary(x => x[0].ToUpper(), x => x[1]);
+				.ToDictionary(x => x[0].ToUpper(), x => x.Skip(1).FirstOrDefault() ?? string.Empty);
 			var a = args
 				.Where(IsArgs)
 				.ToArray();
