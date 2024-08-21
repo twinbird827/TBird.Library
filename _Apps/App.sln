@@ -37,6 +37,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DojinRename", "DojinRename.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{E6BF0486-B0EF-4B3F-8DC4-71B976ACD6F2}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TBird.Console", "..\TBird.Console\TBird.Console.csproj", "{3BE566CA-A5C5-4272-B109-9C179581F5A4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -107,6 +109,10 @@ Global
 		{500F02E1-3651-4C96-84B9-1880CCE6371B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{500F02E1-3651-4C96-84B9-1880CCE6371B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{500F02E1-3651-4C96-84B9-1880CCE6371B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BE566CA-A5C5-4272-B109-9C179581F5A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BE566CA-A5C5-4272-B109-9C179581F5A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BE566CA-A5C5-4272-B109-9C179581F5A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BE566CA-A5C5-4272-B109-9C179581F5A4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -127,6 +133,7 @@ Global
 		{3EAFEDC3-561F-4F2A-BB43-1806F8ACADE4} = {E6BF0486-B0EF-4B3F-8DC4-71B976ACD6F2}
 		{60C3B1BF-EF6E-44A5-AB37-3B981FD366B1} = {E6BF0486-B0EF-4B3F-8DC4-71B976ACD6F2}
 		{E90E493B-C59A-467A-8BEE-DC0EC627CA6B} = {E6BF0486-B0EF-4B3F-8DC4-71B976ACD6F2}
+		{3BE566CA-A5C5-4272-B109-9C179581F5A4} = {E6BF0486-B0EF-4B3F-8DC4-71B976ACD6F2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {52695DF7-51EF-4BA1-BDBD-8BB335B51053}

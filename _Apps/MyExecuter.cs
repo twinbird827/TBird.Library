@@ -1,14 +1,17 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using TBird.Console;
 using TBird.Core;
-using TBird.IO.Html;
-using TBird.IO.Pdf;
 
 namespace DojinRename
 {
-	internal class MyCode
+	public class MyExecuter : ConsoleAsyncExecuter
 	{
-		public static async Task Execute(string[] args)
+		protected override async Task ProcessAsync(Dictionary<string, string> options, string[] args)
 		{
 			if (args.Length != 1)
 			{
@@ -42,6 +45,5 @@ namespace DojinRename
 
 			FileUtil.Move(Path.Combine(dir, src) + ext, Path.Combine(dir, dst) + ext, false);
 		}
-
 	}
 }
