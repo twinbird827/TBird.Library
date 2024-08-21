@@ -9,10 +9,17 @@ namespace TBird.Core
 {
 	public static class ObjectExtension
 	{
-		public static string Str(this object value)
-		{
-			return $"{value}";
-		}
+		public static string Str(this object value) => value is string s ? s : $"{value}";
+
+		public static bool Bool(this object value, bool def = false) => bool.TryParse(value.Str(), out bool o) ? o : def;
+
+		public static double Double(this object? value, double def = 0D) => GetDouble(value, def);
+
+		public static float Single(this object? value, float def = 0F) => GetSingle(value, def);
+
+		public static int Int32(this object? value, int def = 0) => GetInt32(value, def);
+
+		public static long Int64(this object? value, long def = 0L) => GetInt64(value, def);
 
 		/// <summary>
 		/// 指定したｵﾌﾞｼﾞｪｸﾄがIDisposableを実装しているなら破棄します。
