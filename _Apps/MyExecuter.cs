@@ -1,25 +1,32 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using TBird.Console;
 using TBird.Core;
 using TBird.IO.Pdf;
 
 namespace PDF2JPG
 {
-	internal class MyCode
+	public class MyExecuter : ConsoleAsyncExecuter
 	{
-		public static int GetOption(string? line)
+		protected override Dictionary<string, string> GetOptions(Dictionary<string, string> options)
 		{
-			switch (line)
-			{
-				case "0":
-				case "1":
-					return int.Parse(line);
-				default:
-					return AppSetting.Instance.Option;
-			}
+			SetOption(options, "O", AppSetting.Instance.Option,
+				$"起動ｵﾌﾟｼｮﾝを選択してください。",
+				$"0: 元となるPDFﾌｧｲﾙを残す。",
+				$"1: 処理が完了したらPDFﾌｧｲﾙを削除する。",
+				$"ﾃﾞﾌｫﾙﾄ: {AppSetting.Instance.Option}"
+			);
+
+			return options;
 		}
 
-		public static async Task Execute(int option, string[] args)
+		protected override async Task ProcessAsync(Dictionary<string, string> options, string[] args)
 		{
+			var option = int.Parse(options["0"]);
+
 			var executes = args.AsParallel().Select(async arg =>
 			{
 				return await Execute(option, arg);
@@ -31,7 +38,7 @@ namespace PDF2JPG
 			if (results.Contains(false))
 			{
 				// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
-				Console.ReadLine();
+				Pause(options);
 			}
 		}
 
@@ -104,5 +111,6 @@ namespace PDF2JPG
 				DirectoryUtil.Delete(dirtemp);
 			}
 		}
+
 	}
 }

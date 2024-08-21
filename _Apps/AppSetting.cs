@@ -11,7 +11,7 @@ namespace PDF2JPG
 			if (!Load())
 			{
 				// ｵﾌﾟｼｮﾝ
-				Option = 1;
+				Option = "1";
 
 				// 一度に処理するﾌｧｲﾙ数
 				NumberOfParallel = 10;
@@ -27,12 +27,12 @@ namespace PDF2JPG
 		/// <summary>
 		/// 処理ｵﾌﾟｼｮﾝ
 		/// </summary>
-		public int Option
+		public string Option
 		{
 			get => GetProperty(_Option);
 			set => SetProperty(ref _Option, value);
 		}
-		private int _Option;
+		private string _Option = "1";
 
 		/// <summary>
 		/// 並列処理数
