@@ -11,7 +11,7 @@ namespace ZIPConverter
 			if (!Load())
 			{
 				// ｵﾌﾟｼｮﾝ
-				Option = 0;
+				Option = "0";
 
 				// 並行処理数
 				ParallelCount = 50;
@@ -46,12 +46,12 @@ namespace ZIPConverter
 		/// <summary>
 		/// 処理ｵﾌﾟｼｮﾝ
 		/// </summary>
-		public int Option
+		public string Option
 		{
 			get => GetProperty(_Option);
 			set => SetProperty(ref _Option, value);
 		}
-		private int _Option;
+		private string _Option;
 
 		/// <summary>
 		/// 並行処理数
