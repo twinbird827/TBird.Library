@@ -48,6 +48,14 @@ namespace Netkeiba
 			EYear = DateTime.Now.Year;
 			SYear = EYear;
 
+			Loaded.Add(async () =>
+			{
+				S4Text = await GetCurrentRaceIds().RunAsync(arr =>
+				{
+					return string.Join("\r\n", arr);
+				});
+			});
+
 			AppSetting.Instance.Save();
 		}
 

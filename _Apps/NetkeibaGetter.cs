@@ -3,6 +3,7 @@ using AngleSharp.Html.Dom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -602,5 +603,30 @@ namespace Netkeiba
 			}
 
 		}
+
+		private Task<IEnumerable<string>> GetCurrentRaceIds()
+		{
+			return GetCurrentRaceIds(DateTime.Now);
+		}
+
+		private async Task<IEnumerable<string>> GetCurrentRaceIds(DateTime date)
+		{
+			var url = $"https://race.netkeiba.com/top/race_list.html?kaisai_date={date.ToString("yyyyMMdd")}";
+
+			using (var ped = await AppUtil.GetDocument(false, url))
+			{
+				var arr = ped
+					.GetElementsByClassName("RaceData")
+					.SelectMany(x => x.GetElementsByTagName("a"))
+					.Select(x => x.GetAttribute("href"))
+					.Select(x => Regex.Match(x ?? string.Empty, @"race_id=(?<x>[\d]+)"))
+					.Where(x => x.Success && x.Groups["x"].Success)
+					.Select(x => x.Groups["x"].Value.Left(10))
+					.Distinct();
+				if (arr.Any()) return arr.ToArray();
+			}
+			return await GetCurrentRaceIds(date.AddDays(1));
+		}
+
 	}
 }
