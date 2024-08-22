@@ -43,17 +43,6 @@ namespace Netkeiba
 
 		public IRelayCommand S1EXEC => RelayCommand.Create(async _ =>
 		{
-			//var years = Enumerable.Range(SYear, EYear - SYear + 1).Select(i => i.ToString(2)).ToArray();
-			//var basyos = BasyoSources.Where(x => x.IsChecked).ToArray();
-			//var counts = Enumerable.Range(1, 6).Select(i => i.ToString(2)).ToArray();
-			//var days = Enumerable.Range(1, 12).Select(i => i.ToString(2)).ToArray();
-			//var races = Enumerable.Range(1, 12).Select(i => i.ToString(2)).ToArray();
-			//var racebases = years
-			//	.SelectMany(y => basyos.Select(b => $"{y}{b.Value}"))
-			//	.SelectMany(yb => counts.Select(c => $"{yb}{c}"))
-			//	.SelectMany(ybc => days.Select(d => $"{ybc}{d}"))
-			//	.ToArray();
-
 			var racebases = await GetRecentRaceIds(SYear, EYear).RunAsync(races =>
 			{
 				return races
