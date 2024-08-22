@@ -50,7 +50,7 @@ namespace Netkeiba
 
 			Loaded.Add(async () =>
 			{
-				S4Text = await GetCurrentRaceIds().RunAsync(arr =>
+				S4Text = await GetCurrentRaceUrls().RunAsync(arr =>
 				{
 					return string.Join("\r\n", arr);
 				});

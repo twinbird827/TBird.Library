@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Transactions;
 using TBird.Core;
 using TBird.DB.SQLite;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Netkeiba
 {
@@ -601,29 +602,76 @@ namespace Netkeiba
 
 		}
 
-		private Task<IEnumerable<string>> GetCurrentRaceIds()
+		private async Task<IEnumerable<string>> GetCurrentRaceUrls()
 		{
-			return GetCurrentRaceIds(DateTime.Now);
+			return await GetCurrentRaceIds(DateTime.Now).RunAsync(arr =>
+			{
+				return arr
+					.Select(x => x.Left(10))
+					.Distinct()
+					.Select(x => $"https://race.netkeiba.com/race/shutuba.html?race_id={x}01");
+			});
 		}
 
 		private async Task<IEnumerable<string>> GetCurrentRaceIds(DateTime date)
 		{
+			return await GetRaceIds(date).RunAsync(async arr =>
+			{
+				return arr.Any() ? arr : await GetCurrentRaceIds(date.AddDays(1));
+			});
+		}
+
+		private async Task<IEnumerable<string>> GetRecentRaceIds(int start, int end)
+		{
+			var now = DateTime.Now.ToString("yyyyMMdd").GetInt32();
+
+			Enumerable.Range(start, end - start + 1);
+
+			var dates = await Enumerable.Range(start, end - start + 1).Select(y =>
+			{
+				return Enumerable.Range(1, y < end ? 12 : DateTime.Now.Month)
+					.Select(m => GetKaisaiDate(y, m))
+					.WhenAllExpand();
+			}).WhenAllExpand();
+
+			return await dates
+				.Where(d => d.GetInt32() < now)
+				.Select(date => GetRaceIds(DateTime.ParseExact(date, "yyyyMMdd", null)))
+				.WhenAllExpand();
+		}
+
+		private async Task<IEnumerable<string>> GetRaceIds(DateTime date)
+		{
 			var url = $"https://race.netkeiba.com/top/race_list_sub.html?kaisai_date={date.ToString("yyyyMMdd")}";
+
+			using (var ped = await AppUtil.GetDocument(false, url))
+			{
+				return ped
+					.GetElementsByTagName("a")
+					.Select(x => x.GetAttribute("href"))
+					.Select(x => Regex.Match(x ?? string.Empty, @"race_id=(?<x>[\d]+)"))
+					.Where(x => x.Success && x.Groups["x"].Success)
+					.Select(x => x.Groups["x"].Value)
+					.Distinct();
+			}
+		}
+
+		private async Task<IEnumerable<string>> GetKaisaiDate(int year, int month)
+		{
+			var url = $"https://race.netkeiba.com/top/calendar.html?year={year}&month={month}";
 
 			using (var ped = await AppUtil.GetDocument(false, url))
 			{
 				var arr = ped
 					.GetElementsByTagName("a")
 					.Select(x => x.GetAttribute("href"))
-					.Select(x => Regex.Match(x ?? string.Empty, @"race_id=(?<x>[\d]+)"))
+					.Select(x => Regex.Match(x ?? string.Empty, @"kaisai_date=(?<x>[\d]+)"))
 					.Where(x => x.Success && x.Groups["x"].Success)
-					.Select(x => x.Groups["x"].Value.Left(10))
-					.Distinct()
-					.Select(x => $"https://race.netkeiba.com/race/shutuba.html?race_id={x}01");
-				if (arr.Any()) return arr.ToArray();
-			}
-			return await GetCurrentRaceIds(date.AddDays(1));
-		}
+					.Select(x => x.Groups["x"].Value)
+					.Distinct();
 
+				return arr;
+			}
+		}
 	}
 }
