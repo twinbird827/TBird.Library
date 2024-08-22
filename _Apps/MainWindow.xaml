@@ -6,6 +6,9 @@
 					  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 					  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 					  xmlns:local="clr-namespace:Netkeiba"
+					  xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf"
+					  behavior:WindowBehavior.ContentRendered="{Binding OnLoaded}"
+					  behavior:WindowBehavior.Closing="{Binding OnClosing}"
 					  mc:Ignorable="d"
                       Title="Netkeiba">
 	<Controls:MetroWindow.DataContext>

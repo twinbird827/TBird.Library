@@ -3,15 +3,12 @@ using AngleSharp.Html.Dom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Transactions;
 using TBird.Core;
 using TBird.DB.SQLite;
-using Tensorflow.Keras.Layers;
-using static TorchSharp.torch.utils;
 
 namespace Netkeiba
 {
@@ -611,18 +608,18 @@ namespace Netkeiba
 
 		private async Task<IEnumerable<string>> GetCurrentRaceIds(DateTime date)
 		{
-			var url = $"https://race.netkeiba.com/top/race_list.html?kaisai_date={date.ToString("yyyyMMdd")}";
+			var url = $"https://race.netkeiba.com/top/race_list_sub.html?kaisai_date={date.ToString("yyyyMMdd")}";
 
 			using (var ped = await AppUtil.GetDocument(false, url))
 			{
 				var arr = ped
-					.GetElementsByClassName("RaceData")
-					.SelectMany(x => x.GetElementsByTagName("a"))
+					.GetElementsByTagName("a")
 					.Select(x => x.GetAttribute("href"))
 					.Select(x => Regex.Match(x ?? string.Empty, @"race_id=(?<x>[\d]+)"))
 					.Where(x => x.Success && x.Groups["x"].Success)
 					.Select(x => x.Groups["x"].Value.Left(10))
-					.Distinct();
+					.Distinct()
+					.Select(x => $"https://race.netkeiba.com/race/shutuba.html?race_id={x}01");
 				if (arr.Any()) return arr.ToArray();
 			}
 			return await GetCurrentRaceIds(date.AddDays(1));
