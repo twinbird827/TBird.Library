@@ -1,0 +1,84 @@
+﻿@page "/detail/{title}/{place}/{race}"
+@model IndexModel
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Write Data to a File</title>
+</head>
+<body>
+    <h1>[@Model.Class1] @Model.Name</h1>
+
+    <table width="100%">
+        <tr>
+            @{
+                foreach (var x in Model.Places)
+                {
+                    var i = Model.Places.IndexOf(x);
+                    @if (i == Model.Place)
+                    {
+                        <th>@x</th>
+                    }
+                    else
+                    {
+                        <th><a asp-route="Route01" asp-route-title="@Model.Title" asp-route-place="@i" asp-route-race="@Model.Race">@x</a></th>
+                    }
+                }
+            }
+        </tr>
+    </table>
+    <table width="100%">
+        <tr>
+            @{
+                foreach (var x in Model.Races)
+                {
+                    @if (x == Model.Race)
+                    {
+                        <th>@x</th>
+                    }
+                    else
+                    {
+                        <th><a asp-route="Route01" asp-route-title="@Model.Title" asp-route-place="@Model.Place" asp-route-race="@x">@x</a></th>
+                    }
+                }
+            }
+        </tr>
+    </table>
+
+    <table width="100%">
+        <tr>
+            <th>@Html.DisplayNameFor(m => m.Results[0].Waku)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].Umano)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].Umaname)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].B1)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].B2)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].B3)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].B4)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].RN)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].M1)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].M2)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].M3)</th>
+            <th>@Html.DisplayNameFor(m => m.Results[0].M4)</th>
+        </tr>
+        <tr>
+            @{
+                foreach (var x in Model.Results)
+                {
+                    <td>@Html.DisplayFor(m => x.Waku)</td>
+                    <td>@Html.DisplayFor(m => x.Umano)</td>
+                    <td>@Html.DisplayFor(m => x.Umaname)</td>
+                    <td>@Html.DisplayFor(m => x.B1)</td>
+                    <td>@Html.DisplayFor(m => x.B2)</td>
+                    <td>@Html.DisplayFor(m => x.B3)</td>
+                    <td>@Html.DisplayFor(m => x.B4)</td>
+                    <td>@Html.DisplayFor(m => x.RN)</td>
+                    <td>@Html.DisplayFor(m => x.M1)</td>
+                    <td>@Html.DisplayFor(m => x.M2)</td>
+                    <td>@Html.DisplayFor(m => x.M3)</td>
+                    <td>@Html.DisplayFor(m => x.M4)</td>
+                }
+            }
+        </tr>
+    </table>
+
+</body>
+</html>
