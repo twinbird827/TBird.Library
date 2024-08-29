@@ -56,36 +56,42 @@ th, td {
 }
 
 .r0 {
+	padding: 5px 0px;
 	background: #ff0000;
 	color: #ffffff;
 	text-align: center;
 }
 
 .r1 {
+	padding: 5px 0px;
 	background: #0026ff;
 	color: #ffffff;
 	text-align: center;
 }
 
 .r2 {
+	padding: 5px 0px;
 	background: #1c850c;
 	color: #ffffff;
 	text-align: center;
 }
 
 .r3 {
+	padding: 5px 0px;
 	background: #fff000;
 	color: #000000;
 	text-align: center;
 }
 
 .r4 {
+	padding: 5px 0px;
 	background: #ffffb0;
 	color: #000000;
 	text-align: center;
 }
 
 .rx {
+	padding: 5px 0px;
 	color: #808080;
 	text-align: center;
 }
