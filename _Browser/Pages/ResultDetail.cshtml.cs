@@ -2,17 +2,18 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.VisualBasic.FileIO;
-using NuGet.Packaging;
+using System;
 using System.IO;
 using System.Text;
+using TBird.Core;
 
-namespace Browser.Pages.ResultDetails
+namespace Browser.Pages
 {
-    public class IndexModel : PageModel
+    public class ResultDetailModel : PageModel
     {
-        private readonly ILogger<IndexModel> _logger;
+        private readonly ILogger<ResultDetailModel> _logger;
 
-        public IndexModel(ILogger<IndexModel> logger)
+        public ResultDetailModel(ILogger<ResultDetailModel> logger)
         {
             _logger = logger;
         }
@@ -28,9 +29,13 @@ namespace Browser.Pages.ResultDetails
             Place = place;
             Race = race;
 
-            var info = new FileInfo($@"C:\Work\{title}.CSV");
+            var filepath = AppSetting.Instance.TargetDirs
+                .Select(x => Path.Combine(x, $"{title}.csv"))
+                .FirstOrDefault(x => System.IO.File.Exists(x));
 
-            using (var tfp = new TextFieldParser(info.FullName, Encoding.GetEncoding("Shift_JIS")))
+            if (string.IsNullOrEmpty(filepath)) return NotFound();
+
+            using (var tfp = new TextFieldParser(filepath, Encoding.GetEncoding("Shift_JIS")))
             {
                 //値がカンマで区切られているとする
                 tfp.TextFieldType = FieldType.Delimited;
@@ -49,10 +54,17 @@ namespace Browser.Pages.ResultDetails
                 Places.AddRange(lines.Select(x => x.Place).Distinct().OrderBy(x => x));
 
                 Races.Clear();
-                Races.AddRange(Enumerable.Range(Race < 3 ? 1 : 9 < Race ? 7 : Race - 2, 5));
+                Races.AddRange(Enumerable.Range(Race < 3 ? 1 : 10 < Race ? 8 : Race - 2, 5));
 
                 Results.Clear();
-                Results.AddRange(lines.Where(x => x.Race == Race && x.Place == Places[Place]));
+                Results.AddRange(lines
+                    .Where(x => x.Race == Race && x.Place == Places[Place])
+                    .OrderBy(x => x.Umano)
+                );
+
+                Displays.Clear();
+                Displays.AddRange(Results.Select(x => new ResultDisplay(x, Results)));
+                Displays.ForEach(x => x.Rank = Displays.OrderBy(c => c.Avg).ThenByDescending(c => c.Sum).Select(c => c.Avg).IndexOf(x.Avg));
 
                 foreach (var x in Results.Take(1))
                 {
@@ -85,6 +97,8 @@ namespace Browser.Pages.ResultDetails
         public int Race { get; set; }
 
         public IList<ResultDetail> Results { get; set; } = new List<ResultDetail>();
+
+        public IList<ResultDisplay> Displays { get; set; } = new List<ResultDisplay>();
 
         public IList<string> Places { get; set; } = new List<string>();
 

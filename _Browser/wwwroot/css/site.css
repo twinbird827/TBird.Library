@@ -1,18 +1,91 @@
 html {
-  font-size: 14px;
+	font-size: 14px;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+	html {
+		font-size: 16px;
+	}
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+	position: relative;
+	min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+	margin-bottom: 60px;
+}
+
+.menu {
+	display: flex;
+}
+
+	.menu li {
+		list-style: none;
+	}
+
+		.menu li + li {
+			margin-left: 40px;
+		}
+
+.sticky_table thead th {
+	/* 縦スクロール時に固定する */
+	position: -webkit-sticky;
+	position: sticky;
+	top: 0;
+	/* tbody内のセルより手前に表示する */
+	z-index: 1;
+}
+
+.sticky_table th:first-child {
+	/* 横スクロール時に固定する */
+	position: -webkit-sticky;
+	position: sticky;
+	left: 0;
+}
+
+th, td {
+	padding: 5px 8px;
+	background: #ffffff;
+	text-align: center;
+}
+
+.textleft {
+	text-align: left;
+}
+
+.r0 {
+	background: #ff0000;
+	color: #ffffff;
+	text-align: center;
+}
+
+.r1 {
+	background: #0026ff;
+	color: #ffffff;
+	text-align: center;
+}
+
+.r2 {
+	background: #1c850c;
+	color: #ffffff;
+	text-align: center;
+}
+
+.r3 {
+	background: #fff000;
+	color: #000000;
+	text-align: center;
+}
+
+.r4 {
+	background: #ffffb0;
+	color: #000000;
+	text-align: center;
+}
+
+.rx {
+	color: #808080;
+	text-align: center;
 }

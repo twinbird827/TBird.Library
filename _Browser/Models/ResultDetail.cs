@@ -1,6 +1,8 @@
-﻿namespace Browser.Models
+﻿using TBird.Core;
+
+namespace Browser.Models
 {
-    public class ResultDetail
+    public class ResultDetail : TBirdObject
     {
         public ResultDetail(string[] line)
         {
@@ -22,6 +24,7 @@
             M2 = float.TryParse(line[9 + 6], out float f7) ? f7 : 0F;
             M3 = float.TryParse(line[9 + 7], out float f8) ? f8 : 0F;
             M4 = float.TryParse(line[9 + 8], out float f9) ? f9 : 0F;
+            Sum = Arr(B1, B2, B3, B4, RN).Sum();
         }
 
         public bool IsOK() => new string[] { Netkeiba, RaceName, Class1, Place, Umaname }.All(x => !string.IsNullOrEmpty(x)) &&
@@ -44,6 +47,8 @@
         public int Umano { get; set; }
 
         public string Umaname { get; set; }
+
+        public float Sum { get; set; }
 
         public float B1 { get; set; }
 

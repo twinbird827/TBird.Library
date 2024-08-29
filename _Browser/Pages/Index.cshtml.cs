@@ -1,7 +1,7 @@
 ﻿using Browser.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using NuGet.Packaging;
+using TBird.Core;
 
 namespace Browser.Pages
 {
@@ -17,15 +17,11 @@ namespace Browser.Pages
         public void OnGet()
         {
             Results.Clear();
-            Results.AddRange(System.IO.Directory.GetFiles(@"C:\Work").Select(x => new Result(x)));
+            Results.AddRange(AppSetting.Instance.TargetDirs
+                .SelectMany(path => DirectoryUtil.GetFiles(path, "*.csv"))
+                .Select(file => new Result(file))
+            );
         }
-
-        public void OnPost()
-        {
-            IsPost = true;
-        }
-
-        public bool IsPost { get; set; } = false;
 
         public IList<Result> Results { get; set; } = new List<Result>();
     }
