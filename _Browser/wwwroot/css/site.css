@@ -29,21 +29,25 @@ body {
 			margin-left: 40px;
 		}
 
-.sticky_table thead th {
-	/* 縦スクロール時に固定する */
-	position: -webkit-sticky;
-	position: sticky;
-	top: 0;
-	/* tbody内のセルより手前に表示する */
-	z-index: 1;
+.sticky_table {
+	border-collapse: collapse;
 }
 
-.sticky_table th:first-child {
-	/* 横スクロール時に固定する */
-	position: -webkit-sticky;
-	position: sticky;
-	left: 0;
-}
+	.sticky_table thead th {
+		/* 縦スクロール時に固定する */
+		position: -webkit-sticky;
+		position: sticky;
+		top: 0;
+		/* tbody内のセルより手前に表示する */
+		z-index: 1;
+	}
+
+	.sticky_table th:first-child {
+		/* 横スクロール時に固定する */
+		position: -webkit-sticky;
+		position: sticky;
+		left: 0;
+	}
 
 th, td {
 	padding: 5px 8px;
@@ -94,4 +98,12 @@ th, td {
 	padding: 5px 0px;
 	color: #808080;
 	text-align: center;
+}
+
+.tr_head_bottom {
+	border-bottom: 1px double #000;
+}
+
+.tr_bottom {
+	border-bottom: 1px dashed #bbb;
 }

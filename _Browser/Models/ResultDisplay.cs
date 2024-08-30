@@ -51,8 +51,6 @@ namespace Browser.Models
         [Display(Name = "馬名")]
         public string Umaname => Source.Umaname;
 
-        public float Sum => Source.Sum;
-
         public int Rank { get; set; }
 
         public int B1 { get; set; }
@@ -75,6 +73,9 @@ namespace Browser.Models
 
         [DisplayFormat(DataFormatString = "{0:F2}")]
         public float Avg { get; set; }
+
+        [DisplayFormat(DataFormatString = "{0:F1}")]
+        public float Sum => Source.Sum;
 
         [DisplayFormat(DataFormatString = "{0:F1}")]
         public float B1Str => Source.B1;
@@ -102,6 +103,9 @@ namespace Browser.Models
 
         [DisplayFormat(DataFormatString = "{0:F1}")]
         public float M4Str => Source.M4;
+
+        [DisplayFormat(DataFormatString = "{0:F1}")]
+        public float Rate => Source.Run(s => Arr(s.B1, s.B2, s.B3, s.B4, s.RN)).Run(arr => arr.Count(x => 0F < x).Single() / arr.Count().Single());
 
     }
 }
