@@ -17,7 +17,9 @@ namespace Netkeiba
 				TrainingTimeSecond = new[] { 1800, 2000, 2200 };
 				BinaryClassificationResults = new BinaryClassificationResult[] { };
 				RegressionResults = new RegressionResult[] { };
-			}
+				NetkeibaResult = "result";
+
+            }
 		}
 
 		public AppSetting() : this(@"lib\app-setting.json")
@@ -226,12 +228,19 @@ namespace Netkeiba
 		}
 		private string _NetkeibaId = string.Empty;
 
-		public string NetkeibaPassword
-		{
-			get => GetProperty(_NetkeibaPassword);
-			set => SetProperty(ref _NetkeibaPassword, value);
-		}
-		private string _NetkeibaPassword = string.Empty;
+        public string NetkeibaPassword
+        {
+            get => GetProperty(_NetkeibaPassword);
+            set => SetProperty(ref _NetkeibaPassword, value);
+        }
+        private string _NetkeibaPassword = string.Empty;
 
-	}
+        public string NetkeibaResult
+        {
+            get => GetProperty(_NetkeibaResult);
+            set => SetProperty(ref _NetkeibaResult, value);
+        }
+        private string _NetkeibaResult = string.Empty;
+
+    }
 }

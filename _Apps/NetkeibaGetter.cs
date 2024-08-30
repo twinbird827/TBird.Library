@@ -660,7 +660,7 @@ namespace Netkeiba
 		{
 			var url = $"https://race.netkeiba.com/top/calendar.html?year={year}&month={month}";
 
-			using (var ped = await AppUtil.GetDocument(false, url))
+            using (var ped = await AppUtil.GetDocument(false, url))
 			{
 				var arr = ped
 					.GetElementsByTagName("a")

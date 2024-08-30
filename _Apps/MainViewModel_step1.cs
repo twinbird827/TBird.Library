@@ -80,6 +80,8 @@ namespace Netkeiba
 					conn.Commit();
 				}
 
+				await Task.Delay(1000);
+
 				foreach (var racebase in racebases)
 				{
 					if (create == false) await conn.BeginTransaction();

@@ -42,7 +42,7 @@ namespace Netkeiba
 				ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, 1))
 			).TryCatch();
 
-			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
+			//System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
 		});
 
 		private async Task CreatePredictionFile(string tag,
@@ -382,7 +382,7 @@ namespace Netkeiba
 					list.add(result2);
 
 					// ﾌｧｲﾙ書き込み
-					var path = Path.Combine("result", $"{DateTime.Now.ToString("yyyyMMddHHmmss")}_{x.Key}.csv");
+					var path = Path.Combine(AppSetting.Instance.NetkeibaResult, $"{DateTime.Now.ToString("yyyyMMddHHmmss")}_{x.Key}.csv");
 					FileUtil.BeforeCreate(path);
 					await File.AppendAllLinesAsync(path, list.Select(x => x.GetString(",")), Encoding.GetEncoding("Shift_JIS")); ;
 				}).WhenAll();
