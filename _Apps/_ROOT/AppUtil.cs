@@ -1,4 +1,6 @@
-﻿using AngleSharp.Html.Dom;
+﻿using AngleSharp;
+using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using OpenQA.Selenium;
 using System;
@@ -61,51 +63,104 @@ namespace Netkeiba
 
 		public static async Task<IHtmlDocument> GetDocument(bool login, string url)
 		{
-			//using (await Locker.LockAsync(_guid))
+			if (_loginsession.AddMinutes(10) < DateTime.Now)
+			{
+				if (_logincontext != null) _logincontext.Dispose();
+				_logincontext = null;
+				if (_guestcontext != null) _guestcontext.Dispose();
+				_guestcontext = null;
+				_loginsession = DateTime.Now;
+			}
+
+			var config = Configuration.Default.WithDefaultLoader().WithJs().WithDefaultCookies();
+
 			if (login)
 			{
-				var selenium = await TBirdSeleniumFactory.CreateSelenium(10);
-
-				selenium.SetInitialize(driver =>
+				if (_logincontext == null)
 				{
-					selenium.GoToUrl(@"https://regist.netkeiba.com/account/?pid=login");
+					_logincontext = BrowsingContext.New(config);
 
-					driver.FindElement(By.Name("login_id")).SendKeys(AppSetting.Instance.NetkeibaId);
-					driver.FindElement(By.Name("pswd")).SendKeys(AppSetting.Instance.NetkeibaPassword);
-					driver.FindElement(By.XPath(@"//input[@alt='ログイン']")).Click();
-				});
+					await _logincontext.OpenAsync(@"https://regist.netkeiba.com/account/?pid=login");
 
-				MainViewModel.AddLog($"req: {url}");
-				return await selenium.Execute(async driver =>
-				{
-					selenium.GoToUrl(url);
+					if (_logincontext.Active == null) throw new ApplicationException();
 
-					var res = driver.PageSource;
-
-					return await _parser.ParseDocumentAsync(res);
-				}).RunAsync(async x => await x);
+					await _logincontext.Active.QuerySelectorAll<IHtmlFormElement>("form").First(x => x.GetAttribute("action") == @"https://regist.netkeiba.com/account/").SubmitAsync(new
+					{
+						login_id = AppSetting.Instance.NetkeibaId,
+						pswd = AppSetting.Instance.NetkeibaPassword
+					});
+				}
 			}
 			else
 			{
-				using (await Locker.LockAsync(_guid, _pararell))
+				if (_guestcontext == null)
 				{
-					MainViewModel.AddLog($"req: {url}");
-
-					var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
-
-					var doc = await _parser.ParseDocumentAsync(res);
-
-					return doc;
+					_guestcontext = BrowsingContext.New(config);
 				}
 			}
+
+			var context = login ? _logincontext : _guestcontext;
+
+			if (context == null) throw new ApplicationException("");
+
+			using (await Locker.LockAsync(_guid, _pararell))
+			{
+				await Task.Delay(100);
+
+				MainViewModel.AddLog($"req: {url}");
+
+				return await context.OpenAsync(url).RunAsync(x => ((x.DocumentElement as IHtmlDocument) ?? x as IHtmlDocument).NotNull());
+			}
+
+			//if (login)
+			//{
+			//	var selenium = await TBirdSeleniumFactory.CreateSelenium(10);
+
+			//	selenium.SetInitialize(driver =>
+			//	{
+			//		selenium.GoToUrl(@"https://regist.netkeiba.com/account/?pid=login");
+
+			//		driver.FindElement(By.Name("login_id")).SendKeys(AppSetting.Instance.NetkeibaId);
+			//		driver.FindElement(By.Name("pswd")).SendKeys(AppSetting.Instance.NetkeibaPassword);
+			//		driver.FindElement(By.XPath(@"//input[@alt='ログイン']")).Click();
+			//	});
+
+			//	MainViewModel.AddLog($"req: {url}");
+			//	return await selenium.Execute(async driver =>
+			//	{
+			//		selenium.GoToUrl(url);
+
+			//		var res = driver.PageSource;
+
+			//		return await _parser.ParseDocumentAsync(res);
+			//	}).RunAsync(async x => await x);
+			//}
+			//else
+			//{
+			//	using (await Locker.LockAsync(_guid, _pararell))
+			//	{
+			//		MainViewModel.AddLog($"req: {url}");
+
+			//		var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+
+			//		var doc = await _parser.ParseDocumentAsync(res);
+
+			//		return doc;
+			//	}
+			//}
 		}
 
 		private static string _guid = Guid.NewGuid().ToString();
-		private static int _pararell = 3;
+		private static int _pararell = 1;
 
-		private static HtmlParser _parser = new HtmlParser();
-		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
-		private static Encoding _dstenc = Encoding.UTF8;
+        private static IBrowsingContext? _logincontext;
+		private static DateTime _loginsession = DateTime.Now.AddDays(-1);
+        private static IBrowsingContext? _guestcontext;
+  //      private static DateTime _guestsession = DateTime.Now.AddDays(-1);
+
+  //      private static HtmlParser _parser = new HtmlParser();
+		//private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
+		//private static Encoding _dstenc = Encoding.UTF8;
 
 		public static async Task<IEnumerable<string>> GetFileHeaders(string path, string sepa)
 		{

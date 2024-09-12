@@ -87,6 +87,8 @@ namespace Netkeiba
 					if (create == false) await conn.BeginTransaction();
 					await foreach (var racearr in GetSTEP1Racearrs(conn, racebase))
 					{
+						if (racearr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) continue;
+
 						if (create)
 						{
 							create = false;
