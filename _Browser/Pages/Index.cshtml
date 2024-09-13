@@ -16,7 +16,7 @@
         <tbody>
             @foreach (var row in Model.Results)
             {
-                <tr>
+                <tr class="tr_bottom">
                     <td>@Html.DisplayFor(m => row.Date)</td>
                     <td class="textleft"><a asp-route="Route01" asp-route-title="@row.Title" asp-route-place="0" asp-route-race="1">@Html.DisplayFor(m => row.Title)</a></td>
                 </tr>
