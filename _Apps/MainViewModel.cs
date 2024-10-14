@@ -31,9 +31,7 @@ namespace Netkeiba
 
 			CreateModels = CreateModelSources.ToBindableContextCollection();
 
-			var ranks = AppUtil.ﾗﾝｸ2.Keys;
-
-			CreateModelSources.AddRange(ranks.Select(rank => new TreeCheckboxViewModel(new CheckboxItemModel(rank, rank),
+			CreateModelSources.AddRange(AppUtil.RankAges.Select(rank => new TreeCheckboxViewModel(new CheckboxItemModel(rank, rank),
 				Arr(1, 2, 3, 4, 6, 7, 8, 9)
 					.Select(i => $"B-{rank}-{i}")
 					.Concat(Arr($"R-{rank}-1"))

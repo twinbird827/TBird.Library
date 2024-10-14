@@ -116,7 +116,7 @@ namespace Netkeiba
 				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
 			}
 
-			var ranks = AppUtil.ﾗﾝｸ2.Keys;
+			var ranks = AppUtil.RankAges;
 
 			var bbbb = PredictionModel(pays, Arr(
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
@@ -210,7 +210,7 @@ namespace Netkeiba
 				{ 9, r => 着勝(r).Run(x => x.着順 > j4) },
 			};
 
-			var dic = AppUtil.ﾗﾝｸ2.Keys.ToDictionary(x => x, _ => RANK別2(5, 6, 7, 8, 3, 4, 5, 6));
+			var dic = AppUtil.RankAges.ToDictionary(x => x, _ => RANK別2(5, 6, 7, 8, 3, 4, 5, 6));
 
 			//try
 			//{
@@ -232,32 +232,32 @@ namespace Netkeiba
 					foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("B-")))
 					{
 						var args = x.Value.Split("-");
-						var index = args[2].GetInt32();
-						var rank = args[1];
+                        var index = args[2].GetInt32();
+                        var rank = args[1];
 
-						await BinaryClassification(index, rank, second, metric, dic[rank][index]).TryCatch();
+						await BinaryClassification(index, rank, second, metric, dic[rank][index]);
 					}
 				}
 
 				foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("R-")))
 				{
 					var args = x.Value.Split("-");
-					await Regression(args[1], second).TryCatch();
+					await Regression(args[1], second);
 				};
 
-				foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("M-")))
-				{
-					var args = x.Value.Split("-");
-					await MultiClassClassification(1, args[1], second).TryCatch();
-				};
+				//foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("M-")))
+				//{
+				//	var args = x.Value.Split("-");
+				//	await MultiClassClassification(1, args[1], second).TryCatch();
+				//};
 
 			}
 		});
 
 		private async Task BinaryClassification(int index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
 		{
-			// Initialize MLContext
-			MLContext mlContext = new MLContext();
+            // Initialize MLContext
+            MLContext mlContext = new MLContext();
 
 			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
@@ -286,7 +286,7 @@ namespace Netkeiba
 			IDataView data = loader.Load(dataPath);
 
 			// Split into train (80%), validation (20%) sets
-			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1);
 
 			//Define pipeline
 			SweepablePipeline pipeline = mlContext
@@ -369,9 +369,9 @@ namespace Netkeiba
 		}
 
 		private async Task Regression(string rank, uint second)
-		{
-			// Initialize MLContext
-			MLContext mlContext = new MLContext();
+        {
+            // Initialize MLContext
+            MLContext mlContext = new MLContext();
 
 			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
@@ -399,7 +399,7 @@ namespace Netkeiba
 			IDataView data = loader.Load(dataPath);
 
 			// Split into train (80%), validation (20%) sets
-			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1);
 
 			//Define pipeline
 			SweepablePipeline pipeline = mlContext
@@ -506,7 +506,7 @@ namespace Netkeiba
 			IDataView data = loader.Load(dataPath);
 
 			// Split into train (80%), validation (20%) sets
-			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
+			var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1);
 			////Define pipeline
 			//SweepablePipeline pipeline = mlContext
 			//		.Auto()
@@ -605,9 +605,9 @@ namespace Netkeiba
 			using (var conn = AppUtil.CreateSQLiteControl())
 			using (var file = new FileAppendWriter(path))
 			{
-				using var reader = await conn.ExecuteReaderAsync("SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番",
+                using var reader = await conn.ExecuteReaderAsync($"SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番",
 					SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-					SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(rank))
+					SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
 				);
 
 				var next = await reader.ReadAsync();
@@ -684,9 +684,9 @@ namespace Netkeiba
 
 				var rets = new List<float>();
 
-				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
+                foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), $"SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
 						SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-						SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(rank))
+						SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
 					))
 				{
 					var racs = new List<List<object>>();
@@ -764,7 +764,7 @@ namespace Netkeiba
 
 					foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
 							SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-							SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.ﾗﾝｸ2.Keys.IndexOf(fac.GetResult().Rank))
+							SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(fac.GetResult().Rank))
 						))
 					{
 						var racs = new List<List<object>>();

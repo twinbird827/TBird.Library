@@ -149,9 +149,11 @@ namespace Netkeiba
 
 					arr.Add(dic);
 				}
-			}
 
-			return arr;
+                if (arr.Any()) arr.ForEach(x => x["ﾗﾝｸ1"] += arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古");
+            }
+
+            return arr;
 		}
 
 		private string GetAgari(string 距離, string 馬場, bool 障害, string 上り)
@@ -210,8 +212,8 @@ namespace Netkeiba
 
 						arr.Add(dic);
 					}
-				}
-			}
+                }
+            }
 
 			return arr;
 		}
@@ -390,6 +392,8 @@ namespace Netkeiba
 
 					arr.Add(dic);
 				}
+
+				if (arr.Any()) arr.ForEach(x => x["ﾗﾝｸ1"] += arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古");
 			}
 
 			return arr;
