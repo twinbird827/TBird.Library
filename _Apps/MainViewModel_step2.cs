@@ -85,7 +85,7 @@ namespace Netkeiba
 						await conn.ExecuteNonQueryAsync(Arr(
 							"CREATE TABLE IF NOT EXISTS t_model (",
 							head1.Select(x => $"{x} INTEGER").GetString(","),
-                            ",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
+							",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
 
 						await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID)");
 					}
@@ -96,8 +96,8 @@ namespace Netkeiba
 						AppSetting.Instance.Features = AppSetting.Instance.Features ?? ins.Keys.Where(x => !head2.Contains(x)).ToArray();
 
 						var prms1 = head1.Select(x => SQLiteUtil.CreateParameter(DbType.Int64, ins[x]));
-                        var prms2 = SQLiteUtil.CreateParameter(DbType.Single, ins["単勝"]);
-                        var prms3 = SQLiteUtil.CreateParameter(DbType.Binary,
+						var prms2 = SQLiteUtil.CreateParameter(DbType.Single, ins["単勝"]);
+						var prms3 = SQLiteUtil.CreateParameter(DbType.Binary,
 							AppSetting.Instance.Features.SelectMany(x => BitConverter.GetBytes(ins[x].GetSingle())).ToArray()
 						);
 
@@ -182,6 +182,11 @@ namespace Netkeiba
 			return Median(arr, n, DEF[rank][n]);
 		}
 
+		private float RnkMax(IEnumerable<Dictionary<string, object>> arr, string rank, string n)
+		{
+			return GetSingle(arr.Select(x => x[n].GetSingle()), DEF[rank][n], x => x.Max());
+		}
+
 		private float Median(IEnumerable<Dictionary<string, object>> arr, string n, float def)
 		{
 			return Median(arr.Select(x => x[n].GetSingle()), def);
@@ -206,10 +211,10 @@ namespace Netkeiba
 			var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
 
-            // 他の馬との比較
-            racarr.ForEach(dic =>
+			// 他の馬との比較
+			racarr.ForEach(dic =>
 			{
-                keys.ForEach(key =>
+				keys.ForEach(key =>
 				{
 					try
 					{
@@ -236,16 +241,16 @@ namespace Netkeiba
 						//dic[$"{key}C2"] = val - arr.Percentile(30);
 						//dic[$"{key}C3"] = val - arr.Percentile(50);
 						//dic[$"{key}C4"] = val - arr.Percentile(70);
-                        //dic[$"{key}C9"] = Arr(dic[$"{key}C2"], dic[$"{key}C3"], dic[$"{key}C4"]).Average(x => x.GetSingle());
-                        dic[$"{key}C0"] = val == 0F ? 0F : arr.Percentile(50) / val;
-                        //dic[$"{key}C5"] = val - arr.Percentile(90);
+						//dic[$"{key}C9"] = Arr(dic[$"{key}C2"], dic[$"{key}C3"], dic[$"{key}C4"]).Average(x => x.GetSingle());
+						dic[$"{key}C0"] = val == 0F ? 0F : arr.Percentile(50) / val;
+						//dic[$"{key}C5"] = val - arr.Percentile(90);
 
-                        //dic[$"{key}D1"] = val - arr.Percentile(20);
-                        //dic[$"{key}D2"] = val - arr.Percentile(40);
-                        //dic[$"{key}D3"] = val - arr.Percentile(60);
-                        //dic[$"{key}D4"] = val - arr.Percentile(80);
+						//dic[$"{key}D1"] = val - arr.Percentile(20);
+						//dic[$"{key}D2"] = val - arr.Percentile(40);
+						//dic[$"{key}D3"] = val - arr.Percentile(60);
+						//dic[$"{key}D4"] = val - arr.Percentile(80);
 
-                    }
+					}
 					catch
 					{
 						throw;
@@ -295,7 +300,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(100, 1, 2, 3).Select(i => arr.Take(i).ToList()).ToArray();
+				return Arr(3).Select(i => arr.Take(i).ToList()).ToArray();
 			});
 
 			// ﾍｯﾀﾞ情報
@@ -379,21 +384,23 @@ namespace Netkeiba
 				var X = arr;
 				Func<Dictionary<string, object>, float> func_kyori = tgt => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
 
-                dic[$"{KEY}距離"] = Median(X.Select(func_kyori), 0.75F);
-                dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
+				dic[$"{KEY}距離"] = Median(X.Select(func_kyori), 0.75F);
+				//dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
 				//dic[$"{KEY}着順B"] = Median(X.Select(x => GET着順(x, true)), 1F);
 				//dic[$"{KEY}着順C"] = Median(X.Select(x => GET着順(x, false)), 1F);
 				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
 				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
+				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max());
 				//dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
 				//dic[$"{KEY}勝時差"] = Median(X.Select(x => x["ﾀｲﾑ変換"].GetSingle() - TOP[x["ﾚｰｽID"]]["ﾀｲﾑ変換"].GetSingle()), DEF[rnk]["勝時差"]);
-                dic[$"{KEY}ﾀｲﾑ指数"] = Median(X, rnk, "ﾀｲﾑ指数");
-            };
+				dic[$"{KEY}ﾀｲﾑ指数A"] = Median(X, rnk, "ﾀｲﾑ指数");
+				dic[$"{KEY}ﾀｲﾑ指数B"] = RnkMax(X, rnk, "ﾀｲﾑ指数");
+			};
 
 			// 出遅れ率
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle() * 100F;
 
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場状態"), Arr(1, 2, 3), Arr(3000))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場状態"), Arr(3), Arr(3000))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
@@ -460,7 +467,8 @@ namespace Netkeiba
 				dic[$"斤量{i}"] = Median(arr, rnk, "斤量");
 
 				// 賞金
-				dic[$"賞金{i}"] = Median(arr, rnk, "賞金");
+				dic[$"賞金A{i}"] = Median(arr, rnk, "賞金");
+				dic[$"賞金B{i}"] = RnkMax(arr, rnk, "賞金");
 
 				//// ﾀｲﾑ指数
 				//dic[$"ﾀｲﾑ指数{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
