@@ -300,7 +300,7 @@ namespace Netkeiba
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
 			{
-				return Arr(3).Select(i => arr.Take(i).ToList()).ToArray();
+				return Arr(10, 3).Select(i => arr.Take(i).ToList()).ToArray();
 			});
 
 			// ﾍｯﾀﾞ情報
@@ -385,22 +385,20 @@ namespace Netkeiba
 				Func<Dictionary<string, object>, float> func_kyori = tgt => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
 
 				dic[$"{KEY}距離"] = Median(X.Select(func_kyori), 0.75F);
-				//dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
-				//dic[$"{KEY}着順B"] = Median(X.Select(x => GET着順(x, true)), 1F);
-				//dic[$"{KEY}着順C"] = Median(X.Select(x => GET着順(x, false)), 1F);
-				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
+				dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
+                //dic[$"{KEY}着順B"] = Median(X.Select(x => GET着順(x, true)), 1F);
+                //dic[$"{KEY}着順C"] = Median(X.Select(x => GET着順(x, false)), 1F);
+                dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
 				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
-				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max());
-				//dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
+				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
+				dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
 				//dic[$"{KEY}勝時差"] = Median(X.Select(x => x["ﾀｲﾑ変換"].GetSingle() - TOP[x["ﾚｰｽID"]]["ﾀｲﾑ変換"].GetSingle()), DEF[rnk]["勝時差"]);
-				dic[$"{KEY}ﾀｲﾑ指数A"] = Median(X, rnk, "ﾀｲﾑ指数");
-				dic[$"{KEY}ﾀｲﾑ指数B"] = RnkMax(X, rnk, "ﾀｲﾑ指数");
 			};
 
 			// 出遅れ率
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle() * 100F;
 
-			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場状態"), Arr(3), Arr(3000))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr("馬場状態"), Arr(1, 2, 3, 4), Arr(3000))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
@@ -469,6 +467,9 @@ namespace Netkeiba
 				// 賞金
 				dic[$"賞金A{i}"] = Median(arr, rnk, "賞金");
 				dic[$"賞金B{i}"] = RnkMax(arr, rnk, "賞金");
+
+				dic[$"ﾀｲﾑ指数A{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
+				dic[$"ﾀｲﾑ指数B{i}"] = RnkMax(arr, rnk, "ﾀｲﾑ指数");
 
 				//// ﾀｲﾑ指数
 				//dic[$"ﾀｲﾑ指数{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
