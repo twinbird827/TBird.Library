@@ -36,15 +36,15 @@ namespace Netkeiba
 
 			try
 			{
-                await CreatePredictionFile("Best",
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 1)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 2)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 6)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 7)),
-                    ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 1))
-                );
-            }
-            catch (Exception e)
+				await CreatePredictionFile("Best",
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 1)),
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 2)),
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 6)),
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 7)),
+					ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 1))
+				);
+			}
+			catch (Exception e)
 			{
 				MessageService.Info(e.ToString());
 			}
@@ -255,7 +255,7 @@ namespace Netkeiba
 						var tmp = new List<object>();
 						var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
 
-                        var features = (AppSetting.Instance.Features ?? throw new ArgumentNullException()).Select(x => m[x].GetSingle()).ToArray();
+						var features = (AppSetting.Instance.Features ?? throw new ArgumentNullException()).Select(x => m[x].GetSingle()).ToArray();
 
 						// 共通ﾍｯﾀﾞ
 						tmp.Add(src["ﾚｰｽID"]);

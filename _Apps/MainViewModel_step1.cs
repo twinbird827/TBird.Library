@@ -6,12 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
-using TBird.DB;
 using TBird.DB.SQLite;
-using TBird.Web;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
-using Tensorflow.Keras.Layers;
 
 namespace Netkeiba
 {

@@ -1,19 +1,15 @@
 ﻿using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using AngleSharp.Html.Parser;
-using OpenQA.Selenium;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
-using TBird.Web;
 using TBird.Wpf;
 
 namespace Netkeiba
@@ -24,44 +20,45 @@ namespace Netkeiba
 
 		public static readonly Dictionary<string, float> RankRate = new Dictionary<string, float>()
 		{
-            { "G1古",       3.60F.Pow(RankRatePow) },
-            { "G2古",       3.40F.Pow(RankRatePow) },
-            { "G1ク",       3.20F.Pow(RankRatePow) },
-            { "G3古",       3.00F.Pow(RankRatePow) },
-            { "G2ク",       2.80F.Pow(RankRatePow) },
-            { "オープン古", 2.60F.Pow(RankRatePow) },
-            { "G3ク",       2.40F.Pow(RankRatePow) },
-            { "オープンク", 2.20F.Pow(RankRatePow) },
-            { "3勝古",      2.00F.Pow(RankRatePow) },
-            { "2勝古",      1.80F.Pow(RankRatePow) },
-            { "2勝ク",      1.70F.Pow(RankRatePow) },
-            { "1勝古",      1.60F.Pow(RankRatePow) },
-            { "1勝ク",      1.40F.Pow(RankRatePow) },
-            { "未勝利ク",   1.20F.Pow(RankRatePow) },
-            { "新馬ク",     1.00F.Pow(RankRatePow) },
-            { "未勝利古",   1.20F.Pow(RankRatePow) },
-            { "新馬古",     1.00F.Pow(RankRatePow) },
-        };
+			{ "G1古",       3.60F.Pow(RankRatePow) },
+			{ "G2古",       3.40F.Pow(RankRatePow) },
+			{ "G1ク",       3.20F.Pow(RankRatePow) },
+			{ "G3古",       3.00F.Pow(RankRatePow) },
+			{ "G2ク",       2.80F.Pow(RankRatePow) },
+			{ "オープン古", 2.60F.Pow(RankRatePow) },
+			{ "G3ク",       2.40F.Pow(RankRatePow) },
+			{ "オープンク", 2.20F.Pow(RankRatePow) },
+			{ "3勝古",      2.00F.Pow(RankRatePow) },
+			{ "2勝古",      1.80F.Pow(RankRatePow) },
+			{ "2勝ク",      1.70F.Pow(RankRatePow) },
+			{ "1勝古",      1.60F.Pow(RankRatePow) },
+			{ "1勝ク",      1.40F.Pow(RankRatePow) },
+			{ "未勝利ク",   1.20F.Pow(RankRatePow) },
+			{ "新馬ク",     1.00F.Pow(RankRatePow) },
+			{ "未勝利古",   1.20F.Pow(RankRatePow) },
+			{ "新馬古",     1.00F.Pow(RankRatePow) },
+		};
 
 		public static readonly string[] RankAges = new[]
 		{
 			"G1ク",
 			"G1古",
-            "G2ク",
-            "G2古",
-            "G3ク",
-            "G3古",
-            "オープンク",
-            "オープン古",
-            "3勝古",
-            "2勝古",
-            "1勝ク",
-            "1勝古",
-            "未勝利ク",
-            "新馬ク",
-            "未勝利古",
-            "新馬古",
-        };
+			"G2ク",
+			"G2古",
+			"G3ク",
+			"G3古",
+			"オープンク",
+			"オープン古",
+			"3勝古",
+			"2勝古",
+			"1勝ク",
+			"1勝古",
+			"未勝利ク",
+			"新馬ク",
+			"未勝利古",
+			"新馬古",
+			"障",
+		};
 
 		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
 
@@ -196,12 +193,12 @@ namespace Netkeiba
 		private static string _guid = Guid.NewGuid().ToString();
 		private static int _pararell = 1;
 
-        private static IBrowsingContext? _logincontext;
+		private static IBrowsingContext? _logincontext;
 		private static DateTime _loginsession = DateTime.Now.AddDays(-1);
-        private static IBrowsingContext? _guestcontext;
-  //      private static DateTime _guestsession = DateTime.Now.AddDays(-1);
+		private static IBrowsingContext? _guestcontext;
+		//      private static DateTime _guestsession = DateTime.Now.AddDays(-1);
 
-  //      private static HtmlParser _parser = new HtmlParser();
+		//      private static HtmlParser _parser = new HtmlParser();
 		//private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
 		//private static Encoding _dstenc = Encoding.UTF8;
 
@@ -284,15 +281,15 @@ namespace Netkeiba
 
 		public static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
 		{
-            { "G1", "RANK1" },
-            { "G2", "RANK1" },
-            { "G3", "RANK1" },
-            { "オープン", "RANK2" },
-            { "3勝", "RANK2" },
-            { "2勝", "RANK3" },
-            { "1勝", "RANK3" },
-            { "未勝利", "RANK4" },
-            { "新馬", "RANK5" },
+			{ "G1", "RANK1" },
+			{ "G2", "RANK1" },
+			{ "G3", "RANK1" },
+			{ "オープン", "RANK2" },
+			{ "3勝", "RANK2" },
+			{ "2勝", "RANK3" },
+			{ "1勝", "RANK3" },
+			{ "未勝利", "RANK4" },
+			{ "新馬", "RANK5" },
 };
 
 		public static string Getﾗﾝｸ2(string ﾗﾝｸ1)

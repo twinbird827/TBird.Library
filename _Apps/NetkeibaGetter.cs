@@ -6,10 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Transactions;
 using TBird.Core;
-using TBird.DB.SQLite;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Netkeiba
 {
@@ -150,10 +147,10 @@ namespace Netkeiba
 					arr.Add(dic);
 				}
 
-                if (arr.Any()) arr.ForEach(x => x["ﾗﾝｸ1"] += arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古");
-            }
+				if (arr.Any()) arr.ForEach(x => x["ﾗﾝｸ1"] += arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古");
+			}
 
-            return arr;
+			return arr;
 		}
 
 		private string GetAgari(string 距離, string 馬場, bool 障害, string 上り)
@@ -212,8 +209,8 @@ namespace Netkeiba
 
 						arr.Add(dic);
 					}
-                }
-            }
+				}
+			}
 
 			return arr;
 		}
@@ -664,7 +661,7 @@ namespace Netkeiba
 		{
 			var url = $"https://race.netkeiba.com/top/calendar.html?year={year}&month={month}";
 
-            using (var ped = await AppUtil.GetDocument(false, url))
+			using (var ped = await AppUtil.GetDocument(false, url))
 			{
 				var arr = ped
 					.GetElementsByTagName("a")

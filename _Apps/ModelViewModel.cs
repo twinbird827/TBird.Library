@@ -135,7 +135,7 @@ namespace Netkeiba
 
 				foreach (var rank in AppUtil.RankAges)
 				{
-                    var tgt = new List<double>();
+					var tgt = new List<double>();
 					var features = new List<double>[3000];
 					for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
 

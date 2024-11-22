@@ -4,19 +4,14 @@ using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Globalization;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Windows.Input;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Web;
 using TBird.Wpf;
-using TorchSharp.Modules;
 
 namespace Netkeiba
 {
@@ -39,7 +34,7 @@ namespace Netkeiba
 				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
 				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
 				var racbase = await conn.GetRows(r => r.Get<string>(0),
-					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? AND 回り <> '障' ORDER BY ﾚｰｽID DESC",
+					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? ORDER BY ﾚｰｽID DESC",
 					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
 				);
 
@@ -145,7 +140,7 @@ namespace Netkeiba
 						$"0 賞金,",
 						$"AVG(t_orig.斤量) 斤量",
 						$"FROM t_orig",
-						$"WHERE t_orig.回り <> '障' AND t_orig.ﾗﾝｸ1 = ?"
+						$"WHERE t_orig.ﾗﾝｸ1 = ?"
 					).GetString(" "), SQLiteUtil.CreateParameter(DbType.String, rank == "新馬" ? "未勝利" : rank));
 
 				dic["斤上"] = Get斤上(dic["上り"], dic["斤量"]);
@@ -157,7 +152,7 @@ namespace Netkeiba
 			});
 
 			TOP = await conn.GetRows(Arr(
-				$"SELECT ﾚｰｽID, MIN(CAST(ﾀｲﾑ変換 AS REAL)) ﾀｲﾑ変換, MIN(CAST(上り AS REAL)) 上り, MAX(CAST(斤量 AS REAL)) 斤量, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数 FROM t_orig WHERE 着順 = 1 AND 回り <> '障' GROUP BY ﾚｰｽID"
+				$"SELECT ﾚｰｽID, MIN(CAST(ﾀｲﾑ変換 AS REAL)) ﾀｲﾑ変換, MIN(CAST(上り AS REAL)) 上り, MAX(CAST(斤量 AS REAL)) 斤量, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID"
 			).GetString(" ")).RunAsync(val =>
 			{
 				return val.ToDictionary(
@@ -295,7 +290,7 @@ namespace Netkeiba
 				$" SELECT * FROM t_orig"
 			).GetString(" ");
 			var 馬情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? AND t_orig.回り <> '障' ORDER BY t_orig.開催日数 DESC",
+					過去SQL + $" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src["馬ID"]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
@@ -386,9 +381,9 @@ namespace Netkeiba
 
 				dic[$"{KEY}距離"] = Median(X.Select(func_kyori), 0.75F);
 				dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
-                //dic[$"{KEY}着順B"] = Median(X.Select(x => GET着順(x, true)), 1F);
-                //dic[$"{KEY}着順C"] = Median(X.Select(x => GET着順(x, false)), 1F);
-                dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
+				//dic[$"{KEY}着順B"] = Median(X.Select(x => GET着順(x, true)), 1F);
+				//dic[$"{KEY}着順C"] = Median(X.Select(x => GET着順(x, false)), 1F);
+				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
 				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
 				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
 				dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);

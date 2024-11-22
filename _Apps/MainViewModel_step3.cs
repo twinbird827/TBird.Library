@@ -232,8 +232,8 @@ namespace Netkeiba
 					foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("B-")))
 					{
 						var args = x.Value.Split("-");
-                        var index = args[2].GetInt32();
-                        var rank = args[1];
+						var index = args[2].GetInt32();
+						var rank = args[1];
 
 						await BinaryClassification(index, rank, second, metric, dic[rank][index]);
 					}
@@ -256,8 +256,8 @@ namespace Netkeiba
 
 		private async Task BinaryClassification(int index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
 		{
-            // Initialize MLContext
-            MLContext mlContext = new MLContext();
+			// Initialize MLContext
+			MLContext mlContext = new MLContext();
 
 			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
@@ -369,9 +369,9 @@ namespace Netkeiba
 		}
 
 		private async Task Regression(string rank, uint second)
-        {
-            // Initialize MLContext
-            MLContext mlContext = new MLContext();
+		{
+			// Initialize MLContext
+			MLContext mlContext = new MLContext();
 
 			// ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
 			var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
@@ -605,7 +605,7 @@ namespace Netkeiba
 			using (var conn = AppUtil.CreateSQLiteControl())
 			using (var file = new FileAppendWriter(path))
 			{
-                using var reader = await conn.ExecuteReaderAsync($"SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番",
+				using var reader = await conn.ExecuteReaderAsync($"SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番",
 					SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
 					SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
 				);
@@ -684,7 +684,7 @@ namespace Netkeiba
 
 				var rets = new List<float>();
 
-                foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), $"SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
+				foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), $"SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
 						SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
 						SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
 					))
