@@ -72,7 +72,7 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["開催場所"] = basyo.Replace("1", "");
-					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
+					dic["ﾗﾝｸ1"] = mawari != "障" ? AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas) : "障";
 					dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
@@ -315,7 +315,7 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["開催場所"] = basyo.Replace("1", "");
-					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
+					dic["ﾗﾝｸ1"] = mawari != "障" ? AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas) : "障";
 					dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;

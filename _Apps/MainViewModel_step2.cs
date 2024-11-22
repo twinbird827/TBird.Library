@@ -275,6 +275,7 @@ namespace Netkeiba
 		{
 			var dic = new Dictionary<string, object>();
 			var rnk = src["ﾗﾝｸ1"].Str();
+			var rankwhere = rnk == "障" ? "=" : "<>";
 
 			// 通過順変換ﾌｧﾝｸｼｮﾝ
 			Func<object, double> func_tuka = v => v.Str().Split('-').Skip(1).Take(1).Select(x => x.GetDouble()).Average(TOU[src["ﾚｰｽID"].GetInt64()] / 2).Run(i =>
@@ -290,7 +291,7 @@ namespace Netkeiba
 				$" SELECT * FROM t_orig"
 			).GetString(" ");
 			var 馬情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? ORDER BY t_orig.開催日数 DESC",
+					過去SQL + $" WHERE t_orig.馬ID = ? AND t_orig.開催日数 < ? AND t_orig.回り {rankwhere} '障' ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src["馬ID"]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"])
 			).RunAsync(arr =>
@@ -386,7 +387,10 @@ namespace Netkeiba
 				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
 				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
 				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
-				dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
+				if (rnk != "障")
+				{
+					dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
+				}
 				//dic[$"{KEY}勝時差"] = Median(X.Select(x => x["ﾀｲﾑ変換"].GetSingle() - TOP[x["ﾚｰｽID"]]["ﾀｲﾑ変換"].GetSingle()), DEF[rnk]["勝時差"]);
 			};
 
@@ -401,7 +405,7 @@ namespace Netkeiba
 			Arr("産父").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 父ID FROM t_ketto WHERE 馬ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り <> '障' ORDER BY 開催日数 DESC",
+					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 父ID FROM t_ketto WHERE 馬ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND t_orig.回り {rankwhere} '障' ORDER BY 開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -413,7 +417,7 @@ namespace Netkeiba
 			Arr("産母父").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT b.父ID FROM t_ketto a INNER JOIN t_ketto b ON a.母ID = b.馬ID WHERE a.馬ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り <> '障' ORDER BY 開催日数 DESC",
+					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT b.父ID FROM t_ketto a INNER JOIN t_ketto b ON a.母ID = b.馬ID WHERE a.馬ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -425,7 +429,7 @@ namespace Netkeiba
 			Arr("騎手ID").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? AND t_orig.回り <> '障' ORDER BY t_orig.開催日数 DESC",
+					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? AND t_orig.回り {rankwhere} '障' ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -437,7 +441,7 @@ namespace Netkeiba
 			Arr("調教師ID", "馬主ID").ForEach(async key =>
 			{
 				var 情報 = await conn.GetRows(
-					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? AND t_orig.回り <> '障' ORDER BY t_orig.開催日数 DESC",
+					過去SQL + $" WHERE t_orig.{key} = ? AND t_orig.開催日数 < ? AND t_orig.開催日数 > ? AND t_orig.回り {rankwhere} '障' ORDER BY t_orig.開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src[key]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -463,8 +467,11 @@ namespace Netkeiba
 				dic[$"賞金A{i}"] = Median(arr, rnk, "賞金");
 				dic[$"賞金B{i}"] = RnkMax(arr, rnk, "賞金");
 
-				dic[$"ﾀｲﾑ指数A{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
-				dic[$"ﾀｲﾑ指数B{i}"] = RnkMax(arr, rnk, "ﾀｲﾑ指数");
+				if (rnk != "障")
+				{
+					dic[$"ﾀｲﾑ指数A{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
+					dic[$"ﾀｲﾑ指数B{i}"] = RnkMax(arr, rnk, "ﾀｲﾑ指数");
+				}
 
 				//// ﾀｲﾑ指数
 				//dic[$"ﾀｲﾑ指数{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
