@@ -20,23 +20,28 @@ namespace Netkeiba
 
 		public static readonly Dictionary<string, float> RankRate = new Dictionary<string, float>()
 		{
-			{ "G1古",       3.60F.Pow(RankRatePow) },
-			{ "G2古",       3.40F.Pow(RankRatePow) },
-			{ "G1ク",       3.20F.Pow(RankRatePow) },
-			{ "G3古",       3.00F.Pow(RankRatePow) },
-			{ "G2ク",       2.80F.Pow(RankRatePow) },
-			{ "オープン古", 2.60F.Pow(RankRatePow) },
-			{ "G3ク",       2.40F.Pow(RankRatePow) },
-			{ "オープンク", 2.20F.Pow(RankRatePow) },
-			{ "3勝古",      2.00F.Pow(RankRatePow) },
-			{ "2勝古",      1.80F.Pow(RankRatePow) },
-			{ "2勝ク",      1.70F.Pow(RankRatePow) },
-			{ "1勝古",      1.60F.Pow(RankRatePow) },
-			{ "1勝ク",      1.40F.Pow(RankRatePow) },
-			{ "未勝利ク",   1.20F.Pow(RankRatePow) },
+			{ "G1古",       8.00F.Pow(RankRatePow) },
+			{ "G2古",       7.50F.Pow(RankRatePow) },
+			{ "G1ク",       7.00F.Pow(RankRatePow) },
+			{ "G3古",       6.50F.Pow(RankRatePow) },
+			{ "G2ク",       6.00F.Pow(RankRatePow) },
+			{ "オープン古", 5.50F.Pow(RankRatePow) },
+			{ "G3ク",       5.00F.Pow(RankRatePow) },
+			{ "オープンク", 4.50F.Pow(RankRatePow) },
+			{ "3勝古",      4.00F.Pow(RankRatePow) },
+			{ "2勝古",      3.50F.Pow(RankRatePow) },
+			{ "2勝ク",      3.00F.Pow(RankRatePow) },
+			{ "1勝古",      2.50F.Pow(RankRatePow) },
+			{ "1勝ク",      2.00F.Pow(RankRatePow) },
+			{ "未勝利ク",   1.50F.Pow(RankRatePow) },
 			{ "新馬ク",     1.00F.Pow(RankRatePow) },
-			{ "未勝利古",   1.20F.Pow(RankRatePow) },
+			{ "未勝利古",   1.50F.Pow(RankRatePow) },
 			{ "新馬古",     1.00F.Pow(RankRatePow) },
+			{ "G1障",       5.00F.Pow(RankRatePow) },
+			{ "G2障",       4.00F.Pow(RankRatePow) },
+			{ "G3障",       3.00F.Pow(RankRatePow) },
+			{ "オープン障", 2.00F.Pow(RankRatePow) },
+			{ "未勝利障",   1.00F.Pow(RankRatePow) },
 		};
 
 		public static readonly string[] RankAges = new[]
@@ -57,7 +62,11 @@ namespace Netkeiba
 			"新馬ク",
 			"未勝利古",
 			"新馬古",
-			"障",
+			"G1障",
+			"G2障",
+			"G3障",
+			"オープン障",
+			"未勝利障",
 		};
 
 		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
@@ -290,7 +299,7 @@ namespace Netkeiba
 			{ "1勝", "RANK3" },
 			{ "未勝利", "RANK4" },
 			{ "新馬", "RANK5" },
-};
+		};
 
 		public static string Getﾗﾝｸ2(string ﾗﾝｸ1)
 		{
