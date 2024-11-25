@@ -42,69 +42,7 @@ namespace Netkeiba
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
-			{
-                    // 単4の予想結果
-                    (400, "単4", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複2の予想結果
-                    (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複3の予想結果
-                    (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 1),
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複4aの予想結果
-                    (400, "複4", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // ワ1の予想結果
-                    (100, "ワ1-2", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => Arr(1, 2).Contains(x[j].GetInt32())))
-					),
-					(100, "ワ1-3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => Arr(1, 3).Contains(x[j].GetInt32())))
-					),
-					(100, "ワ2-3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => Arr(2, 3).Contains(x[j].GetInt32())))
-					),
-                    // ワ3の予想結果
-                    (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 3))
-					),
-                    // 連1の予想結果
-                    (100, "連1-2", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-						arr.Where(x => Arr(1, 2).Contains(x[j].GetInt32())))
-					),
-					(100, "連1-3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-						arr.Where(x => Arr(1, 3).Contains(x[j].GetInt32())))
-					),
-					(100, "連2-3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-						arr.Where(x => Arr(2, 3).Contains(x[j].GetInt32())))
-					),
-                    // 単勝1の予想結果
-                    (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 1))
-					),
-                    // 単勝1の予想結果
-                    (100, "勝2", (arr, payoutDetail, j) => Get単勝(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 2))
-					),
-                    // 単勝1の予想結果
-                    (100, "勝3", (arr, payoutDetail, j) => Get単勝(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 3))
-					),
-			};
+			var pays = Payment.GetDefaults();
 
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
@@ -644,43 +582,7 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
-				{
-                    // 複2の予想結果
-                    (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複3の予想結果
-                    (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 1),
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複4aの予想結果
-                    (400, "複4", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // ワ1の予想結果
-                    (100, "ワ1", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2))
-					),
-                    // ワ3の予想結果
-                    (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 3))
-					),
-                    // 連1の予想結果
-                    (100, "連1", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2))
-					),
-                    // 単勝1の予想結果
-                    (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 1))
-					),
-				};
+				var pays = Payment.GetDefaults();
 
 				var rets = new List<float>();
 
@@ -754,7 +656,7 @@ namespace Netkeiba
 			}
 		}
 
-		private Dictionary<PredictionResult, Task<(float score, float rate)[]>> PredictionModel<TSrc, TDst>((int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+		private Dictionary<PredictionResult, Task<(float score, float rate)[]>> PredictionModel<TSrc, TDst>(Payment[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{

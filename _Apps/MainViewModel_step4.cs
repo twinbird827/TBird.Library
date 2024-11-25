@@ -37,11 +37,11 @@ namespace Netkeiba
 			try
 			{
 				await CreatePredictionFile("Best",
-					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 1)),
-					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 2)),
-					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 6)),
-					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 7)),
-					ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank == "未勝利古" ? "未勝利ク" : rank == "新馬古" ? "新馬ク" : rank, 1))
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
+					ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
+					ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, 1))
 				);
 			}
 			catch (Exception e)
@@ -62,75 +62,7 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var pays = new (int pay, string head, Func<List<List<object>>, Dictionary<string, string>, int, object> func)[]
-				{
-     //               // 単1の予想結果
-					//(100, "単1", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-					//	arr.Where(x => x[j].GetInt32() == 1),
-					//	arr.Where(x => x[j].GetInt32() == 2),
-					//	arr.Where(x => x[j].GetInt32() == 3))
-					//),
-                    // 単4の予想結果
-                    (400, "単4", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4))
-					),
-     //               // 単6の予想結果
-     //               (600, "単6", (arr, payoutDetail, j) => Get三連単(payoutDetail,
-					//	arr.Where(x => x[j].GetInt32() <= 2),
-					//	arr.Where(x => x[j].GetInt32() <= 2),
-					//	arr.Where(x => x[j].GetInt32() == 3 || x[j].GetInt32() == 4 || x[j].GetInt32() == 5))
-					//),
-     //               // 複1の予想結果
-     //               (100, "複1", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-					//	arr.Where(x => x[j].GetInt32() <= 3),
-					//	arr.Where(x => x[j].GetInt32() <= 3),
-					//	arr.Where(x => x[j].GetInt32() <= 3))
-					//),
-                    // 複2の予想結果
-                    (200, "複2", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 2),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複3の予想結果
-                    (300, "複3", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 1),
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // 複4の予想結果
-                    (400, "複4", (arr, payoutDetail, j) => Get三連複(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4),
-						arr.Where(x => x[j].GetInt32() <= 4))
-					),
-                    // ワ1の予想結果
-                    (100, "ワ1", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2))
-					),
-                    // ワ3の予想結果
-                    (300, "ワ3", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 3))
-					),
-     //               // ワ6の予想結果
-     //               (600, "ワ6", (arr, payoutDetail, j) => Getワイド(payoutDetail,
-					//	arr.Where(x => x[j].GetInt32() <= 4))
-					//),
-                    // 連1の予想結果
-                    (100, "連1", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-						arr.Where(x => x[j].GetInt32() <= 2))
-					),
-                    // 単勝1の予想結果
-                    (100, "勝1", (arr, payoutDetail, j) => Get単勝(payoutDetail,
-						arr.Where(x => x[j].GetInt32() == 1))
-					),
-     //               // 連3の予想結果
-     //               (300, "連3", (arr, payoutDetail, j) => Get馬連(payoutDetail,
-					//	arr.Where(x => x[j].GetInt32() <= 3))
-					//)
-				};
+				var pays = Payment.GetDefaults();
 
 				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
@@ -395,102 +327,5 @@ namespace Netkeiba
 				}).WhenAll();
 			}
 		}
-
-		private object Get三連単(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2, IEnumerable<List<object>> arr3)
-		{
-			var iarr = arr1.Select(x => x[6].GetInt32());
-			var jarr = arr2.Select(x => x[6].GetInt32());
-			var karr = arr3.Select(x => x[6].GetInt32());
-
-			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j => karr.Where(k => k != i && j != k).Select(k => $"{i}-{j}-{k}"))).ToArray();
-
-			return payoutDetail.ContainsKey("三連単")
-				? Arr(0).Concat(payoutDetail["三連単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-				: 0;
-		}
-
-		private object Get三連複(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2, IEnumerable<List<object>> arr3)
-		{
-			var iarr = arr1.Select(x => x[6].GetInt32());
-			var jarr = arr2.Select(x => x[6].GetInt32());
-			var karr = arr3.Select(x => x[6].GetInt32());
-
-			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j => karr.Where(k => k != i && j != k).SelectMany(k =>
-			{
-				return new[]
-				{
-					$"{i}-{j}-{k}",
-					$"{i}-{k}-{j}",
-					$"{j}-{i}-{k}",
-					$"{j}-{k}-{i}",
-					$"{k}-{j}-{i}",
-					$"{k}-{i}-{j}",
-				};
-			}))).ToArray();
-
-			return payoutDetail.ContainsKey("三連複")
-				? Arr(0).Concat(payoutDetail["三連複"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-				: 0;
-		}
-
-		private object Getワイド(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
-		{
-			var iarr = arr1.Select(x => x[6].GetInt32());
-			var jarr = arr1.Select(x => x[6].GetInt32());
-
-			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j =>
-			{
-				return new[]
-				{
-					$"{i}-{j}",
-					$"{j}-{i}",
-				};
-			})).ToArray();
-
-			return payoutDetail.ContainsKey("ワイド")
-				? Arr(0).Concat(payoutDetail["ワイド"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-				: 0;
-		}
-
-		private object Get馬連(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
-		{
-			var iarr = arr1.Select(x => x[6].GetInt32());
-			var jarr = arr1.Select(x => x[6].GetInt32());
-
-			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j =>
-			{
-				return new[]
-				{
-					$"{i}-{j}",
-					$"{j}-{i}",
-				};
-			})).ToArray();
-
-			return payoutDetail.ContainsKey("馬連")
-				? Arr(0).Concat(payoutDetail["馬連"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-				: 0;
-		}
-
-		private object Get馬単(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2)
-		{
-			var iarr = arr1.Select(x => x[6].GetInt32());
-			var jarr = arr2.Select(x => x[6].GetInt32());
-
-			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).Select(j => $"{i}-{j}")).ToArray();
-
-			return payoutDetail.ContainsKey("馬単")
-				? Arr(0).Concat(payoutDetail["馬単"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-				: 0;
-		}
-
-		private object Get単勝(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1)
-		{
-			var arr = arr1.Select(x => x[6].GetInt32().ToString());
-
-			return payoutDetail.ContainsKey("単勝")
-				? Arr(0).Concat(payoutDetail["単勝"].Split(";").Where(x => arr.Contains(x.Split(",")[0])).Select(x => x.Split(",")[1].GetInt32())).Sum()
-				: 0;
-		}
-
 	}
 }
