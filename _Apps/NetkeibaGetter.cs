@@ -622,7 +622,7 @@ namespace Netkeiba
 			});
 		}
 
-		private async Task<IEnumerable<string>> GetRecentRaceIds(int start, int end)
+		private async Task<IEnumerable<string>> GetRecentRaceIds(int start, int end, int month)
 		{
 			var now = DateTime.Now.ToString("yyyyMMdd").GetInt32();
 
@@ -630,7 +630,7 @@ namespace Netkeiba
 
 			var dates = await Enumerable.Range(start, end - start + 1).Select(y =>
 			{
-				return Enumerable.Range(1, y < end ? 12 : DateTime.Now.Month)
+				return Enumerable.Range(y == start ? month : 1, y < end ? 12 : DateTime.Now.Month)
 					.Select(m => GetKaisaiDate(y, m))
 					.WhenAllExpand();
 			}).WhenAllExpand();

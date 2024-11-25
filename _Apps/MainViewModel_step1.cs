@@ -38,9 +38,17 @@ namespace Netkeiba
 
 		public CheckboxItemModel S1Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
 
+		private async Task<int> GetLastMonth()
+		{
+			using (var conn = AppUtil.CreateSQLiteControl())
+			{
+				return (int)await conn.ExecuteScalarAsync("SELECT CAST(IFNULL(STRFTIME('%m', REPLACE(MAX(開催日), '/', '-')), 1) AS INTEGER) FROM t_orig");
+			}
+		}
+
 		public IRelayCommand S1EXEC => RelayCommand.Create(async _ =>
 		{
-			var racebases = await GetRecentRaceIds(SYear, EYear).RunAsync(races =>
+			var racebases = await GetRecentRaceIds(SYear, EYear, await GetLastMonth()).RunAsync(races =>
 			{
 				return races
 					.Select(x => x.Left(10))
