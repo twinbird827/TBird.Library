@@ -275,7 +275,7 @@ namespace Netkeiba
 		{
 			var dic = new Dictionary<string, object>();
 			var rnk = src["ﾗﾝｸ1"].Str();
-			var rankwhere = rnk == "障" ? "=" : "<>";
+			var rankwhere = rnk.Contains("障") ? "=" : "<>";
 
 			// 通過順変換ﾌｧﾝｸｼｮﾝ
 			Func<object, double> func_tuka = v => v.Str().Split('-').Skip(1).Take(1).Select(x => x.GetDouble()).Average(TOU[src["ﾚｰｽID"].GetInt64()] / 2).Run(i =>
@@ -387,7 +387,7 @@ namespace Netkeiba
 				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
 				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
 				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
-				if (rnk != "障")
+				if (!rnk.Contains("障"))
 				{
 					dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
 				}
@@ -467,7 +467,7 @@ namespace Netkeiba
 				dic[$"賞金A{i}"] = Median(arr, rnk, "賞金");
 				dic[$"賞金B{i}"] = RnkMax(arr, rnk, "賞金");
 
-				if (rnk != "障")
+				if (!rnk.Contains("障"))
 				{
 					dic[$"ﾀｲﾑ指数A{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
 					dic[$"ﾀｲﾑ指数B{i}"] = RnkMax(arr, rnk, "ﾀｲﾑ指数");
