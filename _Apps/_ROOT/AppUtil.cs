@@ -16,7 +16,7 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		private const float RankRatePow = 1.5F;
+		private const float RankRatePow = 0.25F;
 
 		public static readonly Dictionary<string, float> RankRate = new Dictionary<string, float>()
 		{
@@ -35,8 +35,6 @@ namespace Netkeiba
 			{ "1勝ク",      2.00F.Pow(RankRatePow) },
 			{ "未勝利ク",   1.50F.Pow(RankRatePow) },
 			{ "新馬ク",     1.00F.Pow(RankRatePow) },
-			{ "未勝利古",   1.50F.Pow(RankRatePow) },
-			{ "新馬古",     1.00F.Pow(RankRatePow) },
 			{ "G1障",       5.00F.Pow(RankRatePow) },
 			{ "G2障",       4.00F.Pow(RankRatePow) },
 			{ "G3障",       3.00F.Pow(RankRatePow) },
@@ -60,8 +58,6 @@ namespace Netkeiba
 			"1勝古",
 			"未勝利ク",
 			"新馬ク",
-			"未勝利古",
-			"新馬古",
 			"G1障",
 			"G2障",
 			"G3障",

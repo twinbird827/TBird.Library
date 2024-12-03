@@ -114,6 +114,7 @@ namespace Netkeiba
 		});
 		private Dictionary<string, Dictionary<string, float>> DEF = new();
 		private Dictionary<long, float> TOU = new();
+		private Dictionary<long, float> TIM = new();
 		private Dictionary<object, Dictionary<string, object>> TOP = new();
 
 		private async Task InitializeModelBase(SQLiteControl conn)
@@ -121,6 +122,11 @@ namespace Netkeiba
 			TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
 			{
 				return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x["頭数"].GetSingle());
+			});
+
+			TIM = await conn.GetRows("SELECT ﾚｰｽID, MEDIAN(ﾀｲﾑ指数) ﾀｲﾑ合計 FROM t_orig WHERE 着順 <= 6 GROUP BY ﾚｰｽID").RunAsync(arr =>
+			{
+				return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x["ﾀｲﾑ合計"].GetSingle());
 			});
 
 			// ﾃﾞﾌｫﾙﾄ値の作製
@@ -387,11 +393,13 @@ namespace Netkeiba
 				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
 				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
 				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
-				if (!rnk.Contains("障"))
-				{
-					dic[$"{KEY}ﾀｲﾑ差"] = Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]);
-				}
+				dic[$"{KEY}ﾀｲﾑ差"] = !rnk.Contains("障") ? Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]) : 0F;
 				//dic[$"{KEY}勝時差"] = Median(X.Select(x => x["ﾀｲﾑ変換"].GetSingle() - TOP[x["ﾚｰｽID"]]["ﾀｲﾑ変換"].GetSingle()), DEF[rnk]["勝時差"]);
+
+				AppUtil.RankAges.ForEach(r =>
+				{
+					dic[$"{KEY}着順{r}"] = GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
+				});
 			};
 
 			// 出遅れ率
@@ -467,11 +475,11 @@ namespace Netkeiba
 				dic[$"賞金A{i}"] = Median(arr, rnk, "賞金");
 				dic[$"賞金B{i}"] = RnkMax(arr, rnk, "賞金");
 
-				if (!rnk.Contains("障"))
-				{
-					dic[$"ﾀｲﾑ指数A{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");
-					dic[$"ﾀｲﾑ指数B{i}"] = RnkMax(arr, rnk, "ﾀｲﾑ指数");
-				}
+				dic[$"ﾀｲﾑ指数A{i}"] = !rnk.Contains("障") ? Median(arr, rnk, "ﾀｲﾑ指数") : 0F;
+				dic[$"ﾀｲﾑ指数B{i}"] = !rnk.Contains("障") ? RnkMax(arr, rnk, "ﾀｲﾑ指数") : 0F;
+				dic[$"ﾀｲﾑ指数C{i}"] = !rnk.Contains("障") ? Median(arr.Select(x => 
+					TIM[x["ﾚｰｽID"].GetInt64()] * 0.9F.Pow(x["着順"].GetSingle())
+				), 50F) : 0F;
 
 				//// ﾀｲﾑ指数
 				//dic[$"ﾀｲﾑ指数{i}"] = Median(arr, rnk, "ﾀｲﾑ指数");

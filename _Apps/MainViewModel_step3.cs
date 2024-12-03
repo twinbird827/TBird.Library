@@ -59,10 +59,8 @@ namespace Netkeiba
 			var bbbb = PredictionModel(pays, Arr(
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3)),
 				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8))
+				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7))
 			).SelectMany(tmp => tmp).ToArray());
 			var cccc = PredictionModel(pays, Arr(
 				ranks.Select(rank => new RegressionPredictionFactory(mlContext, rank, 1))
