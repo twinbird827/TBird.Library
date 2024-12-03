@@ -398,7 +398,7 @@ namespace Netkeiba
 
 				AppUtil.RankAges.ForEach(r =>
 				{
-					dic[$"{KEY}着順{r}"] = GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
+					dic[$"{KEY}着順{r}"] = GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 0F, arr => arr.Median());
 				});
 			};
 
