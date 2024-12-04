@@ -60,6 +60,54 @@ namespace Netkeiba
 				Progress.Minimum = 0;
 				Progress.Maximum = rac.Length;
 
+				//var racall = await rac.AsParallel().WithDegreeOfParallelism(4).Select(raceid =>
+				//{
+				//	AddLog($"Step5 Proccess ﾚｰｽID: {raceid}");
+
+				//	Progress.Value += 1;
+
+				//	return CreateRaceModel(conn, "t_orig", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
+				//}).WhenAll();
+				//foreach (var racarr in racall)
+				//{
+				//	// ﾚｰｽ毎の纏まり
+				//	var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
+				//	var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
+
+				//	AppSetting.Instance.Features = null;
+
+				//	if (create)
+				//	{
+				//		create = false;
+
+				//		// ﾃｰﾌﾞﾙ作成
+				//		await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
+				//		await conn.ExecuteNonQueryAsync(Arr(
+				//			"CREATE TABLE IF NOT EXISTS t_model (",
+				//			head1.Select(x => $"{x} INTEGER").GetString(","),
+				//			",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
+
+				//		await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID)");
+				//	}
+
+				//	await conn.BeginTransaction();
+				//	foreach (var ins in racarr)
+				//	{
+				//		AppSetting.Instance.Features = AppSetting.Instance.Features ?? ins.Keys.Where(x => !head2.Contains(x)).ToArray();
+
+				//		var prms1 = head1.Select(x => SQLiteUtil.CreateParameter(DbType.Int64, ins[x]));
+				//		var prms2 = SQLiteUtil.CreateParameter(DbType.Single, ins["単勝"]);
+				//		var prms3 = SQLiteUtil.CreateParameter(DbType.Binary,
+				//			AppSetting.Instance.Features.SelectMany(x => BitConverter.GetBytes(ins[x].GetSingle())).ToArray()
+				//		);
+
+				//		await conn.ExecuteNonQueryAsync(
+				//			$"REPLACE INTO t_model ({head1.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", head1.Length).GetString(",")}, ?, ?)",
+				//			prms1.Concat(Arr(prms2)).Concat(Arr(prms3)).ToArray()
+				//		);
+				//	}
+				//	conn.Commit();
+				//}
 				foreach (var raceid in rac)
 				{
 					MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
@@ -207,7 +255,7 @@ namespace Netkeiba
 			TOU[raceid.GetInt64()] = 同ﾚｰｽ.Count;
 
 			// ﾚｰｽ毎の纏まり
-			var racarr = await 同ﾚｰｽ.Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切)).WhenAll();
+			var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(4).Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切)).WhenAll();
 
 			var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
@@ -388,17 +436,24 @@ namespace Netkeiba
 
 				dic[$"{KEY}距離"] = Median(X.Select(func_kyori), 0.75F);
 				dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
-				//dic[$"{KEY}着順B"] = Median(X.Select(x => GET着順(x, true)), 1F);
-				//dic[$"{KEY}着順C"] = Median(X.Select(x => GET着順(x, false)), 1F);
-				dic[$"{KEY}着順D"] = Median(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F);
-				//dic[$"{KEY}着順E"] = Median(X.Select(x => GET着順(x, false) / func_kyori(x)), 1F);
+				dic[$"{KEY}着順D"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Median());
 				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
-				dic[$"{KEY}ﾀｲﾑ差"] = !rnk.Contains("障") ? Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"]) : 0F;
-				//dic[$"{KEY}勝時差"] = Median(X.Select(x => x["ﾀｲﾑ変換"].GetSingle() - TOP[x["ﾚｰｽID"]]["ﾀｲﾑ変換"].GetSingle()), DEF[rnk]["勝時差"]);
+				dic[$"{KEY}着順G"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max());
+				dic[$"{KEY}ﾀｲﾑ差"] = !rnk.Contains("障")
+					? Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"])
+					: 0F;
+
+				var rnktmp1 = AppUtil.RankAges.AsParallel().ToDictionary(
+					r => r,
+					r => GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min()));
+				var rnktmp2 = AppUtil.RankAges.AsParallel().ToDictionary(
+					r => r,
+					r => GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max()));
 
 				AppUtil.RankAges.ForEach(r =>
 				{
-					dic[$"{KEY}着順{r}"] = GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 0F, arr => arr.Median());
+					dic[$"{KEY}着順{r}1"] = rnktmp1[r];
+					dic[$"{KEY}着順{r}2"] = rnktmp2[r];
 				});
 			};
 
@@ -514,7 +569,7 @@ namespace Netkeiba
 			// 出走間隔
 			dic[$"出走間隔"] = GetSingle(馬情報[0].Select(x => x["開催日数"].GetSingle()), DEF[rnk]["出走間隔"], x => src["開催日数"].GetSingle() - x.Max());
 
-			using (await Locker.LockAsync(Lock))
+			//using (await Locker.LockAsync(Lock))
 			{
 				var 産駒馬場 = $"{src["馬場"]}" == "芝" ? "芝" : "ダ";
 				var 産駒情報 = await conn.GetRows(Arr(
