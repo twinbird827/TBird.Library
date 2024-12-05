@@ -16,7 +16,7 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		private const float RankRatePow = 0.125F;
+		private const float RankRatePow = 0.25F;
 
 		public static readonly Dictionary<string, float> RankRate = new Dictionary<string, float>()
 		{

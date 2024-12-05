@@ -532,7 +532,7 @@ namespace Netkeiba
 
 				dic[$"ﾀｲﾑ指数A{i}"] = !rnk.Contains("障") ? Median(arr, rnk, "ﾀｲﾑ指数") : 0F;
 				dic[$"ﾀｲﾑ指数B{i}"] = !rnk.Contains("障") ? RnkMax(arr, rnk, "ﾀｲﾑ指数") : 0F;
-				dic[$"ﾀｲﾑ指数C{i}"] = !rnk.Contains("障") ? Median(arr.Select(x => 
+				dic[$"ﾀｲﾑ指数C{i}"] = !rnk.Contains("障") ? Median(arr.Select(x =>
 					TIM[x["ﾚｰｽID"].GetInt64()] * 0.9F.Pow(x["着順"].GetSingle())
 				), 50F) : 0F;
 
@@ -780,9 +780,7 @@ namespace Netkeiba
 
 			var RANK = AppUtil.RankRate[x["ﾗﾝｸ1"].Str()];
 
-			return (着順 / 頭数).Pow(1.5F) * (rank ? (着順G1古 / RANK) : 1F);
+			return 着順 / 頭数 / (rank ? RANK : 1F);
 		}
-
-		private readonly static float 着順G1古 = AppUtil.RankRate["G1古"];
 	}
 }
