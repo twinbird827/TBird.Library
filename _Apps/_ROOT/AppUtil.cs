@@ -65,6 +65,28 @@ namespace Netkeiba
 			"未勝利障",
 		};
 
+		public static readonly string[][] RankStep2 = new[]
+		{
+			new [] {"未勝利ク", "新馬ク", "1勝ク", "1勝古", "2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"1勝ク", "1勝古", "2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"1勝古", "2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"オープン古", "G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"G2ク", "G2古", "G1ク", "G1古", },
+			new [] {"G2古", "G1ク", "G1古", },
+			new [] {"G1ク", "G1古", },
+			new [] {"G1古", },
+			new [] {"未勝利ク", "新馬ク", "未勝利障", "オープン障", "G3障", "G2障", "G1障",},
+			new [] {"オープン障", "G3障", "G2障", "G1障",},
+			new [] {"G3障", "G2障", "G1障",},
+			new [] {"G2障", "G1障",},
+			new [] {"G1障",},
+		};
+
 		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
@@ -229,9 +251,9 @@ namespace Netkeiba
 			return conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}");
 		}
 
-		public static Task<List<string>> Getﾗﾝｸ2(SQLiteControl conn)
+		public static List<string> Getﾗﾝｸ2(SQLiteControl conn)
 		{
-			return Task.Run(() => new[] { "RANK5", "RANK4", "RANK3", "RANK2", "RANK1" }.ToList());
+			return new List<string>(new[] { "RANK4", "RANK3", "RANK2", "RANK1" });
 		}
 
 		public static Task<List<string>> Get馬性(SQLiteControl conn)
@@ -294,7 +316,7 @@ namespace Netkeiba
 			{ "2勝", "RANK3" },
 			{ "1勝", "RANK3" },
 			{ "未勝利", "RANK4" },
-			{ "新馬", "RANK5" },
+			{ "新馬", "RANK4" },
 		};
 
 		public static string Getﾗﾝｸ2(string ﾗﾝｸ1)

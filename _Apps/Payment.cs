@@ -13,6 +13,13 @@ namespace Netkeiba
 		public string head { get; private set; }
 		public Func<List<List<object>>, Dictionary<string, string>, int, object> func { get; private set; }
 
+		public Payment(int p, string h, Func<List<List<object>>, Dictionary<string, string>, int, object> f)
+		{
+			pay = p;
+			head = h;
+			func = f;
+		}
+
 		public static Payment[] GetDefaults()
 		{
 			return new[]
@@ -26,106 +33,98 @@ namespace Netkeiba
 
 		public static Payment Create単4()
 		{
-			return new Payment()
-			{
-				pay = 400,
-				head = "単4",
-				func = (arr, payoutDetail, j) => Get三連単(payoutDetail,
+			return new Payment(
+				p:400,
+				h: "単4",
+				f:(arr, payoutDetail, j) => Get三連単(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1),
 					arr.Where(x => x[j].GetInt32() == 2),
 					arr.Where(x => x[j].GetInt32() == 3)
 				)
-			};
+			);
 		}
 
 		public static Payment Create複2()
 		{
-			return new Payment()
-			{
-				pay = 200,
-				head = "複2",
-				func = (arr, payoutDetail, j) => Get三連複(payoutDetail,
+			return new Payment(
+				p: 200,
+				h: "複2",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 2),
 					arr.Where(x => x[j].GetInt32() <= 2),
 					arr.Where(x => x[j].GetInt32() <= 4)
 				)
-			};
+			);
 		}
 
 		public static Payment Create複3()
 		{
-			return new Payment()
-			{
-				pay = 300,
-				head = "複3",
-				func = (arr, payoutDetail, j) => Get三連複(payoutDetail,
+			return new Payment(
+				p: 300,
+				h: "複3",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1),
 					arr.Where(x => x[j].GetInt32() <= 4),
 					arr.Where(x => x[j].GetInt32() <= 4)
 				)
-			};
+			);
 		}
 
 		public static Payment Create複4()
 		{
-			return new Payment()
-			{
-				pay = 400,
-				head = "複4",
-				func = (arr, payoutDetail, j) => Get三連複(payoutDetail,
+			return new Payment(
+				p: 400,
+				h: "複4",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 4),
 					arr.Where(x => x[j].GetInt32() <= 4),
 					arr.Where(x => x[j].GetInt32() <= 4)
 				)
-			};
+			);
 		}
 
 		public static Payment Createワ1()
 		{
-			return new Payment()
-			{
-				pay = 100,
-				head = "ワ1",
-				func = (arr, payoutDetail, j) => Getワイド(payoutDetail,
+			return new Payment(
+				p: 100,
+				h: "ワ1",
+				f: (arr, payoutDetail, j) => Getワイド(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 2)
 				)
-			};
+			);
 		}
 
 		public static Payment Createワ3()
 		{
-			return new Payment()
-			{
-				pay = 300,
-				head = "ワ3",
-				func = (arr, payoutDetail, j) => Getワイド(payoutDetail,
+			return new Payment(
+				p: 300,
+				h: "ワ3",
+				f: (arr, payoutDetail, j) => Getワイド(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 3)
 				)
-			};
+			);
 		}
 
 		public static Payment Create連1()
 		{
-			return new Payment()
-			{
-				pay = 100,
-				head = "連1",
-				func = (arr, payoutDetail, j) => Get馬連(payoutDetail,
+			return new Payment(
+				p: 100,
+				h: "連1",
+				f: (arr, payoutDetail, j) => Get馬連(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 2)
 				)
-			};
+			);
 		}
 
 		public static Payment Create勝1()
 		{
-			return new Payment()
-			{
-				pay = 100,
-				head = "勝1",
-				func = (arr, payoutDetail, j) => Get単勝(payoutDetail,
+			return new Payment(
+				p: 100,
+				h: "勝1",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1)
 				)
-			};
+			);
 		}
 
 		private static readonly int[] Zeros = new int[] { 0 };

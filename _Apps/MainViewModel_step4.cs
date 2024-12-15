@@ -64,7 +64,7 @@ namespace Netkeiba
 			{
 				var pays = Payment.GetDefaults();
 
-				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
+				var ﾗﾝｸ2 = AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
 				var 追切 = await AppUtil.Get追切(conn);

@@ -42,7 +42,7 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				return (int)await conn.ExecuteScalarAsync("SELECT CAST(IFNULL(STRFTIME('%m', REPLACE(MAX(開催日), '/', '-')), 1) AS INTEGER) FROM t_orig");
+				return await conn.ExecuteScalarAsync("SELECT CAST(IFNULL(STRFTIME('%m', REPLACE(MAX(開催日), '/', '-')), 1) AS INTEGER) FROM t_orig").RunAsync(x => x.GetInt32());
 			}
 		}
 
@@ -105,23 +105,14 @@ namespace Netkeiba
 							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_shutuba (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
 
 							// ｲﾝﾃﾞｯｸｽ作成
-							var indexes = new Dictionary<string, string[]>()
-											{
-												{ "馬ID", new[] { "開催場所", "回り", "天候", "馬場", "馬場状態" } },
-												{ "騎手ID", new[] { "開催場所", "回り", "天候", "馬場", "馬場状態" } },
-												{ "調教師ID", new[] { "開催場所" } },
-												{ "馬主ID", new[] { "開催場所"} },
-											};
-							int index = 0;
-							foreach (var k in indexes)
-							{
-								await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順)");
-								foreach (var v in k.Value)
-								{
-									await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig ({k.Key}, 開催日数, ﾗﾝｸ2, 着順, {v})");
-								}
-							}
-							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index{index++.ToString(2)} ON t_orig (ﾚｰｽID, 着順)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index00 ON t_orig (着順)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index01 ON t_orig (開催日数,ﾚｰｽID)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index02 ON t_orig (ﾗﾝｸ1)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index03 ON t_orig (馬ID,開催日数,回り)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index04 ON t_orig (騎手ID,開催日数,回り)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index05 ON t_orig (調教師ID,開催日数,回り)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index06 ON t_orig (馬主ID,開催日数,回り)");
+							await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index07 ON t_orig (ﾚｰｽID,着順)");
 
 							await conn.BeginTransaction();
 						}

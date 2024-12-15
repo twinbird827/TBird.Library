@@ -42,7 +42,7 @@ namespace Netkeiba
 					.Where(id => !drops.Contains(id))
 					.ToArray();
 
-				var ﾗﾝｸ2 = await AppUtil.Getﾗﾝｸ2(conn);
+				var ﾗﾝｸ2 = AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
 				var 追切 = await AppUtil.Get追切(conn);
@@ -255,7 +255,7 @@ namespace Netkeiba
 			TOU[raceid.GetInt64()] = 同ﾚｰｽ.Count;
 
 			// ﾚｰｽ毎の纏まり
-			var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(4).Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切)).WhenAll();
+			var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切)).WhenAll();
 
 			var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
 			var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
@@ -434,27 +434,64 @@ namespace Netkeiba
 				var X = arr;
 				Func<Dictionary<string, object>, float> func_kyori = tgt => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
 
+				var tyktmp = X.Select(x => GET着順(x, true) / func_kyori(x)).ToArray();
 				dic[$"{KEY}距離"] = Median(X.Select(func_kyori), 0.75F);
 				dic[$"{KEY}着順A"] = Median(X, rnk, "着順");
-				dic[$"{KEY}着順D"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Median());
-				dic[$"{KEY}着順F"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min());
-				dic[$"{KEY}着順G"] = GetSingle(X.Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max());
+				dic[$"{KEY}着順D"] = GetSingle(tyktmp, 1F, arr => arr.Median());
+				dic[$"{KEY}着順F"] = GetSingle(tyktmp, 1F, arr => arr.Min());
+				dic[$"{KEY}着順G"] = GetSingle(tyktmp, 1F, arr => arr.Max());
 				dic[$"{KEY}ﾀｲﾑ差"] = !rnk.Contains("障")
 					? Median(X.Select(x => x["ﾀｲﾑ指数"].GetSingle() / TOP[x["ﾚｰｽID"]]["ﾀｲﾑ指数"].GetSingle()), DEF[rnk]["ﾀｲﾑ差"])
 					: 0F;
 
-				var rnktmp1 = AppUtil.RankAges.AsParallel().ToDictionary(
-					r => r,
-					r => GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min()));
-				var rnktmp2 = AppUtil.RankAges.AsParallel().ToDictionary(
-					r => r,
-					r => GetSingle(X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max()));
+				//var rnktmp = AppUtil.RankAges.AsParallel().ToDictionary(
+				//	r => r,
+				//	r => X.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)).ToArray());
+				//AppUtil.RankAges.ForEach(r =>
+				//{
+				//	var tmp = rnktmp[r];
+				//	dic[$"{KEY}着順{r}1"] = tmp.Any() ? tmp.Median() : 1F;
+				//	dic[$"{KEY}着順{r}2"] = tmp.Any() ? tmp.Min() : 1F;
+				//	//dic[$"{KEY}着順{r}3"] = tmp.Any() ? tmp.Max() : 1F;
+				//});
+				//var rnktmp = AppUtil.Getﾗﾝｸ2(conn).AsParallel().ToDictionary(
+				//	r => r,
+				//	r => X.Where(x => x["ﾗﾝｸ2"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)).ToArray());
+				//AppUtil.Getﾗﾝｸ2(conn).ForEach(r =>
+				//{
+				//	var tmp = rnktmp[r];
+				//	dic[$"{KEY}着順{r}1"] = tmp.Any() ? tmp.Median() : 1F;
+				//	dic[$"{KEY}着順{r}2"] = tmp.Any() ? tmp.Min() : 1F;
+				//	dic[$"{KEY}着順{r}3"] = tmp.Any() ? tmp.Max() : 1F;
+				//});
+				var rnktmp = AppUtil.RankStep2.AsParallel().ToDictionary(
+					r => r.GetString(","),
+					r => X.Where(x => r.Contains(x["ﾗﾝｸ1"].Str())).Select(x => GET着順(x, true) / func_kyori(x)).ToArray());
 
-				AppUtil.RankAges.ForEach(r =>
+				AppUtil.RankStep2.ForEach(r =>
 				{
-					dic[$"{KEY}着順{r}1"] = rnktmp1[r];
-					dic[$"{KEY}着順{r}2"] = rnktmp2[r];
+					var str = r.GetString(",");
+					var tmp = rnktmp[str];
+					var a = rnk.Contains("障");
+					var b = str.Contains("障");
+					var c = tmp.Any() && ((a && b) || (!a && !b));
+					//dic[$"{KEY}着順{str}1"] = c ? tmp.Median() : 1F;
+					dic[$"{KEY}着順{str}2"] = c ? tmp.Min() : 1F;
+					//dic[$"{KEY}着順{r}3"] = c ? tmp.Max() : 1F;
 				});
+
+
+
+				//var rnktmp1 = AppUtil.Getﾗﾝｸ2(conn).AsParallel().ToDictionary(
+				//	r => r,
+				//	r => GetSingle(X.Where(x => x["ﾗﾝｸ2"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Median()));
+				//var rnktmp2 = AppUtil.Getﾗﾝｸ2(conn).AsParallel().ToDictionary(
+				//	r => r,
+				//	r => GetSingle(X.Where(x => x["ﾗﾝｸ2"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Min()));
+				//var rnktmp3 = AppUtil.Getﾗﾝｸ2(conn).AsParallel().ToDictionary(
+				//	r => r,
+				//	r => GetSingle(X.Where(x => x["ﾗﾝｸ2"].Str() == r).Select(x => GET着順(x, true) / func_kyori(x)), 1F, arr => arr.Max()));
+
 			};
 
 			// 出遅れ率
@@ -780,7 +817,7 @@ namespace Netkeiba
 
 			var RANK = AppUtil.RankRate[x["ﾗﾝｸ1"].Str()];
 
-			return 着順 / 頭数 / (rank ? RANK : 1F);
+			return (着順 / 頭数).Pow(1.5F) * (rank ? AppUtil.RankRate["G1古"] / RANK : 1F);
 		}
 	}
 }
