@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace TBird.DB
 {
@@ -25,7 +26,7 @@ namespace TBird.DB
 		/// </summary>
 		/// <param name="reader">DbDataReader</param>
 		/// <returns></returns>
-		public static (string, int)[] GetColumns(this DbDataReader reader)
+		private static Col[] GetColumns(this DbDataReader reader)
 		{
 			// 全列名を取得
 			var columns = Enumerable.Range(0, reader.FieldCount)
@@ -33,8 +34,8 @@ namespace TBird.DB
 				.ToArray();
 			// 重複を削除
 			return columns
-				.Select((c, i) => (!columns.Take(i).Contains(c) ? c : null, i))
-				.Where(x => x.Item1 != null)
+				.Select((c, i) => new Col(!columns.Take(i).Contains(c) ? c : null, i))
+				.Where(x => x.Column != null)
 				.ToArray();
 		}
 
@@ -69,11 +70,11 @@ namespace TBird.DB
 		/// <returns></returns>
 		public static Task<List<Dictionary<string, object>>> GetRows(this DbControl conn, string sql, params DbParameter[] parameters)
 		{
-			(string Column, int Index)[] columns = null;
+			Col[] columns = null;
 
 			return conn.GetRows(r =>
 			{
-				return (columns = columns ?? r.GetColumns())
+				return (columns ?? (columns = r.GetColumns()))
 					.ToDictionary(x => x.Column, x => r.Get<object>(x.Index));
 			}, sql, parameters);
 		}
@@ -87,11 +88,11 @@ namespace TBird.DB
 		/// <returns></returns>
 		public static Task<List<Dictionary<string, T>>> GetRows<T>(this DbControl conn, string sql, params DbParameter[] parameters)
 		{
-			(string Column, int Index)[] columns = null;
+			Col[] columns = null;
 
 			return conn.GetRows(r =>
 			{
-				return (columns = columns ?? r.GetColumns())
+				return (columns ?? (columns = r.GetColumns()))
 					.ToDictionary(x => x.Column, x => r.Get<T>(x.Index));
 			}, sql, parameters);
 		}
@@ -131,13 +132,28 @@ namespace TBird.DB
 
 		public static Task<Dictionary<string, T>> GetRow<T>(this DbControl conn, string sql, params DbParameter[] parameters)
 		{
-			(string Column, int Index)[] columns = null;
+			Col[] columns = null;
 
 			return conn.GetRow(r =>
 			{
-				return (columns = columns ?? r.GetColumns())
+				return (columns ?? (columns = r.GetColumns()))
 					.ToDictionary(x => x.Column, x => r.Get<T>(x.Index));
 			}, sql, parameters);
 		}
+
+		private static Dictionary<string, Col[]> _columns = new Dictionary<string, Col[]>();
+	}
+
+	internal class Col
+	{
+		public Col(string c, int i)
+		{
+			Column = c;
+			Index = i;
+		}
+
+		public string Column { get; set; }
+
+		public int Index { get; set; }
 	}
 }
