@@ -37,9 +37,9 @@ namespace Netkeiba
 				p:400,
 				h: "単4",
 				f:(arr, payoutDetail, j) => Get三連単(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 1),
-					arr.Where(x => x[j].GetInt32() == 2),
-					arr.Where(x => x[j].GetInt32() == 3)
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => x[j].GetInt32() <= 4)
 				)
 			);
 		}
@@ -94,6 +94,39 @@ namespace Netkeiba
 			);
 		}
 
+		public static Payment Createワ1A()
+		{
+			return new Payment(
+				p: 100,
+				h: "ワ1A",
+				f: (arr, payoutDetail, j) => Getワイド(payoutDetail,
+					arr.Where(x => x[j].GetInt32().Run(i => i == 1 || i == 2))
+				)
+			);
+		}
+
+		public static Payment Createワ1B()
+		{
+			return new Payment(
+				p: 100,
+				h: "ワ1B",
+				f: (arr, payoutDetail, j) => Getワイド(payoutDetail,
+					arr.Where(x => x[j].GetInt32().Run(i => i == 1 || i == 3))
+				)
+			);
+		}
+
+		public static Payment Createワ1C()
+		{
+			return new Payment(
+				p: 100,
+				h: "ワ1C",
+				f: (arr, payoutDetail, j) => Getワイド(payoutDetail,
+					arr.Where(x => x[j].GetInt32().Run(i => i == 2 || i == 3))
+				)
+			);
+		}
+
 		public static Payment Createワ3()
 		{
 			return new Payment(
@@ -123,6 +156,127 @@ namespace Netkeiba
 				h: "勝1",
 				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1)
+				)
+			);
+		}
+
+		public static Payment Create勝2()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝2",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 2)
+				)
+			);
+		}
+
+		public static Payment Create勝3()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝3",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 3)
+				)
+			);
+		}
+
+		public static Payment Create勝4()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝4",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 4)
+				)
+			);
+		}
+
+		public static Payment Create勝5()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝5",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 5)
+				)
+			);
+		}
+
+		public static Payment Create勝6()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝6",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 6)
+				)
+			);
+		}
+
+		public static Payment Create勝7()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝7",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 7)
+				)
+			);
+		}
+
+		public static Payment Create勝8()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝8",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 8)
+				)
+			);
+		}
+
+		public static Payment Create勝9()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝9",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 9)
+				)
+			);
+		}
+
+		public static Payment Create勝A()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝A",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 10)
+				)
+			);
+		}
+
+		public static Payment Create勝B()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝B",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 11)
+				)
+			);
+		}
+
+		public static Payment Create勝C()
+		{
+			return new Payment(
+				p: 100,
+				h: "勝C",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 12)
 				)
 			);
 		}

@@ -1,4 +1,5 @@
 ﻿using AngleSharp.Common;
+using ControlzEx.Standard;
 using Microsoft.ML;
 using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
@@ -8,6 +9,7 @@ using System.Data;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,7 +44,26 @@ namespace Netkeiba
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			var pays = Payment.GetDefaults();
+			var pays = new[]
+			{
+				Payment.Createワ1A(),
+				Payment.Createワ1B(),
+				Payment.Createワ1C(),
+				Payment.Create勝1(),
+				Payment.Create勝2(),
+				Payment.Create勝3(),
+				Payment.Create勝4(),
+				Payment.Create勝5(),
+				Payment.Create勝6(),
+				Payment.Create勝7(),
+				Payment.Create勝8(),
+				Payment.Create勝9(),
+				Payment.Create勝A(),
+				Payment.Create勝B(),
+				Payment.Create勝C(),
+			};
+
+			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
 
 			// Initialize MLContext
 			MLContext mlContext = new MLContext();
@@ -52,58 +73,122 @@ namespace Netkeiba
 				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
 				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
 				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
-			}
 
-			var ranks = AppUtil.RankAges;
-
-			var bbbb = PredictionModel(pays, Arr(
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
-				ranks.Select(rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7))
-			).SelectMany(tmp => tmp).ToArray());
-			var cccc = PredictionModel(pays, Arr(
-				ranks.Select(rank => new RegressionPredictionFactory(mlContext, rank, 1))
-			).SelectMany(tmp => tmp).ToArray());
-
-			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
-
-			FileUtil.BeforeCreate(path);
-
-			AddLog($"S3EXECPREDICT: {path}");
-
-			using (var file = new FileAppendWriter(path))
-			{
-				// ﾍｯﾀﾞの書き込み
-				await file.WriteLineAsync(Arr(
-					"Rank",
-					"Index",
-					"Score",
-					"Rate"
-				).Concat(
-					pays.SelectMany(x => Arr(x.head + "+S", x.head + "+R"))
-				).GetString(","));
-
-				foreach (var dic in bbbb)
+				using (var file = new FileAppendWriter(path))
 				{
-					var val = await dic.Value;
-
+					// ﾍｯﾀﾞの書き込み
 					await file.WriteLineAsync(
-						dic.Key.Run(x => Arr((object)x.Rank, x.Index, x.Score, x.Rate)).Concat(
-							val.SelectMany(x => Arr((object)x.score, x.rate))
-						).Select(x => x.ToString()).GetString(",")
+						Arr(
+							Arr("Rank", "Index", "Score", "Rate"),
+							pays.SelectMany(x => Arr(x.head + "+S", x.head + "+R"))
+						).SelectMany(_ => _).GetString(",")
 					);
-				}
 
-				foreach (var dic in cccc)
-				{
-					var val = await dic.Value;
+					Progress.Value = 0;
+					Progress.Minimum = 0;
+					Progress.Maximum = AppUtil.RankAges.Length;
 
-					await file.WriteLineAsync(
-						dic.Key.Run(x => Arr((object)x.Rank, x.Index, x.Score, x.Rate)).Concat(
-							val.SelectMany(x => Arr((object)x.score, x.rate))
-						).Select(x => x.ToString()).GetString(",")
-					);
+					foreach (var rank in AppUtil.RankAges)
+					{
+						var raceids = await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
+							SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
+							SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
+						);
+
+						// 支払情報を取得
+						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
+						var payoutDetails = new Dictionary<long, Dictionary<string, string>>();
+						await conn.BeginTransaction();
+						foreach (var raceid in raceids)
+						{
+							payoutDetails[raceid] = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
+							{
+								if (rows.Any())
+								{
+									return rows.ToDictionary(x => x["key"].Str(), x => x["val"].Str());
+								}
+								else
+								{
+									return await GetPayout(raceid.ToString());
+								}
+							});
+
+							foreach (var x in payoutDetails[raceid])
+							{
+								await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
+									SQLiteUtil.CreateParameter(DbType.String, raceid.Str()),
+									SQLiteUtil.CreateParameter(DbType.String, x.Key),
+									SQLiteUtil.CreateParameter(DbType.String, x.Value)
+								);
+							}
+						}
+						conn.Commit();
+
+						var models = new Dictionary<long, List<Dictionary<string, object>>>();
+						foreach (var raceid in raceids)
+						{
+							models[raceid] = await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid));
+						}
+
+						async Task PredictionModel<TSrc, TDst>(string index, PredictionFactory<TSrc, TDst> fac) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+						{
+							var rets = new List<float[]>();
+
+							foreach (var raceid in raceids)
+							{
+								var racs = new List<List<object>>();
+
+								foreach (var m in models[raceid])
+								{
+									var tmp = new List<object>()
+									{
+										fac.Predict((byte[])m["Features"], raceid),
+										string.Empty,
+										string.Empty,
+										string.Empty,
+										string.Empty,
+										string.Empty,
+										m["馬番"],
+									};
+
+									racs.Add(tmp);
+								}
+
+								// ｽｺｱで順位付けをする
+								if (racs.Any())
+								{
+									var n = 1;
+									racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+
+									// 結果の平均を結果に詰める
+									rets.Add(pays.Select(x => x.func(racs, payoutDetails[raceid], 7).GetSingle()).ToArray());
+								}
+							}
+
+							var far = fac.GetResult();
+							await file.WriteLineAsync(
+								Arr(
+									Arr(rank, index),
+									Arr(far.Score, far.Rate).Select(x => x.ToString("F4")),
+									pays.SelectMany((pay, i) => Arr(
+										rets.Sum(x => x[i]) / (rets.Count * pay.pay) * 1F,
+										rets.Count(x => x[i] > 0) * 1F / rets.Count * 1F
+									)).Select(x => x.ToString("F4"))
+								).SelectMany(_ => _).GetString(",")
+							);
+						}
+						const double PredictionModelLength = 5;
+						await PredictionModel("B1", new BinaryClassificationPredictionFactory(mlContext, rank, 1));
+						Progress.Value += 1 / PredictionModelLength;
+						await PredictionModel("B2", new BinaryClassificationPredictionFactory(mlContext, rank, 2));
+						Progress.Value += 1 / PredictionModelLength;
+						await PredictionModel("B3", new BinaryClassificationPredictionFactory(mlContext, rank, 6));
+						Progress.Value += 1 / PredictionModelLength;
+						await PredictionModel("B4", new BinaryClassificationPredictionFactory(mlContext, rank, 7));
+						Progress.Value += 1 / PredictionModelLength;
+						await PredictionModel("R1", new RegressionPredictionFactory(mlContext, rank, 1));
+						Progress.Value += 1 / PredictionModelLength;
+					}
 				}
 			}
 
@@ -653,84 +738,5 @@ namespace Netkeiba
 				);
 			}
 		}
-
-		private Dictionary<PredictionResult, Task<(float score, float rate)[]>> PredictionModel<TSrc, TDst>(Payment[] pays, PredictionFactory<TSrc, TDst>[] factories) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
-		{
-			using (var conn = AppUtil.CreateSQLiteControl())
-			{
-				return factories.ToDictionary(fac => fac.GetResult(), async fac =>
-				{
-					var rets = new List<float[]>();
-
-					foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
-							SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-							SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(fac.GetResult().Rank))
-						))
-					{
-						var racs = new List<List<object>>();
-
-						foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
-						{
-							var tmp = new List<object>()
-							{
-								fac.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64()),
-								string.Empty,
-								string.Empty,
-								string.Empty,
-								string.Empty,
-								string.Empty,
-								m["馬番"],
-							};
-
-							racs.Add(tmp);
-						}
-
-						// ｽｺｱで順位付けをする
-						if (racs.Any())
-						{
-							var n = 1;
-							racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
-
-							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
-
-							// 支払情報を出力
-							var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
-							{
-								if (rows.Any())
-								{
-									return rows.ToDictionary(x => $"{x["key"]}", x => $"{x["val"]}");
-								}
-								else
-								{
-									return await GetPayout(raceid.ToString());
-								}
-							});
-
-							// 結果の平均を結果に詰める
-							rets.Add(pays.Select(x => x.func(racs, payoutDetail, 7).GetSingle()).ToArray());
-
-							await conn.BeginTransaction();
-							foreach (var x in payoutDetail)
-							{
-								await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
-									SQLiteUtil.CreateParameter(DbType.String, raceid.ToString()),
-									SQLiteUtil.CreateParameter(DbType.String, x.Key),
-									SQLiteUtil.CreateParameter(DbType.String, x.Value)
-								);
-							}
-							conn.Commit();
-						}
-					}
-
-					return rets.Any()
-						? pays.Select((pay, i) => (
-							Calc(rets.Sum(x => x[i]), rets.Count * pay.pay, (s, p) => s / p).GetSingle(),
-							Calc(rets.Count(x => 0 < x[i]), rets.Count, (c, l) => c / l).GetSingle()
-						)).ToArray()
-						: pays.Select(tmp => (0F, 0F)).ToArray();
-				});
-			}
-		}
-
 	}
 }

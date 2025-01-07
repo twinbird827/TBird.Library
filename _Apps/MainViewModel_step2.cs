@@ -440,9 +440,12 @@ namespace Netkeiba
 				dic[$"{KEY}着順D"] = GetSingle(X.Select(func_tyaku), 1F, arr => arr.Median());
 
 				dic[$"{KEY}距離1"] = Median(X.Select(func_kyori), 0.75F);
-				dic[$"{KEY}距離2"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 600F).Select(func_tyaku), dic.SINGLE($"{KEY}着順D") * RATE);
-				dic[$"{KEY}距離3"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 400F).Select(func_tyaku), dic.SINGLE($"{KEY}距離2") * RATE);
-				dic[$"{KEY}距離4"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 200F).Select(func_tyaku), dic.SINGLE($"{KEY}距離3") * RATE);
+				dic[$"{KEY}距離2"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 999F).Select(func_tyaku), dic.SINGLE($"{KEY}着順D") * RATE);
+				dic[$"{KEY}距離3"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 800F).Select(func_tyaku), dic.SINGLE($"{KEY}距離2") * RATE);
+				dic[$"{KEY}距離4"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 600F).Select(func_tyaku), dic.SINGLE($"{KEY}距離3") * RATE);
+				dic[$"{KEY}距離5"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 400F).Select(func_tyaku), dic.SINGLE($"{KEY}距離4") * RATE);
+				dic[$"{KEY}距離6"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 200F).Select(func_tyaku), dic.SINGLE($"{KEY}距離5") * RATE);
+				dic[$"{KEY}距離7"] = Median(X.Where(x => Math.Abs(x.SINGLE("距離") - src.SINGLE("距離")) <= 100F).Select(func_tyaku), dic.SINGLE($"{KEY}距離6") * RATE);
 
 				dic[$"{KEY}馬場1"] = Median(X.Where(x => x["馬場"] == src["馬場"]).Select(func_tyaku), dic.SINGLE($"{KEY}着順D") * RATE);
 				//dic[$"{KEY}馬場2"] = Median(X.Where(x => x["馬場"] != src["馬場"]).Select(func_tyaku), 1.00F);
@@ -524,7 +527,7 @@ namespace Netkeiba
 			// 出遅れ率
 			dic[$"出遅れ率"] = Calc(馬情報[0].Count(x => x["備考"].Str().Contains("出遅")), 馬情報[0].Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle() * 100F;
 
-			馬情報[0].Run(arr => CREATE情報(arr, Arr(1, 2, 3, 4))).ForEach((arr, i) =>
+			馬情報[0].Run(arr => CREATE情報(arr, Arr(1, 2, 30))).ForEach((arr, i) =>
 			{
 				ACTION情報("馬ID", arr, i);
 			});
