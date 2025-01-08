@@ -53,6 +53,7 @@ namespace Netkeiba
 				Payment.Create倍B(i, 2),
 				Payment.Create複1A(i),
 				Payment.Create複1B(i),
+				Payment.Create複1C(i),
 			}).SelectMany(_ => _).ToArray();
 
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");

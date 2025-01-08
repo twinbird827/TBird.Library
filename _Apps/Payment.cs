@@ -126,6 +126,23 @@ namespace Netkeiba
 			);
 		}
 
+		public static Payment Create複1C(int awase)
+		{
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+				.OrderByDescending(x => x[2].GetSingle())
+				.ThenBy(x => x[j].GetInt32())
+				.Take(2);
+			return new Payment(
+				p: 100,
+				h: $"複1C{awase}",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 1),
+					Temp(arr, j),
+					Temp(arr, j)
+				)
+			);
+		}
+
 		public static Payment Create複2()
 		{
 			return new Payment(
