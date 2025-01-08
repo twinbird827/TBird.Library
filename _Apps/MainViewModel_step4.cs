@@ -62,8 +62,6 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var pays = Payment.GetDefaults();
-
 				var ﾗﾝｸ2 = AppUtil.Getﾗﾝｸ2(conn);
 				var 馬性 = await AppUtil.Get馬性(conn);
 				var 調教場所 = await AppUtil.Get調教場所(conn);
@@ -82,7 +80,6 @@ namespace Netkeiba
 				{
 					x.Value.Add(headers
 						.Concat(headers.Skip(9).Select(x => $"{x}_予想"))
-						.Concat(headers.Skip(9).SelectMany(x => pays.Select(p => $"{x}_{p.head}")))
 						.Select(x => (object)x)
 						.ToList()
 					);
@@ -240,49 +237,6 @@ namespace Netkeiba
 						arr.Add(tmp);
 					}
 
-					if (arr.Any())
-					{
-						var scoremaxlen = (iHeaders + iBinaries1 + iBinaries2 + iRegressions + iScores);
-						for (var j = iHeaders; j < scoremaxlen; j++)
-						{
-							var n = 1;
-							arr.OrderByDescending(x => x[j].GetDouble()).ForEach(x => x.Add(n++));
-						}
-
-						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
-
-						// 支払情報を出力
-						var payoutDetail = await conn.GetRows("SELECT * FROM t_payout WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.String, raceid.ToString())).RunAsync(async rows =>
-						{
-							if (rows.Any())
-							{
-								return rows.ToDictionary(x => $"{x["key"]}", x => $"{x["val"]}");
-							}
-							else
-							{
-								return await GetPayout(raceid.ToString());
-							}
-						});
-
-						for (var j = scoremaxlen; j < scoremaxlen + (scoremaxlen - iHeaders); j++)
-						{
-							arr.First().AddRange(pays.Select(x => x.func(arr, payoutDetail, j)));
-						}
-
-						lists[tag].AddRange(arr);
-
-						await conn.BeginTransaction();
-						foreach (var x in payoutDetail)
-						{
-							await conn.ExecuteNonQueryAsync("REPLACE INTO t_payout (ﾚｰｽID,key,val) VALUES (?,?,?)",
-								SQLiteUtil.CreateParameter(DbType.String, raceid.ToString()),
-								SQLiteUtil.CreateParameter(DbType.String, x.Key),
-								SQLiteUtil.CreateParameter(DbType.String, x.Value)
-							);
-						}
-						conn.Commit();
-					}
-
 					AddLog($"End Step4 Race: {raceid}");
 
 					Progress.Value += 1;
@@ -292,33 +246,6 @@ namespace Netkeiba
 				await lists.Select(async x =>
 				{
 					var list = x.Value;
-					Func<int, IEnumerable<List<object>>> func = i => list.Where(x => i < x.Count);
-
-					var payouts = pays.Select(x => x.pay).ToArray();
-					var retidx = payouts.Length;
-					var minidx = iHeaders + (iBinaries1 + iBinaries2 + iRegressions + iScores) * 2;
-					var maxidx = (iBinaries1 + iBinaries2 + iRegressions + iScores) * retidx;
-
-					// 勝率
-					var result1 = Arr(
-						Enumerable.Repeat("", minidx)
-							.OfType<object>(),
-						Enumerable.Range(minidx, maxidx)
-							.Select(i => Calc(func(i).Count(x => 0 < x[i].GetInt32()), func(i).Count(), (x, y) => x / y))
-							.OfType<object>()
-					).SelectMany(obj => obj).ToList();
-
-					// 回収率
-					var result2 = Arr(
-						Enumerable.Repeat("", minidx)
-							.OfType<object>(),
-						Enumerable.Range(minidx, maxidx)
-							.Select((i, idx) => Calc(func(i).Average(x => x[i].GetDouble()), payouts[(idx % retidx)], (x, y) => x / y))
-							.OfType<object>()
-					).SelectMany(obj => obj).ToList();
-
-					list.add(result1);
-					list.add(result2);
 
 					// ﾌｧｲﾙ書き込み
 					var path = Path.Combine(AppSetting.Instance.NetkeibaResult, $"{DateTime.Now.ToString("yyyyMMddHHmmss")}_{x.Key}.csv");

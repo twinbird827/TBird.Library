@@ -44,24 +44,16 @@ namespace Netkeiba
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			var pays = new[]
+			var pays = Enumerable.Range(1, 9).Select(i => new[]
 			{
-				Payment.Createワ1A(),
-				Payment.Createワ1B(),
-				Payment.Createワ1C(),
-				Payment.Create勝1(),
-				Payment.Create勝2(),
-				Payment.Create勝3(),
-				Payment.Create勝4(),
-				Payment.Create勝5(),
-				Payment.Create勝6(),
-				Payment.Create勝7(),
-				Payment.Create勝8(),
-				Payment.Create勝9(),
-				Payment.Create勝A(),
-				Payment.Create勝B(),
-				Payment.Create勝C(),
-			};
+				Payment.Create順(i, 1),
+				Payment.Create順(i, 2),
+				Payment.Create順(i, 3),
+				Payment.Create倍A(i),
+				Payment.Create倍B(i, 2),
+				Payment.Create複1A(i),
+				Payment.Create複1B(i),
+			}).SelectMany(_ => _).ToArray();
 
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
 
@@ -140,28 +132,16 @@ namespace Netkeiba
 
 								foreach (var m in models[raceid])
 								{
-									var tmp = new List<object>()
-									{
-										fac.Predict((byte[])m["Features"], raceid),
-										string.Empty,
-										string.Empty,
-										string.Empty,
-										string.Empty,
-										string.Empty,
-										m["馬番"],
-									};
-
-									racs.Add(tmp);
+									racs.Add(Payment.GetPredictionBase(m, fac));
 								}
 
 								// ｽｺｱで順位付けをする
 								if (racs.Any())
 								{
-									var n = 1;
-									racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+									Payment.AddOrderByDescendingScoreIndex(racs);
 
 									// 結果の平均を結果に詰める
-									rets.Add(pays.Select(x => x.func(racs, payoutDetails[raceid], 7).GetSingle()).ToArray());
+									rets.Add(pays.Select(x => x.func(racs, payoutDetails[raceid], Payment.OrderByDescendingScoreIndex).GetSingle()).ToArray());
 								}
 							}
 
@@ -665,7 +645,13 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var pays = Payment.GetDefaults();
+				var pays = new[]
+				{
+					Payment.Create複2(),
+					Payment.Createワ1(),
+					Payment.Create勝1(),
+					Payment.Create連1(),
+				};
 
 				var rets = new List<float>();
 
@@ -678,28 +664,14 @@ namespace Netkeiba
 
 					foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 					{
-						var tmp = new List<object>();
-
 						// ｽｺｱ算出
-						var scr = factory.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64());
-						tmp.Add(scr);
-
-						// 共通ﾍｯﾀﾞ
-						tmp.Add(string.Empty);
-						tmp.Add(string.Empty);
-						tmp.Add(string.Empty);
-						tmp.Add(string.Empty);
-						tmp.Add(string.Empty);
-						tmp.Add(m["馬番"]);
-
-						racs.Add(tmp);
+						racs.Add(Payment.GetPredictionBase(m, factory));
 					}
 
 					// ｽｺｱで順位付けをする
 					if (racs.Any())
 					{
-						var n = 1;
-						racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+						Payment.AddOrderByDescendingScoreIndex(racs);
 
 						await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_payout (ﾚｰｽID,key,val, PRIMARY KEY (ﾚｰｽID,key))");
 
@@ -717,7 +689,7 @@ namespace Netkeiba
 						});
 
 						// 結果の平均を結果に詰める
-						rets.Add(pays.Select(x => x.func(racs, payoutDetail, 7).GetSingle()).Sum());
+						rets.Add(pays.Select(x => x.func(racs, payoutDetail, Payment.OrderByDescendingScoreIndex).GetSingle()).Sum());
 
 						await conn.BeginTransaction();
 						foreach (var x in payoutDetail)

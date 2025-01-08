@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ControlzEx.Standard;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,26 +21,107 @@ namespace Netkeiba
 			func = f;
 		}
 
-		public static Payment[] GetDefaults()
+		public const int OrderByDescendingScoreIndex = 7;
+
+		public static List<object> GetPredictionBase<TSrc, TDst>(Dictionary<string, object> m, PredictionFactory<TSrc, TDst> fac) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
-			return new[]
+			return new List<object>()
 			{
-				Payment.Create複2(),
-				Payment.Createワ1(),
-				Payment.Create勝1(),
-				Payment.Create連1(),
+				fac.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64()),
+				m["着順"],
+				m["単勝"],
+				string.Empty,
+				string.Empty,
+				string.Empty,
+				m["馬番"],
 			};
+		}
+
+		public static void AddOrderByDescendingScoreIndex(List<List<object>> racs)
+		{
+			var n = 1;
+			racs.OrderByDescending(x => x[0].GetDouble()).ForEach(x => x.Add(n++));
+		}
+
+		public static Payment Create順(int score, int rank)
+		{
+			// 指定のｽｺｱがrank以内であるかの割合を確認する
+			return new Payment(
+				p: 100,
+				h: $"ス{score}内{rank}",
+				f: (arr, _, j) => arr.Any(x => x[j].GetInt32() == score && x[1].GetInt32() <= rank) ? 100 : 0
+			);
+		}
+
+		public static Payment Create倍A(int score)
+		{
+			// 指定したｽｺｱ以内で最も倍率が高い
+			return new Payment(
+				p: 100,
+				h: $"倍{score}",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail, arr
+					.Where(x => x[j].GetInt32() <= score)
+					.OrderByDescending(x => x[2].GetSingle())
+					.ThenBy(x => x[j].GetInt32())
+					.Take(1)
+				)
+			);
+		}
+
+		public static Payment Create倍B(int score, int rank)
+		{
+			// 指定したｽｺｱ以内で倍率がrank番目に低い
+			return new Payment(
+				p: 100,
+				h: $"倍{score}",
+				f: (arr, payoutDetail, j) => Get単勝(payoutDetail, arr
+					.Where(x => x[j].GetInt32() <= score)
+					.OrderBy(x => x[2].GetSingle())
+					.ThenBy(x => x[j].GetInt32())
+					.Skip(rank)
+					.Take(1)
+				)
+			);
 		}
 
 		public static Payment Create単4()
 		{
 			return new Payment(
-				p:400,
+				p: 400,
 				h: "単4",
-				f:(arr, payoutDetail, j) => Get三連単(payoutDetail,
+				f: (arr, payoutDetail, j) => Get三連単(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 2),
 					arr.Where(x => x[j].GetInt32() <= 2),
 					arr.Where(x => x[j].GetInt32() <= 4)
+				)
+			);
+		}
+
+		public static Payment Create複1A(int awase)
+		{
+			return new Payment(
+				p: 100,
+				h: $"複1A{awase}",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 1),
+					arr.Where(x => x[j].GetInt32() == 2),
+					arr.Where(x => x[j].GetInt32() == awase)
+				)
+			);
+		}
+
+		public static Payment Create複1B(int awase)
+		{
+			return new Payment(
+				p: 100,
+				h: $"複1B{awase}",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 1),
+					arr.Where(x => x[j].GetInt32() == 2),
+					arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+						.OrderByDescending(x => x[2].GetSingle())
+						.ThenBy(x => x[j].GetInt32())
+						.Take(1)
 				)
 			);
 		}
