@@ -119,7 +119,7 @@ namespace Netkeiba
 						var models = new Dictionary<long, List<Dictionary<string, object>>>();
 						foreach (var raceid in raceids)
 						{
-							models[raceid] = await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid));
+							models[raceid] = await conn.GetRows("SELECT 馬番, ﾚｰｽID, 着順, 単勝, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid));
 						}
 
 						async Task PredictionModel<TSrc, TDst>(string index, PredictionFactory<TSrc, TDst> fac) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
@@ -662,7 +662,7 @@ namespace Netkeiba
 				{
 					var racs = new List<List<object>>();
 
-					foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
+					foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, 着順, 単勝, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 					{
 						// ｽｺｱ算出
 						racs.Add(Payment.GetPredictionBase(m, factory));

@@ -58,7 +58,7 @@ namespace Netkeiba
 			// 指定したｽｺｱ以内で最も倍率が高い
 			return new Payment(
 				p: 100,
-				h: $"倍{score}",
+				h: $"倍{score}A",
 				f: (arr, payoutDetail, j) => Get単勝(payoutDetail, arr
 					.Where(x => x[j].GetInt32() <= score)
 					.OrderByDescending(x => x[2].GetSingle())
@@ -73,12 +73,12 @@ namespace Netkeiba
 			// 指定したｽｺｱ以内で倍率がrank番目に低い
 			return new Payment(
 				p: 100,
-				h: $"倍{score}",
+				h: $"倍{score}B{rank}",
 				f: (arr, payoutDetail, j) => Get単勝(payoutDetail, arr
 					.Where(x => x[j].GetInt32() <= score)
 					.OrderBy(x => x[2].GetSingle())
 					.ThenBy(x => x[j].GetInt32())
-					.Skip(rank)
+					.Skip(rank - 1)
 					.Take(1)
 				)
 			);
