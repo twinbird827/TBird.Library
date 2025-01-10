@@ -128,7 +128,7 @@ namespace Netkeiba
 
 		public static Payment Create複1C(int awase)
 		{
-			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
 				.OrderByDescending(x => x[2].GetSingle())
 				.ThenBy(x => x[j].GetInt32())
 				.Take(2);
@@ -138,6 +138,23 @@ namespace Netkeiba
 				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1),
 					Temp(arr, j),
+					Temp(arr, j)
+				)
+			);
+		}
+
+		public static Payment Create複2C(int awase)
+		{
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+				.OrderByDescending(x => x[2].GetSingle())
+				.ThenBy(x => x[j].GetInt32())
+				.Take(2);
+			return new Payment(
+				p: 200,
+				h: $"複2C{awase}",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => x[j].GetInt32() <= 2),
 					Temp(arr, j)
 				)
 			);
@@ -244,6 +261,23 @@ namespace Netkeiba
 				h: "連1",
 				f: (arr, payoutDetail, j) => Get馬連(payoutDetail,
 					arr.Where(x => x[j].GetInt32() <= 2)
+				)
+			);
+		}
+
+		public static Payment Create馬(int take, int awase)
+		{
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+				.OrderByDescending(x => x[2].GetSingle())
+				.ThenBy(x => x[j].GetInt32())
+				.Take(take);
+
+			return new Payment(
+				p: 100 * take,
+				h: "馬" + take,
+				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
+					Temp(arr, j),
+					arr.Where(x => x[j].GetInt32() == 1)
 				)
 			);
 		}

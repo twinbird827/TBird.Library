@@ -44,17 +44,43 @@ namespace Netkeiba
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			var pays = Enumerable.Range(1, 9).Select(i => new[]
+			var pays = Enumerable.Range(1, 6).Select(i => new[]
 			{
 				Payment.Create順(i, 1),
+			}).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create順(i, 2),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create順(i, 3),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create倍A(i),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create倍B(i, 2),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create複1A(i),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create複1B(i),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
 				Payment.Create複1C(i),
-			}).SelectMany(_ => _).ToArray();
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
+				Payment.Create複2C(i),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
+				Payment.Create馬(1, i),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
+				Payment.Create馬(2, i),
+			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			{
+				Payment.Create馬(3, i),
+			})).SelectMany(_ => _).ToArray();
 
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
 
@@ -72,7 +98,7 @@ namespace Netkeiba
 					// ﾍｯﾀﾞの書き込み
 					await file.WriteLineAsync(
 						Arr(
-							Arr("Rank", "Index", "Score", "Rate"),
+							Arr("Rank", "Index", "Count"),
 							pays.SelectMany(x => Arr(x.head + "+S", x.head + "+R"))
 						).SelectMany(_ => _).GetString(",")
 					);
@@ -150,7 +176,7 @@ namespace Netkeiba
 							await file.WriteLineAsync(
 								Arr(
 									Arr(rank, index),
-									Arr(far.Score, far.Rate).Select(x => x.ToString("F4")),
+									Arr(rets.Count.Str()),
 									pays.SelectMany((pay, i) => Arr(
 										rets.Sum(x => x[i]) / (rets.Count * pay.pay) * 1F,
 										rets.Count(x => x[i] > 0) * 1F / rets.Count * 1F
