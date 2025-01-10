@@ -44,42 +44,109 @@ namespace Netkeiba
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			var pays = Enumerable.Range(1, 6).Select(i => new[]
+			IEnumerable<int> GetArr(int start) => Enumerable.Range(start, 7 - (start - 1));
+
+			var pays = GetArr(1).Select(i => new[]
 			{
 				Payment.Create順(i, 1),
-			}).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			}).Concat(GetArr(1).Select(i => new[]
 			{
 				Payment.Create順(i, 2),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			})).Concat(GetArr(1).Select(i => new[]
 			{
 				Payment.Create順(i, 3),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			})).Concat(GetArr(1).Select(i => new[]
 			{
+				// 指定したｽｺｱ
 				Payment.Create倍A(i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			})).Concat(GetArr(1).Select(i => new[]
 			{
-				Payment.Create倍B(i, 2),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+				// 指定したｽｺｱ以内で最も倍率が高い
+				Payment.Create倍B(i),
+			})).Concat(GetArr(1).Select(i => new[]
 			{
+				// 1, 2固定で3=指定したｽｺｱ
 				Payment.Create複1A(i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+			})).Concat(GetArr(3).Select(i => new[]
 			{
-				Payment.Create複1B(i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+				// 1, 2固定で3=倍率が最も高い1通り
+				Payment.Create複B(i, 1),
+			})).Concat(GetArr(4).Select(i => new[]
 			{
-				Payment.Create複1C(i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+				// 1, 2固定で3=倍率が最も高い2通り
+				Payment.Create複B(i, 2),
+			})).Concat(GetArr(5).Select(i => new[]
 			{
-				Payment.Create複2C(i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+				// 1, 2固定で3=倍率が最も高い3通り
+				Payment.Create複B(i, 3),
+			})).Concat(GetArr(6).Select(i => new[]
 			{
-				Payment.Create馬(1, i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+				// 1, 2固定で3=倍率が最も高い4通り
+				Payment.Create複B(i, 4),
+			})).Concat(GetArr(3).Select(i => new[]
 			{
-				Payment.Create馬(2, i),
-			})).Concat(Enumerable.Range(1, 6).Select(i => new[]
+				// 1固定で2, 3=倍率が高い1通り
+				Payment.Create複C(i, 1),
+			})).Concat(GetArr(4).Select(i => new[]
 			{
-				Payment.Create馬(3, i),
+				// 1固定で2, 3=倍率が高い2通り
+				Payment.Create複C(i, 2),
+			})).Concat(GetArr(5).Select(i => new[]
+			{
+				// 1固定で2, 3=倍率が高い3通り
+				Payment.Create複C(i, 3),
+			})).Concat(GetArr(6).Select(i => new[]
+			{
+				// 1固定で2, 3=倍率が高い4通り
+				Payment.Create複C(i, 4),
+			})).Concat(GetArr(2).Select(i => new[]
+			{
+				// 1固定で2=倍率が高い1通り
+				Payment.Create単A(i, 1),
+			})).Concat(GetArr(3).Select(i => new[]
+			{
+				// 1固定で2=倍率が高い2通り
+				Payment.Create単A(i, 2),
+			})).Concat(GetArr(4).Select(i => new[]
+			{
+				// 1固定で2=倍率が高い3通り
+				Payment.Create単A(i, 3),
+			})).Concat(GetArr(5).Select(i => new[]
+			{
+				// 1固定で2=倍率が高い4通り
+				Payment.Create単A(i, 4),
+			})).Concat(GetArr(2).Select(i => new[]
+			{
+				// 2固定で1=倍率が高い1通り
+				Payment.Create単B(i, 1),
+			})).Concat(GetArr(3).Select(i => new[]
+			{
+				// 2固定で1=倍率が高い2通り
+				Payment.Create単B(i, 2),
+			})).Concat(GetArr(4).Select(i => new[]
+			{
+				// 2固定で1=倍率が高い3通り
+				Payment.Create単B(i, 3),
+			})).Concat(GetArr(5).Select(i => new[]
+			{
+				// 2固定で1=倍率が高い4通り
+				Payment.Create単B(i, 4),
+			})).Concat(GetArr(2).Select(i => new[]
+			{
+				// 2=1, 2で倍率が低い方, 1=倍率が1通り
+				Payment.Create単C(i, 1),
+			})).Concat(GetArr(3).Select(i => new[]
+			{
+				// 2=1, 2で倍率が低い方, 1=倍率が2通り
+				Payment.Create単C(i, 1),
+			})).Concat(GetArr(4).Select(i => new[]
+			{
+				// 2=1, 2で倍率が低い方, 1=倍率が3通り
+				Payment.Create単C(i, 1),
+			})).Concat(GetArr(5).Select(i => new[]
+			{
+				// 2=1, 2で倍率が低い方, 1=倍率が4通り
+				Payment.Create単C(i, 1),
 			})).SelectMany(_ => _).ToArray();
 
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
@@ -149,7 +216,7 @@ namespace Netkeiba
 							models[raceid] = await conn.GetRows("SELECT 馬番, ﾚｰｽID, 着順, 単勝, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid));
 						}
 
-						async Task PredictionModel<TSrc, TDst>(string index, PredictionFactory<TSrc, TDst> fac) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+						async Task PredictionModelArr<TSrc, TDst>(string index, PredictionFactory<TSrc, TDst>[] facs) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 						{
 							var rets = new List<float[]>();
 
@@ -159,7 +226,7 @@ namespace Netkeiba
 
 								foreach (var m in models[raceid])
 								{
-									racs.Add(Payment.GetPredictionBase(m, fac));
+									racs.Add(Payment.GetPredictionBase(m, facs));
 								}
 
 								// ｽｺｱで順位付けをする
@@ -172,7 +239,6 @@ namespace Netkeiba
 								}
 							}
 
-							var far = fac.GetResult();
 							await file.WriteLineAsync(
 								Arr(
 									Arr(rank, index),
@@ -184,7 +250,12 @@ namespace Netkeiba
 								).SelectMany(_ => _).GetString(",")
 							);
 						}
-						const double PredictionModelLength = 5;
+						Task PredictionModel<TSrc, TDst>(string index, PredictionFactory<TSrc, TDst> fac) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+						{
+							return PredictionModelArr(index, Arr(fac));
+						}
+
+						const double PredictionModelLength = 6;
 						await PredictionModel("B1", new BinaryClassificationPredictionFactory(mlContext, rank, 1));
 						Progress.Value += 1 / PredictionModelLength;
 						await PredictionModel("B2", new BinaryClassificationPredictionFactory(mlContext, rank, 2));
@@ -194,6 +265,13 @@ namespace Netkeiba
 						await PredictionModel("B4", new BinaryClassificationPredictionFactory(mlContext, rank, 7));
 						Progress.Value += 1 / PredictionModelLength;
 						await PredictionModel("R1", new RegressionPredictionFactory(mlContext, rank, 1));
+						Progress.Value += 1 / PredictionModelLength;
+						await PredictionModelArr("BX", Arr(
+							new BinaryClassificationPredictionFactory(mlContext, rank, 1),
+							new BinaryClassificationPredictionFactory(mlContext, rank, 2),
+							new BinaryClassificationPredictionFactory(mlContext, rank, 6),
+							new BinaryClassificationPredictionFactory(mlContext, rank, 7)
+						));
 						Progress.Value += 1 / PredictionModelLength;
 					}
 				}
@@ -676,7 +754,7 @@ namespace Netkeiba
 				{
 					Payment.Create複2(),
 					Payment.Createワ1(),
-					Payment.Create勝1(),
+					Payment.Create勝(1),
 					Payment.Create連1(),
 				};
 
@@ -692,7 +770,7 @@ namespace Netkeiba
 					foreach (var m in await conn.GetRows("SELECT 馬番, ﾚｰｽID, 着順, 単勝, Features FROM t_model WHERE ﾚｰｽID = ?", SQLiteUtil.CreateParameter(DbType.Int64, raceid)))
 					{
 						// ｽｺｱ算出
-						racs.Add(Payment.GetPredictionBase(m, factory));
+						racs.Add(Payment.GetPredictionBase(m, Arr(factory)));
 					}
 
 					// ｽｺｱで順位付けをする

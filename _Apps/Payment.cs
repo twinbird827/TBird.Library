@@ -23,11 +23,11 @@ namespace Netkeiba
 
 		public const int OrderByDescendingScoreIndex = 7;
 
-		public static List<object> GetPredictionBase<TSrc, TDst>(Dictionary<string, object> m, PredictionFactory<TSrc, TDst> fac) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+		public static List<object> GetPredictionBase<TSrc, TDst>(Dictionary<string, object> m, PredictionFactory<TSrc, TDst>[] facs) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
 		{
 			return new List<object>()
 			{
-				fac.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64()),
+				facs.Select(fac => fac.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64())).Average(),
 				m["着順"],
 				m["単勝"],
 				string.Empty,
@@ -55,30 +55,26 @@ namespace Netkeiba
 
 		public static Payment Create倍A(int score)
 		{
-			// 指定したｽｺｱ以内で最も倍率が高い
+			// 指定したｽｺｱ
 			return new Payment(
 				p: 100,
 				h: $"倍{score}A",
 				f: (arr, payoutDetail, j) => Get単勝(payoutDetail, arr
-					.Where(x => x[j].GetInt32() <= score)
-					.OrderByDescending(x => x[2].GetSingle())
-					.ThenBy(x => x[j].GetInt32())
-					.Take(1)
+					.Where(x => x[j].GetInt32() == score)
 				)
 			);
 		}
 
-		public static Payment Create倍B(int score, int rank)
+		public static Payment Create倍B(int score)
 		{
-			// 指定したｽｺｱ以内で倍率がrank番目に低い
+			// 指定したｽｺｱ以内で最も倍率が高い
 			return new Payment(
 				p: 100,
-				h: $"倍{score}B{rank}",
+				h: $"倍{score}B",
 				f: (arr, payoutDetail, j) => Get単勝(payoutDetail, arr
 					.Where(x => x[j].GetInt32() <= score)
-					.OrderBy(x => x[2].GetSingle())
+					.OrderByDescending(x => x[2].GetSingle())
 					.ThenBy(x => x[j].GetInt32())
-					.Skip(rank - 1)
 					.Take(1)
 				)
 			);
@@ -99,6 +95,7 @@ namespace Netkeiba
 
 		public static Payment Create複1A(int awase)
 		{
+			// 1, 2固定で3=指定したｽｺｱ
 			return new Payment(
 				p: 100,
 				h: $"複1A{awase}",
@@ -110,31 +107,33 @@ namespace Netkeiba
 			);
 		}
 
-		public static Payment Create複1B(int awase)
+		public static Payment Create複B(int awase, int take)
 		{
+			// 1, 2固定で3=倍率が最も高い
 			return new Payment(
-				p: 100,
-				h: $"複1B{awase}",
+				p: 100 * take,
+				h: $"複{take}B{awase}",
 				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 1),
-					arr.Where(x => x[j].GetInt32() == 2),
-					arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+					arr.Where(x => x[j].GetInt32() <= take),
+					arr.Where(x => x[j].GetInt32() <= take),
+					arr.Where(x => take < x[j].GetInt32() && x[j].GetInt32() <= awase)
 						.OrderByDescending(x => x[2].GetSingle())
 						.ThenBy(x => x[j].GetInt32())
-						.Take(1)
+						.Take(take)
 				)
 			);
 		}
 
-		public static Payment Create複1C(int awase)
+		public static Payment Create複C(int awase, int take)
 		{
+			// 1固定で2, 3=倍率が高い順
 			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
 				.OrderByDescending(x => x[2].GetSingle())
 				.ThenBy(x => x[j].GetInt32())
-				.Take(2);
+				.Take(1 + take);
 			return new Payment(
-				p: 100,
-				h: $"複1C{awase}",
+				p: 100 * take,
+				h: $"複{take}C{awase}",
 				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1),
 					Temp(arr, j),
@@ -143,19 +142,63 @@ namespace Netkeiba
 			);
 		}
 
-		public static Payment Create複2C(int awase)
+		public static Payment Create単A(int take, int awase)
 		{
-			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+			// 1固定で倍率が高い順
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
 				.OrderByDescending(x => x[2].GetSingle())
 				.ThenBy(x => x[j].GetInt32())
-				.Take(2);
+				.Take(take);
+
 			return new Payment(
-				p: 200,
-				h: $"複2C{awase}",
-				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
-					arr.Where(x => x[j].GetInt32() <= 2),
-					arr.Where(x => x[j].GetInt32() <= 2),
+				p: 100 * take,
+				h: "単A" + take,
+				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 1),
 					Temp(arr, j)
+				)
+			);
+		}
+
+		public static Payment Create単B(int take, int awase)
+		{
+			// 2固定で倍率が高い順
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+				.OrderByDescending(x => x[2].GetSingle())
+				.ThenBy(x => x[j].GetInt32())
+				.Take(take);
+
+			return new Payment(
+				p: 100 * take,
+				h: "単B" + take,
+				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
+					Temp(arr, j),
+					arr.Where(x => x[j].GetInt32() == 1)
+				)
+			);
+		}
+
+		public static Payment Create単C(int take, int awase)
+		{
+			// 2=1, 2で倍率が低い方, 1=倍率が高い順
+			int Temp1(List<List<object>> arr, int j) => arr
+				.OrderBy(x => x[j].GetInt32())
+				.ThenBy(x => x[2].GetSingle())
+				.Take(2)
+				.OrderBy(x => x[2].GetSingle())
+				.First()[j].GetInt32();
+
+			IEnumerable<List<object>> Temp2(List<List<object>> arr, int i, int j) => arr.Where(x => i != x[j].GetInt32() && x[j].GetInt32() <= awase)
+				.OrderByDescending(x => x[2].GetSingle())
+				.ThenBy(x => x[j].GetInt32())
+				.Take(take);
+
+			return new Payment(
+				p: 100 * take,
+				h: "単C" + take,
+				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
+					Temp2(arr, Temp1(arr, j), j),
+					arr.Where(x => x[j].GetInt32() == Temp1(arr, j))
 				)
 			);
 		}
@@ -282,134 +325,14 @@ namespace Netkeiba
 			);
 		}
 
-		public static Payment Create勝1()
+		public static Payment Create勝(int index)
 		{
+			// 指定したｽｺｱの単勝
 			return new Payment(
 				p: 100,
-				h: "勝1",
+				h: "勝" + index,
 				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 1)
-				)
-			);
-		}
-
-		public static Payment Create勝2()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝2",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 2)
-				)
-			);
-		}
-
-		public static Payment Create勝3()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝3",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 3)
-				)
-			);
-		}
-
-		public static Payment Create勝4()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝4",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 4)
-				)
-			);
-		}
-
-		public static Payment Create勝5()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝5",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 5)
-				)
-			);
-		}
-
-		public static Payment Create勝6()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝6",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 6)
-				)
-			);
-		}
-
-		public static Payment Create勝7()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝7",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 7)
-				)
-			);
-		}
-
-		public static Payment Create勝8()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝8",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 8)
-				)
-			);
-		}
-
-		public static Payment Create勝9()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝9",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 9)
-				)
-			);
-		}
-
-		public static Payment Create勝A()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝A",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 10)
-				)
-			);
-		}
-
-		public static Payment Create勝B()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝B",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 11)
-				)
-			);
-		}
-
-		public static Payment Create勝C()
-		{
-			return new Payment(
-				p: 100,
-				h: "勝C",
-				f: (arr, payoutDetail, j) => Get単勝(payoutDetail,
-					arr.Where(x => x[j].GetInt32() == 12)
+					arr.Where(x => x[j].GetInt32() == index)
 				)
 			);
 		}
