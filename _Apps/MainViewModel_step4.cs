@@ -239,6 +239,8 @@ namespace Netkeiba
 
 					AddLog($"End Step4 Race: {raceid}");
 
+					if (arr.Any()) lists[tag].AddRange(arr);
+
 					Progress.Value += 1;
 
 				}

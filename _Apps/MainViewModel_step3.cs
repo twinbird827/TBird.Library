@@ -9,6 +9,7 @@ using System.Data;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -44,110 +45,31 @@ namespace Netkeiba
 		public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		{
 			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			IEnumerable<int> GetArr(int start) => Enumerable.Range(start, 7 - (start - 1));
+			// ｽｺｱ数=7
+			IEnumerable<int> GetAwase(int start) => Enumerable.Range(start, 7 - (start - 1));
 
-			var pays = GetArr(1).Select(i => new[]
-			{
-				Payment.Create順(i, 1),
-			}).Concat(GetArr(1).Select(i => new[]
-			{
-				Payment.Create順(i, 2),
-			})).Concat(GetArr(1).Select(i => new[]
-			{
-				Payment.Create順(i, 3),
-			})).Concat(GetArr(1).Select(i => new[]
-			{
-				// 指定したｽｺｱ
-				Payment.Create倍A(i),
-			})).Concat(GetArr(1).Select(i => new[]
-			{
-				// 指定したｽｺｱ以内で最も倍率が高い
-				Payment.Create倍B(i),
-			})).Concat(GetArr(1).Select(i => new[]
-			{
-				// 1, 2固定で3=指定したｽｺｱ
-				Payment.Create複1A(i),
-			})).Concat(GetArr(3).Select(i => new[]
-			{
-				// 1, 2固定で3=倍率が最も高い1通り
-				Payment.Create複B(i, 1),
-			})).Concat(GetArr(4).Select(i => new[]
-			{
-				// 1, 2固定で3=倍率が最も高い2通り
-				Payment.Create複B(i, 2),
-			})).Concat(GetArr(5).Select(i => new[]
-			{
-				// 1, 2固定で3=倍率が最も高い3通り
-				Payment.Create複B(i, 3),
-			})).Concat(GetArr(6).Select(i => new[]
-			{
-				// 1, 2固定で3=倍率が最も高い4通り
-				Payment.Create複B(i, 4),
-			})).Concat(GetArr(3).Select(i => new[]
-			{
-				// 1固定で2, 3=倍率が高い1通り
-				Payment.Create複C(i, 1),
-			})).Concat(GetArr(4).Select(i => new[]
-			{
-				// 1固定で2, 3=倍率が高い2通り
-				Payment.Create複C(i, 2),
-			})).Concat(GetArr(5).Select(i => new[]
-			{
-				// 1固定で2, 3=倍率が高い3通り
-				Payment.Create複C(i, 3),
-			})).Concat(GetArr(6).Select(i => new[]
-			{
-				// 1固定で2, 3=倍率が高い4通り
-				Payment.Create複C(i, 4),
-			})).Concat(GetArr(2).Select(i => new[]
-			{
-				// 1固定で2=倍率が高い1通り
-				Payment.Create単A(i, 1),
-			})).Concat(GetArr(3).Select(i => new[]
-			{
-				// 1固定で2=倍率が高い2通り
-				Payment.Create単A(i, 2),
-			})).Concat(GetArr(4).Select(i => new[]
-			{
-				// 1固定で2=倍率が高い3通り
-				Payment.Create単A(i, 3),
-			})).Concat(GetArr(5).Select(i => new[]
-			{
-				// 1固定で2=倍率が高い4通り
-				Payment.Create単A(i, 4),
-			})).Concat(GetArr(2).Select(i => new[]
-			{
-				// 2固定で1=倍率が高い1通り
-				Payment.Create単B(i, 1),
-			})).Concat(GetArr(3).Select(i => new[]
-			{
-				// 2固定で1=倍率が高い2通り
-				Payment.Create単B(i, 2),
-			})).Concat(GetArr(4).Select(i => new[]
-			{
-				// 2固定で1=倍率が高い3通り
-				Payment.Create単B(i, 3),
-			})).Concat(GetArr(5).Select(i => new[]
-			{
-				// 2固定で1=倍率が高い4通り
-				Payment.Create単B(i, 4),
-			})).Concat(GetArr(2).Select(i => new[]
-			{
-				// 2=1, 2で倍率が低い方, 1=倍率が1通り
-				Payment.Create単C(i, 1),
-			})).Concat(GetArr(3).Select(i => new[]
-			{
-				// 2=1, 2で倍率が低い方, 1=倍率が2通り
-				Payment.Create単C(i, 1),
-			})).Concat(GetArr(4).Select(i => new[]
-			{
-				// 2=1, 2で倍率が低い方, 1=倍率が3通り
-				Payment.Create単C(i, 1),
-			})).Concat(GetArr(5).Select(i => new[]
-			{
-				// 2=1, 2で倍率が低い方, 1=倍率が4通り
-				Payment.Create単C(i, 1),
-			})).SelectMany(_ => _).ToArray();
+			var pays = Arr(
+				// 指定したｽｺｱがrank以内であるか
+				Enumerable.Range(1, 3).SelectMany(rank => GetAwase(1).Select(i => Payment.Create順(i, rank))),
+				// 指定したｽｺｱの単勝
+				GetAwase(1).Select(i => Payment.Create倍A(i)),
+				// 指定したｽｺｱ内で最も倍率が高い単勝
+				GetAwase(1).Select(i => Payment.Create倍B(i)),
+				// 1, 2固定で3=指定したｽｺｱの昇順で1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(3 + take).Select(i => Payment.Create複A(i, take + 1))),
+				// 1, 2固定で3=倍率が最も高い1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(3 + take).Select(i => Payment.Create複B(i, take + 1))),
+				// 1固定で2, 3=倍率が高い1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(3 + take).Select(i => Payment.Create複C(i, take + 1))),
+				// 1固定で2=倍率が高い1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(2 + take).Select(i => Payment.Create単A(i, take + 1))),
+				// 2固定で1=倍率が高い1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(2 + take).Select(i => Payment.Create単B(i, take + 1))),
+				// 2=1, 2で倍率が低い方, 1=倍率が高い1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(2 + take).Select(i => Payment.Create単C(i, take + 1))),
+				// 1固定, 2=倍率高い順1-4通り
+				Enumerable.Range(0, 4).SelectMany(take => GetAwase(2 + take).Select(i => Payment.CreateワA(i, take + 1)))
+			).SelectMany(_ => _).ToArray();
 
 			var path = Path.Combine("result", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-Prediction.csv");
 
@@ -158,7 +80,7 @@ namespace Netkeiba
 			{
 				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
 				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
-				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
+				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.025, (x, y) => x - y).GetInt64();
 
 				using (var file = new FileAppendWriter(path))
 				{

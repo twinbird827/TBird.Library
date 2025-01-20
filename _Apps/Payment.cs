@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
+using Tensorflow.Gradients;
 
 namespace Netkeiba
 {
@@ -48,7 +49,7 @@ namespace Netkeiba
 			// 指定のｽｺｱがrank以内であるかの割合を確認する
 			return new Payment(
 				p: 100,
-				h: $"ス{score}内{rank}",
+				h: $"ス{rank}内{score}",
 				f: (arr, _, j) => arr.Any(x => x[j].GetInt32() == score && x[1].GetInt32() <= rank) ? 100 : 0
 			);
 		}
@@ -107,6 +108,20 @@ namespace Netkeiba
 			);
 		}
 
+		public static Payment Create複A(int awase, int take)
+		{
+			// 1, 2固定で3=指定したｽｺｱ
+			return new Payment(
+				p: 100 * take,
+				h: $"複{take}A{awase}",
+				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => x[j].GetInt32().Run(no => 2 < no && no <= awase)).OrderBy(x => x[j].GetInt32()).Take(take)
+				)
+			);
+		}
+
 		public static Payment Create複B(int awase, int take)
 		{
 			// 1, 2固定で3=倍率が最も高い
@@ -114,9 +129,9 @@ namespace Netkeiba
 				p: 100 * take,
 				h: $"複{take}B{awase}",
 				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
-					arr.Where(x => x[j].GetInt32() <= take),
-					arr.Where(x => x[j].GetInt32() <= take),
-					arr.Where(x => take < x[j].GetInt32() && x[j].GetInt32() <= awase)
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => x[j].GetInt32() <= 2),
+					arr.Where(x => 2 < x[j].GetInt32() && x[j].GetInt32() <= awase)
 						.OrderByDescending(x => x[2].GetSingle())
 						.ThenBy(x => x[j].GetInt32())
 						.Take(take)
@@ -130,9 +145,9 @@ namespace Netkeiba
 			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
 				.OrderByDescending(x => x[2].GetSingle())
 				.ThenBy(x => x[j].GetInt32())
-				.Take(1 + take);
+				.Take(take + 1);
 			return new Payment(
-				p: 100 * take,
+				p: 100 * take * (take - 1),
 				h: $"複{take}C{awase}",
 				f: (arr, payoutDetail, j) => Get三連複(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1),
@@ -142,17 +157,18 @@ namespace Netkeiba
 			);
 		}
 
-		public static Payment Create単A(int take, int awase)
+		public static Payment Create単A(int awase, int take)
 		{
 			// 1固定で倍率が高い順
-			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr
+				.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
 				.OrderByDescending(x => x[2].GetSingle())
 				.ThenBy(x => x[j].GetInt32())
 				.Take(take);
 
 			return new Payment(
 				p: 100 * take,
-				h: "単A" + take,
+				h: $"単{take}A{awase}",
 				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
 					arr.Where(x => x[j].GetInt32() == 1),
 					Temp(arr, j)
@@ -160,7 +176,7 @@ namespace Netkeiba
 			);
 		}
 
-		public static Payment Create単B(int take, int awase)
+		public static Payment Create単B(int awase, int take)
 		{
 			// 2固定で倍率が高い順
 			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr.Where(x => 1 < x[j].GetInt32() && x[j].GetInt32() <= awase)
@@ -170,7 +186,7 @@ namespace Netkeiba
 
 			return new Payment(
 				p: 100 * take,
-				h: "単B" + take,
+				h: $"単{take}B{awase}",
 				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
 					Temp(arr, j),
 					arr.Where(x => x[j].GetInt32() == 1)
@@ -178,7 +194,7 @@ namespace Netkeiba
 			);
 		}
 
-		public static Payment Create単C(int take, int awase)
+		public static Payment Create単C(int awase, int take)
 		{
 			// 2=1, 2で倍率が低い方, 1=倍率が高い順
 			int Temp1(List<List<object>> arr, int j) => arr
@@ -195,10 +211,29 @@ namespace Netkeiba
 
 			return new Payment(
 				p: 100 * take,
-				h: "単C" + take,
+				h: $"単{take}C{awase}",
 				f: (arr, payoutDetail, j) => Get馬単(payoutDetail,
 					Temp2(arr, Temp1(arr, j), j),
 					arr.Where(x => x[j].GetInt32() == Temp1(arr, j))
+				)
+			);
+		}
+
+		public static Payment CreateワA(int awase, int take)
+		{
+			// 1固定, 2=倍率高い順
+			IEnumerable<List<object>> Temp(List<List<object>> arr, int j) => arr
+				.Where(x => x[j].GetInt32().Run(no => 1 < no && no <= awase))
+				.OrderByDescending(x => x[2].GetSingle())
+				.ThenBy(x => x[j].GetInt32())
+				.Take(take);
+
+			return new Payment(
+				p: 100 * take,
+				h: $"ワ{take}A{awase}",
+				f: (arr, payoutDetail, j) => Getワイド(payoutDetail,
+					arr.Where(x => x[j].GetInt32() == 1),
+					Temp(arr, j)
 				)
 			);
 		}
@@ -383,6 +418,23 @@ namespace Netkeiba
 		{
 			var iarr = arr1.Select(x => x[6].GetInt32());
 			var jarr = arr1.Select(x => x[6].GetInt32());
+
+			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j =>
+			{
+				return new[]
+				{
+					$"{i}-{j}",
+					$"{j}-{i}",
+				};
+			})).ToArray();
+
+			return GetResult(payoutDetail, "ワイド", arr);
+		}
+
+		private static object Getワイド(Dictionary<string, string> payoutDetail, IEnumerable<List<object>> arr1, IEnumerable<List<object>> arr2)
+		{
+			var iarr = arr1.Select(x => x[6].GetInt32());
+			var jarr = arr2.Select(x => x[6].GetInt32());
 
 			var arr = iarr.SelectMany(i => jarr.Where(j => j != i).SelectMany(j =>
 			{
