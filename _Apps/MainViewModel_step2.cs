@@ -246,6 +246,9 @@ namespace Netkeiba
 
 		private float Var(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.Variance() : 0F);
 
+		private List<Dictionary<string, object>> 同ﾚｰｽ産父情報 = new();
+		private List<Dictionary<string, object>> 同ﾚｰｽ産母父情報 = new();
+
 		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			// 同ﾚｰｽの平均を取りたいときに使用する
@@ -254,6 +257,21 @@ namespace Netkeiba
 			);
 
 			TOU[raceid.GetInt64()] = 同ﾚｰｽ.Count;
+
+			var 開催WHERE = Arr(
+				SQLiteUtil.CreateParameter(DbType.Int64, 同ﾚｰｽ[0]["開催日数"].GetInt64()),
+				SQLiteUtil.CreateParameter(DbType.Int64, 同ﾚｰｽ[0]["開催日数"].GetInt64() - 365)
+			);
+
+			同ﾚｰｽ産父情報 = await conn.GetRows(
+				$"SELECT t_orig.*, a.父ID 父ID FROM t_orig, t_ketto a WHERE a.父ID IN ({同ﾚｰｽ.Select(x => "?").GetString(",")}) AND a.馬ID = t_orig.馬ID AND 開催日数 < ? AND 開催日数 > ?",
+				同ﾚｰｽ.Select(x => SQLiteUtil.CreateParameter(DbType.String, x["父ID"])).Concat(開催WHERE).ToArray()
+			);
+
+			同ﾚｰｽ産母父情報 = await conn.GetRows(
+				$"SELECT t_orig.*, a.父ID 母父ID FROM t_orig, t_ketto a, t_ketto b WHERE b.父ID IN ({同ﾚｰｽ.Select(x => "?").GetString(",")}) AND a.母ID = b.馬ID AND a.馬ID = t_orig.馬ID AND 開催日数 < ? AND 開催日数 > ?",
+				同ﾚｰｽ.Select(x => SQLiteUtil.CreateParameter(DbType.String, x["母父ID"])).Concat(開催WHERE).ToArray()
+			);
 
 			// ﾚｰｽ毎の纏まり
 			var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切)).WhenAll();
@@ -361,9 +379,10 @@ namespace Netkeiba
 
 			float GET着距(Dictionary<string, object> tgt) => GET着順(tgt) / GET距離(tgt);
 
+			const float RATE = 1.15F;
+
 			void ADD情報(string key, List<Dictionary<string, object>> arr, int i)
 			{
-				const float RATE = 1.15F;
 				var KEY = $"{key}{i.ToString(2)}";
 
 				dic[$"{KEY}着順A"] = Median(arr, rnk, "着順");
@@ -390,31 +409,36 @@ namespace Netkeiba
 				dic[$"{KEY}ﾀｲﾑ差"] = !rnk.Contains("障")
 					? Median(arr.Select(x => x.SINGLE("ﾀｲﾑ指数") / TOP[x["ﾚｰｽID"]].SINGLE("ﾀｲﾑ指数")), DEF[rnk]["ﾀｲﾑ差"])
 					: 0F;
+			}
 
-				//var rnktmp = AppUtil.RankAges.AsParallel().ToDictionary(
-				//	r => r,
-				//	r => arr.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(GET着距).ToArray());
-				//AppUtil.RankAges.ForEach(r =>
-				//{
-				//	float GetDefault(int i, Func<float[], float> func)
-				//	{
-				//		if (AppUtil.RankAges.Length <= i)
-				//		{
-				//			return 1.00F;
-				//		}
-				//		if (rnktmp[AppUtil.RankAges[i]].Any())
-				//		{
-				//			return func(rnktmp[AppUtil.RankAges[i]]) * RATE;
-				//		}
-				//		else
-				//		{
-				//			return GetDefault(i + 1, func) * RATE;
-				//		}
-				//	}
+			void ADDﾗﾝｸ情報(string key, List<Dictionary<string, object>> arr, int i)
+			{
+				var KEY = $"{key}{i.ToString(2)}";
 
-				//	var tmp = rnktmp[r];
-				//	dic[$"{KEY}着順{r}1"] = tmp.Any() ? tmp.Median() : GetDefault(AppUtil.RankAges.IndexOf(r) + 1, xxx => xxx.Median());
-				//});
+				var rnktmp = AppUtil.RankAges.AsParallel().ToDictionary(
+					r => r,
+					r => arr.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(GET着距).ToArray());
+				AppUtil.RankAges.ForEach(r =>
+				{
+					float GetDefault(int i, Func<float[], float> func)
+					{
+						if (AppUtil.RankAges.Length <= i)
+						{
+							return 1.00F;
+						}
+						if (rnktmp[AppUtil.RankAges[i]].Any())
+						{
+							return func(rnktmp[AppUtil.RankAges[i]]) * RATE;
+						}
+						else
+						{
+							return GetDefault(i + 1, func) * RATE;
+						}
+					}
+
+					var tmp = rnktmp[r];
+					dic[$"{KEY}着順{r}"] = tmp.Any() ? tmp.Median() : GetDefault(AppUtil.RankAges.IndexOf(r) + 1, xxx => xxx.Median());
+				});
 			}
 
 			List<Dictionary<string, object>>[] CREATE情報(IEnumerable<Dictionary<string, object>> arr, int[] takes)
@@ -501,6 +525,7 @@ namespace Netkeiba
 				CREATE情報(産父情報, Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("産父", arr, i);
+					ADDﾗﾝｸ情報("産父", arr, i);
 				});
 			}
 
@@ -515,6 +540,7 @@ namespace Netkeiba
 				CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("産母父", arr, i);
+					ADDﾗﾝｸ情報("産母父", arr, i);
 				});
 			}
 
@@ -529,6 +555,7 @@ namespace Netkeiba
 				CREATE情報(騎手情報, Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("騎手", arr, i);
+					ADDﾗﾝｸ情報("騎手", arr, i);
 				});
 			}
 
