@@ -516,13 +516,13 @@ namespace Netkeiba
 
 			//using (MessageService.Measure("産父情報"))
 			{
-				var 産父情報 = await conn.GetRows(
-					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-					SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				);
-				CREATE情報(産父情報, Arr(500)).ForEach((arr, i) =>
+				//var 産父情報 = await conn.GetRows(
+				//	$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+				//	SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
+				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				//);
+				CREATE情報(同ﾚｰｽ産父情報.Where(x => x["父ID"] == src["父ID"]), Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("産父", arr, i);
 					ADDﾗﾝｸ情報("産父", arr, i);
@@ -531,13 +531,13 @@ namespace Netkeiba
 
 			//using (MessageService.Measure("産母父"))
 			{
-				var 産母父情報 = await conn.GetRows(
-					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-					SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				);
-				CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
+				//var 産母父情報 = await conn.GetRows(
+				//	$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+				//	SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
+				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				//);
+				CREATE情報(同ﾚｰｽ産母父情報.Where(x => x["母父ID"] == src["母父ID"]), Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("産母父", arr, i);
 					ADDﾗﾝｸ情報("産母父", arr, i);
