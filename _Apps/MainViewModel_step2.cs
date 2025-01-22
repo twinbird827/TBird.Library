@@ -466,56 +466,71 @@ namespace Netkeiba
 				dic[$"勝上差{KEY}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"]])), DEF[rnk]["勝上差"]);
 			});
 
-			var 父馬情報 = await conn.GetRows(
-					$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-					SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
-			);
-			CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
+			//using (MessageService.Measure("父馬"))
 			{
-				ADD情報("父馬", arr, i);
-			});
+				var 父馬情報 = await conn.GetRows(
+						$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+						SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
+				);
+				CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
+				{
+					ADD情報("父馬", arr, i);
+				});
+			}
 
-			var 母父馬情報 = await conn.GetRows(
+			//using (MessageService.Measure("母父馬"))
+			{
+				var 母父馬情報 = await conn.GetRows(
 					$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src["母父ID"])
-			);
-			CREATE情報(母父馬情報, Arr(500)).ForEach((arr, i) =>
-			{
-				ADD情報("母父馬", arr, i);
-			});
+				);
+				CREATE情報(母父馬情報, Arr(500)).ForEach((arr, i) =>
+				{
+					ADD情報("母父馬", arr, i);
+				});
+			}
 
-			var 産父情報 = await conn.GetRows(
-				$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-				SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
-				SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-				SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-			);
-			CREATE情報(産父情報, Arr(500)).ForEach((arr, i) =>
+			//using (MessageService.Measure("産父情報"))
 			{
-				ADD情報("産父", arr, i);
-			});
+				var 産父情報 = await conn.GetRows(
+					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+					SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				);
+				CREATE情報(産父情報, Arr(500)).ForEach((arr, i) =>
+				{
+					ADD情報("産父", arr, i);
+				});
+			}
 
-			var 産母父情報 = await conn.GetRows(
-				$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-				SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
-				SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-				SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-			);
-			CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
+			//using (MessageService.Measure("産母父"))
 			{
-				ADD情報("産母父", arr, i);
-			});
+				var 産母父情報 = await conn.GetRows(
+					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+					SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				);
+				CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
+				{
+					ADD情報("産母父", arr, i);
+				});
+			}
 
-			var 騎手情報 = await conn.GetRows(
+			//using (MessageService.Measure("騎手"))
+			{
+				var 騎手情報 = await conn.GetRows(
 					$"SELECT * FROM t_orig WHERE 騎手ID = ? AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
 					SQLiteUtil.CreateParameter(DbType.String, src["騎手ID"]),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
 					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-			);
-			CREATE情報(騎手情報, Arr(500)).ForEach((arr, i) =>
-			{
-				ADD情報("騎手", arr, i);
-			});
+				);
+				CREATE情報(騎手情報, Arr(500)).ForEach((arr, i) =>
+				{
+					ADD情報("騎手", arr, i);
+				});
+			}
 
 			return dic;
 		}

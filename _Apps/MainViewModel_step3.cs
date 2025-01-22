@@ -228,14 +228,14 @@ namespace Netkeiba
 
 			Func<int, int, int, int, int, int, int, int, Dictionary<int, Func<DbDataReader, object>>> RANK別2 = (i1, i2, i3, i4, j1, j2, j3, j4) => new Dictionary<int, Func<DbDataReader, object>>()
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= i1) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= i2) },
-				{ 3, r => 着勝(r).Run(x => x.着順 <= i3) },
-				{ 4, r => 着勝(r).Run(x => x.着順 <= i4) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > j1) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > j2) },
-				{ 8, r => 着勝(r).Run(x => x.着順 > j3) },
-				{ 9, r => 着勝(r).Run(x => x.着順 > j4) },
+				{ 1, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 2, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 3, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 4, r => 着勝(r).Run(x => x.着順 <= 3) },
+				{ 6, r => 着勝(r).Run(x => x.着順 > 3) },
+				{ 7, r => 着勝(r).Run(x => x.着順 > 3) },
+				{ 8, r => 着勝(r).Run(x => x.着順 > 3) },
+				{ 9, r => 着勝(r).Run(x => x.着順 > 3) },
 			};
 
 			var dic = AppUtil.RankAges.ToDictionary(x => x, _ => RANK別2(5, 6, 7, 8, 3, 4, 5, 6));
