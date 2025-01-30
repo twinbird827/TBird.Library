@@ -13,18 +13,20 @@ namespace Browser.Models
             B2 = GetRank(x => x.B2);
             B3 = GetRank(x => x.B3);
             B4 = GetRank(x => x.B4);
+            B6 = GetRank(x => x.B6);
+            B7 = GetRank(x => x.B7);
+            B8 = GetRank(x => x.B8);
+            B9 = GetRank(x => x.B9);
             RN = GetRank(x => x.RN);
-            M1 = GetRank(x => x.M1);
-            M2 = GetRank(x => x.M2);
-            M3 = GetRank(x => x.M3);
-            M4 = GetRank(x => x.M4);
-            Avg = Arr(B1, B2, B3, B4, RN, M1, M2, M3, M4).Average(x => x.Single());
+            Avg = GetRank(x => x.Avg);
+            All = Arr(B1Str, B2Str, B3Str, B4Str, B6Str, B7Str, B8Str, B9Str, AvgStr).All(x => 0 < x);
+            Any = Arr(B1Str, B2Str, B3Str, B4Str, B6Str, B7Str, B8Str, B9Str, AvgStr).Any(x => 0 < x);
 
             int GetRank(Func<ResultDetail, float> func)
             {
                 return all
                     .OrderByDescending(func)
-                    .ThenByDescending(x => x.Sum)
+                    .ThenByDescending(x => x.Avg)
                     .Select(func)
                     .IndexOf(func(target));
             }
@@ -51,31 +53,11 @@ namespace Browser.Models
         [Display(Name = "馬名")]
         public string Umaname => Source.Umaname;
 
-        public int Rank { get; set; }
-
-        public int B1 { get; set; }
-
-        public int B2 { get; set; }
-
-        public int B3 { get; set; }
-
-        public int B4 { get; set; }
-
-        public int RN { get; set; }
-
-        public int M1 { get; set; }
-
-        public int M2 { get; set; }
-
-        public int M3 { get; set; }
-
-        public int M4 { get; set; }
+        [Display(Name = "順位")]
+        public int Rank => Source.Rank;
 
         [DisplayFormat(DataFormatString = "{0:F2}")]
-        public float Avg { get; set; }
-
-        [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float Sum => Source.Sum;
+        public float AvgStr => Source.Avg;
 
         [DisplayFormat(DataFormatString = "{0:F1}")]
         public float B1Str => Source.B1;
@@ -90,22 +72,43 @@ namespace Browser.Models
         public float B4Str => Source.B4;
 
         [DisplayFormat(DataFormatString = "{0:F1}")]
+        public float B6Str => Source.B6;
+
+        [DisplayFormat(DataFormatString = "{0:F1}")]
+        public float B7Str => Source.B7;
+
+        [DisplayFormat(DataFormatString = "{0:F1}")]
+        public float B8Str => Source.B8;
+
+        [DisplayFormat(DataFormatString = "{0:F1}")]
+        public float B9Str => Source.B9;
+
+        [DisplayFormat(DataFormatString = "{0:F1}")]
         public float RNStr => Source.RN;
 
-        [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float M1Str => Source.M1;
+        public int B1 { get; set; }
 
-        [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float M2Str => Source.M2;
+        public int B2 { get; set; }
 
-        [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float M3Str => Source.M3;
+        public int B3 { get; set; }
 
-        [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float M4Str => Source.M4;
+        public int B4 { get; set; }
 
-        [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float Rate => Source.Run(s => Arr(s.B1, s.B2, s.B3, s.B4, s.RN)).Run(arr => arr.Count(x => 0F < x).Single() / arr.Count().Single());
+        public int B6 { get; set; }
+
+        public int B7 { get; set; }
+
+        public int B8 { get; set; }
+
+        public int B9 { get; set; }
+
+        public int RN { get; set; }
+
+        public int Avg { get; set; }
+
+        public bool All { get; set; }
+
+        public bool Any { get; set; }
 
     }
 }

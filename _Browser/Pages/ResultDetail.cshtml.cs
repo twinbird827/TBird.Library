@@ -54,7 +54,7 @@ namespace Browser.Pages
                 Places.AddRange(lines.Select(x => x.Place).Distinct().OrderBy(x => x));
 
                 Races.Clear();
-                Races.AddRange(Enumerable.Range(Race < 3 ? 1 : 10 < Race ? 8 : Race - 2, 5));
+                Races.AddRange(Enumerable.Range(1, 12));
 
                 Results.Clear();
                 Results.AddRange(lines
@@ -64,7 +64,6 @@ namespace Browser.Pages
 
                 Displays.Clear();
                 Displays.AddRange(Results.Select(x => new ResultDisplay(x, Results)));
-                Displays.ForEach(x => x.Rank = Displays.OrderBy(c => c.Avg).ThenByDescending(c => c.Sum).Select(c => c.Avg).IndexOf(x.Avg));
 
                 foreach (var x in Results.Take(1))
                 {

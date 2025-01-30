@@ -31,6 +31,7 @@ body {
 
 .sticky_table {
 	border-collapse: collapse;
+	width: 100%;
 }
 
 	.sticky_table thead th {
@@ -50,54 +51,61 @@ body {
 	}
 
 th, td {
-	padding: 5px 8px;
+	padding: 5px 0px;
 	background: #ffffff;
 	text-align: center;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
+	max-width: 0;
 }
 
 .textleft {
+	padding: 5px 8px;
 	text-align: left;
 }
 
 .r0 {
-	padding: 5px 0px;
 	background: #ff0000;
 	color: #ffffff;
-	text-align: center;
 }
 
 .r1 {
-	padding: 5px 0px;
 	background: #0026ff;
 	color: #ffffff;
-	text-align: center;
 }
 
 .r2 {
-	padding: 5px 0px;
 	background: #1c850c;
 	color: #ffffff;
-	text-align: center;
 }
 
 .r3 {
-	padding: 5px 0px;
 	background: #fff000;
 	color: #000000;
-	text-align: center;
 }
 
 .r4 {
-	padding: 5px 0px;
 	background: #ffffb0;
 	color: #000000;
-	text-align: center;
 }
 
 .rx {
-	padding: 5px 0px;
 	color: #808080;
-	text-align: center;
+}
+
+.kai-all {
+	color: #000000;
+	font-weight: bold;
+}
+
+.kai-any {
+	color: #808080;
+}
+
+.kai-not {
+	color: #000000;
+	background: #808080;
 }
 
 .tr_head_bottom {
