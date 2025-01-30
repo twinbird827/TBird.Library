@@ -246,9 +246,6 @@ namespace Netkeiba
 
 		private float Var(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.Variance() : 0F);
 
-		private List<Dictionary<string, object>> 同ﾚｰｽ産父情報 = new();
-		private List<Dictionary<string, object>> 同ﾚｰｽ産母父情報 = new();
-
 		private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
 		{
 			// 同ﾚｰｽの平均を取りたいときに使用する
@@ -261,16 +258,6 @@ namespace Netkeiba
 			var 開催WHERE = Arr(
 				SQLiteUtil.CreateParameter(DbType.Int64, 同ﾚｰｽ[0]["開催日数"].GetInt64()),
 				SQLiteUtil.CreateParameter(DbType.Int64, 同ﾚｰｽ[0]["開催日数"].GetInt64() - 365)
-			);
-
-			同ﾚｰｽ産父情報 = await conn.GetRows(
-				$"SELECT t_orig.*, a.父ID 父ID FROM t_orig, t_ketto a WHERE a.父ID IN ({同ﾚｰｽ.Select(x => "?").GetString(",")}) AND a.馬ID = t_orig.馬ID AND 開催日数 < ? AND 開催日数 > ?",
-				同ﾚｰｽ.Select(x => SQLiteUtil.CreateParameter(DbType.String, x["父ID"])).Concat(開催WHERE).ToArray()
-			);
-
-			同ﾚｰｽ産母父情報 = await conn.GetRows(
-				$"SELECT t_orig.*, a.父ID 母父ID FROM t_orig, t_ketto a, t_ketto b WHERE b.父ID IN ({同ﾚｰｽ.Select(x => "?").GetString(",")}) AND a.母ID = b.馬ID AND a.馬ID = t_orig.馬ID AND 開催日数 < ? AND 開催日数 > ?",
-				同ﾚｰｽ.Select(x => SQLiteUtil.CreateParameter(DbType.String, x["母父ID"])).Concat(開催WHERE).ToArray()
 			);
 
 			// ﾚｰｽ毎の纏まり
@@ -399,10 +386,16 @@ namespace Netkeiba
 				dic[$"{KEY}馬場"] = WHEREGET1("馬場");
 				dic[$"{KEY}馬場状態"] = WHEREGET1("馬場状態");
 
-				float WHEREGET2(string key) => arr.Where(x => x[key] == src[key]).Run(xxx => xxx.Any() ? xxx.Count(y => y.SINGLE("着順") <= 3F) / xxx.Count() : 0F);
-				dic[$"{KEY}連対"] = arr.Any() ? arr.Count(y => y.SINGLE("着順") <= 3F) / arr.Count() : 0F;
-				dic[$"{KEY}連対馬場"] = WHEREGET2("馬場");
-				dic[$"{KEY}連対馬場状態"] = WHEREGET2("馬場状態");
+				float WHEREGET2(float no, string key1, string key2) => arr.Where(x => x[key1] == src[key1]).Run(xxx => xxx.Any() ? xxx.Count(y => y.SINGLE("着順") <= no) / xxx.Count() : dic.SINGLE(key2));
+				dic[$"{KEY}連対1"] = arr.Any() ? arr.Count(y => y.SINGLE("着順") <= 3F) / arr.Count() : 0F;
+				dic[$"{KEY}連対2"] = arr.Any() ? arr.Count(y => y.SINGLE("着順") <= 2F) / arr.Count() : 0F;
+				dic[$"{KEY}連対3"] = arr.Any() ? arr.Count(y => y.SINGLE("着順") <= 1F) / arr.Count() : 0F;
+				dic[$"{KEY}連対馬場1"] = WHEREGET2(3F, "馬場", $"{KEY}連対1");
+				dic[$"{KEY}連対馬場2"] = WHEREGET2(2F, "馬場", $"{KEY}連対2");
+				dic[$"{KEY}連対馬場3"] = WHEREGET2(1F, "馬場", $"{KEY}連対3");
+				dic[$"{KEY}連対馬場状態1"] = WHEREGET2(3F, "馬場状態", $"{KEY}連対1");
+				dic[$"{KEY}連対馬場状態2"] = WHEREGET2(2F, "馬場状態", $"{KEY}連対2");
+				dic[$"{KEY}連対馬場状態3"] = WHEREGET2(1F, "馬場状態", $"{KEY}連対3");
 
 				dic[$"{KEY}出遅"] = Calc(arr.Count(x => x["備考"].Str().Contains("出遅")), arr.Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle() * 100F;
 
@@ -411,35 +404,35 @@ namespace Netkeiba
 					: 0F;
 			}
 
-			void ADDﾗﾝｸ情報(string key, List<Dictionary<string, object>> arr, int i)
-			{
-				var KEY = $"{key}{i.ToString(2)}";
+			//void ADDﾗﾝｸ情報(string key, List<Dictionary<string, object>> arr, int i)
+			//{
+			//	var KEY = $"{key}{i.ToString(2)}";
 
-				var rnktmp = AppUtil.RankAges.AsParallel().ToDictionary(
-					r => r,
-					r => arr.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(GET着距).ToArray());
-				AppUtil.RankAges.ForEach(r =>
-				{
-					float GetDefault(int i, Func<float[], float> func)
-					{
-						if (AppUtil.RankAges.Length <= i)
-						{
-							return 1.00F;
-						}
-						if (rnktmp[AppUtil.RankAges[i]].Any())
-						{
-							return func(rnktmp[AppUtil.RankAges[i]]) * RATE;
-						}
-						else
-						{
-							return GetDefault(i + 1, func) * RATE;
-						}
-					}
+			//	var rnktmp = AppUtil.RankAges.AsParallel().ToDictionary(
+			//		r => r,
+			//		r => arr.Where(x => x["ﾗﾝｸ1"].Str() == r).Select(GET着距).ToArray());
+			//	AppUtil.RankAges.ForEach(r =>
+			//	{
+			//		float GetDefault(int i, Func<float[], float> func)
+			//		{
+			//			if (AppUtil.RankAges.Length <= i)
+			//			{
+			//				return 1.00F;
+			//			}
+			//			if (rnktmp[AppUtil.RankAges[i]].Any())
+			//			{
+			//				return func(rnktmp[AppUtil.RankAges[i]]) * RATE;
+			//			}
+			//			else
+			//			{
+			//				return GetDefault(i + 1, func) * RATE;
+			//			}
+			//		}
 
-					var tmp = rnktmp[r];
-					dic[$"{KEY}着順{r}"] = tmp.Any() ? tmp.Median() : GetDefault(AppUtil.RankAges.IndexOf(r) + 1, xxx => xxx.Median());
-				});
-			}
+			//		var tmp = rnktmp[r];
+			//		dic[$"{KEY}着順{r}"] = tmp.Any() ? tmp.Median() : GetDefault(AppUtil.RankAges.IndexOf(r) + 1, xxx => xxx.Median());
+			//	});
+			//}
 
 			List<Dictionary<string, object>>[] CREATE情報(IEnumerable<Dictionary<string, object>> arr, int[] takes)
 			{
@@ -490,57 +483,55 @@ namespace Netkeiba
 				dic[$"勝上差{KEY}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"]])), DEF[rnk]["勝上差"]);
 			});
 
-			//using (MessageService.Measure("父馬"))
-			{
-				var 父馬情報 = await conn.GetRows(
-						$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-						SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
-				);
-				CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
-				{
-					ADD情報("父馬", arr, i);
-				});
-			}
+			////using (MessageService.Measure("父馬"))
+			//{
+			//	var 父馬情報 = await conn.GetRows(
+			//			$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+			//			SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
+			//	);
+			//	CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
+			//	{
+			//		ADD情報("父馬", arr, i);
+			//	});
+			//}
 
-			//using (MessageService.Measure("母父馬"))
-			{
-				var 母父馬情報 = await conn.GetRows(
-					$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-					SQLiteUtil.CreateParameter(DbType.String, src["母父ID"])
-				);
-				CREATE情報(母父馬情報, Arr(500)).ForEach((arr, i) =>
-				{
-					ADD情報("母父馬", arr, i);
-				});
-			}
+			////using (MessageService.Measure("母父馬"))
+			//{
+			//	var 母父馬情報 = await conn.GetRows(
+			//		$"SELECT * FROM t_orig WHERE 馬ID = ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+			//		SQLiteUtil.CreateParameter(DbType.String, src["母父ID"])
+			//	);
+			//	CREATE情報(母父馬情報, Arr(500)).ForEach((arr, i) =>
+			//	{
+			//		ADD情報("母父馬", arr, i);
+			//	});
+			//}
 
 			//using (MessageService.Measure("産父情報"))
 			{
-				//var 産父情報 = await conn.GetRows(
-				//	$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-				//	SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
-				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				//);
-				CREATE情報(同ﾚｰｽ産父情報.Where(x => x["父ID"] == src["父ID"]), Arr(500)).ForEach((arr, i) =>
+				var 産父情報 = await conn.GetRows(
+					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+					SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				);
+				CREATE情報(産父情報, Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("産父", arr, i);
-					ADDﾗﾝｸ情報("産父", arr, i);
 				});
 			}
 
 			//using (MessageService.Measure("産母父"))
 			{
-				//var 産母父情報 = await conn.GetRows(
-				//	$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
-				//	SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
-				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-				//	SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
-				//);
-				CREATE情報(同ﾚｰｽ産母父情報.Where(x => x["母父ID"] == src["母父ID"]), Arr(500)).ForEach((arr, i) =>
+				var 産母父情報 = await conn.GetRows(
+					$"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? AND 回り {rankwhere} '障' ORDER BY 開催日数 DESC",
+					SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+					SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+				);
+				CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("産母父", arr, i);
-					ADDﾗﾝｸ情報("産母父", arr, i);
 				});
 			}
 
@@ -555,7 +546,6 @@ namespace Netkeiba
 				CREATE情報(騎手情報, Arr(500)).ForEach((arr, i) =>
 				{
 					ADD情報("騎手", arr, i);
-					ADDﾗﾝｸ情報("騎手", arr, i);
 				});
 			}
 
