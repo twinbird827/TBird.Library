@@ -9,16 +9,16 @@
     <table class="sticky_table">
         <thead>
             <tr>
-                <th>@Html.DisplayNameFor(m => m.Results[0].Date)</th>
-                <th class="textleft">@Html.DisplayNameFor(m => m.Results[0].Title)</th>
+                <th width="20%">@Html.DisplayNameFor(m => m.Results[0].Date)</th>
+                <th width="80%" class="textleft">@Html.DisplayNameFor(m => m.Results[0].Title)</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var row in Model.Results)
             {
                 <tr class="tr_bottom">
-                    <td>@Html.DisplayFor(m => row.Date)</td>
-                    <td class="textleft"><a asp-route="Route01" asp-route-title="@row.Title" asp-route-place="0" asp-route-race="1">@Html.DisplayFor(m => row.Title)</a></td>
+                    <td width="20%">@Html.DisplayFor(m => row.Date)</td>
+                    <td width="80%" class="textleft"><a asp-route="Route01" asp-route-title="@row.Title" asp-route-place="0" asp-route-race="1">@Html.DisplayFor(m => row.Title)</a></td>
                 </tr>
             }
         </tbody>

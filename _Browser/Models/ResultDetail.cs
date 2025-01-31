@@ -14,7 +14,7 @@ namespace Browser.Models
 			Waku = GetInt32(5);
 			Umano = GetInt32(6);
 			Umaname = line[7];
-			Rank = GetInt32(8, 0);
+			Rank = GetInt32(8, -1);
 			B1 = GetSingle(9 + 0);
 			B2 = GetSingle(9 + 1);
 			B3 = GetSingle(9 + 2);

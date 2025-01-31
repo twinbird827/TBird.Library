@@ -20,6 +20,7 @@ namespace Browser.Pages
             Results.AddRange(AppSetting.Instance.TargetDirs
                 .SelectMany(path => DirectoryUtil.GetFiles(path, "*.csv"))
                 .Select(file => new Result(file))
+                .OrderByDescending(x => x.Date)
             );
         }
 

@@ -27,8 +27,8 @@ namespace Browser.Models
                 return all
                     .OrderByDescending(func)
                     .ThenByDescending(x => x.Avg)
-                    .Select(func)
-                    .IndexOf(func(target));
+                    .Select(x => x.Umano)
+                    .IndexOf(target.Umano);
             }
         }
 

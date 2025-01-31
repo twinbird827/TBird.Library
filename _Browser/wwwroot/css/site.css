@@ -35,16 +35,16 @@ body {
 }
 
 	.sticky_table thead th {
-		/* cƒXƒNƒ[ƒ‹‚ÉŒÅ’è‚·‚é */
+		/* ç¸¦ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«æ™‚ã«å›ºå®šã™ã‚‹ */
 		position: -webkit-sticky;
 		position: sticky;
 		top: 0;
-		/* tbody“à‚ÌƒZƒ‹‚æ‚èè‘O‚É•\¦‚·‚é */
+		/* tbodyå†…ã®ã‚»ãƒ«ã‚ˆã‚Šæ‰‹å‰ã«è¡¨ç¤ºã™ã‚‹ */
 		z-index: 1;
 	}
 
 	.sticky_table th:first-child {
-		/* ‰¡ƒXƒNƒ[ƒ‹‚ÉŒÅ’è‚·‚é */
+		/* æ¨ªã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«æ™‚ã«å›ºå®šã™ã‚‹ */
 		position: -webkit-sticky;
 		position: sticky;
 		left: 0;
@@ -86,8 +86,8 @@ th, td {
 }
 
 .r4 {
-	background: #ffffb0;
-	color: #000000;
+	background: #fffbbb;
+	color: #808080;
 }
 
 .rx {
@@ -95,7 +95,7 @@ th, td {
 }
 
 .kai-all {
-	color: #000000;
+	color: #ff0000;
 	font-weight: bold;
 }
 
