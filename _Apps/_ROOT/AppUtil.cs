@@ -273,7 +273,7 @@ namespace Netkeiba
 
 		private static readonly string[] ﾗﾝｸ = new[]
 		{
-			"GIII", "GII", "GI", "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "3勝クラス", "(3勝)", "1600万下", "２勝クラス", "2勝クラス", "1000万下", "１勝クラス", "1勝クラス", "500万下", "未勝利", "新馬"
+			"GIII", "GII", "GI", "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "3勝クラス", "(3勝)", "1600万下", "２勝クラス", "2勝クラス", "1000万下", "１勝クラス", "1勝クラス", "500万下", "未勝利", "新馬", "OP"
 		};
 
 		private static readonly Dictionary<string, string> ﾗﾝｸ1 = new()
@@ -299,11 +299,19 @@ namespace Netkeiba
 			{ "500万下", "1勝" },
 			{ "未勝利", "未勝利" },
 			{ "新馬", "新馬" },
+			{ "OP", "オープン" },
 		};
 
 		public static string Getﾗﾝｸ1(string ﾚｰｽ名, string ｸﾗｽ)
 		{
-			return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
+			try
+			{
+				return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
+			}
+			catch
+			{
+				throw;
+			}
 		}
 
 		public static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
