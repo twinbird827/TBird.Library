@@ -344,14 +344,14 @@ namespace Netkeiba
             // 追切基準で濃い色付きの数
             dic[$"追切基準1"] = Arr(1, 2, 3, 4, 5)
                 .Select(j => src[$"追切基準{j}"].Str())
-                .Count(x => x == "TokeiColor01");
+                .Count(x => x == "TokeiColor01").GetSingle() / 5F;
             // 追切基準で薄い色付きと濃い色付きの数
             dic[$"追切基準2"] = Arr(1, 2, 3, 4, 5)
                 .Select(j => src[$"追切基準{j}"].Str())
-                .Count(x => x == "TokeiColor01" || x == "TokeiColor02");
+                .Count(x => x == "TokeiColor01" || x == "TokeiColor02").GetSingle() / 5F;
 
             dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
-            dic["追切評価"] = 追切.IndexOf(src["追切評価"]);
+            dic["追切評価"] = 追切.IndexOf(src["追切評価"]).GetSingle() / 追切.Count.GetSingle();
 
             void ADD情報(string key, List<Dictionary<string, object>> arr, int i)
             {
@@ -373,10 +373,9 @@ namespace Netkeiba
                 {
                     Arr(
                         Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古"),
-                        Arr("オープン古"),
-                        Arr("3勝古", "オープンク"),
-                        Arr("2勝古"),
-                        Arr("1勝ク", "1勝古"),
+                        Arr("オープン古", "3勝古", "オープンク"),
+                        Arr("1勝ク", "2勝古"),
+                        Arr("1勝古"),
                         Arr("未勝利ク", "新馬ク"),
                         Arr("G1障", "G2障", "G3障"),
                         Arr("オープン障"),
@@ -386,7 +385,11 @@ namespace Netkeiba
                         // 計算したい値
                         var tmp = arr.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(GET着距).ToArray();
                         // 対象がない場合は上のﾗﾝｸを参照する
-                        var df1 = 0 < j ? dic[$"{KEY}{key}{(j - 1).ToString(2)}"].GetSingle() : 0F;
+                        var df1 = !rnk.Contains("障") && keys.Any(x => x.EndsWith("障"))
+                            ? 0F
+                            : 0 < j
+                            ? dic[$"{KEY}{key}{(j - 1).ToString(2)}"].GetSingle()
+                            : 0F;
 
                         dic[$"{KEY}{key}{j.ToString(2)}"] = tmp.Any()
                             ? Arr(df1, tmp.Median()).Max()
@@ -395,12 +398,14 @@ namespace Netkeiba
                             : dic.Get($"{KEY}着順A{j.ToString(2)}", 0F).GetSingle() / 1.25F;
                     });
                 }
-                 
+
                 ADDﾗﾝｸ情報("着順A", arr);
 
                 ADDﾗﾝｸ情報("着順B", arr.Where(x => x["馬場"] == src["馬場"]));
 
                 ADDﾗﾝｸ情報("着順C", arr.Where(x => x["馬場状態"] == src["馬場状態"]));
+
+                ADDﾗﾝｸ情報("着順D", arr.Where(x => 0.75F < GET距離(x)));
 
                 dic[$"{KEY}距離"] = Median(arr.Select(GET距離), 0.75F);
 
@@ -425,7 +430,7 @@ namespace Netkeiba
             // 出走間隔
             dic[$"出走間隔"] = 馬情報.Any() ? src.SINGLE("開催日数") - 馬情報[0].SINGLE("開催日数") : DEF[rnk]["出走間隔"];
 
-            CREATE情報(馬情報, Arr(1, 3, 5, 10)).ForEach((arr, i) =>
+            CREATE情報(馬情報, Arr(2, 4, 20)).ForEach((arr, i) =>
             {
                 // 通過順変換ﾌｧﾝｸｼｮﾝ
                 float GET通過(object v) => v.Str().Split('-')

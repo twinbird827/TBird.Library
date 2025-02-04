@@ -154,7 +154,11 @@
 
 			<GroupBox Grid.Column="2" Header="STEP4: データ予測">
 				<DockPanel>
-					<Button DockPanel.Dock="Right" Width="200" Content="実行" Command="{Binding S4EXEC}" />
+					<DockPanel Width="200" DockPanel.Dock="Right">
+						<Button DockPanel.Dock="Top" Content="リスト更新" Command="{Binding S4UPDATELIST}" />
+						<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding S4Dates.Items}" SelectedItem="{Binding S4Dates.SelectedItem}" />
+						<Button Content="実行" Command="{Binding S4EXEC}" />
+					</DockPanel>
 					<TextBox AcceptsReturn="True"
 							 TextWrapping="Wrap"
 							 VerticalAlignment="Stretch"
