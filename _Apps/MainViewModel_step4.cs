@@ -40,8 +40,11 @@ namespace Netkeiba
                 .Select(x => GetKaisaiDate(x.Year, x.Month))
                 .WhenAll()
                 .RunAsync(x => x.SelectMany(y => y));
-            S4Dates.Items.Clear();
-            S4Dates.Items.AddRange(dates.Select(x => new ComboboxItemModel(x, x)));
+            WpfUtil.ExecuteOnUI(() =>
+            {
+                S4Dates.Items.Clear();
+                S4Dates.Items.AddRange(dates.Select(x => new ComboboxItemModel(x, x)));
+            });
         });
 
         public IRelayCommand S4EXEC => RelayCommand.Create(async _ =>

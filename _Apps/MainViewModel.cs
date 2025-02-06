@@ -48,6 +48,8 @@ namespace Netkeiba
 
             S4Dates.AddOnPropertyChanged(this, async (sender, e) =>
             {
+                if (string.IsNullOrWhiteSpace(S4Dates.SelectedItem.Value)) return;
+
                 S4Text = await GetCurrentRaceIds(DateTime.ParseExact(S4Dates.SelectedItem.Value, "yyyyMMdd", null)).RunAsync(arr =>
                 {
                     return arr
