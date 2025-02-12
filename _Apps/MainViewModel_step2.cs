@@ -248,7 +248,7 @@ namespace Netkeiba
         private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
         {
             // 同ﾚｰｽの平均を取りたいときに使用する
-            var 同ﾚｰｽ = await conn.GetRows($"SELECT {tablename}.*, a.父ID 父ID, b.父ID 母父ID FROM {tablename} LEFT JOIN t_ketto a ON {tablename}.馬ID = a.馬ID LEFT JOIN t_ketto b ON a.母ID = b.馬ID WHERE ﾚｰｽID = ?",
+            var 同ﾚｰｽ = await conn.GetRows($"SELECT {tablename}.*, a.父ID 父ID, a.母ID 母ID, b.父ID 母父ID FROM {tablename} LEFT JOIN t_ketto a ON {tablename}.馬ID = a.馬ID LEFT JOIN t_ketto b ON a.母ID = b.馬ID WHERE ﾚｰｽID = ?",
                 SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
             );
 
@@ -360,12 +360,12 @@ namespace Netkeiba
                     var 頭数 = TOU[tgt["ﾚｰｽID"].GetInt64()];
                     var 着順 = tgt.SINGLE("着順");
                     //return (着順 / 頭数).Pow(1.5F);
-                    return 10F / 着順 * (AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / AppUtil.RankRate["G1古"]);
+                    return (着順 < AppUtil.RankRateBase ? AppUtil.RankRateBase / 着順.Pow(0.75F) + AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] : (着順 - AppUtil.RankRateBase + 1F).Pow(0.75F) * -1);
                 }
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
 
-                float GET着距(Dictionary<string, object> tgt) => GET着順(tgt) / GET距離(tgt);
+                float GET着距(Dictionary<string, object> tgt) => GET着順(tgt);
 
                 var KEY = $"{key}{i.ToString(2)}";
 
@@ -465,28 +465,42 @@ namespace Netkeiba
                 dic[$"勝上差{KEY}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"]])), DEF[rnk]["勝上差"]);
             });
 
+            //using (MessageService.Measure("父馬"))
+            {
+                var 両親馬情報 = await conn.GetRows(
+                        $"SELECT * FROM t_orig WHERE 馬ID IN (?, ?, ?) {rankwhere} ORDER BY 開催日数 DESC",
+                        SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
+                        SQLiteUtil.CreateParameter(DbType.String, src["母ID"]),
+                        SQLiteUtil.CreateParameter(DbType.String, src["母父ID"])
+                );
+                CREATE情報(両親馬情報, Arr(500)).ForEach((arr, i) =>
+                {
+                    ADD情報("両親馬", arr, i);
+                });
+            }
+
             ////using (MessageService.Measure("父馬"))
             //{
-            //	var 父馬情報 = await conn.GetRows(
-            //			$"SELECT * FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
-            //			SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
-            //	);
-            //	CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
-            //	{
-            //		ADD情報("父馬", arr, i);
-            //	});
+            //    var 父馬情報 = await conn.GetRows(
+            //            $"SELECT * FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
+            //            SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
+            //    );
+            //    CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
+            //    {
+            //        ADD情報("父馬", arr, i);
+            //    });
             //}
 
             ////using (MessageService.Measure("母父馬"))
             //{
-            //	var 母父馬情報 = await conn.GetRows(
-            //		$"SELECT * FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
-            //		SQLiteUtil.CreateParameter(DbType.String, src["母父ID"])
-            //	);
-            //	CREATE情報(母父馬情報, Arr(500)).ForEach((arr, i) =>
-            //	{
-            //		ADD情報("母父馬", arr, i);
-            //	});
+            //    var 母馬情報 = await conn.GetRows(
+            //        $"SELECT * FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
+            //        SQLiteUtil.CreateParameter(DbType.String, src["母ID"])
+            //    );
+            //    CREATE情報(母馬情報, Arr(500)).ForEach((arr, i) =>
+            //    {
+            //        ADD情報("母馬", arr, i);
+            //    });
             //}
 
             //using (MessageService.Measure("産父情報"))

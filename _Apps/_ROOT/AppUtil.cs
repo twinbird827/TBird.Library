@@ -16,30 +16,30 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		private const float RankRatePow = 0.25F;
+		public const float RankRateBase = 7F;
 
 		public static readonly Dictionary<string, float> RankRate = new Dictionary<string, float>()
 		{
-			{ "G1古",       8.00F.Pow(RankRatePow) },
-			{ "G2古",       7.50F.Pow(RankRatePow) },
-			{ "G1ク",       7.00F.Pow(RankRatePow) },
-			{ "G3古",       6.50F.Pow(RankRatePow) },
-			{ "G2ク",       6.00F.Pow(RankRatePow) },
-			{ "オープン古", 5.50F.Pow(RankRatePow) },
-			{ "G3ク",       5.00F.Pow(RankRatePow) },
-			{ "オープンク", 4.50F.Pow(RankRatePow) },
-			{ "3勝古",      4.00F.Pow(RankRatePow) },
-			{ "2勝古",      3.50F.Pow(RankRatePow) },
-			{ "2勝ク",      3.00F.Pow(RankRatePow) },
-			{ "1勝古",      2.50F.Pow(RankRatePow) },
-			{ "1勝ク",      2.00F.Pow(RankRatePow) },
-			{ "未勝利ク",   1.50F.Pow(RankRatePow) },
-			{ "新馬ク",     1.00F.Pow(RankRatePow) },
-			{ "G1障",       5.00F.Pow(RankRatePow) },
-			{ "G2障",       4.00F.Pow(RankRatePow) },
-			{ "G3障",       3.00F.Pow(RankRatePow) },
-			{ "オープン障", 2.00F.Pow(RankRatePow) },
-			{ "未勝利障",   1.00F.Pow(RankRatePow) },
+			{ "G1古",       RankRateBase * 3.00F },
+			{ "G2古",       RankRateBase * 2.75F },
+			{ "G1ク",       RankRateBase * 2.50F },
+			{ "G3古",       RankRateBase * 2.25F },
+			{ "G2ク",       RankRateBase * 2.00F },
+			{ "オープン古", RankRateBase * 1.50F },
+			{ "G3ク",       RankRateBase * 1.50F },
+			{ "オープンク", RankRateBase * 1.25F },
+			{ "3勝古",      RankRateBase * 1.00F },
+			{ "2勝古",      RankRateBase * 0.75F },
+			{ "2勝ク",      RankRateBase * 1.00F },
+			{ "1勝古",      RankRateBase * 0.50F },
+			{ "1勝ク",      RankRateBase * 0.50F },
+			{ "未勝利ク",   0F },
+			{ "新馬ク",     0F },
+			{ "G1障",       RankRateBase * 1.75F },
+			{ "G2障",       RankRateBase * 1.25F },
+			{ "G3障",       RankRateBase * 0.75F },
+			{ "オープン障", RankRateBase * 0.50F },
+			{ "未勝利障",   0F },
 		};
 
 		public static readonly string[] RankAges = new[]
