@@ -204,9 +204,7 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
 		{
-			using var selenium = TBirdSeleniumFactory.GetDisposer();
 			var seconds = AppSetting.Instance.TrainingCount;
-			var metrics = Arr(BinaryClassificationMetric.AreaUnderRocCurve);
 
 			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
@@ -219,58 +217,49 @@ namespace Netkeiba
 			Progress.Value = 0;
 			Progress.Minimum = 0;
 			Progress.Maximum =
-				seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("B-")) * metrics.Length +
+				seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("B-")) +
 				seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("R-"));
 
 			AppSetting.Instance.Save();
 
 			Func<DbDataReader, (float 着順, float 単勝)> 着勝 = r => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
-			Func<int, int, int, int, int, int, int, int, Dictionary<int, Func<DbDataReader, object>>> RANK別2 = (i1, i2, i3, i4, j1, j2, j3, j4) => new Dictionary<int, Func<DbDataReader, object>>()
+			foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
 			{
-				{ 1, r => 着勝(r).Run(x => x.着順 <= 3) },
-				{ 2, r => 着勝(r).Run(x => x.着順 <= 4) },
-				{ 3, r => 着勝(r).Run(x => x.着順 <= 3) },
-				{ 4, r => 着勝(r).Run(x => x.着順 <= 4) },
-				{ 6, r => 着勝(r).Run(x => x.着順 > 3) },
-				{ 7, r => 着勝(r).Run(x => x.着順 > 4) },
-				{ 8, r => 着勝(r).Run(x => x.着順 > 3) },
-				{ 9, r => 着勝(r).Run(x => x.着順 > 4) },
-			};
+                var random = new Random();
+                for (var tmp = 0; tmp < seconds; tmp++)
+                {
+                    var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
-			var dic = AppUtil.RankAges.ToDictionary(x => x, _ => RANK別2(5, 6, 7, 8, 3, 4, 5, 6));
+                    foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("B-") || x.Value.StartsWith("R-")))
+                    {
+                        var isb = x.Value.StartsWith("B-");
+                        var args = x.Value.Split("-");
+                        var index = args[2].GetInt32();
+                        var rank = args[1];
 
-			var random = new Random();
-			for (var tmp = 0; tmp < seconds; tmp++)
-			{
-				var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
+                        if (isb)
+						{
+							Func<DbDataReader, object> func = 5 < index
+								? r => 着勝(r).Run(x => x.着順 > o)
+								: r => 着勝(r).Run(x => o <= x.着順);
+                            await BinaryClassification(index, rank, second, BinaryClassificationMetric.AreaUnderRocCurve, func);
+                        }
+                        else
+						{
+                            await Regression(args[1], second);
+                        }
+                    }
 
-				foreach (var metric in metrics)
-				{
-					foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("B-")))
-					{
-						var args = x.Value.Split("-");
-						var index = args[2].GetInt32();
-						var rank = args[1];
+                    //foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("M-")))
+                    //{
+                    //	var args = x.Value.Split("-");
+                    //	await MultiClassClassification(1, args[1], second).TryCatch();
+                    //};
 
-						await BinaryClassification(index, rank, second, metric, dic[rank][index]);
-					}
-				}
-
-				foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("R-")))
-				{
-					var args = x.Value.Split("-");
-					await Regression(args[1], second);
-				};
-
-				//foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("M-")))
-				//{
-				//	var args = x.Value.Split("-");
-				//	await MultiClassClassification(1, args[1], second).TryCatch();
-				//};
-
-			}
-		});
+                }
+            }
+        });
 
 		private async Task BinaryClassification(int index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
 		{

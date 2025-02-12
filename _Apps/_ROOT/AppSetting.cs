@@ -241,5 +241,12 @@ namespace Netkeiba
 		}
 		private string _NetkeibaResult = string.Empty;
 
-	}
+        public string OrderBys
+        {
+            get => GetProperty(_OrderBys);
+            set => SetProperty(ref _OrderBys, value);
+        }
+        private string _OrderBys = "3,4,5";
+
+    }
 }
