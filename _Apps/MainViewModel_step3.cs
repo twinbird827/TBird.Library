@@ -244,7 +244,7 @@ namespace Netkeiba
                 {
                     var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
-                    foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("B-") || x.Value.StartsWith("R-")))
+                    foreach (var x in GetCheckes().Where(x => x.IsChecked && (x.Value.StartsWith("B-") || x.Value.StartsWith("R-"))))
                     {
                         var isb = x.Value.StartsWith("B-");
                         var args = x.Value.Split("-");
@@ -256,8 +256,8 @@ namespace Netkeiba
                             (float 着順, float 単勝) GET着勝(DbDataReader r) => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
                             Func<DbDataReader, object> func = 5 < index
-                                ? r => GET着勝(r).Run(x => x.着順 > o)
-                                : r => GET着勝(r).Run(x => o <= x.着順);
+                                ? r => GET着勝(r).Run(x => o < x.着順)
+                                : r => GET着勝(r).Run(x => x.着順 <= o);
                             await BinaryClassification($"{index}-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, func);
                         }
                         else
