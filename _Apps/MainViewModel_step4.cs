@@ -1,3 +1,4 @@
+using AngleSharp.Common;
 using Microsoft.ML;
 using Microsoft.ML.Data;
 using System;
@@ -57,17 +58,20 @@ namespace Netkeiba
 
             try
             {
-                await CreatePredictionFile("Best",
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 1)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 2)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 3)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 4)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 6)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 7)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 8)),
-                    ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, 9)),
-                    ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, 1))
-                );
+                foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
+                {
+                    await CreatePredictionFile($"Best-{o}",
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"2-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"3-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"4-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"6-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"7-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"8-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"9-{o}")),
+                        ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, "1"))
+                    );
+                }
             }
             catch (Exception e)
             {
