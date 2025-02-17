@@ -237,10 +237,10 @@ namespace Netkeiba
 
             AppSetting.Instance.Save();
 
-            foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
+            for (var tmp = 0; tmp < seconds; tmp++)
             {
                 var random = new Random();
-                for (var tmp = 0; tmp < seconds; tmp++)
+                foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
                 {
                     var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 

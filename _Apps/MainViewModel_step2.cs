@@ -362,7 +362,7 @@ namespace Netkeiba
                         var 頭数 = TOU[tgt["ﾚｰｽID"].GetInt64()];
                         var 着順 = tgt.SINGLE("着順");
                         var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
-                        var ﾗﾝｸ点 = 基礎点 < 0 ? 0F : AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
+                        var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                         //return (着順 / 頭数).Pow(1.5F);
                         return 基礎点 + ﾗﾝｸ点;
                     }
@@ -381,30 +381,24 @@ namespace Netkeiba
                 void ADDﾗﾝｸ情報(string key, IEnumerable<Dictionary<string, object>> arr)
                 {
                     Arr(
-                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古"),
-                        Arr("オープン古", "3勝古", "オープンク"),
-                        Arr("1勝ク", "2勝古"),
-                        Arr("1勝古"),
-                        Arr("未勝利ク", "新馬ク"),
+                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古"),
+                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク"),
                         Arr("G1障", "G2障", "G3障"),
-                        Arr("オープン障"),
-                        Arr("未勝利障")
+                        Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
                     ).ForEach((keys, j) =>
                     {
                         // 計算したい値
                         var tmp = arr.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(GET着距).ToArray();
-                        // 対象がない場合は上のﾗﾝｸを参照する
-                        var df1 = !rnk.Contains("障") && keys.Any(x => x.EndsWith("障"))
-                            ? 0F
-                            : 0 < j
-                            ? dic[$"{KEY}{key}{(j - 1).ToString(2)}"].GetSingle()
-                            : 0F;
 
-                        dic[$"{KEY}{key}{j.ToString(2)}"] = tmp.Any()
-                            ? Arr(df1, tmp.Median()).Max()
-                            : 0F < df1
-                            ? df1
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}", 0F).GetSingle() / 1.25F;
+                        dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp.Any()
+                            ? tmp.Median()
+                            : dic.Get($"{KEY}着順A{j.ToString(2)}Me", 0F).GetSingle() / 1.25F;
+                        dic[$"{KEY}{key}{j.ToString(2)}Ma"] = tmp.Any()
+                            ? tmp.Max()
+                            : dic.Get($"{KEY}着順A{j.ToString(2)}Ma", 0F).GetSingle() / 1.25F;
+                        dic[$"{KEY}{key}{j.ToString(2)}Mi"] = tmp.Any()
+                            ? tmp.Min()
+                            : dic.Get($"{KEY}着順A{j.ToString(2)}Mi", 0F).GetSingle() / 1.25F;
                     });
                 }
 
