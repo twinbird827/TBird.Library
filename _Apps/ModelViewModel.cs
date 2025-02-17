@@ -16,382 +16,382 @@ using TBird.Wpf.Controls;
 
 namespace Netkeiba
 {
-	public class ModelViewModel : DialogViewModel
-	{
-		public ModelViewModel()
-		{
-			// BinaryClassificationﾘｽﾄ及び初期選択
-			BinaryClassificationMetrics = new ComboboxViewModel(
-				EnumUtil.GetValues<BinaryClassificationMetric>().Select(x => new ComboboxItemModel(x.ToString(), x.ToString()))
-			);
-			BinaryClassificationMetrics.SelectedItem = BinaryClassificationMetrics.GetItem(AppSetting.Instance.BinaryClassificationMetric.ToString());
+    public class ModelViewModel : DialogViewModel
+    {
+        public ModelViewModel()
+        {
+            // BinaryClassificationﾘｽﾄ及び初期選択
+            BinaryClassificationMetrics = new ComboboxViewModel(
+                EnumUtil.GetValues<BinaryClassificationMetric>().Select(x => new ComboboxItemModel(x.ToString(), x.ToString()))
+            );
+            BinaryClassificationMetrics.SelectedItem = BinaryClassificationMetrics.GetItem(AppSetting.Instance.BinaryClassificationMetric.ToString());
 
-			// Regressionﾘｽﾄ及び初期選択
-			RegressionMetrics = new ComboboxViewModel(
-				EnumUtil.GetValues<RegressionMetric>().Select(x => new ComboboxItemModel(x.ToString(), x.ToString()))
-			);
-			RegressionMetrics.SelectedItem = RegressionMetrics.GetItem(AppSetting.Instance.RegressionMetric.ToString());
+            // Regressionﾘｽﾄ及び初期選択
+            RegressionMetrics = new ComboboxViewModel(
+                EnumUtil.GetValues<RegressionMetric>().Select(x => new ComboboxItemModel(x.ToString(), x.ToString()))
+            );
+            RegressionMetrics.SelectedItem = RegressionMetrics.GetItem(AppSetting.Instance.RegressionMetric.ToString());
 
-			// BinaryClassificationResultsﾘｽﾄ
-			BinaryClassificationResults = new BindableCollection<BinaryClassificationViewModel>(AppSetting.Instance.BinaryClassificationResults
-				.OrderBy(x => x.Rank)
-				.ThenBy(x => x.Index)
-				.ThenBy(x => x.GetScore())
-				.ToArray()
-				.Select(x => new BinaryClassificationViewModel(this, x))
-			);
-			BinaryClassificationResultViews = BinaryClassificationResults
-				.ToBindableContextCollection();
+            // BinaryClassificationResultsﾘｽﾄ
+            BinaryClassificationResults = new BindableCollection<BinaryClassificationViewModel>(AppSetting.Instance.BinaryClassificationResults
+                .OrderBy(x => x.Rank)
+                .ThenBy(x => x.Index)
+                .ThenBy(x => x.GetScore())
+                .ToArray()
+                .Select(x => new BinaryClassificationViewModel(this, x))
+            );
+            BinaryClassificationResultViews = BinaryClassificationResults
+                .ToBindableContextCollection();
 
-			RegressionResults = new BindableCollection<RegressionViewModel>(AppSetting.Instance.RegressionResults
-				.OrderBy(x => x.Rank)
-				.ThenBy(x => x.Index)
-				.ThenBy(x => x.GetScore())
-				.ToArray()
-				.Select(x => new RegressionViewModel(this, x))
-			);
-			RegressionResultViews = RegressionResults
-				.ToBindableContextCollection();
+            RegressionResults = new BindableCollection<RegressionViewModel>(AppSetting.Instance.RegressionResults
+                .OrderBy(x => x.Rank)
+                .ThenBy(x => x.Index)
+                .ThenBy(x => x.GetScore())
+                .ToArray()
+                .Select(x => new RegressionViewModel(this, x))
+            );
+            RegressionResultViews = RegressionResults
+                .ToBindableContextCollection();
 
-			ClickMerge = RelayCommand.Create(async _ =>
-			{
-				if (!await DirectoryUtil.Exists(MergePath)) return;
+            ClickMerge = RelayCommand.Create(async _ =>
+            {
+                if (!await DirectoryUtil.Exists(MergePath)) return;
 
-				// ﾓﾃﾞﾙのｺﾋﾟｰ
-				DirectoryUtil.Copy("model", Path.Combine(MergePath, "model"));
-				// 設定情報のｺﾋﾟｰ
-				using (var setting = new AppSetting(Path.Combine(MergePath, @"lib\app-setting.json")))
-				{
-					setting.BinaryClassificationResults.ForEach(tgt =>
-					{
-						var old = BinaryClassificationResults.FirstOrDefault(x => x.Index == tgt.Index && x.Rank == tgt.Rank);
-						if (old == null || old.GetScore() < tgt.GetScore())
-						{
-							if (old != null) old.ClickDelete.Execute(null);
-							BinaryClassificationResults.Add(new BinaryClassificationViewModel(this, tgt));
-						}
-					});
-					setting.RegressionResults.ForEach(tgt =>
-					{
-						var old = RegressionResults.FirstOrDefault(x => x.Index == tgt.Index && x.Rank == tgt.Rank);
-						if (old == null || old.GetScore() < tgt.GetScore())
-						{
-							if (old != null) old.ClickDelete.Execute(null);
-							RegressionResults.Add(new RegressionViewModel(this, tgt));
-						}
-					});
-				}
-			});
+                // ﾓﾃﾞﾙのｺﾋﾟｰ
+                DirectoryUtil.Copy("model", Path.Combine(MergePath, "model"));
+                // 設定情報のｺﾋﾟｰ
+                using (var setting = new AppSetting(Path.Combine(MergePath, @"lib\app-setting.json")))
+                {
+                    setting.BinaryClassificationResults.ForEach(tgt =>
+                    {
+                        var old = BinaryClassificationResults.FirstOrDefault(x => x.Index == tgt.Index && x.Rank == tgt.Rank);
+                        if (old == null || old.GetScore() < tgt.GetScore())
+                        {
+                            if (old != null) old.ClickDelete.Execute(null);
+                            BinaryClassificationResults.Add(new BinaryClassificationViewModel(this, tgt));
+                        }
+                    });
+                    setting.RegressionResults.ForEach(tgt =>
+                    {
+                        var old = RegressionResults.FirstOrDefault(x => x.Index == tgt.Index && x.Rank == tgt.Rank);
+                        if (old == null || old.GetScore() < tgt.GetScore())
+                        {
+                            if (old != null) old.ClickDelete.Execute(null);
+                            RegressionResults.Add(new RegressionViewModel(this, tgt));
+                        }
+                    });
+                }
+            });
 
-			ClickSave = RelayCommand.Create(_ =>
-			{
-				AppSetting.Instance.BinaryClassificationMetric = EnumUtil.ToEnum<BinaryClassificationMetric>(BinaryClassificationMetrics.SelectedItem.Value);
-				AppSetting.Instance.RegressionMetric = EnumUtil.ToEnum<RegressionMetric>(RegressionMetrics.SelectedItem.Value);
+            ClickSave = RelayCommand.Create(_ =>
+            {
+                AppSetting.Instance.BinaryClassificationMetric = EnumUtil.ToEnum<BinaryClassificationMetric>(BinaryClassificationMetrics.SelectedItem.Value);
+                AppSetting.Instance.RegressionMetric = EnumUtil.ToEnum<RegressionMetric>(RegressionMetrics.SelectedItem.Value);
 
-				if (TrainingTimeSecond.Split(',').All(i => int.TryParse(i, out int tmp) && 0 < tmp))
-				{
-					AppSetting.Instance.TrainingTimeSecond = TrainingTimeSecond.Split(',').Select(i => i.GetInt32()).ToArray();
-				}
+                if (TrainingTimeSecond.Split(',').All(i => int.TryParse(i, out int tmp) && 0 < tmp))
+                {
+                    AppSetting.Instance.TrainingTimeSecond = TrainingTimeSecond.Split(',').Select(i => i.GetInt32()).ToArray();
+                }
 
-				AppSetting.Instance.MinimumTrainingTimeSecond = MinimumTrainingTimeSecond;
-				AppSetting.Instance.MaximumTrainingTimeSecond = MaximumTrainingTimeSecond;
-				AppSetting.Instance.TrainingCount = TrainingCount;
-				AppSetting.Instance.UseFastForest = UseFastForest;
-				AppSetting.Instance.UseFastTree = UseFastTree;
-				AppSetting.Instance.UseLgbm = UseLgbm;
-				AppSetting.Instance.UseLbfgsPoissonRegression = UseLbfgsPoissonRegression;
-				AppSetting.Instance.UseSdca = UseSdca;
-				AppSetting.Instance.UseSdcaLogisticRegression = UseSdcaLogisticRegression;
-				AppSetting.Instance.UseLbfgsLogisticRegression = UseLbfgsLogisticRegression;
-				AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.Select(x => x.Source).ToArray();
-				AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
-				AppSetting.Instance.Correls = _correls;
-				AppSetting.Instance.Correl = Correl;
-				AppSetting.Instance.DicCor = _diccor;
-				AppSetting.Instance.NetkeibaId = NetkeibaId;
-				AppSetting.Instance.NetkeibaPassword = NetkeibaPassword;
-				AppSetting.Instance.Save();
+                AppSetting.Instance.MinimumTrainingTimeSecond = MinimumTrainingTimeSecond;
+                AppSetting.Instance.MaximumTrainingTimeSecond = MaximumTrainingTimeSecond;
+                AppSetting.Instance.TrainingCount = TrainingCount;
+                AppSetting.Instance.UseFastForest = UseFastForest;
+                AppSetting.Instance.UseFastTree = UseFastTree;
+                AppSetting.Instance.UseLgbm = UseLgbm;
+                AppSetting.Instance.UseLbfgsPoissonRegression = UseLbfgsPoissonRegression;
+                AppSetting.Instance.UseSdca = UseSdca;
+                AppSetting.Instance.UseSdcaLogisticRegression = UseSdcaLogisticRegression;
+                AppSetting.Instance.UseLbfgsLogisticRegression = UseLbfgsLogisticRegression;
+                AppSetting.Instance.BinaryClassificationResults = BinaryClassificationResults.Select(x => x.Source).ToArray();
+                AppSetting.Instance.RegressionResults = RegressionResults.Select(x => x.Source).ToArray();
+                AppSetting.Instance.Correls = _correls;
+                AppSetting.Instance.Correl = Correl;
+                AppSetting.Instance.DicCor = _diccor;
+                AppSetting.Instance.NetkeibaId = NetkeibaId;
+                AppSetting.Instance.NetkeibaPassword = NetkeibaPassword;
+                AppSetting.Instance.Save();
 
-				var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
-					.Concat(AppSetting.Instance.RegressionResults.Select(x => x.Path))
-					.Select(x => new FileInfo(x))
-					.ToArray();
+                var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
+                    .Concat(AppSetting.Instance.RegressionResults.Select(x => x.Path))
+                    .Select(x => new FileInfo(x))
+                    .ToArray();
 
-				foreach (var remove in DirectoryUtil.GetFiles("model").Select(x => new FileInfo(x)))
-				{
-					if (!files.Any(x => x.FullName == remove.FullName))
-					{
-						// 対象ではないﾌｧｲﾙは削除する。
-						remove.Delete();
-					}
-				}
-			});
+                foreach (var remove in DirectoryUtil.GetFiles("model").Select(x => new FileInfo(x)))
+                {
+                    if (!files.Any(x => x.FullName == remove.FullName))
+                    {
+                        // 対象ではないﾌｧｲﾙは削除する。
+                        remove.Delete();
+                    }
+                }
+            });
 
-			ClickCorrelation = RelayCommand.Create(async _ =>
-			{
-				_diccor.Clear();
+            ClickCorrelation = RelayCommand.Create(async _ =>
+            {
+                _diccor.Clear();
 
-				var messages = new StringBuilder();
+                var messages = new StringBuilder();
 
-				foreach (var rank in AppUtil.RankAges)
-				{
-					var tgt = new List<double>();
-					var features = new List<double>[3000];
-					for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
+                foreach (var rank in AppUtil.RankAges)
+                {
+                    var tgt = new List<double>();
+                    var features = new List<double>[3000];
+                    for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
 
-					using (var conn = AppUtil.CreateSQLiteControl())
-					{
-						using var reader = await conn.ExecuteReaderAsync($"SELECT 着順, Features FROM t_model WHERE ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番", SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank)));
+                    using (var conn = AppUtil.CreateSQLiteControl())
+                    {
+                        using var reader = await conn.ExecuteReaderAsync($"SELECT 着順, Features FROM t_model WHERE ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番", SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank)));
 
-						while (await reader.ReadAsync())
-						{
-							tgt.Add(reader.Get<double>(0));
+                        while (await reader.ReadAsync())
+                        {
+                            tgt.Add(reader.Get<double>(0));
 
-							reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
-							{
-								features[i].Add(x);
-							});
-						}
-					}
+                            reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
+                            {
+                                features[i].Add(x);
+                            });
+                        }
+                    }
 
-					_diccor.Add(new ColumnFilter()
-					{
-						Key = rank,
-						Value = features
-							.Where(lst => tgt.Count == lst.Count)
-							.Select((lst, i) => (i, Correlation.Pearson(tgt, lst), lst.Distinct().Count()))
-							.Where(x => Math.Abs(x.Item2) < Correl.GetDouble() || x.Item3 == 1)
-							.Select(x => $"C{x.i.ToString(4)}")
-							.ToArray()
-					});
+                    _diccor.Add(new ColumnFilter()
+                    {
+                        Key = rank,
+                        Value = features
+                            .Where(lst => tgt.Count == lst.Count)
+                            .Select((lst, i) => (i, Correlation.Pearson(tgt, lst), lst.Distinct().Count()))
+                            .Where(x => Math.Abs(x.Item2) < Correl.GetDouble() || x.Item3 == 1)
+                            .Select(x => $"C{x.i.ToString(4)}")
+                            .ToArray()
+                    });
 
-					messages.AppendLine($"{rank}:{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_diccor[_diccor.Count - 1].Value.Length}個の要素を除外します。");
-					//_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
-				}
+                    messages.AppendLine($"{rank}:{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_diccor[_diccor.Count - 1].Value.Length}個の要素を除外します。");
+                    //_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+                }
 
-				MessageService.Info(messages.ToString());
+                MessageService.Info(messages.ToString());
 
-				//var tgt = new List<double>();
-				//var features = new List<double>[3000];
-				//for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
+                //var tgt = new List<double>();
+                //var features = new List<double>[3000];
+                //for (var i = 0; i < features.Length; i++) features[i] = new List<double>();
 
-				//using (var conn = AppUtil.CreateSQLiteControl())
-				//{
-				//	using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model ORDER BY ﾚｰｽID, 馬番");
+                //using (var conn = AppUtil.CreateSQLiteControl())
+                //{
+                //	using var reader = await conn.ExecuteReaderAsync("SELECT 着順, Features FROM t_model ORDER BY ﾚｰｽID, 馬番");
 
-				//	while (await reader.ReadAsync())
-				//	{
-				//		tgt.Add(reader.Get<double>(0));
+                //	while (await reader.ReadAsync())
+                //	{
+                //		tgt.Add(reader.Get<double>(0));
 
-				//		reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
-				//		{
-				//			features[i].Add(x);
-				//		});
-				//	}
-				//}
+                //		reader.GetValue(1).Run(x => (byte[])x).Run(x => AppUtil.ToSingles(x)).ForEach((x, i) =>
+                //		{
+                //			features[i].Add(x);
+                //		});
+                //	}
+                //}
 
-				//_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
+                //_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
 
-				//MessageService.Info($"{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_correls.Length}個の要素を除外します。");
-			});
-		}
+                //MessageService.Info($"{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_correls.Length}個の要素を除外します。");
+            });
+        }
 
-		public uint MinimumTrainingTimeSecond
-		{
-			get => _MinimumTrainingTimeSecond;
-			set => SetProperty(ref _MinimumTrainingTimeSecond, value);
-		}
-		private uint _MinimumTrainingTimeSecond = AppSetting.Instance.MinimumTrainingTimeSecond;
+        public uint MinimumTrainingTimeSecond
+        {
+            get => _MinimumTrainingTimeSecond;
+            set => SetProperty(ref _MinimumTrainingTimeSecond, value);
+        }
+        private uint _MinimumTrainingTimeSecond = AppSetting.Instance.MinimumTrainingTimeSecond;
 
-		public uint MaximumTrainingTimeSecond
-		{
-			get => _MaximumTrainingTimeSecond;
-			set => SetProperty(ref _MaximumTrainingTimeSecond, value);
-		}
-		private uint _MaximumTrainingTimeSecond = AppSetting.Instance.MaximumTrainingTimeSecond;
+        public uint MaximumTrainingTimeSecond
+        {
+            get => _MaximumTrainingTimeSecond;
+            set => SetProperty(ref _MaximumTrainingTimeSecond, value);
+        }
+        private uint _MaximumTrainingTimeSecond = AppSetting.Instance.MaximumTrainingTimeSecond;
 
-		public uint TrainingCount
-		{
-			get => _TrainingCount;
-			set => SetProperty(ref _TrainingCount, value);
-		}
-		private uint _TrainingCount = AppSetting.Instance.TrainingCount;
+        public uint TrainingCount
+        {
+            get => _TrainingCount;
+            set => SetProperty(ref _TrainingCount, value);
+        }
+        private uint _TrainingCount = AppSetting.Instance.TrainingCount;
 
-		public bool UseFastForest
-		{
-			get => _UseFastForest;
-			set => SetProperty(ref _UseFastForest, value);
-		}
-		private bool _UseFastForest = AppSetting.Instance.UseFastForest;
+        public bool UseFastForest
+        {
+            get => _UseFastForest;
+            set => SetProperty(ref _UseFastForest, value);
+        }
+        private bool _UseFastForest = AppSetting.Instance.UseFastForest;
 
-		public bool UseFastTree
-		{
-			get => _UseFastTree;
-			set => SetProperty(ref _UseFastTree, value);
-		}
-		private bool _UseFastTree = AppSetting.Instance.UseFastTree;
+        public bool UseFastTree
+        {
+            get => _UseFastTree;
+            set => SetProperty(ref _UseFastTree, value);
+        }
+        private bool _UseFastTree = AppSetting.Instance.UseFastTree;
 
-		public bool UseLgbm
-		{
-			get => _UseLgbm;
-			set => SetProperty(ref _UseLgbm, value);
-		}
-		private bool _UseLgbm = AppSetting.Instance.UseLgbm;
+        public bool UseLgbm
+        {
+            get => _UseLgbm;
+            set => SetProperty(ref _UseLgbm, value);
+        }
+        private bool _UseLgbm = AppSetting.Instance.UseLgbm;
 
-		public bool UseLbfgsPoissonRegression
-		{
-			get => _UseLbfgsPoissonRegression;
-			set => SetProperty(ref _UseLbfgsPoissonRegression, value);
-		}
-		private bool _UseLbfgsPoissonRegression = AppSetting.Instance.UseLbfgsPoissonRegression;
+        public bool UseLbfgsPoissonRegression
+        {
+            get => _UseLbfgsPoissonRegression;
+            set => SetProperty(ref _UseLbfgsPoissonRegression, value);
+        }
+        private bool _UseLbfgsPoissonRegression = AppSetting.Instance.UseLbfgsPoissonRegression;
 
-		public bool UseSdca
-		{
-			get => _UseSdca;
-			set => SetProperty(ref _UseSdca, value);
-		}
-		private bool _UseSdca = AppSetting.Instance.UseSdca;
+        public bool UseSdca
+        {
+            get => _UseSdca;
+            set => SetProperty(ref _UseSdca, value);
+        }
+        private bool _UseSdca = AppSetting.Instance.UseSdca;
 
-		public bool UseSdcaLogisticRegression
-		{
-			get => _UseSdcaLogisticRegression;
-			set => SetProperty(ref _UseSdcaLogisticRegression, value);
-		}
-		private bool _UseSdcaLogisticRegression = AppSetting.Instance.UseSdcaLogisticRegression;
+        public bool UseSdcaLogisticRegression
+        {
+            get => _UseSdcaLogisticRegression;
+            set => SetProperty(ref _UseSdcaLogisticRegression, value);
+        }
+        private bool _UseSdcaLogisticRegression = AppSetting.Instance.UseSdcaLogisticRegression;
 
-		public bool UseLbfgsLogisticRegression
-		{
-			get => _UseLbfgsLogisticRegression;
-			set => SetProperty(ref _UseLbfgsLogisticRegression, value);
-		}
-		private bool _UseLbfgsLogisticRegression = AppSetting.Instance.UseLbfgsLogisticRegression;
+        public bool UseLbfgsLogisticRegression
+        {
+            get => _UseLbfgsLogisticRegression;
+            set => SetProperty(ref _UseLbfgsLogisticRegression, value);
+        }
+        private bool _UseLbfgsLogisticRegression = AppSetting.Instance.UseLbfgsLogisticRegression;
 
-		public ComboboxViewModel BinaryClassificationMetrics { get; }
+        public ComboboxViewModel BinaryClassificationMetrics { get; }
 
-		public ComboboxViewModel RegressionMetrics { get; }
+        public ComboboxViewModel RegressionMetrics { get; }
 
-		public string TrainingTimeSecond
-		{
-			get => _TrainingTimeSecond;
-			set => SetProperty(ref _TrainingTimeSecond, value);
-		}
-		private string _TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond.GetString(",");
+        public string TrainingTimeSecond
+        {
+            get => _TrainingTimeSecond;
+            set => SetProperty(ref _TrainingTimeSecond, value);
+        }
+        private string _TrainingTimeSecond = AppSetting.Instance.TrainingTimeSecond.GetString(",");
 
-		public string NetkeibaId
-		{
-			get => _NetkeibaId;
-			set => SetProperty(ref _NetkeibaId, value);
-		}
-		private string _NetkeibaId = AppSetting.Instance.NetkeibaId;
+        public string NetkeibaId
+        {
+            get => _NetkeibaId;
+            set => SetProperty(ref _NetkeibaId, value);
+        }
+        private string _NetkeibaId = AppSetting.Instance.NetkeibaId;
 
-		public string NetkeibaPassword
-		{
-			get => _NetkeibaPassword;
-			set => SetProperty(ref _NetkeibaPassword, value);
-		}
-		private string _NetkeibaPassword = AppSetting.Instance.NetkeibaPassword;
+        public string NetkeibaPassword
+        {
+            get => _NetkeibaPassword;
+            set => SetProperty(ref _NetkeibaPassword, value);
+        }
+        private string _NetkeibaPassword = AppSetting.Instance.NetkeibaPassword;
 
-		public BindableCollection<BinaryClassificationViewModel> BinaryClassificationResults { get; }
-		public BindableContextCollection<BinaryClassificationViewModel> BinaryClassificationResultViews { get; }
-		public BindableCollection<RegressionViewModel> RegressionResults { get; }
-		public BindableContextCollection<RegressionViewModel> RegressionResultViews { get; }
+        public BindableCollection<BinaryClassificationViewModel> BinaryClassificationResults { get; }
+        public BindableContextCollection<BinaryClassificationViewModel> BinaryClassificationResultViews { get; }
+        public BindableCollection<RegressionViewModel> RegressionResults { get; }
+        public BindableContextCollection<RegressionViewModel> RegressionResultViews { get; }
 
-		public string MergePath
-		{
-			get => _MergePath;
-			set => SetProperty(ref _MergePath, value);
-		}
-		private string _MergePath = string.Empty;
+        public string MergePath
+        {
+            get => _MergePath;
+            set => SetProperty(ref _MergePath, value);
+        }
+        private string _MergePath = string.Empty;
 
-		public IRelayCommand ClickMerge { get; }
+        public IRelayCommand ClickMerge { get; }
 
-		public IRelayCommand ClickSave { get; }
+        public IRelayCommand ClickSave { get; }
 
-		public string Correl
-		{
-			get => _Correl;
-			set => SetProperty(ref _Correl, value);
-		}
-		private string _Correl = AppSetting.Instance.Correl;
+        public string Correl
+        {
+            get => _Correl;
+            set => SetProperty(ref _Correl, value);
+        }
+        private string _Correl = AppSetting.Instance.Correl;
 
-		private string[] _correls = Enumerable.Empty<string>().ToArray();
+        private string[] _correls = Enumerable.Empty<string>().ToArray();
 
-		private List<ColumnFilter> _diccor = AppSetting.Instance.DicCor;
+        private List<ColumnFilter> _diccor = AppSetting.Instance.DicCor;
 
-		public IRelayCommand ClickCorrelation { get; }
+        public IRelayCommand ClickCorrelation { get; }
 
-	}
+    }
 
-	public class BinaryClassificationViewModel : BinaryClassificationResult
-	{
-		public ModelViewModel Parent { get; }
+    public class BinaryClassificationViewModel : BinaryClassificationResult
+    {
+        public ModelViewModel Parent { get; }
 
-		public BinaryClassificationResult Source { get; }
+        public BinaryClassificationResult Source { get; }
 
-		public BinaryClassificationViewModel(ModelViewModel m, BinaryClassificationResult source)
-		{
-			Parent = m;
-			Source = source;
+        public BinaryClassificationViewModel(ModelViewModel m, BinaryClassificationResult source)
+        {
+            Parent = m;
+            Source = source;
 
-			Index = source.Index;
-			Rank = source.Rank;
-			Score = source.Score;
-			Rate = source.Rate;
-			Second = source.Second;
-			Path = source.Path;
-			Accuracy = source.Accuracy;
-			AreaUnderPrecisionRecallCurve = source.AreaUnderPrecisionRecallCurve;
-			AreaUnderRocCurve = source.AreaUnderRocCurve;
-			Entropy = source.Entropy;
-			F1Score = source.F1Score;
-			LogLoss = source.LogLoss;
-			LogLossReduction = source.LogLossReduction;
-			NegativePrecision = source.NegativePrecision;
-			NegativeRecall = source.NegativeRecall;
-			PositivePrecision = source.PositivePrecision;
-			PositiveRecall = source.PositiveRecall;
+            Index = source.Index;
+            Rank = source.Rank;
+            Score = source.Score;
+            Rate = source.Rate;
+            Second = source.Second;
+            Path = source.Path;
+            Accuracy = source.Accuracy;
+            AreaUnderPrecisionRecallCurve = source.AreaUnderPrecisionRecallCurve;
+            AreaUnderRocCurve = source.AreaUnderRocCurve;
+            Entropy = source.Entropy;
+            F1Score = source.F1Score;
+            LogLoss = source.LogLoss;
+            LogLossReduction = source.LogLossReduction;
+            NegativePrecision = source.NegativePrecision;
+            NegativeRecall = source.NegativeRecall;
+            PositivePrecision = source.PositivePrecision;
+            PositiveRecall = source.PositiveRecall;
 
-			ClickDelete = RelayCommand.Create(_ =>
-			{
-				FileUtil.Delete(Path);
-				Parent.BinaryClassificationResults.Remove(this);
-			});
-		}
+            ClickDelete = RelayCommand.Create(_ =>
+            {
+                FileUtil.Delete(Path);
+                Parent.BinaryClassificationResults.Remove(this);
+            });
+        }
 
-		public IRelayCommand ClickDelete { get; }
-	}
+        public IRelayCommand ClickDelete { get; }
+    }
 
-	public class RegressionViewModel : RegressionResult
-	{
-		public ModelViewModel Parent { get; }
+    public class RegressionViewModel : RegressionResult
+    {
+        public ModelViewModel Parent { get; }
 
-		public RegressionResult Source { get; }
+        public RegressionResult Source { get; }
 
-		public RegressionViewModel(ModelViewModel m, RegressionResult source)
-		{
-			Parent = m;
-			Source = source;
+        public RegressionViewModel(ModelViewModel m, RegressionResult source)
+        {
+            Parent = m;
+            Source = source;
 
-			Index = source.Index;
-			Rank = source.Rank;
-			Rate = source.Rate;
-			Score = source.Score;
-			Second = source.Second;
-			Path = source.Path;
-			RSquared = source.RSquared;
-			MeanSquaredError = source.MeanSquaredError;
-			RootMeanSquaredError = source.RootMeanSquaredError;
-			LossFunction = source.LossFunction;
-			MeanAbsoluteError = source.MeanAbsoluteError;
+            Index = source.Index;
+            Rank = source.Rank;
+            Rate = source.Rate;
+            Score = source.Score;
+            Second = source.Second;
+            Path = source.Path;
+            RSquared = source.RSquared;
+            MeanSquaredError = source.MeanSquaredError;
+            RootMeanSquaredError = source.RootMeanSquaredError;
+            LossFunction = source.LossFunction;
+            MeanAbsoluteError = source.MeanAbsoluteError;
 
-			ClickDelete = RelayCommand.Create(_ =>
-			{
-				FileUtil.Delete(Path);
-				Parent.RegressionResults.Remove(this);
-			});
-		}
+            ClickDelete = RelayCommand.Create(_ =>
+            {
+                FileUtil.Delete(Path);
+                Parent.RegressionResults.Remove(this);
+            });
+        }
 
-		public IRelayCommand ClickDelete { get; }
-	}
+        public IRelayCommand ClickDelete { get; }
+    }
 
 }
