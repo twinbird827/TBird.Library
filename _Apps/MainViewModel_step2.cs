@@ -60,54 +60,6 @@ namespace Netkeiba
                 Progress.Minimum = 0;
                 Progress.Maximum = rac.Length;
 
-                //var racall = await rac.AsParallel().WithDegreeOfParallelism(4).Select(raceid =>
-                //{
-                //	AddLog($"Step5 Proccess ﾚｰｽID: {raceid}");
-
-                //	Progress.Value += 1;
-
-                //	return CreateRaceModel(conn, "t_orig", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
-                //}).WhenAll();
-                //foreach (var racarr in racall)
-                //{
-                //	// ﾚｰｽ毎の纏まり
-                //	var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
-                //	var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
-
-                //	AppSetting.Instance.Features = null;
-
-                //	if (create)
-                //	{
-                //		create = false;
-
-                //		// ﾃｰﾌﾞﾙ作成
-                //		await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
-                //		await conn.ExecuteNonQueryAsync(Arr(
-                //			"CREATE TABLE IF NOT EXISTS t_model (",
-                //			head1.Select(x => $"{x} INTEGER").GetString(","),
-                //			",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
-
-                //		await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID)");
-                //	}
-
-                //	await conn.BeginTransaction();
-                //	foreach (var ins in racarr)
-                //	{
-                //		AppSetting.Instance.Features = AppSetting.Instance.Features ?? ins.Keys.Where(x => !head2.Contains(x)).ToArray();
-
-                //		var prms1 = head1.Select(x => SQLiteUtil.CreateParameter(DbType.Int64, ins[x]));
-                //		var prms2 = SQLiteUtil.CreateParameter(DbType.Single, ins["単勝"]);
-                //		var prms3 = SQLiteUtil.CreateParameter(DbType.Binary,
-                //			AppSetting.Instance.Features.SelectMany(x => BitConverter.GetBytes(ins[x))).ToArray()
-                //		);
-
-                //		await conn.ExecuteNonQueryAsync(
-                //			$"REPLACE INTO t_model ({head1.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", head1.Length).GetString(",")}, ?, ?)",
-                //			prms1.Concat(Arr(prms2)).Concat(Arr(prms3)).ToArray()
-                //		);
-                //	}
-                //	conn.Commit();
-                //}
                 foreach (var raceid in rac)
                 {
                     MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
@@ -274,36 +226,8 @@ namespace Netkeiba
                     {
                         var val = dic.SINGLE(key);
                         var arr = racarr.Select(x => x.SINGLE(key)).Where(x => !float.IsNaN(x)).ToArray();
-                        var std = Std(arr);
 
-                        //dic[$"{key}A1"] = val - arr.Average();
-                        //dic[$"{key}A2"] = val - arr.Percentile(25);
-                        //dic[$"{key}A3"] = val - arr.Percentile(75);
-                        //dic[$"{key}A4"] = val - arr.Percentile(50);
-                        //dic[$"{key}A5"] = val - arr.Max();
-                        //dic[$"{key}A6"] = val - arr.Min();
-                        //dic[$"{key}A7"] = val * std;
-                        //dic[$"{key}B1"] = val == 0 ? 0F : arr.Average() / val * 100;
-                        //dic[$"{key}B2"] = val == 0 ? 0F : arr.Percentile(25) / val * 100;
-                        //dic[$"{key}B3"] = val == 0 ? 0F : arr.Percentile(75) / val * 100;
-                        //dic[$"{key}B4"] = val == 0 ? 0F : arr.Percentile(50) / val * 100;
-                        //dic[$"{key}B5"] = val == 0 ? 0F : arr.Sum() / val;
-                        //dic[$"{key}B6"] = val == 0 ? 0F : arr.Max() / val * 100;
-                        //dic[$"{key}B7"] = val == 0 ? 0F : arr.Min() / val * 100;
-
-                        //dic[$"{key}C1"] = val - arr.Percentile(10);
-                        //dic[$"{key}C2"] = val - arr.Percentile(30);
-                        //dic[$"{key}C3"] = val - arr.Percentile(50);
-                        //dic[$"{key}C4"] = val - arr.Percentile(70);
-                        //dic[$"{key}C9"] = Arr(dic[$"{key}C2"], dic[$"{key}C3"], dic[$"{key}C4"]).Average(x => x.GetSingle());
                         dic[$"{key}C0"] = val == 0F ? 0F : arr.Percentile(50) / val;
-                        //dic[$"{key}C5"] = val - arr.Percentile(90);
-
-                        //dic[$"{key}D1"] = val - arr.Percentile(20);
-                        //dic[$"{key}D2"] = val - arr.Percentile(40);
-                        //dic[$"{key}D3"] = val - arr.Percentile(60);
-                        //dic[$"{key}D4"] = val - arr.Percentile(80);
-
                     }
                     catch
                     {
