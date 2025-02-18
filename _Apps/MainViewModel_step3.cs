@@ -263,7 +263,7 @@ namespace Netkeiba
                                 : r => GET着勝(r).Run(x => x.着順 <= o);
                             await BinaryClassification($"{index}-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, func);
                         }
-                        else
+                        else if (o == AppUtil.OrderBys.First())
                         {
                             await Regression(args[1], second);
                         }
