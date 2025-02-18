@@ -344,5 +344,7 @@ namespace Netkeiba
                 }
             }).ConfigureAwait(false);
         }
+
+        public static IEnumerable<int> OrderBys => AppSetting.Instance.OrderBys.Split(',').Select(x => x.GetInt32());
     }
 }

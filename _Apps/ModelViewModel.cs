@@ -110,6 +110,8 @@ namespace Netkeiba
                 AppSetting.Instance.DicCor = _diccor;
                 AppSetting.Instance.NetkeibaId = NetkeibaId;
                 AppSetting.Instance.NetkeibaPassword = NetkeibaPassword;
+                AppSetting.Instance.OrderBys = OrderBys;
+                AppSetting.Instance.NetkeibaResult = NetkeibaResult;
                 AppSetting.Instance.Save();
 
                 var files = AppSetting.Instance.BinaryClassificationResults.Select(x => x.Path)
@@ -124,6 +126,18 @@ namespace Netkeiba
                         // 対象ではないﾌｧｲﾙは削除する。
                         remove.Delete();
                     }
+                }
+            });
+
+            ClickDeleteAll = RelayCommand.Create(_ =>
+            {
+                while (BinaryClassificationResults.Any())
+                {
+                    BinaryClassificationResults.First().ClickDelete.Execute(null);
+                }
+                while (RegressionResults.Any())
+                {
+                    RegressionResults.First().ClickDelete.Execute(null);
                 }
             });
 
@@ -291,6 +305,20 @@ namespace Netkeiba
         }
         private string _NetkeibaPassword = AppSetting.Instance.NetkeibaPassword;
 
+        public string NetkeibaResult
+        {
+            get => _NetkeibaResult;
+            set => SetProperty(ref _NetkeibaResult, value);
+        }
+        private string _NetkeibaResult = AppSetting.Instance.NetkeibaResult;
+
+        public string OrderBys
+        {
+            get => _OrderBys;
+            set => SetProperty(ref _OrderBys, value);
+        }
+        private string _OrderBys = AppSetting.Instance.OrderBys;
+
         public BindableCollection<BinaryClassificationViewModel> BinaryClassificationResults { get; }
         public BindableContextCollection<BinaryClassificationViewModel> BinaryClassificationResultViews { get; }
         public BindableCollection<RegressionViewModel> RegressionResults { get; }
@@ -320,6 +348,7 @@ namespace Netkeiba
 
         public IRelayCommand ClickCorrelation { get; }
 
+        public IRelayCommand ClickDeleteAll { get; }
     }
 
     public class BinaryClassificationViewModel : BinaryClassificationResult

@@ -58,7 +58,7 @@ namespace Netkeiba
 
             try
             {
-                foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
+                foreach (var o in AppUtil.OrderBys)
                 {
                     await CreatePredictionFile($"Best-{o}",
                         ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}")),

@@ -50,11 +50,16 @@
 			<Setter Property="Margin" Value="5" />
 		</Style>
 	</Controls:MetroWindow.Resources>
+
 	<DockPanel>
 		<GroupBox DockPanel.Dock="Top" Header="Save">
-			<Button Height="40"
-					Content="保存"
-					Command="{Binding ClickSave}" />
+			<UniformGrid Columns="2" Height="40">
+				<Button Content="保存"
+						Command="{Binding ClickSave}" />
+
+				<Button Content="前削除"
+						Command="{Binding ClickDeleteAll}" />
+			</UniformGrid>
 		</GroupBox>
 
 		<GroupBox DockPanel.Dock="Top" Header="Correlation">
@@ -67,7 +72,7 @@
 			</DockPanel>
 		</GroupBox>
 
-		<GroupBox DockPanel.Dock="Top" Header="Merge">
+		<GroupBox DockPanel.Dock="Top" Header="Merge" Visibility="Collapsed">
 			<DockPanel>
 				<Button DockPanel.Dock="Right"
 						Content="{iconPacks:Material Kind=Download}"
@@ -78,15 +83,46 @@
 		</GroupBox>
 
 		<GroupBox DockPanel.Dock="Top" Header="Netkeiba">
-			<UniformGrid Columns="4">
-				<TextBlock Text="Login Id" />
-				<TextBox Text="{Binding NetkeibaId}" />
-				<TextBlock Text="Password" />
-				<TextBox Text="{Binding NetkeibaPassword}" />
-			</UniformGrid>
+			<WrapPanel Orientation="Horizontal">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="80" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="Login Id" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultTextBox}"
+							 Text="{Binding NetkeibaId}" />
+				</Grid>
+
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="80" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="Password" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultTextBox}"
+							 Text="{Binding NetkeibaPassword}" />
+				</Grid>
+
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="120" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="Result Path" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultTextBox}"
+							 Text="{Binding NetkeibaResult}" />
+				</Grid>
+			</WrapPanel>
 		</GroupBox>
 
-		<GroupBox DockPanel.Dock="Top" Header="Check">
+		<GroupBox DockPanel.Dock="Top" Header="Check" Visibility="Collapsed">
 			<WrapPanel Orientation="Horizontal">
 				<CheckBox Content="UseFastForest"
 						  IsChecked="{Binding UseFastForest}" />
@@ -141,13 +177,25 @@
 							 Style="{StaticResource DefaultInputDecimalTextBox}"
 							 Text="{Binding TrainingCount}" />
 				</Grid>
+
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="80" />
+						<ColumnDefinition Width="80" />
+					</Grid.ColumnDefinitions>
+					<TextBlock Grid.Column="0"
+							   Text="MLRanks" />
+					<TextBox Grid.Column="1"
+							 Style="{StaticResource DefaultTextBox}"
+							 Text="{Binding OrderBys}" />
+				</Grid>
 			</WrapPanel>
 		</GroupBox>
 
 		<TabControl>
 			<TabItem Header="BinaryClassification">
 				<DockPanel>
-					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" />
+					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" Visibility="Collapsed" />
 					<ListView ItemsSource="{Binding BinaryClassificationResultViews}">
 						<ListView.View>
 							<GridView>
@@ -199,7 +247,7 @@
 			</TabItem>
 			<TabItem Header="Regression">
 				<DockPanel>
-					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding RegressionMetrics.Items}" SelectedItem="{Binding RegressionMetrics.SelectedItem}" />
+					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding RegressionMetrics.Items}" SelectedItem="{Binding RegressionMetrics.SelectedItem}" Visibility="Collapsed" />
 					<ListView ItemsSource="{Binding RegressionResultViews}">
 						<ListView.View>
 							<GridView>

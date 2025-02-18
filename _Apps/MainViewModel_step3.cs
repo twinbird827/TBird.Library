@@ -32,8 +32,6 @@ namespace Netkeiba
 
         public BindableContextCollection<TreeCheckboxViewModel> CreateModels { get; }
 
-        private IEnumerable<CheckboxItemModel> GetCheckes() => CreateModels.SelectMany(x => x.Children).Select(x => x.Value);
-
         private long tgtdate;
 
         public IRelayCommand S3EXECCHECK => RelayCommand.Create(_ =>
@@ -178,7 +176,7 @@ namespace Netkeiba
                         }
 
                         const double PredictionModelLength = 6;
-                        foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
+                        foreach (var o in AppUtil.OrderBys)
                         {
                             await PredictionModel($"B1-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}"));
                             Progress.Value += 1 / PredictionModelLength;
@@ -229,22 +227,27 @@ namespace Netkeiba
                 var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
                 tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
             }
+
+            var checkes = CreateModels
+                .SelectMany(x => x.Children)
+                .Select(x => x.Value)
+                .Where(x => x.IsChecked && Arr("B-", "R-").Any(x.Value.StartsWith))
+                .ToArray();
+
             Progress.Value = 0;
             Progress.Minimum = 0;
-            Progress.Maximum =
-                seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("B-")) +
-                seconds * GetCheckes().Count(x => x.IsChecked && x.Value.StartsWith("R-"));
+            Progress.Maximum = seconds * checkes.Length * AppUtil.OrderBys.Count();
 
             AppSetting.Instance.Save();
 
             for (var tmp = 0; tmp < seconds; tmp++)
             {
                 var random = new Random();
-                foreach (var o in AppSetting.Instance.OrderBys.Split(',').Select(x => x.Int32()))
+                foreach (var o in AppUtil.OrderBys)
                 {
                     var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
-                    foreach (var x in GetCheckes().Where(x => x.IsChecked && (x.Value.StartsWith("B-") || x.Value.StartsWith("R-"))))
+                    foreach (var x in checkes)
                     {
                         var isb = x.Value.StartsWith("B-");
                         var args = x.Value.Split("-");
