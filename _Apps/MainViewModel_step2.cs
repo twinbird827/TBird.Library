@@ -42,7 +42,6 @@ namespace Netkeiba
                     .Where(id => !drops.Contains(id))
                     .ToArray();
 
-                var ﾗﾝｸ2 = AppUtil.Getﾗﾝｸ2(conn);
                 var 馬性 = await AppUtil.Get馬性(conn);
                 var 調教場所 = await AppUtil.Get調教場所(conn);
                 var 追切 = await AppUtil.Get追切(conn);
@@ -65,7 +64,7 @@ namespace Netkeiba
                     MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
                     // ﾚｰｽ毎の纏まり
-                    var racarr = await CreateRaceModel(conn, "t_orig", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切);
+                    var racarr = await CreateRaceModel(conn, "t_orig", raceid, 馬性, 調教場所, 追切);
                     var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
                     var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
 
@@ -82,7 +81,7 @@ namespace Netkeiba
                             head1.Select(x => $"{x} INTEGER").GetString(","),
                             ",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
 
-                        await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ1, ﾚｰｽID, 馬番)");
+                        await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID, 馬番)");
                     }
 
                     await conn.BeginTransaction();
@@ -131,7 +130,7 @@ namespace Netkeiba
 
             // ﾃﾞﾌｫﾙﾄ値の作製
             DEF.Clear();
-            AppUtil.RankAges.ForEach(async rank =>
+            AppUtil.ﾗﾝｸ1Arr.ForEach(async rank =>
             {
                 var dic = await conn.GetRow<float>(Arr(
                         $"SELECT",
@@ -147,7 +146,7 @@ namespace Netkeiba
                         $"AVG(t_orig.斤量) 斤量",
                         $"FROM t_orig",
                         $"WHERE t_orig.ﾗﾝｸ1 = ?"
-                    ).GetString(" "), SQLiteUtil.CreateParameter(DbType.String, rank == "新馬" ? "未勝利" : rank));
+                    ).GetString(" "), SQLiteUtil.CreateParameter(DbType.String, rank == "新馬ク" ? "未勝利ク" : rank));
 
                 dic["斤上"] = Get斤上(dic["上り"], dic["斤量"]);
                 dic["時間"] = 16.237541F;
@@ -197,7 +196,7 @@ namespace Netkeiba
 
         private float Var(IEnumerable<float> arr) => arr.Where(x => !float.IsNaN(x)).Run(xxx => 1 < xxx.Count() ? (float)xxx.Variance() : 0F);
 
-        private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
+        private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> 馬性, List<string> 調教場所, List<string> 追切)
         {
             // 同ﾚｰｽの平均を取りたいときに使用する
             var 同ﾚｰｽ = await conn.GetRows($"SELECT {tablename}.*, a.父ID 父ID, a.母ID 母ID, b.父ID 母父ID FROM {tablename} LEFT JOIN t_ketto a ON {tablename}.馬ID = a.馬ID LEFT JOIN t_ketto b ON a.母ID = b.馬ID WHERE ﾚｰｽID = ?",
@@ -212,7 +211,7 @@ namespace Netkeiba
             );
 
             // ﾚｰｽ毎の纏まり
-            var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, ﾗﾝｸ2, 馬性, 調教場所, 追切)).WhenAll();
+            var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, 馬性, 調教場所, 追切)).WhenAll();
 
             var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
             var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
@@ -239,7 +238,7 @@ namespace Netkeiba
             return racarr;
         }
 
-        private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> ﾗﾝｸ2, List<string> 馬性, List<string> 調教場所, List<string> 追切)
+        private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> 馬性, List<string> 調教場所, List<string> 追切)
         {
             var dic = new Dictionary<string, object>();
             var rnk = src["ﾗﾝｸ1"].Str();
@@ -248,8 +247,8 @@ namespace Netkeiba
             // ﾍｯﾀﾞ情報
             dic["ﾚｰｽID"] = src["ﾚｰｽID"].GetInt64();
             dic["開催日数"] = src["開催日数"].GetInt64();
-            dic["ﾗﾝｸ1"] = AppUtil.RankAges.IndexOf(rnk);
-            dic["ﾗﾝｸ2"] = ﾗﾝｸ2.IndexOf(src["ﾗﾝｸ2"]);
+            dic["ﾗﾝｸ1"] = AppUtil.ﾗﾝｸ1Arr.IndexOf(rnk);
+            dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(src["ﾗﾝｸ2"]);
 
             // 予測したいﾃﾞｰﾀ
             dic["着順"] = src["着順"].GetInt64();
@@ -304,26 +303,43 @@ namespace Netkeiba
 
                 void ADDﾗﾝｸ情報(string key, IEnumerable<Dictionary<string, object>> arr)
                 {
-                    Arr(
-                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古"),
-                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク"),
-                        Arr("G1障", "G2障", "G3障"),
-                        Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
-                    ).ForEach((keys, j) =>
-                    {
-                        // 計算したい値
-                        var tmp = arr.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(GET着距).ToArray();
+                    var keys = !rnk.Contains("障")
+                        ? Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク")
+                        : Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障");
 
-                        dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp.Any()
-                            ? tmp.Median()
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}Me", 0F).GetSingle() / 1.25F;
-                        dic[$"{KEY}{key}{j.ToString(2)}Ma"] = tmp.Any()
-                            ? tmp.Max()
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}Ma", 0F).GetSingle() / 1.25F;
-                        dic[$"{KEY}{key}{j.ToString(2)}Mi"] = tmp.Any()
-                            ? tmp.Min()
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}Mi", 0F).GetSingle() / 1.25F;
-                    });
+                    // 計算したい値
+                    var tmp = arr.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(GET着距).ToArray();
+
+                    float GetDefault(string def) => dic.Get($"{KEY}着順A{def}", 0F).GetSingle().Run(x => x < 0 ? x * 1.25F : x / 1.25F);
+
+                    dic[$"{KEY}{key}_Me"] = tmp.Any()
+                        ? tmp.Median()
+                        : GetDefault("_Me");
+                    dic[$"{KEY}{key}_Ma"] = tmp.Any()
+                        ? tmp.Max()
+                        : GetDefault("_Ma");
+                    dic[$"{KEY}{key}_Mi"] = tmp.Any()
+                        ? tmp.Min()
+                        : GetDefault("_Mi");
+
+                    //Arr(
+                    //    Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク"),
+                    //    Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
+                    //).ForEach((keys, j) =>
+                    //{
+                    //    // 計算したい値
+                    //    var tmp = arr.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(GET着距).ToArray();
+
+                    //    dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp.Any()
+                    //        ? tmp.Median()
+                    //        : dic.Get($"{KEY}着順A{j.ToString(2)}Me", 0F).GetSingle() / 1.25F;
+                    //    dic[$"{KEY}{key}{j.ToString(2)}Ma"] = tmp.Any()
+                    //        ? tmp.Max()
+                    //        : dic.Get($"{KEY}着順A{j.ToString(2)}Ma", 0F).GetSingle() / 1.25F;
+                    //    dic[$"{KEY}{key}{j.ToString(2)}Mi"] = tmp.Any()
+                    //        ? tmp.Min()
+                    //        : dic.Get($"{KEY}着順A{j.ToString(2)}Mi", 0F).GetSingle() / 1.25F;
+                    //});
                 }
 
                 ADDﾗﾝｸ情報("着順A", arr);

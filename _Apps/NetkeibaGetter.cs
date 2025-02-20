@@ -73,7 +73,7 @@ namespace Netkeiba
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
-					dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
+					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;
@@ -147,7 +147,11 @@ namespace Netkeiba
 					arr.Add(dic);
 				}
 
-				if (arr.Any()) arr.ForEach(x => x["ﾗﾝｸ1"] += x["回り"] == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古");
+				if (arr.Any()) arr.ForEach(x =>
+				{
+					x["ﾗﾝｸ1"] += x["回り"] == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古";
+					x["ﾗﾝｸ2"] = AppUtil.ﾗﾝｸ2[x["ﾗﾝｸ1"]];
+                });
 			}
 
 			return arr;
@@ -316,7 +320,7 @@ namespace Netkeiba
 					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
-					dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
+					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = title.Contains("障害") ? "障" : mawari;
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;
@@ -390,10 +394,14 @@ namespace Netkeiba
 					arr.Add(dic);
 				}
 
-				if (arr.Any()) arr.ForEach(x => x["ﾗﾝｸ1"] += x["回り"] == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古");
-			}
+                if (arr.Any()) arr.ForEach(x =>
+                {
+                    x["ﾗﾝｸ1"] += x["回り"] == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古";
+                    x["ﾗﾝｸ2"] = AppUtil.ﾗﾝｸ2[x["ﾗﾝｸ1"]];
+                });
+            }
 
-			return arr;
+            return arr;
 		}
 
 		private async Task<Dictionary<string, string>> GetBanushi(string umaid)

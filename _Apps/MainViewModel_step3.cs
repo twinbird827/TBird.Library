@@ -92,13 +92,13 @@ namespace Netkeiba
 
                     Progress.Value = 0;
                     Progress.Minimum = 0;
-                    Progress.Maximum = AppUtil.RankAges.Length;
+                    Progress.Maximum = AppUtil.ﾗﾝｸ2Arr.Length;
 
-                    foreach (var rank in AppUtil.RankAges)
+                    foreach (var rank in AppUtil.ﾗﾝｸ2Arr)
                     {
-                        var raceids = await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
+                        var raceids = await conn.GetRows(r => r.Get<long>(0), "SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
                             SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-                            SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
+                            SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.Getﾗﾝｸ2(rank))
                         );
 
                         // 支払情報を取得
@@ -630,9 +630,9 @@ namespace Netkeiba
             using (var conn = AppUtil.CreateSQLiteControl())
             using (var file = new FileAppendWriter(path))
             {
-                using var reader = await conn.ExecuteReaderAsync($"SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ1 = ? ORDER BY ﾚｰｽID, 馬番",
+                using var reader = await conn.ExecuteReaderAsync($"SELECT * FROM t_model WHERE 開催日数 <= ? AND ﾗﾝｸ2 = ? ORDER BY ﾚｰｽID, 馬番",
                     SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-                    SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
+                    SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.Getﾗﾝｸ2(rank))
                 );
 
                 var next = await reader.ReadAsync();
@@ -679,9 +679,9 @@ namespace Netkeiba
 
                 var rets = new List<float>();
 
-                foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), $"SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ1 = ?",
+                foreach (var raceid in await conn.GetRows(r => r.Get<long>(0), $"SELECT DISTINCT ﾚｰｽID FROM t_model WHERE 開催日数 > ? AND ﾗﾝｸ2 = ?",
                         SQLiteUtil.CreateParameter(DbType.Int64, tgtdate),
-                        SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.RankAges.IndexOf(rank))
+                        SQLiteUtil.CreateParameter(DbType.Int64, AppUtil.Getﾗﾝｸ2(rank))
                     ))
                 {
                     var racs = new List<List<object>>();

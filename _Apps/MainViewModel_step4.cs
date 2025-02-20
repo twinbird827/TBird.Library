@@ -54,7 +54,7 @@ namespace Netkeiba
             // Initialize MLContext
             MLContext mlContext = new MLContext();
 
-            var ranks = AppUtil.RankAges;
+            var ranks = AppUtil.ﾗﾝｸ2Arr;
 
             try
             {
@@ -95,7 +95,6 @@ namespace Netkeiba
         {
             using (var conn = AppUtil.CreateSQLiteControl())
             {
-                var ﾗﾝｸ2 = AppUtil.Getﾗﾝｸ2(conn);
                 var 馬性 = await AppUtil.Get馬性(conn);
                 var 調教場所 = await AppUtil.Get調教場所(conn);
                 var 追切 = await AppUtil.Get追切(conn);
@@ -209,7 +208,7 @@ namespace Netkeiba
                     var arr = new List<List<object>>();
 
                     // ﾓﾃﾞﾙﾃﾞｰﾀ作成
-                    foreach (var m in await CreateRaceModel(conn, "t_shutuba", raceid, ﾗﾝｸ2, 馬性, 調教場所, 追切))
+                    foreach (var m in await CreateRaceModel(conn, "t_shutuba", raceid, 馬性, 調教場所, 追切))
                     {
                         var tmp = new List<object>();
                         var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
@@ -228,17 +227,17 @@ namespace Netkeiba
                         tmp.Add(src["着順"]);
 
                         var binaries1 = Arr(以内1, 以内2, 以内3, 以内4)
-                            .Select(x => (object)x[src["ﾗﾝｸ1"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
+                            .Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
                             .ToArray();
                         tmp.AddRange(binaries1);
 
                         var binaries2 = Arr(着外1, 着外2, 着外3, 着外4)
-                            .Select(x => (object)x[src["ﾗﾝｸ1"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
+                            .Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
                             .ToArray();
                         tmp.AddRange(binaries2);
 
                         var regressions = Arr(着順1)
-                            .Select(x => (object)x[src["ﾗﾝｸ1"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
+                            .Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
                             .ToArray();
                         tmp.AddRange(regressions);
 

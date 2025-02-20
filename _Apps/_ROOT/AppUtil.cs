@@ -42,50 +42,7 @@ namespace Netkeiba
             { "未勝利障",   0F },
         };
 
-        public static readonly string[] RankAges = new[]
-        {
-            "G1ク",
-            "G1古",
-            "G2ク",
-            "G2古",
-            "G3ク",
-            "G3古",
-            "オープンク",
-            "オープン古",
-            "3勝古",
-            "2勝古",
-            "1勝ク",
-            "1勝古",
-            "未勝利ク",
-            "新馬ク",
-            "G1障",
-            "G2障",
-            "G3障",
-            "オープン障",
-            "未勝利障",
-        };
-
-        public static readonly string[][] RankStep2 = new[]
-        {
-            new [] {"未勝利ク", "新馬ク", "1勝ク", "1勝古", "2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"1勝ク", "1勝古", "2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"1勝古", "2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"2勝古", "オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"オープンク", "3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"3勝古", "G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"G3ク", "G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"G3古", "オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"オープン古", "G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"G2ク", "G2古", "G1ク", "G1古", },
-            new [] {"G2古", "G1ク", "G1古", },
-            new [] {"G1ク", "G1古", },
-            new [] {"G1古", },
-            new [] {"未勝利ク", "新馬ク", "未勝利障", "オープン障", "G3障", "G2障", "G1障",},
-            new [] {"オープン障", "G3障", "G2障", "G1障",},
-            new [] {"G3障", "G2障", "G1障",},
-            new [] {"G2障", "G1障",},
-            new [] {"G1障",},
-        };
+        public static readonly string[] ﾗﾝｸ1Arr = RankRate.Keys.ToArray();
 
         public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
 
@@ -251,11 +208,6 @@ namespace Netkeiba
             return conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}");
         }
 
-        public static List<string> Getﾗﾝｸ2(SQLiteControl conn)
-        {
-            return new List<string>(new[] { "RANK4", "RANK3", "RANK2", "RANK1" });
-        }
-
         public static Task<List<string>> Get馬性(SQLiteControl conn)
         {
             return GetDistinct(conn, "馬性");
@@ -316,21 +268,35 @@ namespace Netkeiba
 
         public static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
         {
-            { "G1", "RANK1" },
-            { "G2", "RANK1" },
-            { "G3", "RANK1" },
-            { "オープン", "RANK2" },
-            { "3勝", "RANK2" },
-            { "2勝", "RANK3" },
-            { "1勝", "RANK3" },
-            { "未勝利", "RANK4" },
-            { "新馬", "RANK4" },
+            { "1勝ク", "勝ク" },
+            { "1勝古", "勝古" },
+            { "2勝ク", "勝ク" },
+            { "2勝古", "勝古" },
+            { "3勝古", "勝古" },
+            { "G1ク", "オク" },
+            { "G1古", "オ古" },
+            { "G1障", "オ障" },
+            { "G2ク", "オク" },
+            { "G2古", "オ古" },
+            { "G2障", "オ障" },
+            { "G3ク", "オク" },
+            { "G3古", "オ古" },
+            { "G3障", "オ障" },
+            { "オープンク", "オク" },
+            { "オープン古", "オ古" },
+            { "オープン障", "オ障" },
+            { "新馬ク", "新馬" },
+            { "未勝利ク", "未勝利ク" },
+            { "未勝利障", "未勝利障" },
         };
 
-        public static string Getﾗﾝｸ2(string ﾗﾝｸ1)
+        public static string[] ﾗﾝｸ2Arr
         {
-            return ﾗﾝｸ2[ﾗﾝｸ1];
+            get => _ﾗﾝｸ2 = _ﾗﾝｸ2 ?? ﾗﾝｸ2.Values.Distinct().ToArray();
         }
+        private static string[]? _ﾗﾝｸ2;
+
+        public static int Getﾗﾝｸ2(object rank) => ﾗﾝｸ2Arr.IndexOf(rank.Str());
 
         public static void DeleteEndress(string path)
         {
