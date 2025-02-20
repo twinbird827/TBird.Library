@@ -13,9 +13,9 @@ namespace Netkeiba
         {
             if (!Load())
             {
-                TrainingTimeSecond = new[] { 1800, 2000, 2200 };
-                BinaryClassificationResults = new BinaryClassificationResult[] { };
-                RegressionResults = new RegressionResult[] { };
+                TrainingTimeSecond = [1800, 2000, 2200];
+                BinaryClassificationResults = [];
+                RegressionResults = [];
                 NetkeibaResult = "result";
 
             }
@@ -94,7 +94,7 @@ namespace Netkeiba
             get => GetProperty(_TrainingTimeSecond);
             set => SetProperty(ref _TrainingTimeSecond, value);
         }
-        private int[] _TrainingTimeSecond = new int[] { };
+        private int[] _TrainingTimeSecond = [];
 
         public uint MinimumTrainingTimeSecond
         {
@@ -129,11 +129,11 @@ namespace Netkeiba
             get => GetProperty(_BinaryClassificationResults);
             set => SetProperty(ref _BinaryClassificationResults, value);
         }
-        public BinaryClassificationResult[] _BinaryClassificationResults = new BinaryClassificationResult[] { };
+        public BinaryClassificationResult[] _BinaryClassificationResults = [];
 
-        public void UpdateBinaryClassificationResults(BinaryClassificationResult now, BinaryClassificationResult? old)
+        public void UpdateBinaryClassificationResults(BinaryClassificationResult now)
         {
-            BinaryClassificationResults = Arr(now).Concat(BinaryClassificationResults.Where(x => !x.Equals(old))).ToArray();
+            BinaryClassificationResults = BinaryClassificationResults.Concat(Arr(now)).ToArray();
             Save();
         }
 
@@ -148,6 +148,11 @@ namespace Netkeiba
         //    //	return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? BinaryClassificationResult.Default;
         //    //});
         //}
+
+        public IEnumerable<BinaryClassificationResult> GetBinaryClassificationResults(string index, string rank)
+        {
+            return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank);
+        }
 
         public BinaryClassificationResult GetBinaryClassificationResult(string index, string rank)
         {
@@ -183,11 +188,11 @@ namespace Netkeiba
             get => GetProperty(_RegressionResults);
             set => SetProperty(ref _RegressionResults, value);
         }
-        public RegressionResult[] _RegressionResults = new RegressionResult[] { };
+        public RegressionResult[] _RegressionResults = [];
 
-        public void UpdateRegressionResults(RegressionResult now, RegressionResult? old)
+        public void UpdateRegressionResults(RegressionResult now)
         {
-            RegressionResults = Arr(now).Concat(RegressionResults.Where(x => !x.Equals(old))).ToArray();
+            RegressionResults = RegressionResults.Concat(Arr(now)).ToArray();
             Save();
         }
 

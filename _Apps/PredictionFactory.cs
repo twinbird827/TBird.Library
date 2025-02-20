@@ -5,23 +5,26 @@ namespace Netkeiba
 {
     public abstract class PredictionFactory<TSrc, TDst> where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
     {
-        public PredictionFactory(MLContext context, string rank, string index, ITransformer model) : this(context, rank, index, true)
+        public PredictionFactory(MLContext context, string rank, string index, ITransformer model) : this(context, rank, index)
         {
             _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(model);
         }
 
-        public PredictionFactory(MLContext context, string rank, string index, bool isnew)
+        public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index)
+        {
+            _result = result;
+        }
+
+        public PredictionFactory(MLContext context, string rank, string index)
         {
             _context = context;
             _rank = rank;
             _index = index;
-            _isnew = isnew;
         }
 
         protected MLContext _context;
         protected string _rank;
         protected string _index;
-        protected bool _isnew;
         protected float _score;
         protected PredictionResult? _result;
         protected PredictionEngineBase<TSrc, TDst>? _engine;
@@ -64,7 +67,7 @@ namespace Netkeiba
 
         }
 
-        public BinaryClassificationPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index, false)
+        public BinaryClassificationPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index)
         {
 
         }
@@ -88,7 +91,7 @@ namespace Netkeiba
 
         }
 
-        public MultiClassificationPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index, false)
+        public MultiClassificationPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index)
         {
 
         }
@@ -111,7 +114,7 @@ namespace Netkeiba
 
         }
 
-        public RegressionPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index, false)
+        public RegressionPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index)
         {
 
         }

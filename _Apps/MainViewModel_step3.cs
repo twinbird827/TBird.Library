@@ -42,7 +42,6 @@ namespace Netkeiba
 
         public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
         {
-            using var selenium = TBirdSeleniumFactory.GetDisposer();
             // ｽｺｱ数=7
             IEnumerable<int> GetAwase(int start) => Enumerable.Range(start, 7 - (start - 1));
 
@@ -178,6 +177,9 @@ namespace Netkeiba
                         const double PredictionModelLength = 6;
                         foreach (var o in AppUtil.OrderBys)
                         {
+                            var binaries1 = AppSetting.Instance.GetBinaryClassificationResults($"1-{o}", rank);
+                            var binaries6 = AppSetting.Instance.GetBinaryClassificationResults($"6-{o}", rank);
+
                             await PredictionModel($"B1-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}"));
                             Progress.Value += 1 / PredictionModelLength;
                             await PredictionModel($"B2-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"2-{o}"));
@@ -229,14 +231,14 @@ namespace Netkeiba
             }
 
             var checkes = CreateModels
-                .SelectMany(x => x.Children)
                 .Select(x => x.Value)
-                .Where(x => x.IsChecked && Arr("B-", "R-").Any(x.Value.StartsWith))
+                .Where(x => x.IsChecked)
                 .ToArray();
 
+            const int NumberOfCreateModel = 4;
             Progress.Value = 0;
             Progress.Minimum = 0;
-            Progress.Maximum = seconds * checkes.Length * AppUtil.OrderBys.Count();
+            Progress.Maximum = seconds * AppUtil.OrderBys.Count() * checkes.Length * (NumberOfCreateModel * 2 + 1);
 
             AppSetting.Instance.Save();
 
@@ -249,32 +251,18 @@ namespace Netkeiba
 
                     foreach (var x in checkes)
                     {
-                        var isb = x.Value.StartsWith("B-");
-                        var args = x.Value.Split("-");
-                        var index = args[2].GetInt32();
-                        var rank = args[1];
+                        var rank = x.Value;
 
-                        if (isb)
-                        {
-                            (float 着順, float 単勝) GET着勝(DbDataReader r) => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
+                        (float 着順, float 単勝) GET着勝(DbDataReader r) => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
-                            Func<DbDataReader, object> func = 5 < index
-                                ? r => GET着勝(r).Run(x => o < x.着順)
-                                : r => GET着勝(r).Run(x => x.着順 <= o);
-                            await BinaryClassification($"{index}-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, func);
-                        }
-                        else if (o == AppUtil.OrderBys.First())
+                        for (var i = 0; i < NumberOfCreateModel; i++)
                         {
-                            await Regression(args[1], second);
+                            await BinaryClassification($"1-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 <= o));
+                            await BinaryClassification($"6-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 > o));
                         }
+                        await Regression(rank, second);
+
                     }
-
-                    //foreach (var x in GetCheckes().Where(x => x.IsChecked && x.Value.StartsWith("M-")))
-                    //{
-                    //	var args = x.Value.Split("-");
-                    //	await MultiClassClassification(1, args[1], second).TryCatch();
-                    //};
-
                 }
             }
         });
@@ -360,8 +348,6 @@ namespace Netkeiba
             var now = await PredictionModel(rank, new BinaryClassificationPredictionFactory(mlContext, rank, index, model)).RunAsync(x =>
                 new BinaryClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
             );
-            var old = AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-            var bst = old == BinaryClassificationResult.Default || old.GetScore() < now.GetScore() ? now : old;
 
             AddLog($"=============== Result of BinaryClassification Model Data {rank} {index} {second} ===============");
             AddLog($"Accuracy: {trained.Accuracy}");
@@ -381,12 +367,7 @@ namespace Netkeiba
 
             mlContext.Model.Save(model, data.Schema, savepath);
 
-            AppSetting.Instance.UpdateBinaryClassificationResults(bst, old);
-
-            if (old != null && !bst.Equals(old) && await FileUtil.Exists(old.Path))
-            {
-                FileUtil.Delete(old.Path);
-            }
+            AppSetting.Instance.UpdateBinaryClassificationResults(now);
 
             Progress.Value += 1;
 
@@ -473,8 +454,6 @@ namespace Netkeiba
             var now = await PredictionModel(rank, new RegressionPredictionFactory(mlContext, rank, "1", model)).RunAsync(x =>
                 new RegressionResult(savepath, rank, "1", second, trained, x.score, x.rate)
             );
-            var old = AppSetting.Instance.GetRegressionResult("1", rank);
-            var bst = old == RegressionResult.Default || old.GetScore() < now.GetScore() ? now : old;
 
             AddLog($"=============== Result of Regression Model Data {rank} {second} ===============");
             AddLog($"MeanSquaredError: {trained.MeanSquaredError}");
@@ -487,12 +466,7 @@ namespace Netkeiba
 
             mlContext.Model.Save(model, data.Schema, savepath);
 
-            AppSetting.Instance.UpdateRegressionResults(bst, old);
-
-            if (old != null && !bst.Equals(old) && await FileUtil.Exists(old.Path))
-            {
-                FileUtil.Delete(old.Path);
-            }
+            AppSetting.Instance.UpdateRegressionResults(now);
 
             Progress.Value += 1;
 

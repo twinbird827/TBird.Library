@@ -31,12 +31,7 @@ namespace Netkeiba
 
             CreateModels = CreateModelSources.ToBindableContextCollection();
 
-            CreateModelSources.AddRange(AppUtil.ﾗﾝｸ2Arr.Select(rank => new TreeCheckboxViewModel(new CheckboxItemModel(rank, rank),
-                Arr(1, 2, 3, 4, 6, 7, 8, 9)
-                    .Select(i => $"B-{rank}-{i}")
-                    .Concat(Arr($"R-{rank}-1"))
-                    .Select(s => new TreeCheckboxViewModel(new CheckboxItemModel(s, s)))
-            )));
+            CreateModelSources.AddRange(AppUtil.ﾗﾝｸ2Arr.Select(rank => new TreeCheckboxViewModel(new CheckboxItemModel(rank, rank))));
 
             EYear = DateTime.Now.Year;
             SYear = EYear;
