@@ -279,12 +279,12 @@ namespace Netkeiba
 
             void ADD情報(string key, List<Dictionary<string, object>> arr, int i)
             {
-                float GET着順(Dictionary<string, object> tgt)
+                float GET着順(Dictionary<string, object> tgt, float jun)
                 {
                     try
                     {
                         var 頭数 = TOU[tgt["ﾚｰｽID"].GetInt64()];
-                        var 着順 = tgt.SINGLE("着順");
+                        var 着順 = tgt.SINGLE("着順") - jun;
                         var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
                         var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                         //return (着順 / 頭数).Pow(1.5F);
@@ -298,41 +298,50 @@ namespace Netkeiba
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
 
-                float GET着距(Dictionary<string, object> tgt) => GET着順(tgt);
-
                 var KEY = $"{key}{i.ToString(2)}";
 
-                void ADDﾗﾝｸ情報(string key, IEnumerable<Dictionary<string, object>> arr)
+                void ADDﾗﾝｸ情報(string key, IEnumerable<Dictionary<string, object>> arr1, IEnumerable<Dictionary<string, object>> arr2)
                 {
-                    Arr(
-                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古"),
-                        Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク"),
-                        Arr("G1障", "G2障", "G3障"),
-                        Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
-                    ).ForEach((keys, j) =>
+                    var tgts = !rnk.Contains("障")
+                        ? Arr(
+                            Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古"),
+                            Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク")
+                        )
+                        : Arr(
+                            Arr("G1障", "G2障", "G3障"),
+                            Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
+                        );
+                    tgts.ForEach((keys, j) =>
                     {
                         // 計算したい値
-                        var tmp = arr.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(GET着距).ToArray();
+                        var tmp1 = arr2.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.0F)).ToArray();
+                        var tmp2 = arr1.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.5F)).ToArray();
 
-                        dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp.Any()
-                            ? tmp.Median()
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}Me", 0F).GetSingle() / 1.25F;
-                        dic[$"{KEY}{key}{j.ToString(2)}Ma"] = tmp.Any()
-                            ? tmp.Max()
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}Ma", 0F).GetSingle() / 1.25F;
-                        dic[$"{KEY}{key}{j.ToString(2)}Mi"] = tmp.Any()
-                            ? tmp.Min()
-                            : dic.Get($"{KEY}着順A{j.ToString(2)}Mi", 0F).GetSingle() / 1.25F;
+                        dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp1.Any()
+                            ? tmp1.Median()
+                            : tmp2.Any()
+                            ? tmp2.Median()
+                            : 0F;
+                        dic[$"{KEY}{key}{j.ToString(2)}Ma"] = tmp1.Any()
+                            ? tmp1.Max()
+                            : tmp2.Any()
+                            ? tmp2.Max()
+                            : 0F;
+                        dic[$"{KEY}{key}{j.ToString(2)}Mi"] = tmp1.Any()
+                            ? tmp1.Min()
+                            : tmp2.Any()
+                            ? tmp2.Min()
+                            : 0F;
                     });
                 }
 
-                ADDﾗﾝｸ情報("着順A", arr);
+                ADDﾗﾝｸ情報("着順A", arr, arr);
 
-                ADDﾗﾝｸ情報("着順B", arr.Where(x => x["馬場"] == src["馬場"]));
+                ADDﾗﾝｸ情報("着順B", arr, arr.Where(x => x["馬場"] == src["馬場"]));
 
-                ADDﾗﾝｸ情報("着順C", arr.Where(x => x["馬場状態"] == src["馬場状態"]));
+                ADDﾗﾝｸ情報("着順C", arr, arr.Where(x => x["馬場状態"] == src["馬場状態"]));
 
-                ADDﾗﾝｸ情報("着順D", arr.Where(x => 0.75F < GET距離(x)));
+                ADDﾗﾝｸ情報("着順D", arr, arr.Where(x => 0.75F < GET距離(x)));
 
                 dic[$"{KEY}距離"] = Median(arr.Select(GET距離), 0.75F);
 
