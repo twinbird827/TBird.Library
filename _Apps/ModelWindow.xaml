@@ -53,11 +53,11 @@
 
 	<DockPanel>
 		<GroupBox DockPanel.Dock="Top" Header="Save">
-			<UniformGrid Columns="2" Height="40">
+			<UniformGrid Columns="2">
 				<Button Content="保存"
 						Command="{Binding ClickSave}" />
 
-				<Button Content="前削除"
+				<Button Content="全削除"
 						Command="{Binding ClickDeleteAll}" />
 			</UniformGrid>
 		</GroupBox>
