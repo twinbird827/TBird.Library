@@ -10,7 +10,7 @@ namespace Netkeiba
             _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(model);
         }
 
-        public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index)
+        public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index, context.Model.Load(result.Path, out DataViewSchema schema))
         {
             _result = result;
         }
@@ -67,7 +67,7 @@ namespace Netkeiba
 
         }
 
-        public BinaryClassificationPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index)
+        public BinaryClassificationPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
         {
 
         }
@@ -91,7 +91,7 @@ namespace Netkeiba
 
         }
 
-        public MultiClassificationPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index)
+        public MultiClassificationPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
         {
 
         }
@@ -114,7 +114,7 @@ namespace Netkeiba
 
         }
 
-        public RegressionPredictionFactory(MLContext context, string rank, string index) : base(context, rank, index)
+        public RegressionPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
         {
 
         }

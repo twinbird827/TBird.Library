@@ -177,35 +177,33 @@ namespace Netkeiba
                         const double PredictionModelLength = 6;
                         foreach (var o in AppUtil.OrderBys)
                         {
-                            var binaries1 = AppSetting.Instance.GetBinaryClassificationResults($"1-{o}", rank);
-                            var binaries6 = AppSetting.Instance.GetBinaryClassificationResults($"6-{o}", rank);
+                            var binaries1 = AppSetting.Instance.GetBinaryClassificationResults($"1-{o}", rank)
+                                .OrderByDescending(x => x.GetScore())
+                                .Take(4);
+                            var binaries6 = AppSetting.Instance.GetBinaryClassificationResults($"6-{o}", rank)
+                                .OrderByDescending(x => x.GetScore())
+                                .Take(4);
+                            var binaries = binaries1.Concat(binaries6)
+                                .Select(x => new BinaryClassificationPredictionFactory(mlContext, x.Rank, x.Index, x))
+                                .ToArray();
 
-                            await PredictionModel($"B1-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}"));
+                            await PredictionModel($"B1-{o}", binaries[0]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B2-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"2-{o}"));
+                            await PredictionModel($"B2-{o}", binaries[1]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B3-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"3-{o}"));
+                            await PredictionModel($"B3-{o}", binaries[2]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B4-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"4-{o}"));
+                            await PredictionModel($"B4-{o}", binaries[3]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B6-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"6-{o}"));
+                            await PredictionModel($"B6-{o}", binaries[4]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B7-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"7-{o}"));
+                            await PredictionModel($"B7-{o}", binaries[5]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B8-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"8-{o}"));
+                            await PredictionModel($"B8-{o}", binaries[6]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModel($"B9-{o}", new BinaryClassificationPredictionFactory(mlContext, rank, $"9-{o}"));
+                            await PredictionModel($"B9-{o}", binaries[7]);
                             Progress.Value += 1 / PredictionModelLength;
-                            await PredictionModelArr($"BX-{o}", Arr(
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"2-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"3-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"4-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"6-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"7-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"8-{o}"),
-                                new BinaryClassificationPredictionFactory(mlContext, rank, $"9-{o}")
-                            ));
+                            await PredictionModelArr($"BX-{o}", binaries);
                             Progress.Value += 1 / PredictionModelLength;
                         }
                         await PredictionModel("R1", new RegressionPredictionFactory(mlContext, rank, "1"));

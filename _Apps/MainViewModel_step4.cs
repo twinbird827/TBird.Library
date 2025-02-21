@@ -1,4 +1,5 @@
 using AngleSharp.Common;
+using ControlzEx.Standard;
 using Microsoft.ML;
 using Microsoft.ML.Data;
 using System;
@@ -60,16 +61,42 @@ namespace Netkeiba
             {
                 foreach (var o in AppUtil.OrderBys)
                 {
+                    Dictionary<string, T[]> GetPredictionFactories<T>(
+                            string index,
+                            int take,
+                            Func<string, string, IEnumerable<PredictionResult>> func1,
+                            Func<PredictionResult, T> func2
+                        )
+                    {
+                        return ranks
+                        .ToDictionary(rank => rank, rank => func1(index, rank)
+                            .OrderByDescending(x => x.GetScore())
+                            .Take(take)
+                            .Select(x => func2(x))
+                            .ToArray()
+                        );
+                    }
+
+                    Dictionary<string, BinaryClassificationPredictionFactory[]> GetBinaryClassificationPredictionFactories(string index) =>
+                        GetPredictionFactories(
+                            index,
+                            4 * 3,
+                            AppSetting.Instance.GetBinaryClassificationResults,
+                            x => new BinaryClassificationPredictionFactory(mlContext, x.Rank, x.Index, x)
+                        );
+
+                    Dictionary<string, RegressionPredictionFactory[]> GetRegressionPredictionFactories() =>
+                        GetPredictionFactories(
+                            "1",
+                            3,
+                            AppSetting.Instance.GetRegressionResults,
+                            x => new RegressionPredictionFactory(mlContext, x.Rank, x.Index, x)
+                        );
+
                     await CreatePredictionFile($"Best-{o}",
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"1-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"2-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"3-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"4-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"6-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"7-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"8-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new BinaryClassificationPredictionFactory(mlContext, rank, $"9-{o}")),
-                        ranks.ToDictionary(rank => rank, rank => new RegressionPredictionFactory(mlContext, rank, "1"))
+                        GetBinaryClassificationPredictionFactories($"1-{o}"),
+                        GetBinaryClassificationPredictionFactories($"6-{o}"),
+                        GetRegressionPredictionFactories()
                     );
                 }
             }
@@ -82,15 +109,9 @@ namespace Netkeiba
         });
 
         private async Task CreatePredictionFile(string tag,
-                Dictionary<string, BinaryClassificationPredictionFactory> 以内1,
-                Dictionary<string, BinaryClassificationPredictionFactory> 以内2,
-                Dictionary<string, BinaryClassificationPredictionFactory> 以内3,
-                Dictionary<string, BinaryClassificationPredictionFactory> 以内4,
-                Dictionary<string, BinaryClassificationPredictionFactory> 着外1,
-                Dictionary<string, BinaryClassificationPredictionFactory> 着外2,
-                Dictionary<string, BinaryClassificationPredictionFactory> 着外3,
-                Dictionary<string, BinaryClassificationPredictionFactory> 着外4,
-                Dictionary<string, RegressionPredictionFactory> 着順1
+                Dictionary<string, BinaryClassificationPredictionFactory[]> 以内,
+                Dictionary<string, BinaryClassificationPredictionFactory[]> 着外,
+                Dictionary<string, RegressionPredictionFactory[]> 着順
             )
         {
             using (var conn = AppUtil.CreateSQLiteControl())
@@ -103,12 +124,7 @@ namespace Netkeiba
                     .ToDictionary(x => x, x => new List<List<object>>());
 
                 var headers = Arr("ﾚｰｽID", "ﾗﾝｸ1", "ﾚｰｽ名", "開催場所", "R", "枠番", "馬番", "馬名", "着順")
-                    .Concat(Arr(
-                        nameof(以内1), nameof(以内2), nameof(以内3), nameof(以内4),
-                        nameof(着外1), nameof(着外2), nameof(着外3), nameof(着外4),
-                        nameof(着順1),
-                        "平均"
-                    ))
+                    .Concat(Arr("B1", "B1", "B1", "B1", "B1", "B1", "B1", "B1", "R1", "平均"))
                     .ToArray();
 
                 // 各列のﾍｯﾀﾞを挿入
@@ -226,19 +242,37 @@ namespace Netkeiba
                         tmp.Add(src["馬名"]);
                         tmp.Add(src["着順"]);
 
-                        var binaries1 = Arr(以内1, 以内2, 以内3, 以内4)
-                            .Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
-                            .ToArray();
+                        IEnumerable<(int i, float predict)> GetPredicts<TSrc, TDst>(PredictionFactory<TSrc, TDst>[] factories, int len) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+                        {
+                            var predicts = factories
+                                .Select(x => x.Predict(features, src["ﾚｰｽID"].GetInt64()))
+                                .OrderByDescending(x => x)
+                                .Run(x => x.Count() <= len ? x : x.Skip(1))
+                                .Run(x => x.Count() <= len ? x : x.Take(x.Count() - 1))
+                                .ToArray();
+
+                            for (var i = 0; i < predicts.Length; i++)
+                            {
+                                yield return (i % len, predicts[i]);
+                            }
+                        }
+
+                        Dictionary<int, IEnumerable<float>> ToPredictDictionary(IEnumerable<(int i, float predict)> values) => values
+                            .Select(x => x.i)
+                            .Distinct()
+                            .ToDictionary(i => i, i => values.Where(x => x.i == i).Select(x => x.predict));
+
+                        var 以内s = ToPredictDictionary(GetPredicts(以内[src["ﾗﾝｸ2"]], 4));
+                        var 着外s = ToPredictDictionary(GetPredicts(着外[src["ﾗﾝｸ2"]], 4));
+                        var 着順s = ToPredictDictionary(GetPredicts(着順[src["ﾗﾝｸ2"]], 1));
+
+                        var binaries1 = 以内s.Values.Select(x => (object)x.Average()).ToArray();
                         tmp.AddRange(binaries1);
 
-                        var binaries2 = Arr(着外1, 着外2, 着外3, 着外4)
-                            .Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
-                            .ToArray();
+                        var binaries2 = 着外s.Values.Select(x => (object)x.Average()).ToArray();
                         tmp.AddRange(binaries2);
 
-                        var regressions = Arr(着順1)
-                            .Select(x => (object)x[src["ﾗﾝｸ2"]].Predict(features, src["ﾚｰｽID"].GetInt64()))
-                            .ToArray();
+                        var regressions = 着順s.Values.Select(x => (object)x.Average()).ToArray();
                         tmp.AddRange(regressions);
 
                         var scores = Arr(

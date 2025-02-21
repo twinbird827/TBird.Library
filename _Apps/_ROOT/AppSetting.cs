@@ -196,6 +196,11 @@ namespace Netkeiba
             Save();
         }
 
+        public IEnumerable<RegressionResult> GetRegressionResults(string index, string rank)
+        {
+            return RegressionResults.Where(x => x.Index == index && x.Rank == rank);
+        }
+
         public RegressionResult GetRegressionResult(string index, string rank)
         {
             return RegressionResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
