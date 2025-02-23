@@ -206,7 +206,7 @@ namespace Netkeiba
                             await PredictionModelArr($"BX-{o}", binaries);
                             Progress.Value += 1 / PredictionModelLength;
                         }
-                        await PredictionModel("R1", new RegressionPredictionFactory(mlContext, rank, "1"));
+                        await PredictionModel("R1", AppSetting.Instance.GetRegressionResult("1", rank).Run(result => new RegressionPredictionFactory(mlContext, rank, "1", result)));
                         Progress.Value += 1 / PredictionModelLength;
                     }
                 }
