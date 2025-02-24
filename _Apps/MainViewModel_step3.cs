@@ -283,7 +283,6 @@ namespace Netkeiba
             {
                 x.LabelColumnName = Label;
                 x.SamplingKeyColumnName = Group;
-                x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor.First(c => c.Key == rank).Value);
             }), groupColumns: false);
             columnInference.TextLoaderOptions.Run(x =>
             {
@@ -389,7 +388,6 @@ namespace Netkeiba
             {
                 x.LabelColumnName = Label;
                 x.SamplingKeyColumnName = Group;
-                x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor.First(c => c.Key == rank).Value);
             }), groupColumns: false);
             columnInference.TextLoaderOptions.Run(x =>
             {
@@ -489,7 +487,6 @@ namespace Netkeiba
             {
                 x.LabelColumnName = Label;
                 x.SamplingKeyColumnName = Group;
-                x.IgnoredColumnNames.AddRange(AppSetting.Instance.DicCor.First(c => c.Key == rank).Value);
             }), groupColumns: false);
             columnInference.TextLoaderOptions.Run(x =>
             {
@@ -611,7 +608,9 @@ namespace Netkeiba
 
                 if (!next) return;
 
-                var first = AppUtil.ToSingles((byte[])reader.GetValue("Features"));
+                var filter = AppSetting.Instance.DicCor.First(x => x.Key == rank).Value.Split(',').Select(x => x.GetInt32()).ToArray();
+                float[] GetFeatures() => AppUtil.ToSingles((byte[])reader.GetValue("Features")).Where((x, i) => !filter.Contains(i)).ToArray();
+                var first = GetFeatures();
                 var headers = Enumerable.Repeat("C", first.Length).Select((c, i) => $"{c}{i.ToString(4)}");
 
                 await file.WriteLineAsync(Arr(Label, Group)
@@ -625,9 +624,8 @@ namespace Netkeiba
 
                 while (next)
                 {
-                    var features = AppUtil.ToSingles((byte[])reader.GetValue("Features"));
                     await file.WriteLineAsync(Arr(func_target(reader), reader.GetValue("ﾚｰｽID").GetInt64())
-                        .Concat(features.Select(x => (object)x))
+                        .Concat(GetFeatures().Select(x => (object)x))
                         .GetString(",")
                     );
                     next = await reader.ReadAsync();
