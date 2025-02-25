@@ -187,7 +187,7 @@ namespace Netkeiba
                         //    .ToArray()
                     });
 
-                    messages.AppendLine($"{rank}:{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_diccor[_diccor.Count - 1].Value.Length}個の要素を除外します。");
+                    messages.AppendLine($"{rank}:{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_diccor[_diccor.Count - 1].Value.Split(',').Length}個の要素を除外します。");
                     //_correls = features.Where(lst => tgt.Count == lst.Count).Select((lst, i) => (i, Correlation.Pearson(tgt, lst))).Where(x => Math.Abs(x.Item2) < Correl.GetDouble()).Select(x => $"C{x.i.ToString(4)}").ToArray();
                 }
 
