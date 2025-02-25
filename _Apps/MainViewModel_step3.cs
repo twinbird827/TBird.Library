@@ -522,42 +522,49 @@ namespace Netkeiba
                 .SetDataset(trainValidationData)
                 .SetMonitor(monitor);
 
-            // Run experiment
-            var cts = new CancellationTokenSource();
-            TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+            try
+            {
+                // Run experiment
+                var cts = new CancellationTokenSource();
+                TrialResult experimentResults = await experiment.RunAsync(cts.Token);
 
-            // Get best model
-            var model = experimentResults.Model;
+                // Get best model
+                var model = experimentResults.Model;
 
-            // Get all completed trials
-            var completedTrials = monitor.GetCompletedTrials();
+                // Get all completed trials
+                var completedTrials = monitor.GetCompletedTrials();
 
-            // Measure trained model performance
-            // Apply data prep transformer to test data
-            // Use trained model to make inferences on test data
-            IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
+                // Measure trained model performance
+                // Apply data prep transformer to test data
+                // Use trained model to make inferences on test data
+                IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
 
-            // Save model
-            var savepath = $@"model\Ranking_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
+                // Save model
+                var savepath = $@"model\Ranking_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
-            var trained = mlContext.Ranking.Evaluate(testDataPredictions, labelColumnName: Label);
-            var now = await PredictionModel(rank, new RankingPredictionFactory(mlContext, rank, "1", model)).RunAsync(x =>
-                new RankingResult(savepath, rank, "1", second, trained, x.score, x.rate)
-            );
+                var trained = mlContext.Ranking.Evaluate(testDataPredictions, labelColumnName: Label);
+                var now = await PredictionModel(rank, new RankingPredictionFactory(mlContext, rank, "1", model)).RunAsync(x =>
+                    new RankingResult(savepath, rank, "1", second, trained, x.score, x.rate)
+                );
 
-            AddLog($"=============== Result of Ranking Model Data {rank} {second} ===============");
-            AddLog($"NormalizedDiscountedCumulativeGains: {trained.NormalizedDiscountedCumulativeGains}");
-            AddLog($"DiscountedCumulativeGains: {trained.DiscountedCumulativeGains}");
-            AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
-            AddLog($"=============== End of Ranking evaluation {rank} {second} ===============");
+                AddLog($"=============== Result of Ranking Model Data {rank} {second} ===============");
+                AddLog($"NormalizedDiscountedCumulativeGains: {trained.NormalizedDiscountedCumulativeGains}");
+                AddLog($"DiscountedCumulativeGains: {trained.DiscountedCumulativeGains}");
+                AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
+                AddLog($"=============== End of Ranking evaluation {rank} {second} ===============");
 
-            mlContext.Model.Save(model, data.Schema, savepath);
+                mlContext.Model.Save(model, data.Schema, savepath);
 
-            AppSetting.Instance.UpdateRankingResults(now);
+                AppSetting.Instance.UpdateRankingResults(now);
 
-            Progress.Value += 1;
+                Progress.Value += 1;
 
-            AppUtil.DeleteEndress(dataPath);
+                AppUtil.DeleteEndress(dataPath);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
 
         private Task CreateModelInputData(string path, string rank, Func<int, object> func_target)

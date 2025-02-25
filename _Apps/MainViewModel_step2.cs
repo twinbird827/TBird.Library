@@ -302,19 +302,21 @@ namespace Netkeiba
                 void ADDﾗﾝｸ情報(string key, IEnumerable<Dictionary<string, object>> arr1, IEnumerable<Dictionary<string, object>> arr2)
                 {
                     var tgts = !rnk.Contains("障")
-                        ? Arr(
-                            Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古"),
-                            Arr("G1ク", "G1古", "G2ク", "G2古", "G3ク", "G3古", "オープン古", "3勝古", "オープンク", "1勝ク", "2勝古", "1勝古", "未勝利ク", "新馬ク")
-                        )
-                        : Arr(
+                        ? [
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク"),
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
+                        ]
+                        : new string[][] {
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1障", "G2障", "G3障", "オープン障"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
-                        );
+                        };
                     tgts.ForEach((keys, j) =>
                     {
                         // 計算したい値
                         var tmp1 = arr2.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.0F)).ToArray();
-                        var tmp2 = arr1.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.5F)).ToArray();
+                        var tmp2 = tmp1.Any() ? tmp1 : arr1.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.5F)).ToArray();
 
                         dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp1.Any()
                             ? tmp1.Median()
@@ -463,6 +465,21 @@ namespace Netkeiba
                 CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
                 {
                     ADD情報("産母父", arr, i);
+                });
+            }
+
+            //using (MessageService.Measure("産母父"))
+            {
+                var 産父母父情報 = await conn.GetRows(
+                    $"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.父ID = ? AND a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? {rankwhere} ORDER BY 開催日数 DESC",
+                    SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
+                    SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+                );
+                CREATE情報(産父母父情報, Arr(500)).ForEach((arr, i) =>
+                {
+                    ADD情報("産父母父", arr, i);
                 });
             }
 

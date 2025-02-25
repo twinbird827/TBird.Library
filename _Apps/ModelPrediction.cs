@@ -32,7 +32,7 @@ namespace Netkeiba
 		}
 	}
 
-	public class MultiClassificationPrediction : ModelPrediction
+	public class RankingPrediction : ModelPrediction
 	{
 		[ColumnName("Label")]
 		public uint Label { get; set; }
