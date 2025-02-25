@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using TBird.Core;
 using TBird.DB;
@@ -173,8 +174,9 @@ namespace Netkeiba
                         Key = rank,
                         Value = features
                             .Where(lst => tgt.Count == lst.Count)
-                            .Where(lst => Math.Abs(Correlation.Pearson(tgt, lst)) < Correl.GetDouble() || lst.Distinct().Count() == 1)
-                            .Select((lst, i) => i)
+                            .Select((lst, i) => (Math.Abs(Correlation.Pearson(tgt, lst)) < Correl.GetDouble() || lst.Distinct().Count() == 1, i))
+                            .Where(x => x.Item1)
+                            .Select(x => x.i)
                             .GetString(",")
 
                         //Value = features

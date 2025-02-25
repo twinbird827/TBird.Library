@@ -38,7 +38,7 @@ namespace Netkeiba
 
         public float Predict(byte[] bytes, long raceid)
         {
-            return Predict(AppUtil.ToSingles(bytes), raceid);
+            return Predict(AppUtil.ToSingles(bytes, _rank), raceid);
         }
 
         public virtual float Predict(float[] features, long raceid)

@@ -283,6 +283,7 @@ namespace Netkeiba
             {
                 x.LabelColumnName = Label;
                 x.SamplingKeyColumnName = Group;
+                x.GroupIdColumnName = Group;
             }), groupColumns: false);
             columnInference.TextLoaderOptions.Run(x =>
             {
@@ -296,7 +297,7 @@ namespace Netkeiba
             IDataView data = loader.Load(dataPath);
 
             // Split into train (80%), validation (20%) sets
-            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1);
+            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1, samplingKeyColumnName: Group);
 
             //Define pipeline
             SweepablePipeline pipeline = mlContext
@@ -388,6 +389,7 @@ namespace Netkeiba
             {
                 x.LabelColumnName = Label;
                 x.SamplingKeyColumnName = Group;
+                x.GroupIdColumnName = Group;
             }), groupColumns: false);
             columnInference.TextLoaderOptions.Run(x =>
             {
@@ -401,7 +403,7 @@ namespace Netkeiba
             IDataView data = loader.Load(dataPath);
 
             // Split into train (80%), validation (20%) sets
-            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1);
+            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1, samplingKeyColumnName: Group);
 
             //Define pipeline
             SweepablePipeline pipeline = mlContext
@@ -608,9 +610,7 @@ namespace Netkeiba
 
                 if (!next) return;
 
-                var filter = AppSetting.Instance.DicCor.First(x => x.Key == rank).Value.Split(',').Select(x => x.GetInt32()).ToArray();
-                float[] GetFeatures() => AppUtil.ToSingles((byte[])reader.GetValue("Features")).Where((x, i) => !filter.Contains(i)).ToArray();
-                var first = GetFeatures();
+                var first = AppUtil.ToSingles((byte[])reader.GetValue("Features"), rank);
                 var headers = Enumerable.Repeat("C", first.Length).Select((c, i) => $"{c}{i.ToString(4)}");
 
                 await file.WriteLineAsync(Arr(Label, Group)
@@ -625,7 +625,7 @@ namespace Netkeiba
                 while (next)
                 {
                     await file.WriteLineAsync(Arr(func_target(reader), reader.GetValue("ﾚｰｽID").GetInt64())
-                        .Concat(GetFeatures().Select(x => (object)x))
+                        .Concat(AppUtil.ToSingles((byte[])reader.GetValue("Features"), rank).Select(x => (object)x))
                         .GetString(",")
                     );
                     next = await reader.ReadAsync();
