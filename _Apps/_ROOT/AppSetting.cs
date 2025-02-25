@@ -162,24 +162,29 @@ namespace Netkeiba
             });
         }
 
-        public MultiClassificationResult[] MultiClassificationResults
+        public RankingResult[] RankingResults
         {
-            get => GetProperty(_MultiClassificationResults);
-            set => SetProperty(ref _MultiClassificationResults, value);
+            get => GetProperty(_RankingResults);
+            set => SetProperty(ref _RankingResults, value);
         }
-        public MultiClassificationResult[] _MultiClassificationResults = new MultiClassificationResult[] { };
+        public RankingResult[] _RankingResults = new RankingResult[] { };
 
-        public void UpdateMultiClassificationResults(MultiClassificationResult now, MultiClassificationResult? old)
+        public void UpdateRankingResults(RankingResult now)
         {
-            MultiClassificationResults = Arr(now).Concat(MultiClassificationResults.Where(x => !x.Equals(old))).ToArray();
+            RankingResults = RankingResults.Concat(Arr(now)).ToArray();
             Save();
         }
 
-        public MultiClassificationResult GetMultiClassificationResult(string index, string rank)
+        public IEnumerable<RankingResult> GetRankingResults(string index, string rank)
         {
-            return MultiClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
+            return RankingResults.Where(x => x.Index == index && x.Rank == rank);
+        }
+
+        public RankingResult GetRankingResult(string index, string rank)
+        {
+            return GetRankingResults(index, rank).Run(arr =>
             {
-                return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? MultiClassificationResult.Default;
+                return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? RankingResult.Default;
             });
         }
 

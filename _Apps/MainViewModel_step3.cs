@@ -471,7 +471,7 @@ namespace Netkeiba
             AppUtil.DeleteEndress(dataPath);
         }
 
-        private async Task MultiClassClassification(string index, string rank, uint second)
+        private async Task Ranking(string index, string rank, uint second)
         {
             // Initialize MLContext
             MLContext mlContext = new MLContext();
@@ -480,15 +480,16 @@ namespace Netkeiba
             var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
             // ﾃﾞｰﾀﾌｧｲﾙを作製する
-            await CreateModelInputData(dataPath, rank, (int 着順) => (uint)Math.Min(着順, 6));
+            await CreateModelInputData(dataPath, rank, (int 着順) => (uint)着順);
 
-            AddLog($"=============== Begin Update of MultiClassClassification evaluation {rank} {index} {second} ===============");
+            AddLog($"=============== Begin Update of Ranking evaluation {rank} {index} {second} ===============");
 
             // Infer column information
             var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
             {
                 x.LabelColumnName = Label;
                 x.SamplingKeyColumnName = Group;
+                x.GroupIdColumnName = Group;
             }), groupColumns: false);
             columnInference.TextLoaderOptions.Run(x =>
             {
@@ -502,51 +503,34 @@ namespace Netkeiba
             IDataView data = loader.Load(dataPath);
 
             // Split into train (80%), validation (20%) sets
-            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1);
-            ////Define pipeline
-            //SweepablePipeline pipeline = mlContext
-            //		.Auto()
-            //		.Featurizer(data)
-            //		.Append(mlContext.Transforms.Conversion.MapValueToKey("Label", Label))
-            //		.Append(mlContext.Transforms.Concatenate("Features", Enumerable.Range(0, 235).Select(i => $"C{i.ToString(4)}").ToArray()))
-            //		.Append(mlContext.Auto().MultiClassification(
-            //			labelColumnName: Label,
-            //			useFastForest: AppSetting.Instance.UseFastForest,
-            //			useFastTree: AppSetting.Instance.UseFastTree,
-            //			useLbfgsLogisticRegression: AppSetting.Instance.UseLbfgsLogisticRegression,
-            //			useLgbm: AppSetting.Instance.UseLgbm,
-            //			useSdcaLogisticRegression: AppSetting.Instance.UseSdcaLogisticRegression
-            //		).Append(mlContext.Transforms.Conversion.MapKeyToValue(Label, "Label")));
+            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1, samplingKeyColumnName: Group);
 
-            //// Log experiment trials
-            //var monitor = new AutoMLMonitor(pipeline, this);
+            //Define pipeline
+            SweepablePipeline pipeline = mlContext
+                    .Auto()
+                    .Featurizer(data, columnInformation: columnInference.ColumnInformation)
+                    .Append(mlContext.Ranking.Trainers.LightGbm(labelColumnName: Label, rowGroupColumnName: Group));
 
-            //// Create AutoML experiment
-            //var experiment = mlContext.Auto().CreateExperiment()
-            //	.SetPipeline(pipeline)
-            //	.SetMulticlassClassificationMetric(MulticlassClassificationMetric.MacroAccuracy, "Label")
-            //	.SetTrainingTimeInSeconds(second)
-            //	.SetEciCostFrugalTuner()
-            //	.SetDataset(trainValidationData)
-            //	.SetMonitor(monitor);
+            // Log experiment trials
+            var monitor = new AutoMLMonitor(pipeline, this);
 
-            //// Run experiment
-            //var cts = new CancellationTokenSource();
-            //TrialResult experimentResults = await experiment.RunAsync(cts.Token);
-            //TrainTestData valid = mlContext.Data.TrainTestSplit(trainValidationData.TrainSet, testFraction: 0.2);
+            // Create AutoML experiment
+            var experiment = mlContext.Auto().CreateExperiment()
+                .SetPipeline(pipeline)
+                .SetTrainingTimeInSeconds(second)
+                .SetEciCostFrugalTuner()
+                .SetDataset(trainValidationData)
+                .SetMonitor(monitor);
 
-            //// Get best model
-            //var model = experimentResults.Model;
+            // Run experiment
+            var cts = new CancellationTokenSource();
+            TrialResult experimentResults = await experiment.RunAsync(cts.Token);
 
-            var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label", Label)
-                .Append(mlContext.Transforms.Concatenate("Features", Enumerable.Range(0, 235).Select(i => $"C{i.ToString(4)}").ToArray()))
-                .Append(mlContext.MulticlassClassification.Trainers.LightGbm()
-                    .Append(mlContext.Transforms.Conversion.MapKeyToValue(Label, "Label")));
-
-            var model = pipeline.Fit(trainValidationData.TrainSet);
+            // Get best model
+            var model = experimentResults.Model;
 
             // Get all completed trials
-            //var completedTrials = monitor.GetCompletedTrials();
+            var completedTrials = monitor.GetCompletedTrials();
 
             // Measure trained model performance
             // Apply data prep transformer to test data
@@ -554,33 +538,22 @@ namespace Netkeiba
             IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
 
             // Save model
-            var savepath = $@"model\MultiClassification_{rank}_{index}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
+            var savepath = $@"model\Ranking_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
-            var trained = mlContext.MulticlassClassification.Evaluate(testDataPredictions, labelColumnName: "Label");
-            var now = await PredictionModel(rank, new MultiClassificationPredictionFactory(mlContext, rank, index, model)).RunAsync(x =>
-                new MultiClassificationResult(savepath, rank, index, second, trained, x.score, x.rate)
+            var trained = mlContext.Ranking.Evaluate(testDataPredictions, labelColumnName: Label);
+            var now = await PredictionModel(rank, new RankingPredictionFactory(mlContext, rank, "1", model)).RunAsync(x =>
+                new RankingResult(savepath, rank, "1", second, trained, x.score, x.rate)
             );
-            var old = AppSetting.Instance.GetMultiClassificationResult(index, rank);
-            var bst = old == MultiClassificationResult.Default || old.GetScore() < now.GetScore() ? now : old;
 
-            AddLog($"=============== Result of MultiClassification Model Data {rank} {index} {second} ===============");
-            AddLog($"LogLoss: {trained.LogLoss}");
-            AddLog($"LogLossReduction: {trained.LogLossReduction}");
-            AddLog($"MacroAccuracy: {trained.MacroAccuracy}");
-            AddLog($"MicroAccuracy: {trained.MicroAccuracy}");
-            AddLog($"TopKAccuracy: {trained.TopKAccuracy}");
-            AddLog($"TopKPredictionCount: {trained.TopKPredictionCount}");
+            AddLog($"=============== Result of Ranking Model Data {rank} {second} ===============");
+            AddLog($"NormalizedDiscountedCumulativeGains: {trained.NormalizedDiscountedCumulativeGains}");
+            AddLog($"DiscountedCumulativeGains: {trained.DiscountedCumulativeGains}");
             AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
-            AddLog($"=============== End Update of MultiClassification evaluation {rank} {index} {second} ===============");
+            AddLog($"=============== End of Ranking evaluation {rank} {second} ===============");
 
             mlContext.Model.Save(model, data.Schema, savepath);
 
-            AppSetting.Instance.UpdateMultiClassificationResults(bst, old);
-
-            if (old != null && !bst.Equals(old) && await FileUtil.Exists(old.Path))
-            {
-                FileUtil.Delete(old.Path);
-            }
+            AppSetting.Instance.UpdateRankingResults(now);
 
             Progress.Value += 1;
 

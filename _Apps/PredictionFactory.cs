@@ -84,14 +84,14 @@ namespace Netkeiba
         }
     }
 
-    public class MultiClassificationPredictionFactory : PredictionFactory<MultiClassificationSource, MultiClassificationPrediction>
+    public class RankingPredictionFactory : PredictionFactory<RankingSource, RankingPrediction>
     {
-        public MultiClassificationPredictionFactory(MLContext context, string rank, string index, ITransformer model) : base(context, rank, index, model)
+        public RankingPredictionFactory(MLContext context, string rank, string index, ITransformer model) : base(context, rank, index, model)
         {
 
         }
 
-        public MultiClassificationPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
+        public RankingPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
         {
 
         }
@@ -103,7 +103,7 @@ namespace Netkeiba
 
         protected override PredictionResult GetResult(string rank, string index)
         {
-            return AppSetting.Instance.GetMultiClassificationResult(index, rank);
+            return AppSetting.Instance.GetRankingResult(index, rank);
         }
     }
 

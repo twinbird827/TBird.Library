@@ -1,4 +1,5 @@
 ﻿using Microsoft.ML.Data;
+using System.Linq;
 
 namespace Netkeiba
 {
@@ -112,39 +113,28 @@ namespace Netkeiba
 
     }
 
-    public class MultiClassificationResult : PredictionResult
+    public class RankingResult : PredictionResult
     {
-        public static readonly MultiClassificationResult Default = new MultiClassificationResult()
+        public static readonly RankingResult Default = new RankingResult()
         {
             Path = string.Empty
         };
 
-        public MultiClassificationResult()
+        public RankingResult()
         {
 
         }
 
-        public MultiClassificationResult(string path, string rank, string index, uint second, MulticlassClassificationMetrics metrics, float score, float rate) : base(path, rank, index, second, score, rate)
+        public RankingResult(string path, string rank, string index, uint second, RankingMetrics metrics, float score, float rate) : base(path, rank, index, second, score, rate)
         {
-            LogLoss = metrics.LogLoss;
-            LogLossReduction = metrics.LogLossReduction;
-            MacroAccuracy = metrics.MacroAccuracy;
-            MicroAccuracy = metrics.MicroAccuracy;
-            TopKAccuracy = metrics.TopKAccuracy;
-            TopKPredictionCount = metrics.TopKPredictionCount;
+            DiscountedCumulativeGains = metrics.DiscountedCumulativeGains.Average();
+            NormalizedDiscountedCumulativeGains = metrics.NormalizedDiscountedCumulativeGains.Average();
         }
 
-        public double LogLoss { get; set; }
+        public double DiscountedCumulativeGains { get; set; }
 
-        public double LogLossReduction { get; set; }
+        public double NormalizedDiscountedCumulativeGains { get; set; }
 
-        public double MacroAccuracy { get; set; }
-
-        public double MicroAccuracy { get; set; }
-
-        public double TopKAccuracy { get; set; }
-
-        public double TopKPredictionCount { get; set; }
     }
 
     public class RegressionResult : PredictionResult
