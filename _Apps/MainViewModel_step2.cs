@@ -299,36 +299,39 @@ namespace Netkeiba
 
                 var KEY = $"{key}{i.ToString(2)}";
 
-                void ADDﾗﾝｸ情報(string key, IEnumerable<Dictionary<string, object>> arr1, IEnumerable<Dictionary<string, object>> arr2)
+                void ADDﾗﾝｸ情報(string childkey, IEnumerable<Dictionary<string, object>> arr1, IEnumerable<Dictionary<string, object>> arr2)
                 {
                     var tgts = !rnk.Contains("障")
-                        ? [
+                        ? Arr(
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク"),
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
-                        ]
-                        : new string[][] {
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
-                            Arr("G1障", "G2障", "G3障", "オープン障"),
+                            Arr("G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク")
+                        )
+                        : Arr(
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
+                            Arr("G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
-                        };
+                        );
                     tgts.ForEach((keys, j) =>
                     {
-                        // 計算したい値
-                        var tmp1 = arr2.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.0F)).ToArray();
-                        var tmp2 = tmp1.Any() ? tmp1 : arr1.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, 0.5F)).ToArray();
+                        float[] ToArr(IEnumerable<Dictionary<string, object>> tmp, float jun) =>
+                            tmp.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, jun)).ToArray();
 
-                        dic[$"{KEY}{key}{j.ToString(2)}Me"] = tmp1.Any()
+                        // 計算したい値
+                        var tmp1 = ToArr(arr2, 0.0F);
+                        var tmp2 = tmp1.Any() ? tmp1 : ToArr(arr2, 0.5F);
+
+                        dic[$"{KEY}{childkey}{j.ToString(2)}Me"] = tmp1.Any()
                             ? tmp1.Median()
                             : tmp2.Any()
                             ? tmp2.Median()
                             : 0F;
-                        dic[$"{KEY}{key}{j.ToString(2)}Ma"] = tmp1.Any()
+                        dic[$"{KEY}{childkey}{j.ToString(2)}Ma"] = tmp1.Any()
                             ? tmp1.Max()
                             : tmp2.Any()
                             ? tmp2.Max()
                             : 0F;
-                        dic[$"{KEY}{key}{j.ToString(2)}Mi"] = tmp1.Any()
+                        dic[$"{KEY}{childkey}{j.ToString(2)}Mi"] = tmp1.Any()
                             ? tmp1.Min()
                             : tmp2.Any()
                             ? tmp2.Min()
