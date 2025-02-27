@@ -224,7 +224,7 @@ namespace Netkeiba
                     var arr = new List<List<object>>();
 
                     // ﾓﾃﾞﾙﾃﾞｰﾀ作成
-                    foreach (var m in await CreateRaceModel(conn, "v_shutuba3", raceid, 馬性, 調教場所, 追切))
+                    foreach (var m in await CreateRaceModel(conn, "v_shutuba", raceid, 馬性, 調教場所, 追切))
                     {
                         var tmp = new List<object>();
                         var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);

@@ -64,7 +64,7 @@ namespace Netkeiba
                     MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
                     // ﾚｰｽ毎の纏まり
-                    var racarr = await CreateRaceModel(conn, "v_orig3", raceid, 馬性, 調教場所, 追切);
+                    var racarr = await CreateRaceModel(conn, "v_orig", raceid, 馬性, 調教場所, 追切);
                     var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
                     var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
 
@@ -207,7 +207,7 @@ namespace Netkeiba
         private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> 馬性, List<string> 調教場所, List<string> 追切)
         {
             // 同ﾚｰｽの平均を取りたいときに使用する
-            var 同ﾚｰｽ = await conn.GetRows($"SELECT * FROM {tablename} WHERE ﾚｰｽID = ?",
+            var 同ﾚｰｽ = await conn.GetRows($"SELECT * FROM {tablename}2 WHERE ﾚｰｽID = ?",
                 SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
             );
 
@@ -318,11 +318,9 @@ namespace Netkeiba
                     var tgts = !rnk.Contains("障")
                         ? Arr(
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
-                            Arr("G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク")
                         )
                         : Arr(
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1障", "G2障", "G3障"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
                         );
@@ -490,21 +488,6 @@ namespace Netkeiba
                 CREATE情報(産父母父情報, Arr(500)).ForEach((arr, i) =>
                 {
                     ADD情報("産父母父", arr, i);
-                });
-            }
-
-            //using (MessageService.Measure("産父母母父"))
-            {
-                var 産父母母父情報 = await conn.GetRows(
-                    $"SELECT {SELECT_DATA} FROM v_orig3 WHERE 父ID = ? AND 母母父ID = ? AND 開催日数 BETWEEN ? AND ? {rankwhere} ORDER BY 開催日数 DESC",
-                    SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
-                    SQLiteUtil.CreateParameter(DbType.String, src["母母父ID"]),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 1)
-                );
-                CREATE情報(産父母母父情報, Arr(500)).ForEach((arr, i) =>
-                {
-                    ADD情報("産父母母父", arr, i);
                 });
             }
 
