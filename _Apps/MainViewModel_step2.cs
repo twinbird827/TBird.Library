@@ -121,10 +121,10 @@ namespace Netkeiba
             // 血統情報付きのVIEWを作成
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig1 AS select c.*, a.父ID         , a.母ID          from t_orig  c, t_ketto a where a.馬ID = c.馬ID");
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig2 AS select c.*, a.父ID 母父ID  , a.母ID 母母ID   from v_orig1 c, t_ketto a where a.馬ID = c.母ID");
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_orig2 c, t_ketto a where a.馬ID = c.母母ID");
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba1 AS select c.*, a.父ID         , a.母ID          from t_shutuba  c, t_ketto a where a.馬ID = c.馬ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_orig2 c left outer join t_ketto a on a.馬ID = c.母母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba1 AS select c.*, a.父ID         , a.母ID          from t_shutuba  c left outer join t_ketto a on a.馬ID = c.馬ID");
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba2 AS select c.*, a.父ID 母父ID  , a.母ID 母母ID   from v_shutuba1 c, t_ketto a where a.馬ID = c.母ID");
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_shutuba2 c, t_ketto a where a.馬ID = c.母母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_shutuba2 c left outer join t_ketto a on a.馬ID = c.母母ID");
 
             TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
             {
@@ -219,31 +219,37 @@ namespace Netkeiba
             );
 
             // ﾚｰｽ毎の纏まり
-            var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, 馬性, 調教場所, 追切)).WhenAll();
-
-            var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
-            var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
-
-            // 他の馬との比較
-            racarr.ForEach(dic =>
+            try
             {
-                keys.ForEach(key =>
+                var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, 馬性, 調教場所, 追切)).WhenAll();
+                var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
+                var keys = racarr.First().Keys.Where(y => !drops.Contains(y)).ToArray();
+
+                // 他の馬との比較
+                racarr.ForEach(dic =>
                 {
-                    try
+                    keys.ForEach(key =>
                     {
-                        var val = dic.SINGLE(key);
-                        var arr = racarr.Select(x => x.SINGLE(key)).Where(x => !float.IsNaN(x)).ToArray();
+                        try
+                        {
+                            var val = dic.SINGLE(key);
+                            var arr = racarr.Select(x => x.SINGLE(key)).Where(x => !float.IsNaN(x)).ToArray();
 
-                        dic[$"{key}C0"] = val == 0F ? 0F : arr.Percentile(50) / val;
-                    }
-                    catch
-                    {
-                        throw;
-                    }
+                            dic[$"{key}C0"] = val == 0F ? 0F : arr.Percentile(50) / val;
+                        }
+                        catch
+                        {
+                            throw;
+                        }
+                    });
                 });
-            });
 
-            return racarr;
+                return racarr;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
 
         private async Task<Dictionary<string, object>> ToModel(SQLiteControl conn, Dictionary<string, object> src, List<string> 馬性, List<string> 調教場所, List<string> 追切)

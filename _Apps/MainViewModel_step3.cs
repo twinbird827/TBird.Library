@@ -320,7 +320,7 @@ namespace Netkeiba
                 .SetPipeline(pipeline)
                 .SetBinaryClassificationMetric(metric, labelColumn: Label)
                 .SetTrainingTimeInSeconds(second)
-                .SetMicrosecondRandomTuner()
+                .SetEciCostFrugalTuner()
                 .SetDataset(trainValidationData)
                 .SetMonitor(monitor);
 
@@ -426,7 +426,7 @@ namespace Netkeiba
                 .SetPipeline(pipeline)
                 .SetRegressionMetric(AppSetting.Instance.RegressionMetric, Label)
                 .SetTrainingTimeInSeconds((uint)second)
-                .SetMicrosecondRandomTuner()
+                .SetEciCostFrugalTuner()
                 .SetDataset(trainValidationData)
                 .SetMonitor(monitor);
 
