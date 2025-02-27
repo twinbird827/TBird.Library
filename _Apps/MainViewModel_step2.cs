@@ -297,7 +297,7 @@ namespace Netkeiba
                     try
                     {
                         var 頭数 = TOU[tgt["ﾚｰｽID"].GetInt64()];
-                        var 着順 = tgt.SINGLE("着順") - jun;
+                        var 着順 = tgt.SINGLE("着順") + jun;
                         var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
                         var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                         //return (着順 / 頭数).Pow(1.5F);
