@@ -64,7 +64,7 @@ namespace Netkeiba
                     MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
                     // ﾚｰｽ毎の纏まり
-                    var racarr = await CreateRaceModel(conn, "v_orig2", raceid, 馬性, 調教場所, 追切);
+                    var racarr = await CreateRaceModel(conn, "v_orig3", raceid, 馬性, 調教場所, 追切);
                     var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
                     var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
 
@@ -119,10 +119,12 @@ namespace Netkeiba
         private async Task InitializeModelBase(SQLiteControl conn)
         {
             // 血統情報付きのVIEWを作成
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig1 AS select c.*, a.父ID, a.母ID from t_orig c, t_ketto a where a.馬ID = c.馬ID");
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig2 AS select c.*, a.父ID 母父ID, a.母ID 母母ID from v_orig1 c, t_ketto a where a.馬ID = c.母ID");
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba1 AS select c.*, a.父ID, a.母ID from t_shutuba c, t_ketto a where a.馬ID = c.馬ID");
-            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba2 AS select c.*, a.父ID 母父ID, a.母ID 母母ID from v_shutuba1 c, t_ketto a where a.馬ID = c.母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig1 AS select c.*, a.父ID         , a.母ID          from t_orig  c, t_ketto a where a.馬ID = c.馬ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig2 AS select c.*, a.父ID 母父ID  , a.母ID 母母ID   from v_orig1 c, t_ketto a where a.馬ID = c.母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_orig2 c, t_ketto a where a.馬ID = c.母母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba1 AS select c.*, a.父ID         , a.母ID          from t_shutuba  c, t_ketto a where a.馬ID = c.馬ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba2 AS select c.*, a.父ID 母父ID  , a.母ID 母母ID   from v_shutuba1 c, t_ketto a where a.馬ID = c.母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_shutuba2 c, t_ketto a where a.馬ID = c.母母ID");
 
             TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
             {
@@ -310,10 +312,12 @@ namespace Netkeiba
                     var tgts = !rnk.Contains("障")
                         ? Arr(
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
+                            Arr("G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク")
                         )
                         : Arr(
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
+                            Arr("G1障", "G2障", "G3障"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
                         );
                     tgts.ForEach((keys, j) =>
@@ -322,23 +326,16 @@ namespace Netkeiba
                             tmp.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, jun)).ToArray();
 
                         // 計算したい値
-                        var tmp1 = ToArr(arr2, 0.0F);
-                        var tmp2 = tmp1.Any() ? tmp1 : ToArr(arr2, 0.5F);
+                        var tmp1 = ToArr(arr2, 0.0F).Run(tmp => tmp.Any() ? tmp : ToArr(arr2, 0.5F));
 
                         dic[$"{KEY}{childkey}{j.ToString(2)}Me"] = tmp1.Any()
                             ? tmp1.Median()
-                            : tmp2.Any()
-                            ? tmp2.Median()
                             : 0F;
                         dic[$"{KEY}{childkey}{j.ToString(2)}Ma"] = tmp1.Any()
                             ? tmp1.Max()
-                            : tmp2.Any()
-                            ? tmp2.Max()
                             : 0F;
                         dic[$"{KEY}{childkey}{j.ToString(2)}Mi"] = tmp1.Any()
                             ? tmp1.Min()
-                            : tmp2.Any()
-                            ? tmp2.Min()
                             : 0F;
                     });
                 }
@@ -475,7 +472,7 @@ namespace Netkeiba
                 });
             }
 
-            //using (MessageService.Measure("産母父"))
+            //using (MessageService.Measure("産父母父"))
             {
                 var 産父母父情報 = await conn.GetRows(
                     $"SELECT {SELECT_DATA} FROM v_orig2 WHERE 父ID = ? AND 母父ID = ? AND 開催日数 BETWEEN ? AND ? {rankwhere} ORDER BY 開催日数 DESC",
@@ -487,6 +484,21 @@ namespace Netkeiba
                 CREATE情報(産父母父情報, Arr(500)).ForEach((arr, i) =>
                 {
                     ADD情報("産父母父", arr, i);
+                });
+            }
+
+            //using (MessageService.Measure("産父母母父"))
+            {
+                var 産父母母父情報 = await conn.GetRows(
+                    $"SELECT {SELECT_DATA} FROM v_orig3 WHERE 父ID = ? AND 母母父ID = ? AND 開催日数 BETWEEN ? AND ? {rankwhere} ORDER BY 開催日数 DESC",
+                    SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
+                    SQLiteUtil.CreateParameter(DbType.String, src["母母父ID"]),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 1)
+                );
+                CREATE情報(産父母母父情報, Arr(500)).ForEach((arr, i) =>
+                {
+                    ADD情報("産父母母父", arr, i);
                 });
             }
 
