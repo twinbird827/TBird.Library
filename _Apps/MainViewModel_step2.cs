@@ -118,6 +118,12 @@ namespace Netkeiba
 
         private async Task InitializeModelBase(SQLiteControl conn)
         {
+            // 血統情報付きのVIEWを作成
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig1 AS select c.*, a.父ID, a.母ID from t_orig c, t_ketto a where a.馬ID = c.馬ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_orig2 AS select c.*, a.父ID 母父ID, a.母ID 母母ID from v_orig1 c, t_ketto a where a.馬ID = c.母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba1 AS select c.*, a.父ID, a.母ID from t_shutuba c, t_ketto a where a.馬ID = c.馬ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba2 AS select c.*, a.父ID 母父ID, a.母ID 母母ID from v_shutuba1 c, t_ketto a where a.馬ID = c.母ID");
+
             TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
             {
                 return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("頭数"));
@@ -199,7 +205,7 @@ namespace Netkeiba
         private async Task<IEnumerable<Dictionary<string, object>>> CreateRaceModel(SQLiteControl conn, string tablename, string raceid, List<string> 馬性, List<string> 調教場所, List<string> 追切)
         {
             // 同ﾚｰｽの平均を取りたいときに使用する
-            var 同ﾚｰｽ = await conn.GetRows($"SELECT {tablename}.*, a.父ID 父ID, a.母ID 母ID, b.父ID 母父ID FROM {tablename} LEFT JOIN t_ketto a ON {tablename}.馬ID = a.馬ID LEFT JOIN t_ketto b ON a.母ID = b.馬ID WHERE ﾚｰｽID = ?",
+            var 同ﾚｰｽ = await conn.GetRows($"SELECT * FROM {tablename} WHERE ﾚｰｽID = ?",
                 SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
             );
 
@@ -304,12 +310,10 @@ namespace Netkeiba
                     var tgts = !rnk.Contains("障")
                         ? Arr(
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
-                            Arr("G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク")
                         )
                         : Arr(
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
-                            Arr("G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
                         );
                     tgts.ForEach((keys, j) =>
@@ -362,7 +366,7 @@ namespace Netkeiba
             };
 
             var 馬情報 = await conn.GetRows(
-                    $"SELECT * FROM t_orig WHERE 馬ID = ? AND 開催日数 < ? {rankwhere} ORDER BY 開催日数 DESC",
+                    $"SELECT {SELECT_DATA} FROM t_orig WHERE 馬ID = ? AND 開催日数 < ? {rankwhere} ORDER BY 開催日数 DESC",
                     SQLiteUtil.CreateParameter(DbType.String, src["馬ID"]),
                     SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"])
             ).RunAsync(arr => arr.Take(20).ToArray());
@@ -408,7 +412,7 @@ namespace Netkeiba
             //using (MessageService.Measure("父馬"))
             {
                 var 両親馬情報 = await conn.GetRows(
-                        $"SELECT * FROM t_orig WHERE 馬ID IN (?, ?, ?) {rankwhere} ORDER BY 開催日数 DESC",
+                        $"SELECT {SELECT_DATA} FROM t_orig WHERE 馬ID IN (?, ?, ?) {rankwhere} ORDER BY 開催日数 DESC",
                         SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
                         SQLiteUtil.CreateParameter(DbType.String, src["母ID"]),
                         SQLiteUtil.CreateParameter(DbType.String, src["母父ID"])
@@ -422,7 +426,7 @@ namespace Netkeiba
             ////using (MessageService.Measure("父馬"))
             //{
             //    var 父馬情報 = await conn.GetRows(
-            //            $"SELECT * FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
+            //            $"SELECT {SELECT_DATA} FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
             //            SQLiteUtil.CreateParameter(DbType.String, src["父ID"])
             //    );
             //    CREATE情報(父馬情報, Arr(500)).ForEach((arr, i) =>
@@ -434,7 +438,7 @@ namespace Netkeiba
             ////using (MessageService.Measure("母父馬"))
             //{
             //    var 母馬情報 = await conn.GetRows(
-            //        $"SELECT * FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
+            //        $"SELECT {SELECT_DATA} FROM t_orig WHERE 馬ID = ? {rankwhere} ORDER BY 開催日数 DESC",
             //        SQLiteUtil.CreateParameter(DbType.String, src["母ID"])
             //    );
             //    CREATE情報(母馬情報, Arr(500)).ForEach((arr, i) =>
@@ -446,10 +450,10 @@ namespace Netkeiba
             //using (MessageService.Measure("産父情報"))
             {
                 var 産父情報 = await conn.GetRows(
-                    $"SELECT * FROM t_orig WHERE 馬ID IN (SELECT 馬ID FROM t_ketto WHERE 父ID = ?) AND 開催日数 < ? AND 開催日数 > ? {rankwhere} ORDER BY 開催日数 DESC",
+                    $"SELECT {SELECT_DATA} FROM v_orig1 WHERE 父ID = ? AND 開催日数 between ? and ? AND {rankwhere} ORDER BY 開催日数 DESC",
                     SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 1)
                 );
                 CREATE情報(産父情報, Arr(500)).ForEach((arr, i) =>
                 {
@@ -460,10 +464,10 @@ namespace Netkeiba
             //using (MessageService.Measure("産母父"))
             {
                 var 産母父情報 = await conn.GetRows(
-                    $"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? {rankwhere} ORDER BY 開催日数 DESC",
+                    $"SELECT {SELECT_DATA} FROM v_orig2 WHERE 母父ID = ? AND 開催日数 between ? and ? {rankwhere} ORDER BY 開催日数 DESC",
                     SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 1)
                 );
                 CREATE情報(産母父情報, Arr(500)).ForEach((arr, i) =>
                 {
@@ -474,11 +478,11 @@ namespace Netkeiba
             //using (MessageService.Measure("産母父"))
             {
                 var 産父母父情報 = await conn.GetRows(
-                    $"SELECT * FROM t_orig WHERE 馬ID IN (SELECT a.馬ID FROM t_ketto a WHERE a.父ID = ? AND a.母ID IN (SELECT b.馬ID FROM t_ketto b WHERE b.父ID = ?)) AND 開催日数 < ? AND 開催日数 > ? {rankwhere} ORDER BY 開催日数 DESC",
+                    $"SELECT {SELECT_DATA} FROM v_orig2 WHERE 父ID = ? AND 母父ID = ? AND 開催日数 BETWEEN ? AND ? {rankwhere} ORDER BY 開催日数 DESC",
                     SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
                     SQLiteUtil.CreateParameter(DbType.String, src["母父ID"]),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
-                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365),
+                    SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 1)
                 );
                 CREATE情報(産父母父情報, Arr(500)).ForEach((arr, i) =>
                 {
@@ -489,7 +493,7 @@ namespace Netkeiba
             //using (MessageService.Measure("騎手"))
             {
                 var 騎手情報 = await conn.GetRows(
-                    $"SELECT * FROM t_orig WHERE 騎手ID = ? AND 開催日数 < ? AND 開催日数 > ? {rankwhere} ORDER BY 開催日数 DESC",
+                    $"SELECT {SELECT_DATA} FROM t_orig WHERE 騎手ID = ? AND 開催日数 < ? AND 開催日数 > ? {rankwhere} ORDER BY 開催日数 DESC",
                     SQLiteUtil.CreateParameter(DbType.String, src["騎手ID"]),
                     SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64()),
                     SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365)
@@ -502,6 +506,8 @@ namespace Netkeiba
 
             return dic;
         }
+
+        private const string SELECT_DATA = "ﾚｰｽID, ﾗﾝｸ1, ﾗﾝｸ2, 着順, 上り, 斤量, ﾀｲﾑ指数, 賞金, 距離, 馬場, 馬場状態, 備考, 開催日数, 通過";
 
         private float Get斤上(float 上り, float 斤量) => 上り.GetSingle() * 600F / (斤量.GetSingle() + 545F);
 
@@ -632,10 +638,5 @@ namespace Netkeiba
                 conn.Commit();
             }
         }
-    }
-
-    public static class MainViewModel_Extension
-    {
-        public static float SINGLE(this Dictionary<string, object> x, string key) => x[key].GetSingle();
     }
 }

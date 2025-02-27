@@ -320,7 +320,7 @@ namespace Netkeiba
                 .SetPipeline(pipeline)
                 .SetBinaryClassificationMetric(metric, labelColumn: Label)
                 .SetTrainingTimeInSeconds(second)
-                .SetEciCostFrugalTuner()
+                .SetMicrosecondRandomTuner()
                 .SetDataset(trainValidationData)
                 .SetMonitor(monitor);
 
@@ -426,7 +426,7 @@ namespace Netkeiba
                 .SetPipeline(pipeline)
                 .SetRegressionMetric(AppSetting.Instance.RegressionMetric, Label)
                 .SetTrainingTimeInSeconds((uint)second)
-                .SetEciCostFrugalTuner()
+                .SetMicrosecondRandomTuner()
                 .SetDataset(trainValidationData)
                 .SetMonitor(monitor);
 
@@ -471,101 +471,101 @@ namespace Netkeiba
             AppUtil.DeleteEndress(dataPath);
         }
 
-        private async Task Ranking(string index, string rank, uint second)
-        {
-            // Initialize MLContext
-            MLContext mlContext = new MLContext();
+        //private async Task Ranking(string index, string rank, uint second)
+        //{
+        //    // Initialize MLContext
+        //    MLContext mlContext = new MLContext();
 
-            // ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
-            var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
+        //    // ﾓﾃﾞﾙ作成用ﾃﾞｰﾀﾌｧｲﾙ
+        //    var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
-            // ﾃﾞｰﾀﾌｧｲﾙを作製する
-            await CreateModelInputData(dataPath, rank, (int 着順) => (uint)着順);
+        //    // ﾃﾞｰﾀﾌｧｲﾙを作製する
+        //    await CreateModelInputData(dataPath, rank, (int 着順) => (uint)着順);
 
-            AddLog($"=============== Begin Update of Ranking evaluation {rank} {index} {second} ===============");
+        //    AddLog($"=============== Begin Update of Ranking evaluation {rank} {index} {second} ===============");
 
-            // Infer column information
-            var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
-            {
-                x.LabelColumnName = Label;
-                x.SamplingKeyColumnName = Group;
-                x.GroupIdColumnName = Group;
-            }), groupColumns: false);
-            columnInference.TextLoaderOptions.Run(x =>
-            {
-                x.Columns[0].DataKind = DataKind.UInt32;
-                x.Columns[1].DataKind = DataKind.Int64;
-            });
-            // Create text loader
-            TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
+        //    // Infer column information
+        //    var columnInference = mlContext.Auto().InferColumns(dataPath, new ColumnInformation().Run(x =>
+        //    {
+        //        x.LabelColumnName = Label;
+        //        x.SamplingKeyColumnName = Group;
+        //        x.GroupIdColumnName = Group;
+        //    }), groupColumns: false);
+        //    columnInference.TextLoaderOptions.Run(x =>
+        //    {
+        //        x.Columns[0].DataKind = DataKind.UInt32;
+        //        x.Columns[1].DataKind = DataKind.Int64;
+        //    });
+        //    // Create text loader
+        //    TextLoader loader = mlContext.Data.CreateTextLoader(columnInference.TextLoaderOptions);
 
-            // Load data into IDataView
-            IDataView data = loader.Load(dataPath);
+        //    // Load data into IDataView
+        //    IDataView data = loader.Load(dataPath);
 
-            // Split into train (80%), validation (20%) sets
-            var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1, samplingKeyColumnName: Group);
+        //    // Split into train (80%), validation (20%) sets
+        //    var trainValidationData = mlContext.Data.TrainTestSplit(data, testFraction: 0.1, samplingKeyColumnName: Group);
 
-            //Define pipeline
-            SweepablePipeline pipeline = mlContext
-                    .Auto()
-                    .Featurizer(data, columnInformation: columnInference.ColumnInformation)
-                    .Append(mlContext.Ranking.Trainers.LightGbm(labelColumnName: Label, rowGroupColumnName: Group));
+        //    //Define pipeline
+        //    SweepablePipeline pipeline = mlContext
+        //            .Auto()
+        //            .Featurizer(data, columnInformation: columnInference.ColumnInformation)
+        //            .Append(mlContext.Ranking.Trainers.LightGbm(labelColumnName: Label, rowGroupColumnName: Group));
 
-            // Log experiment trials
-            var monitor = new AutoMLMonitor(pipeline, this);
+        //    // Log experiment trials
+        //    var monitor = new AutoMLMonitor(pipeline, this);
 
-            // Create AutoML experiment
-            var experiment = mlContext.Auto().CreateExperiment()
-                .SetPipeline(pipeline)
-                .SetTrainingTimeInSeconds(second)
-                .SetEciCostFrugalTuner()
-                .SetDataset(trainValidationData)
-                .SetMonitor(monitor);
+        //    // Create AutoML experiment
+        //    var experiment = mlContext.Auto().CreateExperiment()
+        //        .SetPipeline(pipeline)
+        //        .SetTrainingTimeInSeconds(second)
+        //        .SetEciCostFrugalTuner()
+        //        .SetDataset(trainValidationData)
+        //        .SetMonitor(monitor);
 
-            try
-            {
-                // Run experiment
-                var cts = new CancellationTokenSource();
-                TrialResult experimentResults = await experiment.RunAsync(cts.Token);
+        //    try
+        //    {
+        //        // Run experiment
+        //        var cts = new CancellationTokenSource();
+        //        TrialResult experimentResults = await experiment.RunAsync(cts.Token);
 
-                // Get best model
-                var model = experimentResults.Model;
+        //        // Get best model
+        //        var model = experimentResults.Model;
 
-                // Get all completed trials
-                var completedTrials = monitor.GetCompletedTrials();
+        //        // Get all completed trials
+        //        var completedTrials = monitor.GetCompletedTrials();
 
-                // Measure trained model performance
-                // Apply data prep transformer to test data
-                // Use trained model to make inferences on test data
-                IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
+        //        // Measure trained model performance
+        //        // Apply data prep transformer to test data
+        //        // Use trained model to make inferences on test data
+        //        IDataView testDataPredictions = model.Transform(trainValidationData.TestSet);
 
-                // Save model
-                var savepath = $@"model\Ranking_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
+        //        // Save model
+        //        var savepath = $@"model\Ranking_{rank}_{1.ToString(2)}_{second}_{DateTime.Now.ToString("yyMMddHHmmss")}.zip";
 
-                var trained = mlContext.Ranking.Evaluate(testDataPredictions, labelColumnName: Label);
-                var now = await PredictionModel(rank, new RankingPredictionFactory(mlContext, rank, "1", model)).RunAsync(x =>
-                    new RankingResult(savepath, rank, "1", second, trained, x.score, x.rate)
-                );
+        //        var trained = mlContext.Ranking.Evaluate(testDataPredictions, labelColumnName: Label);
+        //        var now = await PredictionModel(rank, new RankingPredictionFactory(mlContext, rank, "1", model)).RunAsync(x =>
+        //            new RankingResult(savepath, rank, "1", second, trained, x.score, x.rate)
+        //        );
 
-                AddLog($"=============== Result of Ranking Model Data {rank} {second} ===============");
-                AddLog($"NormalizedDiscountedCumulativeGains: {trained.NormalizedDiscountedCumulativeGains}");
-                AddLog($"DiscountedCumulativeGains: {trained.DiscountedCumulativeGains}");
-                AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
-                AddLog($"=============== End of Ranking evaluation {rank} {second} ===============");
+        //        AddLog($"=============== Result of Ranking Model Data {rank} {second} ===============");
+        //        AddLog($"NormalizedDiscountedCumulativeGains: {trained.NormalizedDiscountedCumulativeGains}");
+        //        AddLog($"DiscountedCumulativeGains: {trained.DiscountedCumulativeGains}");
+        //        AddLog($"Rate: {now.Rate:N4}     Score: {now.Score:N4}     S^2*R: {now.GetScore():N4}");
+        //        AddLog($"=============== End of Ranking evaluation {rank} {second} ===============");
 
-                mlContext.Model.Save(model, data.Schema, savepath);
+        //        mlContext.Model.Save(model, data.Schema, savepath);
 
-                AppSetting.Instance.UpdateRankingResults(now);
+        //        AppSetting.Instance.UpdateRankingResults(now);
 
-                Progress.Value += 1;
+        //        Progress.Value += 1;
 
-                AppUtil.DeleteEndress(dataPath);
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
-        }
+        //        AppUtil.DeleteEndress(dataPath);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        throw;
+        //    }
+        //}
 
         private Task CreateModelInputData(string path, string rank, Func<int, object> func_target)
         {
