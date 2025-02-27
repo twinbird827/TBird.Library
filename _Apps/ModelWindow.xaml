@@ -53,7 +53,10 @@
 
 	<DockPanel>
 		<GroupBox DockPanel.Dock="Top" Header="Save">
-			<UniformGrid Columns="2">
+			<UniformGrid Columns="3">
+				<Button Content="クリップボード出力"
+						Command="{Binding ClickOutput}" />
+
 				<Button Content="保存"
 						Command="{Binding ClickSave}" />
 

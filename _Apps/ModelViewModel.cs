@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Windows;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
@@ -216,6 +217,31 @@ namespace Netkeiba
 
                 //MessageService.Info($"{tgt.Count}件のデータに対して相関係数を計算しました。{features.Count(lst => tgt.Count == lst.Count)}個中{_correls.Length}個の要素を除外します。");
             });
+
+            ClickOutput = RelayCommand.Create(_ =>
+            {
+                var sb = new StringBuilder();
+
+                var binaryheaders = Arr("Index", "Second", "Rank", "Score", "Rate", "Path", "Accuracy", "AreaUnderPrecisionRecallCurve", "AreaUnderRocCurve", "Entropy", "F1Score", "LogLoss", "LogLossReduction", "NegativePrecision", "NegativeRecall", "PositivePrecision", "PositiveRecall")
+                    .GetString("\t");
+                sb.AppendLine(binaryheaders);
+
+                var binaryrows = BinaryClassificationResults
+                    .Select(x => new object[] { x.Index, x.Second, x.Rank, x.Score, x.Rate, x.Path, x.Accuracy, x.AreaUnderPrecisionRecallCurve, x.AreaUnderRocCurve, x.Entropy, x.F1Score, x.LogLoss, x.LogLossReduction, x.NegativePrecision, x.NegativeRecall, x.PositivePrecision, x.PositiveRecall })
+                    .Select(objects => objects.GetString("\t"));
+                binaryrows.ForEach(x => sb.AppendLine(x));
+
+                var regressionheaders = Arr("Index", "Second", "Rank", "Score", "Rate", "Path", "RSquared", "MeanSquaredError", "RootMeanSquaredError", "LossFunction", "MeanAbsoluteError")
+                    .GetString("\t");
+                sb.AppendLine(regressionheaders);
+
+                var regressionrows = RegressionResults
+                    .Select(x => new object[] { x.Index, x.Second, x.Rank, x.Score, x.Rate, x.Path, x.RSquared, x.MeanSquaredError, x.RootMeanSquaredError, x.LossFunction, x.MeanAbsoluteError })
+                    .Select(objects => objects.GetString("\t"));
+                regressionrows.ForEach(x => sb.AppendLine(x));
+
+                Clipboard.SetText(sb.ToString());
+            });
         }
 
         public uint MinimumTrainingTimeSecond
@@ -355,6 +381,8 @@ namespace Netkeiba
         private List<ColumnFilter> _diccor = AppSetting.Instance.DicCor;
 
         public IRelayCommand ClickCorrelation { get; }
+
+        public IRelayCommand ClickOutput { get; }
 
         public IRelayCommand ClickDeleteAll { get; }
     }
