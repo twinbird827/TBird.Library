@@ -334,7 +334,7 @@ namespace Netkeiba
                             tmp.Where(x => keys.Contains(x["ﾗﾝｸ1"].Str())).Select(tgt => GET着順(tgt, jun)).ToArray();
 
                         // 計算したい値
-                        var tmp1 = ToArr(arr2, 0.0F).Run(tmp => tmp.Any() ? tmp : ToArr(arr2, 0.5F));
+                        var tmp1 = ToArr(arr2, 0.0F).Run(tmp => tmp.Any() ? tmp : ToArr(arr1, 0.5F));
 
                         dic[$"{KEY}{childkey}{j.ToString(2)}Me"] = tmp1.Any()
                             ? tmp1.Median()
