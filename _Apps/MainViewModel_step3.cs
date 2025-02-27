@@ -36,9 +36,9 @@ namespace Netkeiba
 
         public IRelayCommand S3EXECCHECK => RelayCommand.Create(_ =>
         {
-            CreateModelSources.ForEach(x => x.Value.IsChecked = _check = !_check);
+            var check = CreateModelSources.Any(x => x.Value.IsChecked);
+            CreateModelSources.ForEach(x => x.Value.IsChecked = !check);
         });
-        private bool _check = false;
 
         public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
         {
