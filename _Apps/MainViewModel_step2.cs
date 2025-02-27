@@ -64,7 +64,7 @@ namespace Netkeiba
                     MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
                     // ﾚｰｽ毎の纏まり
-                    var racarr = await CreateRaceModel(conn, "t_orig", raceid, 馬性, 調教場所, 追切);
+                    var racarr = await CreateRaceModel(conn, "v_orig2", raceid, 馬性, 調教場所, 追切);
                     var head1 = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
                     var head2 = Arr("ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
 
@@ -450,7 +450,7 @@ namespace Netkeiba
             //using (MessageService.Measure("産父情報"))
             {
                 var 産父情報 = await conn.GetRows(
-                    $"SELECT {SELECT_DATA} FROM v_orig1 WHERE 父ID = ? AND 開催日数 between ? and ? AND {rankwhere} ORDER BY 開催日数 DESC",
+                    $"SELECT {SELECT_DATA} FROM v_orig1 WHERE 父ID = ? AND 開催日数 between ? and ? {rankwhere} ORDER BY 開催日数 DESC",
                     SQLiteUtil.CreateParameter(DbType.String, src["父ID"]),
                     SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 365),
                     SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 1)
