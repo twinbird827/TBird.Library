@@ -45,5 +45,9 @@
                 : base.Equals(obj);
         }
 
+        public string CopyToClipboard()
+        {
+            return $"{Value}\t{Display}";
+        }
     }
 }

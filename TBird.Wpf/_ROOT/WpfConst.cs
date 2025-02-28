@@ -1,4 +1,4 @@
-﻿using TBird.Core;
+using TBird.Core;
 
 namespace TBird.Wpf
 {
@@ -12,5 +12,8 @@ namespace TBird.Wpf
 
         /// <summary>ｷｬﾝｾﾙ</summary>
         public static string L_Cancel { get; } = Lang.Instance.Get();
+
+        /// <summary>ｺﾋﾟｰ</summary>
+        public static string L_Copy { get; } = Lang.Instance.Get();
     }
 }
