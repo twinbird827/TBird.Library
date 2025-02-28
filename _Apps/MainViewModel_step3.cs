@@ -240,7 +240,7 @@ namespace Netkeiba
 
             AppSetting.Instance.Save();
 
-            for (var tmp = 0; tmp < seconds; tmp++)
+            for (var tmp = 0; tmp < seconds * NumberOfCreateModel; tmp++)
             {
                 var random = new Random();
                 foreach (var o in AppUtil.OrderBys)
@@ -253,13 +253,10 @@ namespace Netkeiba
 
                         (float 着順, float 単勝) GET着勝(DbDataReader r) => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
-                        for (var i = 0; i < 1; i++)
-                        {
-                            await BinaryClassification($"1-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 <= o));
-                            await BinaryClassification($"6-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 > o));
-                        }
-                        await Regression(rank, second);
+                        await BinaryClassification($"1-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 <= o));
+                        await BinaryClassification($"6-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 > o));
 
+                        if (tmp % NumberOfCreateModel == 0) await Regression(rank, second);
                     }
                 }
             }
