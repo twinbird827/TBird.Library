@@ -77,9 +77,9 @@ namespace TBird.Core
             return txt;
         }
 
-		private void Writeline(string message)
-		{
-			System.Diagnostics.Debug.WriteLine(message);
-		}
-	}
+        private void Writeline(string message)
+        {
+            System.Diagnostics.Debug.WriteLine(message);
+        }
+    }
 }
