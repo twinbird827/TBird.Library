@@ -339,12 +339,12 @@ namespace Netkeiba
                         dic[$"{KEY}{childkey}{j.ToString(2)}Me"] = tmp1.Any()
                             ? tmp1.Median()
                             : 0F;
-                        dic[$"{KEY}{childkey}{j.ToString(2)}Ma"] = tmp1.Any()
-                            ? tmp1.Max()
-                            : 0F;
-                        dic[$"{KEY}{childkey}{j.ToString(2)}Mi"] = tmp1.Any()
-                            ? tmp1.Min()
-                            : 0F;
+                        //dic[$"{KEY}{childkey}{j.ToString(2)}Ma"] = tmp1.Any()
+                        //    ? tmp1.Max()
+                        //    : 0F;
+                        //dic[$"{KEY}{childkey}{j.ToString(2)}Mi"] = tmp1.Any()
+                        //    ? tmp1.Min()
+                        //    : 0F;
                     });
                 }
 
