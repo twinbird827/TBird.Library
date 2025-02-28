@@ -1,6 +1,7 @@
 ﻿using MathNet.Numerics.Statistics;
 using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -387,7 +388,7 @@ namespace Netkeiba
         public IRelayCommand ClickDeleteAll { get; }
     }
 
-    public class BinaryClassificationViewModel : BinaryClassificationResult
+    public class BinaryClassificationViewModel : BinaryClassificationResult, ICopyToClipboard
     {
         public ModelViewModel Parent { get; }
 
@@ -424,9 +425,17 @@ namespace Netkeiba
         }
 
         public IRelayCommand ClickDelete { get; }
+
+        public string CopyToClipboard()
+        {
+            return new object[]
+            {
+                Index, Second, Rank, Score, Rate, Path, Accuracy, AreaUnderPrecisionRecallCurve, AreaUnderRocCurve, Entropy, F1Score, LogLoss, LogLossReduction, NegativePrecision, NegativeRecall, PositivePrecision, PositiveRecall
+            }.GetString("\t");
+        }
     }
 
-    public class RegressionViewModel : RegressionResult
+    public class RegressionViewModel : RegressionResult, ICopyToClipboard
     {
         public ModelViewModel Parent { get; }
 
@@ -457,6 +466,14 @@ namespace Netkeiba
         }
 
         public IRelayCommand ClickDelete { get; }
+
+        public string CopyToClipboard()
+        {
+            return new object[]
+            {
+                Index, Second, Rank, Score, Rate, Path, RSquared, MeanSquaredError, RootMeanSquaredError, LossFunction, MeanAbsoluteError
+            }.GetString("\t");
+        }
     }
 
 }

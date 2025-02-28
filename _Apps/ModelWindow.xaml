@@ -6,6 +6,7 @@
 					  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 					  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 					  xmlns:local="clr-namespace:Netkeiba"
+					  xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf"
 					  mc:Ignorable="d">
 	<Controls:MetroWindow.DataContext>
 		<local:ModelViewModel />
@@ -199,7 +200,8 @@
 			<TabItem Header="BinaryClassification">
 				<DockPanel>
 					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding BinaryClassificationMetrics.Items}" SelectedItem="{Binding BinaryClassificationMetrics.SelectedItem}" Visibility="Collapsed" />
-					<ListView ItemsSource="{Binding BinaryClassificationResultViews}">
+					<ListView ItemsSource="{Binding BinaryClassificationResultViews}"
+							  behavior:ListBoxBehavior.CopyToClipboard="True">
 						<ListView.View>
 							<GridView>
 								<GridViewColumn Header="Index"
@@ -251,7 +253,8 @@
 			<TabItem Header="Regression">
 				<DockPanel>
 					<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding RegressionMetrics.Items}" SelectedItem="{Binding RegressionMetrics.SelectedItem}" Visibility="Collapsed" />
-					<ListView ItemsSource="{Binding RegressionResultViews}">
+					<ListView ItemsSource="{Binding RegressionResultViews}"
+							  behavior:ListBoxBehavior.CopyToClipboard="True">
 						<ListView.View>
 							<GridView>
 								<GridViewColumn Header="Index"

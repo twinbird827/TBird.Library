@@ -170,7 +170,8 @@
 		</Grid>
 
 		<GroupBox Header="実行ログ">
-			<ListBox ItemsSource="{Binding Logs}">
+			<ListBox ItemsSource="{Binding Logs}"
+					 behavior:ListBoxBehavior.CopyToClipboard="True">
 				<ItemsControl.ItemsPanel>
 					<ItemsPanelTemplate>
 						<StackPanel Orientation="Vertical" />
