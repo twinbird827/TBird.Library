@@ -79,7 +79,7 @@ namespace TBird.Core
 
         private void Writeline(string message)
         {
-            System.Console.WriteLine(message);
+            System.Diagnostics.Debug.WriteLine(message);
         }
     }
 }
