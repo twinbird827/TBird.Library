@@ -1,15 +1,15 @@
 ﻿namespace TBird.Core
 {
-	public enum MessageType
-	{
-		Debug,
+    public enum MessageType
+    {
+        Debug,
 
-		Info,
+        Info,
 
-		Confirm,
+        Confirm,
 
-		Error,
+        Error,
 
-		Exception,
-	}
+        Exception,
+    }
 }
