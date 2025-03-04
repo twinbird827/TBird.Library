@@ -1,4 +1,5 @@
 ﻿using Microsoft.ML;
+using System.Linq;
 using TBird.Core;
 
 namespace Netkeiba
@@ -38,14 +39,14 @@ namespace Netkeiba
 
         public float Predict(byte[] bytes, long raceid)
         {
-            return Predict(AppUtil.ToSingles(bytes, _rank), raceid);
+            return Predict(AppUtil.ToSingles(bytes), raceid);
         }
 
         public virtual float Predict(float[] features, long raceid)
         {
             var src = new TSrc().Run(x =>
             {
-                x.SetFeatures(features);
+                x.SetFeatures(AppUtil.FilterFeatures(features, _rank));
                 x.ﾚｰｽID = raceid;
             });
 

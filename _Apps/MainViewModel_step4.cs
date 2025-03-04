@@ -248,7 +248,7 @@ namespace Netkeiba
                                 .Select(x => x.Predict(features, src["ﾚｰｽID"].GetInt64()))
                                 .OrderByDescending(x => x)
                                 .Run(x => x.Count() <= len ? x : x.Skip(1))
-                                .Run(x => x.Count() <= len ? x : x.Take(x.Count() - 1))
+                                .Run(x => x.Count() <= len ? x : x.Skip(1))
                                 .ToArray();
 
                             for (var i = 0; i < predicts.Length; i++)

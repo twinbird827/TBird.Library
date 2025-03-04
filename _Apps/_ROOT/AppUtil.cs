@@ -50,10 +50,12 @@ namespace Netkeiba
 
         public static float[] ToSingles(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray();
 
-        public static float[] ToSingles(byte[] bytes, string rank)
+        public static float[] ToSingles(byte[] bytes, string rank) => FilterFeatures(ToSingles(bytes), rank);
+
+        public static float[] FilterFeatures(float[] features, string rank)
         {
             var filters = AppSetting.Instance.DicCor.First(x => x.Key == rank).Value.Split(',').Select(x => x.GetInt32()).ToArray();
-            return ToSingles(bytes).Where((x, i) => !filters.Contains(i)).ToArray();
+            return features.Where((x, i) => !filters.Contains(i)).ToArray();
         }
 
         public static string GetInnerHtml(this AngleSharp.Dom.IElement x)
