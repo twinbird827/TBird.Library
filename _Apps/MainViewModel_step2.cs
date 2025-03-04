@@ -137,32 +137,41 @@ namespace Netkeiba
             });
 
             // ﾃﾞﾌｫﾙﾄ値の作製
-            DEF.Clear();
-            AppUtil.ﾗﾝｸ1Arr.ForEach(async rank =>
+            if (!DEF.Any())
             {
-                var dic = await conn.GetRow<float>(Arr(
-                        $"SELECT",
-                        $"AVG(t_orig.着順) 着順,",
-                        $"AVG(t_orig.体重) 体重,",
-                        $"AVG(t_orig.単勝) 単勝,",
-                        $"AVG(t_orig.距離) 距離,",
-                        $"AVG(t_orig.上り) 上り,",
-                        $"AVG(t_orig.ﾀｲﾑ指数) ﾀｲﾑ指数,",
-                        $"AVG(t_orig.ﾀｲﾑ指数 / (SELECT MAX(w_tou.ﾀｲﾑ指数) FROM t_orig w_tou WHERE w_tou.ﾚｰｽID = t_orig.ﾚｰｽID AND w_tou.着順 = 1)) ﾀｲﾑ差,",
-                        $"AVG(t_orig.ﾀｲﾑ変換 - (SELECT MIN(w_tou.ﾀｲﾑ変換) FROM t_orig w_tou WHERE w_tou.ﾚｰｽID = t_orig.ﾚｰｽID AND w_tou.着順 = 1)) 勝時差,",
-                        $"0 賞金,",
-                        $"AVG(t_orig.斤量) 斤量",
-                        $"FROM t_orig",
-                        $"WHERE t_orig.ﾗﾝｸ1 = ?"
-                    ).GetString(" "), SQLiteUtil.CreateParameter(DbType.String, rank == "新馬ク" ? "未勝利ク" : rank));
-
-                dic["斤上"] = Get斤上(dic["上り"], dic["斤量"]);
-                dic["時間"] = 16.237541F;
-                dic["勝上差"] = dic["斤上"] - dic["斤上"] * 0.9F;
-                dic["出走間隔"] = 40F;
-
-                DEF.Add(rank, dic);
-            });
+                DEF = await conn.GetRows<object>(Arr(
+                    $"WITH w_tou AS (SELECT ﾚｰｽID, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数, MIN(ﾀｲﾑ変換) ﾀｲﾑ変換 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID)",
+                    $"SELECT",
+                    $"ﾗﾝｸ1,",
+                    $"AVG(t_orig.着順) 着順,",
+                    $"AVG(t_orig.体重) 体重,",
+                    $"AVG(t_orig.単勝) 単勝,",
+                    $"AVG(t_orig.距離) 距離,",
+                    $"AVG(t_orig.上り) 上り,",
+                    $"AVG(t_orig.ﾀｲﾑ指数) ﾀｲﾑ指数,",
+                    $"AVG(t_orig.ﾀｲﾑ指数 / w_tou.ﾀｲﾑ指数) ﾀｲﾑ差,",
+                    $"AVG(t_orig.ﾀｲﾑ変換 - w_tou.ﾀｲﾑ変換) 勝時差,",
+                    $"0 賞金,",
+                    $"AVG(t_orig.斤量) 斤量",
+                    $"FROM t_orig, w_tou",
+                    $"WHERE t_orig.ﾚｰｽID = w_tou.ﾚｰｽID",
+                    $"GROUP BY ﾗﾝｸ1"
+                ).GetString(" ")).RunAsync(val =>
+                {
+                    var dic = val.ToDictionary(
+                        x => x["ﾗﾝｸ1"].Str(),
+                        x => x.Where(x => x.Key != "ﾗﾝｸ1").ToDictionary(y => y.Key.Str(), y => y.Value.GetSingle())
+                    );
+                    foreach (var row in dic.Values)
+                    {
+                        row["斤上"] = Get斤上(row["上り"], row["斤量"]);
+                        row["時間"] = 16.237541F;
+                        row["勝上差"] = row["斤上"] - row["斤上"] * 0.9F;
+                        row["出走間隔"] = 40F;
+                    }
+                    return dic;
+                });
+            }
 
             TOP = await conn.GetRows(Arr(
                 $"SELECT ﾚｰｽID, MIN(CAST(ﾀｲﾑ変換 AS REAL)) ﾀｲﾑ変換, MIN(CAST(上り AS REAL)) 上り, MAX(CAST(斤量 AS REAL)) 斤量, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID"
