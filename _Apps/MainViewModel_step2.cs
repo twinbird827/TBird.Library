@@ -319,11 +319,9 @@ namespace Netkeiba
                         ? Arr(
                             Arr("G1古", "G2古", "G3古", "オープン古"),
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古"),
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク"),
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク")
                         )
                         : Arr(
-                            Arr(""),
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
                             Arr("G1障", "G2障", "G3障", "オープン障"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
@@ -339,12 +337,12 @@ namespace Netkeiba
                         dic[$"{KEY}{childkey}{j.ToString(2)}Me"] = tmp1.Any()
                             ? tmp1.Median()
                             : 0F;
-                        //dic[$"{KEY}{childkey}{j.ToString(2)}Ma"] = tmp1.Any()
-                        //    ? tmp1.Max()
-                        //    : 0F;
-                        //dic[$"{KEY}{childkey}{j.ToString(2)}Mi"] = tmp1.Any()
-                        //    ? tmp1.Min()
-                        //    : 0F;
+                        dic[$"{KEY}{childkey}{j.ToString(2)}Ma"] = tmp1.Any()
+                            ? tmp1.Max()
+                            : 0F;
+                        dic[$"{KEY}{childkey}{j.ToString(2)}Mi"] = tmp1.Any()
+                            ? tmp1.Min()
+                            : 0F;
                     });
                 }
 
