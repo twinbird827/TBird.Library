@@ -1,6 +1,7 @@
 ﻿using AngleSharp.Dom;
 using AngleSharp.Text;
 using MathNet.Numerics.Statistics;
+using OpenQA.Selenium.DevTools.V130.Network;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -116,6 +117,8 @@ namespace Netkeiba
         private Dictionary<object, Dictionary<string, object>> TOP = new();
         private Dictionary<string, float> TIM = new();
         private Dictionary<long, float> SYO = new();
+        private Dictionary<string, float> UMASYO1 = new();
+        private Dictionary<string, float> UMASYO2 = new();
 
         private async Task InitializeModelBase(SQLiteControl conn)
         {
@@ -141,6 +144,24 @@ namespace Netkeiba
             {
                 return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("賞金"));
             });
+
+            if (!UMASYO1.Any())
+            {
+                var umasyo = Arr(
+                    $"WITH",
+                    $"w_sho1 AS (SELECT ﾚｰｽID, SUM(CAST(賞金 AS REAL)) 賞金 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID),",
+                    $"w_sho2 AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, w_sho1 c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
+                    $"SELECT a.ﾚｰｽID, a.馬ID, IFNULL(AVG(b.賞金 / b.着順), 100) 賞金",
+                    $"FROM t_orig a",
+                    $"LEFT JOIN w_sho2 b ON a.馬ID = b.馬ID AND b.開催日数 BETWEEN a.開催日数 - {開催日数MIN} AND a.開催日数 - {開催日数MAX}",
+                    $"GROUP BY a.ﾚｰｽID, a.馬ID"
+                );
+                UMASYO1 = await conn.GetRows(umasyo.GetString(" ")).RunAsync(arr =>
+                {
+                    return arr.ToDictionary(x => $"{x["ﾚｰｽID"]},{x["馬ID"]}", x => x.SINGLE("賞金"));
+                });
+                UMASYO2 = UMASYO1.GroupBy(x => x.Key.Split(',')[0]).ToDictionary(x => x.Key, x => x.Average(y => y.Value));
+            }
 
             //TIM = await conn.GetRows("SELECT ﾚｰｽID, MEDIAN(ﾀｲﾑ指数) ﾀｲﾑ合計 FROM t_orig WHERE 着順 <= 6 GROUP BY ﾚｰｽID").RunAsync(arr =>
             //{
@@ -224,6 +245,23 @@ namespace Netkeiba
 
             TOU[raceid.GetInt64()] = 同ﾚｰｽ.Count;
 
+            if (!UMASYO2.ContainsKey(raceid))
+            {
+                var umasyo = Arr(
+                    "WITH w_sho1 AS (SELECT ﾚｰｽID, SUM(CAST(賞金 AS REAL)) 賞金 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID),",
+                    "SELECT IFNULL(AVG(b.着順, c.賞金), 100) 賞金 FROM t_orig b, w_sho1 c WHERE b.ﾚｰｽID = c.ﾚｰｽID AND b.馬ID = ? AND b.開催日数 BETWEEN ? AND ?"
+                );
+                foreach (var src in 同ﾚｰｽ)
+                {
+                    UMASYO1[$"{raceid},{src["馬ID"]}"] = await conn.ExecuteScalarAsync<float>(umasyo.GetString(" "),
+                        SQLiteUtil.CreateParameter(DbType.String, src["馬ID"]),
+                        SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MIN),
+                        SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MAX)
+                    );
+                }
+                UMASYO2[raceid] = 同ﾚｰｽ.Average(src => UMASYO1[$"{raceid},{src["馬ID"]}"]);
+            }
+
             // ﾚｰｽ毎の纏まり
             var racarr = await 同ﾚｰｽ.AsParallel().WithDegreeOfParallelism(2).Select(src => ToModel(conn, src, 馬性, 調教場所, 追切)).WhenAll();
             var drops = Arr("距離", "調教場所", "枠番", "馬番", "馬ID", "着順", "単勝", "ﾚｰｽID", "開催日数", "ﾗﾝｸ1", "ﾗﾝｸ2"); ;
@@ -289,16 +327,18 @@ namespace Netkeiba
             dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
             dic["追切評価"] = 追切.IndexOf(src["追切評価"]).GetSingle() / 追切.Count.GetSingle();
 
+            dic["UMASYO"] = UMASYO1[$"{src["ﾚｰｽID"]},{src["馬ID"]}"] / UMASYO2[$"{src["ﾚｰｽID"]}"];
+
             void ADD情報(string key, List<Dictionary<string, object>> arr, int i)
             {
                 float GET着順(Dictionary<string, object> tgt, float jun)
                 {
                     var 頭数 = TOU[tgt["ﾚｰｽID"].GetInt64()];
                     var 着順 = tgt.SINGLE("着順") + jun;
-                    var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
-                    var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
+                    //var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
+                    //var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                     //return (着順 / 頭数).Pow(1.5F);
-                    return SYO[tgt["ﾚｰｽID"].GetInt64()] / 着順;
+                    return (SYO[tgt["ﾚｰｽID"].GetInt64()] + UMASYO2[$"{tgt["ﾚｰｽID"]}"]) / 着順;
                 }
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
@@ -313,7 +353,7 @@ namespace Netkeiba
                             Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク")
                         )
                         : Arr(
-                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク"),
+                            Arr("G1古", "G2古", "G3古", "オープン古", "3勝古", "2勝古", "1勝古", "G1ク", "G2ク", "G3ク", "オープンク", "2勝ク", "1勝ク", "未勝利ク", "新馬ク", "G1障", "G2障", "G3障", "オープン障", "未勝利障"),
                             Arr("G1障", "G2障", "G3障", "オープン障", "未勝利障")
                         );
                     tgts.ForEach((keys, j) =>
