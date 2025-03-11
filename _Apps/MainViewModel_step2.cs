@@ -49,8 +49,8 @@ namespace Netkeiba
                 // 血統情報の作成
                 await RefreshKetto(conn);
 
-                // 産駒成績の更新
-                await RefreshSanku(conn);
+                //// 産駒成績の更新
+                //await RefreshSanku(conn);
 
                 // ﾚｰｽ情報の初期化
                 await InitializeModelBase(conn);
@@ -558,77 +558,77 @@ namespace Netkeiba
             }
         }
 
-        private async Task RefreshSanku(SQLiteControl conn)
-        {
-            var keys = await conn.ExistsColumn("t_sanku", "馬ID").RunAsync(exists =>
-            {
-                var sqlbase = "SELECT DISTINCT 馬ID FROM t_ketto";
+        //private async Task RefreshSanku(SQLiteControl conn)
+        //{
+        //    var keys = await conn.ExistsColumn("t_sanku", "馬ID").RunAsync(exists =>
+        //    {
+        //        var sqlbase = "SELECT DISTINCT 馬ID FROM t_ketto";
 
-                return exists
-                    ? $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_sanku WHERE w_ketto.馬ID = t_sanku.馬ID)"
-                    : $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto";
-            }).RunAsync(async sql => await conn.GetRows(r => r.Get<string>(0), sql));
+        //        return exists
+        //            ? $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto WHERE NOT EXISTS (SELECT * FROM t_sanku WHERE w_ketto.馬ID = t_sanku.馬ID)"
+        //            : $"WITH w_ketto AS ({sqlbase}) SELECT * FROM w_ketto";
+        //    }).RunAsync(async sql => await conn.GetRows(r => r.Get<string>(0), sql));
 
-            await RefreshSanku(conn, keys);
-        }
+        //    await RefreshSanku(conn, keys);
+        //}
 
-        private async Task RefreshSanku(SQLiteControl conn, IEnumerable<string> keys, bool progress = true)
-        {
-            var existssanku = await conn.ExistsColumn("t_sanku", "馬ID");
-            var newkeys = await existssanku.Run(async exists =>
-            {
-                var sql = Arr(
-                    $"WITH w_ketto AS (SELECT 父ID, 母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
-                    $"SELECT DISTINCT 父ID FROM w_ketto WHERE 父ID NOT IN (SELECT 馬ID FROM t_sanku)",
-                    $"UNION",
-                    $"SELECT DISTINCT 父ID FROM t_ketto WHERE 馬ID IN (SELECT 母ID FROM w_ketto) AND 父ID NOT IN (SELECT 馬ID FROM t_sanku)"
-                ).GetString(" ");
+        //private async Task RefreshSanku(SQLiteControl conn, IEnumerable<string> keys, bool progress = true)
+        //{
+        //    var existssanku = await conn.ExistsColumn("t_sanku", "馬ID");
+        //    var newkeys = await existssanku.Run(async exists =>
+        //    {
+        //        var sql = Arr(
+        //            $"WITH w_ketto AS (SELECT 父ID, 母ID FROM t_ketto WHERE 馬ID IN ({keys.Select(x => $"'{x}'").GetString(",")}))",
+        //            $"SELECT DISTINCT 父ID FROM w_ketto WHERE 父ID NOT IN (SELECT 馬ID FROM t_sanku)",
+        //            $"UNION",
+        //            $"SELECT DISTINCT 父ID FROM t_ketto WHERE 馬ID IN (SELECT 母ID FROM w_ketto) AND 父ID NOT IN (SELECT 馬ID FROM t_sanku)"
+        //        ).GetString(" ");
 
-                return exists
-                    ? await conn.GetRows(r => r.Get<string>(0), sql)
-                    : keys;
-            }).RunAsync(arr => arr.ToArray());
+        //        return exists
+        //            ? await conn.GetRows(r => r.Get<string>(0), sql)
+        //            : keys;
+        //    }).RunAsync(arr => arr.ToArray());
 
-            if (progress)
-            {
-                Progress.Minimum = 0;
-                Progress.Maximum = newkeys.Length;
-                Progress.Value = 0;
-            }
+        //    if (progress)
+        //    {
+        //        Progress.Minimum = 0;
+        //        Progress.Maximum = newkeys.Length;
+        //        Progress.Value = 0;
+        //    }
 
-            foreach (var chunk in newkeys.Chunk(100))
-            {
-                if (existssanku) await conn.BeginTransaction();
-                foreach (var sanku in chunk.Select(uma => GetSanku(uma)))
-                {
-                    await foreach (var dic in sanku)
-                    {
-                        if (!existssanku)
-                        {
-                            existssanku = true;
+        //    foreach (var chunk in newkeys.Chunk(100))
+        //    {
+        //        if (existssanku) await conn.BeginTransaction();
+        //        foreach (var sanku in chunk.Select(uma => GetSanku(uma)))
+        //        {
+        //            await foreach (var dic in sanku)
+        //            {
+        //                if (!existssanku)
+        //                {
+        //                    existssanku = true;
 
-                            // ﾃｰﾌﾞﾙ作成
-                            await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
-                                "PRIMARY KEY (馬ID,年度))").GetString(" ")
-                            );
+        //                    // ﾃｰﾌﾞﾙ作成
+        //                    await conn.ExecuteNonQueryAsync(Arr("CREATE TABLE IF NOT EXISTS t_sanku (馬ID,年度,順位 REAL,出走頭数 REAL,勝馬頭数 REAL,出走回数 REAL,勝利回数 REAL,重出 REAL,重勝 REAL,特出 REAL,特勝 REAL,平出 REAL,平勝 REAL,芝出 REAL,芝勝 REAL,ダ出 REAL,ダ勝 REAL,EI REAL,賞金 REAL,芝距 REAL,ダ距 REAL,",
+        //                        "PRIMARY KEY (馬ID,年度))").GetString(" ")
+        //                    );
 
-                            await conn.ExecuteNonQueryAsync(Arr(
-                                "CREATE TABLE IF NOT EXISTS t_sanku (",
-                                dic.Keys.Select(x => Arr("馬ID", "年度").Contains(x) ? x : $"{x} REAL").GetString(","),
-                                ",PRIMARY KEY (馬ID,年度))").GetString(" "));
+        //                    await conn.ExecuteNonQueryAsync(Arr(
+        //                        "CREATE TABLE IF NOT EXISTS t_sanku (",
+        //                        dic.Keys.Select(x => Arr("馬ID", "年度").Contains(x) ? x : $"{x} REAL").GetString(","),
+        //                        ",PRIMARY KEY (馬ID,年度))").GetString(" "));
 
-                            await conn.BeginTransaction();
-                        }
+        //                    await conn.BeginTransaction();
+        //                }
 
-                        await conn.ExecuteNonQueryAsync(
-                            $"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Keys.Count).GetString(",")})",
-                            dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? DbType.String : DbType.Single, x)).ToArray()
-                        );
-                    }
-                    if (progress) Progress.Value += 1;
-                }
-                conn.Commit();
-            }
-        }
+        //                await conn.ExecuteNonQueryAsync(
+        //                    $"REPLACE INTO t_sanku ({dic.Keys.GetString(",")}) VALUES ({Enumerable.Repeat("?", dic.Keys.Count).GetString(",")})",
+        //                    dic.Values.Select((x, i) => SQLiteUtil.CreateParameter(i < 2 ? DbType.String : DbType.Single, x)).ToArray()
+        //                );
+        //            }
+        //            if (progress) Progress.Value += 1;
+        //        }
+        //        conn.Commit();
+        //    }
+        //}
     }
 }

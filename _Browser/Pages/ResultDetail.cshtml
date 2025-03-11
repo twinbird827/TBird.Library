@@ -40,18 +40,18 @@
         <thead>
             <tr>
                 @{
-                    const int waku = 9;
+                    const int waku = 10;
                     const int umno = waku;
                     const int rank = waku;
                     const int rate = 8;
-                    const int name = 100 - waku - umno - rank - (rate * 5);
+                    const int xxxx = (100 - waku - umno - rank - (rate * 4)) / 2;
                     string GetWidth(int i) => $"{i}%";
                 }
                 <th width="@GetWidth(waku)">@Html.DisplayNameFor(m => m.Displays[0].Waku)</th>
                 <th width="@GetWidth(umno)">@Html.DisplayNameFor(m => m.Displays[0].Umano)</th>
-                <th width="@GetWidth(name)" class="textleft">@Html.DisplayNameFor(m => m.Displays[0].Umaname)</th>
                 <th width="@GetWidth(rank)">@Html.DisplayNameFor(m => m.Displays[0].Rank)</th>
-                <th width="@GetWidth(rate)">@Html.DisplayNameFor(m => m.Displays[0].Avg)</th>
+                <th width="@GetWidth(xxxx)">@Html.DisplayNameFor(m => m.Displays[0].RN)</th>
+                <th width="@GetWidth(xxxx)">@Html.DisplayNameFor(m => m.Displays[0].Avg)</th>
                 <th width="@GetWidth(rate)">@Html.DisplayNameFor(m => m.Displays[0].B1)</th>
                 <th width="@GetWidth(rate)">@Html.DisplayNameFor(m => m.Displays[0].B2)</th>
                 <th width="@GetWidth(rate)">@Html.DisplayNameFor(m => m.Displays[0].B3)</th>
@@ -66,22 +66,22 @@
             @foreach (var x in Model.Displays)
             {
                 <tr>
-                    <td rowspan="2" width="@GetWidth(waku)" class="@GetKaiClass(x.All, x.Any)">@Html.DisplayFor(m => x.Waku)</td>
-                    <td rowspan="2" width="@GetWidth(umno)" class="@GetKaiClass(x.All, x.Any)">@Html.DisplayFor(m => x.Umano)</td>
-                    <td rowspan="2" width="@GetWidth(name)" class="textleft">@Html.DisplayFor(m => x.Umaname)</td>
-                    <td rowspan="2" width="@GetWidth(rank)" class="@GetRateClass(x.Rank)">@Html.DisplayFor(m => x.Rank)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.Avg)">@Html.DisplayFor(m => x.AvgStr)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B1)">@Html.DisplayFor(m => x.B1Str)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B2)">@Html.DisplayFor(m => x.B2Str)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B3)">@Html.DisplayFor(m => x.B3Str)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B4)">@Html.DisplayFor(m => x.B4Str)</td>
+                    <td width="@GetWidth(waku)" class="@GetKaiClass(x.All, x.Any)">@Html.DisplayFor(m => x.Waku)</td>
+                    <td width="@GetWidth(umno)" class="@GetKaiClass(x.All, x.Any)">@Html.DisplayFor(m => x.Umano)</td>
+                    <td width="@GetWidth(rank)" class="@GetRateClass(x.Rank - 1)">@Html.DisplayFor(m => x.Rank)</td>
+                    <td width="@GetWidth(xxxx)" class="@GetRateClass(x.RN)">@Html.DisplayFor(m => x.RNStr)</td>
+                    <td width="@GetWidth(xxxx)" class="@GetRateClass(x.Avg)">@Html.DisplayFor(m => x.AvgStr)</td>
+                    <td width="@GetWidth(rate)" class="@GetRateClass(x.B1)">@Html.DisplayFor(m => x.B1Str)</td>
+                    <td width="@GetWidth(rate)" class="@GetRateClass(x.B2)">@Html.DisplayFor(m => x.B2Str)</td>
+                    <td width="@GetWidth(rate)" class="@GetRateClass(x.B3)">@Html.DisplayFor(m => x.B3Str)</td>
+                    <td width="@GetWidth(rate)" class="@GetRateClass(x.B4)">@Html.DisplayFor(m => x.B4Str)</td>
                 </tr>
                 <tr class="tr_bottom">
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.RN)">@Html.DisplayFor(m => x.RNStr)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B6)">@Html.DisplayFor(m => x.B6Str)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B7)">@Html.DisplayFor(m => x.B7Str)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B8)">@Html.DisplayFor(m => x.B8Str)</td>
-                    <td rowspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B9)">@Html.DisplayFor(m => x.B9Str)</td>
+                    <td colspan="5" width="@GetWidth(waku + umno + rank + xxxx + xxxx)" class="textleft">@Html.DisplayFor(m => x.Umaname)</td>
+                    <td colspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B6)">@Html.DisplayFor(m => x.B6Str)</td>
+                    <td colspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B7)">@Html.DisplayFor(m => x.B7Str)</td>
+                    <td colspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B8)">@Html.DisplayFor(m => x.B8Str)</td>
+                    <td colspan="1" width="@GetWidth(rate)" class="@GetRateClass(x.B9)">@Html.DisplayFor(m => x.B9Str)</td>
                 </tr>
             }
         </tbody>

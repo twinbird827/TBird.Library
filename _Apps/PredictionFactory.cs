@@ -1,5 +1,4 @@
 ﻿using Microsoft.ML;
-using System.Linq;
 using TBird.Core;
 
 namespace Netkeiba
