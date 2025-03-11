@@ -272,7 +272,7 @@ namespace Netkeiba
                         var binaries2 = 着外s.Values.Select(x => (object)x.Average()).ToArray();
                         tmp.AddRange(binaries2);
 
-                        var regressions = 着順s.Values.Select(x => (object)x.Average()).ToArray();
+                        var regressions = 着順s.Values.Select(x => (object)(1F / x.Average())).ToArray();
                         tmp.AddRange(regressions);
 
                         var scores = Arr(

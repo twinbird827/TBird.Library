@@ -378,7 +378,7 @@ namespace Netkeiba
             var dataPath = Path.Combine("model", DateTime.Now.ToString("yyMMddHHmmss") + ".csv");
 
             // ﾃﾞｰﾀﾌｧｲﾙを作製する
-            await CreateModelInputData(dataPath, rank, (int 着順) => 着順);
+            await CreateModelInputData(dataPath, rank, r => r.GetValue("単勝").GetSingle());
 
             AddLog($"=============== Begin of Regression evaluation {rank} {second} ===============");
 
@@ -563,11 +563,6 @@ namespace Netkeiba
         //        throw;
         //    }
         //}
-
-        private Task CreateModelInputData(string path, string rank, Func<int, object> func_target)
-        {
-            return CreateModelInputData(path, rank, r => func_target(r.GetValue("着順").GetInt32()));
-        }
 
         private async Task CreateModelInputData(string path, string rank, Func<DbDataReader, object> func_target)
         {
