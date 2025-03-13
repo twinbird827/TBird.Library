@@ -113,6 +113,9 @@ namespace Netkeiba
                             await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index05 ON t_orig (調教師ID,開催日数,回り)");
                             await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index06 ON t_orig (馬主ID,開催日数,回り)");
                             await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index07 ON t_orig (ﾚｰｽID,着順)");
+                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index08 ON t_orig (馬性)");
+                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index09 ON t_orig (調教場所)");
+                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index10 ON t_orig (ﾚｰｽID)");
 
                             await conn.BeginTransaction();
                         }

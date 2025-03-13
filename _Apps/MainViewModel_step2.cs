@@ -1,7 +1,6 @@
 ﻿using AngleSharp.Dom;
 using AngleSharp.Text;
 using MathNet.Numerics.Statistics;
-using OpenQA.Selenium.DevTools.V130.Network;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -129,8 +128,9 @@ namespace Netkeiba
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba1 AS select c.*, a.父ID         , a.母ID          from t_shutuba  c left outer join t_ketto a on a.馬ID = c.馬ID");
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba2 AS select c.*, a.父ID 母父ID  , a.母ID 母母ID   from v_shutuba1 c, t_ketto a where a.馬ID = c.母ID");
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_shutuba2 c left outer join t_ketto a on a.馬ID = c.母母ID");
+            await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_race AS SELECT ﾚｰｽID, COUNT(ﾚｰｽID) 頭数, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数, MIN(ﾀｲﾑ変換) ﾀｲﾑ変換, MIN(上り) 上り, MAX(斤量) 斤量, SUM(賞金) 総額, SUM(CASE WHEN 着順 = 1 THEN 賞金 ELSE 0 END) 賞金 FROM (SELECT ﾚｰｽID, 着順, CAST(ﾀｲﾑ指数 AS REAL) ﾀｲﾑ指数, CAST(ﾀｲﾑ変換 AS REAL) ﾀｲﾑ変換, CAST(上り AS REAL) 上り, CAST(斤量 AS REAL) 斤量, CAST(賞金 AS REAL) 賞金 FROM t_orig) GROUP BY ﾚｰｽID");
 
-            TOU = await conn.GetRows("SELECT ﾚｰｽID, COUNT(馬番) 頭数 FROM t_orig GROUP BY ﾚｰｽID").RunAsync(arr =>
+            TOU = await conn.GetRows("SELECT ﾚｰｽID, 頭数 FROM v_race").RunAsync(arr =>
             {
                 return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("頭数"));
             });
@@ -140,7 +140,7 @@ namespace Netkeiba
                 return arr.ToDictionary(x => $"{x["馬場"]},{x["距離"]},{x["障害"].Int32() == 1}", x => x.SINGLE("ﾀｲﾑ変換"));
             });
 
-            SYO = await conn.GetRows("SELECT ﾚｰｽID, SUM(CAST(賞金 AS REAL)) 賞金 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID").RunAsync(arr =>
+            SYO = await conn.GetRows("SELECT ﾚｰｽID, 賞金 FROM v_race").RunAsync(arr =>
             {
                 return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("賞金"));
             });
@@ -149,8 +149,7 @@ namespace Netkeiba
             {
                 var umasyo = Arr(
                     $"WITH",
-                    $"w_sho1 AS (SELECT ﾚｰｽID, SUM(CAST(賞金 AS REAL)) 賞金 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID),",
-                    $"w_sho2 AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, w_sho1 c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
+                    $"w_sho2 AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
                     $"SELECT a.ﾚｰｽID, a.馬ID, IFNULL(AVG(b.賞金 / b.着順), 100) 賞金",
                     $"FROM t_orig a",
                     $"LEFT JOIN w_sho2 b ON a.馬ID = b.馬ID AND b.開催日数 BETWEEN a.開催日数 - {開催日数MIN} AND a.開催日数 - {開催日数MAX}",
@@ -172,7 +171,7 @@ namespace Netkeiba
             if (!DEF.Any())
             {
                 DEF = await conn.GetRows<object>(Arr(
-                    $"WITH w_tou AS (SELECT ﾚｰｽID, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数, MIN(ﾀｲﾑ変換) ﾀｲﾑ変換 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID)",
+                    $"WITH w_tou AS (SELECT ﾚｰｽID, ﾀｲﾑ指数, ﾀｲﾑ変換 FROM v_race)",
                     $"SELECT",
                     $"ﾗﾝｸ1,",
                     $"AVG(t_orig.着順) 着順,",
@@ -206,7 +205,7 @@ namespace Netkeiba
             }
 
             TOP = await conn.GetRows(Arr(
-                $"SELECT ﾚｰｽID, MIN(CAST(ﾀｲﾑ変換 AS REAL)) ﾀｲﾑ変換, MIN(CAST(上り AS REAL)) 上り, MAX(CAST(斤量 AS REAL)) 斤量, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID"
+                $"SELECT ﾚｰｽID, ﾀｲﾑ変換, 上り, 斤量, ﾀｲﾑ指数 FROM v_race"
             ).GetString(" ")).RunAsync(val =>
             {
                 return val.ToDictionary(
@@ -247,13 +246,9 @@ namespace Netkeiba
 
             if (!UMASYO2.ContainsKey(raceid))
             {
-                var umasyo = Arr(
-                    "WITH w_sho1 AS (SELECT ﾚｰｽID, SUM(CAST(賞金 AS REAL)) 賞金 FROM t_orig WHERE 着順 = 1 GROUP BY ﾚｰｽID),",
-                    "SELECT IFNULL(AVG(b.着順, c.賞金), 100) 賞金 FROM t_orig b, w_sho1 c WHERE b.ﾚｰｽID = c.ﾚｰｽID AND b.馬ID = ? AND b.開催日数 BETWEEN ? AND ?"
-                );
                 foreach (var src in 同ﾚｰｽ)
                 {
-                    UMASYO1[$"{raceid},{src["馬ID"]}"] = await conn.ExecuteScalarAsync<float>(umasyo.GetString(" "),
+                    UMASYO1[$"{raceid},{src["馬ID"]}"] = await conn.ExecuteScalarAsync<float>("SELECT IFNULL(AVG(c.賞金 / b.着順), 100) 賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID AND b.馬ID = ? AND b.開催日数 BETWEEN ? AND ?",
                         SQLiteUtil.CreateParameter(DbType.String, src["馬ID"]),
                         SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MIN),
                         SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MAX)
