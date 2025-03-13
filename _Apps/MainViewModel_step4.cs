@@ -1,5 +1,4 @@
 using AngleSharp.Common;
-using ControlzEx.Standard;
 using Microsoft.ML;
 using Microsoft.ML.Data;
 using System;
@@ -15,7 +14,6 @@ using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Web;
 using TBird.Wpf;
-using Tensorflow;
 
 namespace Netkeiba
 {
@@ -272,7 +270,7 @@ namespace Netkeiba
                         var binaries2 = 着外s.Values.Select(x => (object)x.Average()).ToArray();
                         tmp.AddRange(binaries2);
 
-                        var regressions = 着順s.Values.Select(x => (object)(1F / x.Average())).ToArray();
+                        var regressions = 着順s.Values.Select(x => (object)x.Average()).ToArray();
                         tmp.AddRange(regressions);
 
                         var scores = Arr(

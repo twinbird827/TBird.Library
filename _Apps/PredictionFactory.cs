@@ -1,5 +1,7 @@
 ﻿using Microsoft.ML;
+using System.Threading;
 using TBird.Core;
+using TBird.Wpf;
 
 namespace Netkeiba
 {
@@ -7,15 +9,24 @@ namespace Netkeiba
     {
         public PredictionFactory(MLContext context, string rank, string index, ITransformer model) : this(context, rank, index)
         {
-            _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(model);
+            WpfUtil.ExecuteOnBACK(() =>
+            {
+                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(model);
+                _setengine = true;
+            });
         }
 
-        public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index, context.Model.Load(result.Path, out DataViewSchema schema))
+        public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index)
         {
+            WpfUtil.ExecuteOnBACK(() =>
+            {
+                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(context.Model.Load(result.Path, out DataViewSchema schema));
+                _setengine = true;
+            });
             _result = result;
         }
 
-        public PredictionFactory(MLContext context, string rank, string index)
+        private PredictionFactory(MLContext context, string rank, string index)
         {
             _context = context;
             _rank = rank;
@@ -28,11 +39,13 @@ namespace Netkeiba
         protected float _score;
         protected PredictionResult? _result;
         protected PredictionEngineBase<TSrc, TDst>? _engine;
+        private bool _setengine = false;
 
         public PredictionResult GetResult() => _result = _result ?? GetResult(_rank, _index);
 
         public PredictionEngineBase<TSrc, TDst> GetEngine()
         {
+            while (!_setengine) Thread.Sleep(10);
             return _engine = _engine ?? _context.Model.CreatePredictionEngine<TSrc, TDst>(_context.Model.Load(GetResult().Path, out DataViewSchema schema));
         }
 

@@ -62,7 +62,7 @@ namespace Netkeiba
 
         public override float GetScore()
         {
-            return 1F / Score;
+            return 1000F / (Score + 100F);
         }
     }
 }

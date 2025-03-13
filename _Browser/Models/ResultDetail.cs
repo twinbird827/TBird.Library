@@ -23,7 +23,7 @@ namespace Browser.Models
             B7 = GetSingle(9 + 5);
             B8 = GetSingle(9 + 6);
             B9 = GetSingle(9 + 7);
-            RN = 1F / GetSingle(9 + 8);
+            RN = GetSingle(9 + 8);
             Avg = Arr(B1, B2, B3, B4, B6, B7, B8, B9).Average();
 
             int GetInt32(int i, int def = 1) => int.TryParse(line[i], out int x) ? x : def;
