@@ -215,8 +215,8 @@ namespace Netkeiba
                     // 血統情報の作成
                     await RefreshKetto(conn, 馬IDs, false);
 
-                    // 産駒成績の更新
-                    await RefreshSanku(conn, 馬IDs, false);
+                    //// 産駒成績の更新
+                    //await RefreshSanku(conn, 馬IDs, false);
 
                     // ﾚｰｽ情報の初期化
                     await InitializeModelBase(conn);

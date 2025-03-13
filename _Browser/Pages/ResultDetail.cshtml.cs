@@ -2,8 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.VisualBasic.FileIO;
-using System;
-using System.IO;
 using System.Text;
 using TBird.Core;
 
