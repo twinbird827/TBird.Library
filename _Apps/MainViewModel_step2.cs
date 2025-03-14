@@ -159,7 +159,7 @@ namespace Netkeiba
                 {
                     return arr.ToDictionary(x => $"{x["ﾚｰｽID"]},{x["馬ID"]}", x => x.SINGLE("賞金"));
                 });
-                UMASYO2 = UMASYO1.GroupBy(x => x.Key.Split(',')[0]).ToDictionary(x => x.Key, x => x.Average(y => y.Value));
+                UMASYO2 = UMASYO1.GroupBy(x => x.Key.Split(',')[0]).ToDictionary(x => x.Key, x => x.Sum(y => y.Value));
             }
 
             //TIM = await conn.GetRows("SELECT ﾚｰｽID, MEDIAN(ﾀｲﾑ指数) ﾀｲﾑ合計 FROM t_orig WHERE 着順 <= 6 GROUP BY ﾚｰｽID").RunAsync(arr =>
@@ -254,7 +254,7 @@ namespace Netkeiba
                         SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MAX)
                     );
                 }
-                UMASYO2[raceid] = 同ﾚｰｽ.Average(src => UMASYO1[$"{raceid},{src["馬ID"]}"]);
+                UMASYO2[raceid] = 同ﾚｰｽ.Sum(src => UMASYO1[$"{raceid},{src["馬ID"]}"]);
             }
 
             // ﾚｰｽ毎の纏まり
