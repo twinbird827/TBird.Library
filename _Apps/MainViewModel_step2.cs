@@ -148,12 +148,10 @@ namespace Netkeiba
             if (!UMASYO1.Any())
             {
                 var umasyo = Arr(
-                    $"WITH",
-                    $"w_sho2 AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
-                    $"SELECT a.ﾚｰｽID, a.馬ID, IFNULL(AVG(b.賞金 / b.着順), 100) 賞金",
-                    $"FROM t_orig a",
-                    $"LEFT JOIN w_sho2 b ON a.馬ID = b.馬ID AND b.開催日数 BETWEEN a.開催日数 - {開催日数MIN} AND a.開催日数 - {開催日数MAX}",
-                    $"GROUP BY a.ﾚｰｽID, a.馬ID"
+                    $"WITH w_orig AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
+                    $"SELECT a.ﾚｰｽID, a.馬ID,",
+                    $"(SELECT IFNULL(AVG(b.賞金 / b.着順), 100) FROM w_orig b WHERE a.馬ID = b.馬ID AND b.開催日数 BETWEEN a.開催日数 - {開催日数MIN} AND a.開催日数 - {開催日数MAX}) 賞金",
+                    $"FROM t_orig a GROUP BY a.ﾚｰｽID, a.馬ID"
                 );
                 UMASYO1 = await conn.GetRows(umasyo.GetString(" ")).RunAsync(arr =>
                 {
@@ -333,7 +331,7 @@ namespace Netkeiba
                     //var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
                     //var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                     //return (着順 / 頭数).Pow(1.5F);
-                    return (SYO[tgt["ﾚｰｽID"].GetInt64()] + UMASYO2[$"{tgt["ﾚｰｽID"]}"]) / 着順;
+                    return (/*SYO[tgt["ﾚｰｽID"].GetInt64()] + */UMASYO2[$"{tgt["ﾚｰｽID"]}"]) / 着順;
                 }
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
