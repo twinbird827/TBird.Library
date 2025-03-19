@@ -1,7 +1,10 @@
 ﻿using Microsoft.ML;
+using System;
 using System.Threading;
+using System.Threading.Tasks;
 using TBird.Core;
 using TBird.Wpf;
+using Tensorflow.Keras.Engine;
 
 namespace Netkeiba
 {
@@ -9,22 +12,33 @@ namespace Netkeiba
     {
         public PredictionFactory(MLContext context, string rank, string index, ITransformer model) : this(context, rank, index)
         {
-            WpfUtil.ExecuteOnBACK(() =>
-            {
-                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(model);
-                _setengine = true;
-            });
+            Initialize(context, rank, index, model);
         }
 
         public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index)
         {
-            WpfUtil.ExecuteOnBACK(() =>
-            {
-                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(context.Model.Load(result.Path, out DataViewSchema schema));
-                _setengine = true;
-            });
-            _result = result;
+            Initialize(context, rank, index, result);
         }
+
+        private async void Initialize(MLContext context, string rank, string index, ITransformer model)
+        {
+            using (await Locker.LockAsync(_lockkey))
+            {
+                _engine = await Task.Run(() => _context.Model.CreatePredictionEngine<TSrc, TDst>(model));
+            }
+        }
+
+        private async void Initialize(MLContext context, string rank, string index, PredictionResult result)
+        {
+            ITransformer model;
+            using (await Locker.LockAsync(_lockkey))
+            {
+                model = await Task.Run(() => context.Model.Load(result.Path, out DataViewSchema schema));
+            }
+            Initialize(context, rank, index, model);
+        }
+
+        private static string _lockkey = Guid.NewGuid().ToString();
 
         private PredictionFactory(MLContext context, string rank, string index)
         {
@@ -37,16 +51,12 @@ namespace Netkeiba
         protected string _rank;
         protected string _index;
         protected float _score;
-        protected PredictionResult? _result;
         protected PredictionEngineBase<TSrc, TDst>? _engine;
-        private bool _setengine = false;
-
-        public PredictionResult GetResult() => _result = _result ?? GetResult(_rank, _index);
 
         public PredictionEngineBase<TSrc, TDst> GetEngine()
         {
-            while (!_setengine) Thread.Sleep(10);
-            return _engine = _engine ?? _context.Model.CreatePredictionEngine<TSrc, TDst>(_context.Model.Load(GetResult().Path, out DataViewSchema schema));
+            while (_engine == null) Thread.Sleep(10);
+            return _engine;
         }
 
         public float Predict(byte[] bytes, long raceid)
@@ -69,8 +79,6 @@ namespace Netkeiba
         {
             return _score;
         }
-
-        protected abstract PredictionResult GetResult(string rank, string index);
     }
 
     public class BinaryClassificationPredictionFactory : PredictionFactory<BinaryClassificationSource, BinaryClassificationPrediction>
@@ -88,12 +96,6 @@ namespace Netkeiba
         public override float Predict(float[] features, long raceid)
         {
             return base.Predict(features, raceid) * (_index.Split('-')[0].GetInt32() < 6 ? 1 : -1);
-        }
-
-        protected override PredictionResult GetResult(string rank, string index)
-        {
-            return AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-            //return AppSetting.Instance.GetBinaryClassificationResult(index - 1 - (index < 6 ? 0 : 5), index < 6, rank);
         }
     }
 
@@ -113,11 +115,6 @@ namespace Netkeiba
         {
             return base.Predict(features, raceid) * (_index.Split('-')[0].GetInt32() < 6 ? 1 : -1);
         }
-
-        protected override PredictionResult GetResult(string rank, string index)
-        {
-            return AppSetting.Instance.GetRankingResult(index, rank);
-        }
     }
 
     public class RegressionPredictionFactory : PredictionFactory<RegressionSource, RegressionPrediction>
@@ -130,11 +127,6 @@ namespace Netkeiba
         public RegressionPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
         {
 
-        }
-
-        protected override PredictionResult GetResult(string rank, string index)
-        {
-            return AppSetting.Instance.GetRegressionResult(index, rank);
         }
     }
 }
