@@ -17,7 +17,7 @@ namespace Browser.Models
             B7 = GetRank(x => x.B7);
             B8 = GetRank(x => x.B8);
             B9 = GetRank(x => x.B9);
-            RN = GetRank(x => (1000F / x.RN) - 100F);
+            RN = GetRank(x => x.RN);
             Avg = GetRank(x => x.Avg);
             All = Arr(B1Str, B2Str, B3Str, B4Str, B6Str, B7Str, B8Str, B9Str, AvgStr).All(x => 0 < x);
             Any = Arr(B1Str, B2Str, B3Str, B4Str, B6Str, B7Str, B8Str, B9Str, AvgStr).Any(x => 0 < x);
@@ -84,7 +84,7 @@ namespace Browser.Models
         public float B9Str => Source.B9;
 
         [DisplayFormat(DataFormatString = "{0:F1}")]
-        public float RNStr => Source.RN;
+        public float RNStr => (1000F / Source.RN) - 100F;
 
         public int B1 { get; set; }
 
