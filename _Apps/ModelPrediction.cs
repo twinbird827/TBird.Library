@@ -28,7 +28,7 @@ namespace Netkeiba
 
         public override float GetScore()
         {
-            return Score * Probability;
+            return Score /* * Probability*/;
         }
     }
 
