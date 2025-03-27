@@ -352,7 +352,7 @@ namespace Netkeiba
                     //var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
                     //var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                     //return (着順 / 頭数).Pow(1.5F);
-                    return (/*SYO[tgt["ﾚｰｽID"].GetInt64()] + */UMASYO2[$"{tgt["ﾚｰｽID"]}"]) / 着順;
+                    return (UMASYO2[$"{tgt["ﾚｰｽID"]}"] / 100).Pow(2) / 着順;
                 }
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
