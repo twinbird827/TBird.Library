@@ -1,4 +1,5 @@
-﻿using Microsoft.ML;
+﻿using ControlzEx.Standard;
+using Microsoft.ML;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,12 +13,22 @@ namespace Netkeiba
     {
         public PredictionFactory(MLContext context, string rank, string index, ITransformer model) : this(context, rank, index)
         {
-            Initialize(context, rank, index, model);
+            _model = model;
         }
 
         public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index)
         {
-            Initialize(context, rank, index, result);
+            _result = result;
+        }
+
+        private async void Initialize(MLContext context, string rank, string index, ITransformer model)
+        {
+            using (await Locker.LockAsync(_lockkey))
+            {
+                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(context.Model.Load(result.Path, out DataViewSchema schema));
+                _setengine = true;
+            });
+            _result = result;
         }
 
         private async void Initialize(MLContext context, string rank, string index, ITransformer model)
@@ -51,11 +62,14 @@ namespace Netkeiba
         protected string _rank;
         protected string _index;
         protected float _score;
+        protected PredictionResult? _result;
+        protected ITransformer? _model;
         protected PredictionEngineBase<TSrc, TDst>? _engine;
 
         public PredictionEngineBase<TSrc, TDst> GetEngine()
         {
-            while (_engine == null) Thread.Sleep(10);
+            _model = _model ?? _context.Model.Load(_result.NotNull().Path, out DataViewSchema schema);
+            _engine = _engine ?? _context.Model.CreatePredictionEngine<TSrc, TDst>(_model);
             return _engine;
         }
 

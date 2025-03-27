@@ -133,7 +133,7 @@ namespace Netkeiba
                                 var racedat = racearr.Take(1).Select(x => DateTime.Parse(x["開催日"])).First();
 
                                 // 着順情報取得
-                                var tyaku = DateTime.Now < racedat.AddDays(1)
+                                var tyaku = DateTime.Now < racedat.AddHours(17)
                                     ? new Dictionary<string, string>()
                                     : await GetTyakujun(raceid).RunAsync(tya => tya.ToDictionary(x => $"{x["枠番"]},{x["馬番"]}", x => x["着順"]));
 
@@ -197,7 +197,7 @@ namespace Netkeiba
                         foreach (var o in AppUtil.OrderBys)
                         {
                             var 以内 = bpf[$"1-{o}"];
-                            var 着外 = bpf[$"1-{o}"];
+                            var 着外 = bpf[$"6-{o}"];
                             var 着順 = rpf[$"{o}"];
 
                             var arr = new List<List<object>>();
@@ -243,9 +243,10 @@ namespace Netkeiba
                                         .Distinct()
                                         .ToDictionary(i => i, i => values.Where(x => x.i == i).Select(x => x.predict));
 
-                                    var 以内s = ToPredictDictionary(GetPredicts(以内[src["ﾗﾝｸ2"]], 4));
-                                    var 着外s = ToPredictDictionary(GetPredicts(着外[src["ﾗﾝｸ2"]], 4));
-                                    var 着順s = ToPredictDictionary(GetPredicts(着順[src["ﾗﾝｸ2"]], 1));
+                                    var 以内s = ToPredictDictionary(GetPredicts(以内[src["ﾗﾝｸ2"]], 4).ToArray());
+                                    var 着外s = ToPredictDictionary(GetPredicts(着外[src["ﾗﾝｸ2"]], 4).ToArray());
+                                    var 着順s = ToPredictDictionary(GetPredicts(着順[src["ﾗﾝｸ2"]], 1).ToArray());
+
 
                                     var binaries1 = 以内s.Values.Select(x => (object)x.Average()).ToArray();
                                     tmp.AddRange(binaries1);
