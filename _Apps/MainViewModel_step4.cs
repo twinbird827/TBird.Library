@@ -210,7 +210,7 @@ namespace Netkeiba
                                     var tmp = new List<object>();
                                     var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
 
-                                    var features = (AppSetting.Instance.Features ?? throw new ArgumentNullException()).Select(x => m.SINGLE(x)).ToArray();
+                                    var features = AppUtil.CreateFeatures(m);
 
                                     // 共通ﾍｯﾀﾞ
                                     tmp.Add(src["ﾚｰｽID"]);
