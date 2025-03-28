@@ -252,7 +252,7 @@ namespace Netkeiba
                 };
             }
 
-            if (!UMASYO2.ContainsKey(raceid))
+            if (同ﾚｰｽ.Any(x => !UMASYO2.ContainsKey($"{raceid},{x["馬ID"]}")))
             {
                 var umasyosql = Arr(
                     $"SELECT 馬ID, IFNULL(AVG(c.賞金 / b.着順), 100) 賞金",
