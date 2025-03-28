@@ -117,13 +117,6 @@ namespace Netkeiba
         }
         private uint _TrainingCount = 3;
 
-        public string[]? Features
-        {
-            get => GetProperty(_Features);
-            set => SetProperty(ref _Features, value);
-        }
-        private string[]? _Features;
-
         public BinaryClassificationResult[] BinaryClassificationResults
         {
             get => GetProperty(_BinaryClassificationResults);
