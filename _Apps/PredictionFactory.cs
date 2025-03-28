@@ -2,8 +2,10 @@
 using Microsoft.ML;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using TBird.Core;
 using TBird.Wpf;
+using Tensorflow.Keras.Engine;
 
 namespace Netkeiba
 {
@@ -16,16 +18,6 @@ namespace Netkeiba
 
         public PredictionFactory(MLContext context, string rank, string index, PredictionResult result) : this(context, rank, index)
         {
-            _result = result;
-        }
-
-        private async void Initialize(MLContext context, string rank, string index, ITransformer model)
-        {
-            using (await Locker.LockAsync(_lockkey))
-            {
-                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(context.Model.Load(result.Path, out DataViewSchema schema));
-                _setengine = true;
-            });
             _result = result;
         }
 
@@ -43,9 +35,6 @@ namespace Netkeiba
         protected PredictionResult? _result;
         protected ITransformer? _model;
         protected PredictionEngineBase<TSrc, TDst>? _engine;
-        private bool _setengine = false;
-
-        public PredictionResult GetResult() => _result = _result ?? GetResult(_rank, _index);
 
         public PredictionEngineBase<TSrc, TDst> GetEngine()
         {
@@ -74,8 +63,6 @@ namespace Netkeiba
         {
             return _score;
         }
-
-        protected abstract PredictionResult GetResult(string rank, string index);
     }
 
     public class BinaryClassificationPredictionFactory : PredictionFactory<BinaryClassificationSource, BinaryClassificationPrediction>
@@ -93,12 +80,6 @@ namespace Netkeiba
         public override float Predict(float[] features, long raceid)
         {
             return base.Predict(features, raceid) * (_index.Split('-')[0].GetInt32() < 6 ? 1 : -1);
-        }
-
-        protected override PredictionResult GetResult(string rank, string index)
-        {
-            return AppSetting.Instance.GetBinaryClassificationResult(index, rank);
-            //return AppSetting.Instance.GetBinaryClassificationResult(index - 1 - (index < 6 ? 0 : 5), index < 6, rank);
         }
     }
 
@@ -118,11 +99,6 @@ namespace Netkeiba
         {
             return base.Predict(features, raceid) * (_index.Split('-')[0].GetInt32() < 6 ? 1 : -1);
         }
-
-        protected override PredictionResult GetResult(string rank, string index)
-        {
-            return AppSetting.Instance.GetRankingResult(index, rank);
-        }
     }
 
     public class RegressionPredictionFactory : PredictionFactory<RegressionSource, RegressionPrediction>
@@ -135,11 +111,6 @@ namespace Netkeiba
         public RegressionPredictionFactory(MLContext context, string rank, string index, PredictionResult result) : base(context, rank, index, result)
         {
 
-        }
-
-        protected override PredictionResult GetResult(string rank, string index)
-        {
-            return AppSetting.Instance.GetRegressionResult(index, rank);
         }
     }
 }

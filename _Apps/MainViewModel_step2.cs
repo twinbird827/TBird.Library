@@ -112,10 +112,10 @@ namespace Netkeiba
             }
         });
         private Dictionary<string, Dictionary<string, float>> DEF = new();
-        private Dictionary<long, float> TOU = new();
-        private Dictionary<object, Dictionary<string, object>> TOP = new();
+        //private Dictionary<long, float> TOU = new();
+        private Dictionary<long, Dictionary<string, float>> TOP = new();
         private Dictionary<string, float> TIM = new();
-        private Dictionary<long, float> SYO = new();
+        //private Dictionary<long, float> SYO = new();
         private Dictionary<string, float> UMASYO1 = new();
         private Dictionary<string, float> UMASYO2 = new();
 
@@ -130,36 +130,37 @@ namespace Netkeiba
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_shutuba3 AS select c.*, a.父ID 母母父ID, a.母ID 母母母ID from v_shutuba2 c left outer join t_ketto a on a.馬ID = c.母母ID");
             await conn.ExecuteNonQueryAsync($"CREATE VIEW IF NOT EXISTS v_race AS SELECT ﾚｰｽID, COUNT(ﾚｰｽID) 頭数, MAX(ﾀｲﾑ指数) ﾀｲﾑ指数, MIN(ﾀｲﾑ変換) ﾀｲﾑ変換, MIN(上り) 上り, MAX(斤量) 斤量, SUM(賞金) 総額, SUM(CASE WHEN 着順 = 1 THEN 賞金 ELSE 0 END) 賞金 FROM (SELECT ﾚｰｽID, 着順, CAST(ﾀｲﾑ指数 AS REAL) ﾀｲﾑ指数, CAST(ﾀｲﾑ変換 AS REAL) ﾀｲﾑ変換, CAST(上り AS REAL) 上り, CAST(斤量 AS REAL) 斤量, CAST(賞金 AS REAL) 賞金 FROM t_orig) GROUP BY ﾚｰｽID");
 
-            TOU = await conn.GetRows("SELECT ﾚｰｽID, 頭数 FROM v_race").RunAsync(arr =>
-            {
-                return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("頭数"));
-            });
+            //TOU = await conn.GetRows("SELECT ﾚｰｽID, 頭数 FROM v_race").RunAsync(arr =>
+            //{
+            //    return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("頭数"));
+            //});
 
-            TIM = await conn.GetRows("SELECT 馬場, 距離, 障害, AVG(ﾀｲﾑ変換) ﾀｲﾑ変換 FROM (SELECT 馬場, 距離, (ﾗﾝｸ1 LIKE '%障%') 障害, ﾀｲﾑ変換 FROM t_orig) GROUP BY 馬場, 距離, 障害").RunAsync(arr =>
+            if (!TIM.Any())
             {
-                return arr.ToDictionary(x => $"{x["馬場"]},{x["距離"]},{x["障害"].Int32() == 1}", x => x.SINGLE("ﾀｲﾑ変換"));
-            });
+                TIM = await conn.GetRows("SELECT 馬場, 距離, 障害, AVG(ﾀｲﾑ変換) ﾀｲﾑ変換 FROM (SELECT 馬場, 距離, (ﾗﾝｸ1 LIKE '%障%') 障害, ﾀｲﾑ変換 FROM t_orig) GROUP BY 馬場, 距離, 障害").RunAsync(arr =>
+                {
+                    return arr.ToDictionary(x => $"{x["馬場"]},{x["距離"]},{x["障害"].Int32() == 1}", x => x.SINGLE("ﾀｲﾑ変換"));
+                });
+            }
 
-            SYO = await conn.GetRows("SELECT ﾚｰｽID, 賞金 FROM v_race").RunAsync(arr =>
-            {
-                return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("賞金"));
-            });
+            //SYO = await conn.GetRows("SELECT ﾚｰｽID, 賞金 FROM v_race").RunAsync(arr =>
+            //{
+            //    return arr.ToDictionary(x => x["ﾚｰｽID"].GetInt64(), x => x.SINGLE("賞金"));
+            //});
 
             if (!UMASYO1.Any())
             {
                 var umasyo = Arr(
-                    $"WITH",
-                    $"w_sho2 AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
-                    $"SELECT a.ﾚｰｽID, a.馬ID, IFNULL(AVG(b.賞金 / b.着順), 100) 賞金",
-                    $"FROM t_orig a",
-                    $"LEFT JOIN w_sho2 b ON a.馬ID = b.馬ID AND b.開催日数 BETWEEN a.開催日数 - {開催日数MIN} AND a.開催日数 - {開催日数MAX}",
-                    $"GROUP BY a.ﾚｰｽID, a.馬ID"
+                    $"WITH w_orig AS (SELECT b.馬ID, b.開催日数, b.着順, c.賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID)",
+                    $"SELECT a.ﾚｰｽID, a.馬ID,",
+                    $"(SELECT IFNULL(AVG(b.賞金 / b.着順), 100) FROM w_orig b WHERE a.馬ID = b.馬ID AND b.開催日数 BETWEEN a.開催日数 - {開催日数MIN} AND a.開催日数 - {開催日数MAX}) 賞金",
+                    $"FROM t_orig a GROUP BY a.ﾚｰｽID, a.馬ID"
                 );
                 UMASYO1 = await conn.GetRows(umasyo.GetString(" ")).RunAsync(arr =>
                 {
                     return arr.ToDictionary(x => $"{x["ﾚｰｽID"]},{x["馬ID"]}", x => x.SINGLE("賞金"));
                 });
-                UMASYO2 = UMASYO1.GroupBy(x => x.Key.Split(',')[0]).ToDictionary(x => x.Key, x => x.Average(y => y.Value));
+                UMASYO2 = UMASYO1.GroupBy(x => x.Key.Split(',')[0]).ToDictionary(x => x.Key, x => x.Sum(y => y.Value));
             }
 
             //TIM = await conn.GetRows("SELECT ﾚｰｽID, MEDIAN(ﾀｲﾑ指数) ﾀｲﾑ合計 FROM t_orig WHERE 着順 <= 6 GROUP BY ﾚｰｽID").RunAsync(arr =>
@@ -204,15 +205,16 @@ namespace Netkeiba
                 });
             }
 
-            TOP = await conn.GetRows(Arr(
-                $"SELECT ﾚｰｽID, ﾀｲﾑ変換, 上り, 斤量, ﾀｲﾑ指数 FROM v_race"
-            ).GetString(" ")).RunAsync(val =>
+            if (!TOP.Any())
             {
-                return val.ToDictionary(
-                    x => x["ﾚｰｽID"],
-                    x => x.Where(x => x.Key != "ﾚｰｽID").ToDictionary(y => y.Key, y => y.Value)
-                );
-            });
+                TOP = await conn.GetRows($"SELECT ﾚｰｽID, 頭数, 賞金, ﾀｲﾑ変換, 上り, 斤量, ﾀｲﾑ指数 FROM v_race").RunAsync(val =>
+                {
+                    return val.ToDictionary(
+                        x => x["ﾚｰｽID"].GetInt64(),
+                        x => x.Where(x => x.Key != "ﾚｰｽID").ToDictionary(y => y.Key, y => y.Value.GetSingle())
+                    );
+                });
+            }
         }
 
         private float GetSingle(IEnumerable<float> arr, float def, Func<IEnumerable<float>, float> func)
@@ -242,19 +244,36 @@ namespace Netkeiba
                 SQLiteUtil.CreateParameter(System.Data.DbType.String, raceid)
             );
 
-            TOU[raceid.GetInt64()] = 同ﾚｰｽ.Count;
-
-            if (!UMASYO2.ContainsKey(raceid))
+            if (!TOP.ContainsKey(raceid.GetInt64()))
             {
+                TOP[raceid.GetInt64()] = new Dictionary<string, float>()
+                {
+                    { "頭数" , 同ﾚｰｽ.Count }
+                };
+            }
+
+            if (同ﾚｰｽ.Any(x => !UMASYO2.ContainsKey($"{raceid},{x["馬ID"]}")))
+            {
+                var umasyosql = Arr(
+                    $"SELECT 馬ID, IFNULL(AVG(c.賞金 / b.着順), 100) 賞金",
+                    $"FROM t_orig b, ( SELECT ﾚｰｽID, SUM(CASE WHEN 着順 = 1 THEN CAST(賞金 AS REAL) ELSE 0 END) 賞金 FROM t_orig WHERE 開催日数 BETWEEN ? AND ? GROUP BY ﾚｰｽID ) c",
+                    $"WHERE b.ﾚｰｽID = c.ﾚｰｽID AND b.馬ID IN ({同ﾚｰｽ.Select(x => "?").GetString(",")})",
+                    $"GROUP BY 馬ID"
+                );
+                var umasyopara = Arr(開催日数MIN, 開催日数MAX)
+                    .Select(i => SQLiteUtil.CreateParameter(DbType.Int64, 同ﾚｰｽ.First()["開催日数"].GetInt64() - i))
+                    .Concat(同ﾚｰｽ.Select(src => SQLiteUtil.CreateParameter(DbType.String, src["馬ID"])))
+                    .ToArray();
+                var umasyo = await conn.GetRows(umasyosql.GetString(" "), umasyopara).RunAsync(arr =>
+                {
+                    return arr.ToDictionary(x => x["馬ID"], x => x["賞金"].GetSingle());
+                });
+
                 foreach (var src in 同ﾚｰｽ)
                 {
-                    UMASYO1[$"{raceid},{src["馬ID"]}"] = await conn.ExecuteScalarAsync<float>("SELECT IFNULL(AVG(c.賞金 / b.着順), 100) 賞金 FROM t_orig b, v_race c WHERE b.ﾚｰｽID = c.ﾚｰｽID AND b.馬ID = ? AND b.開催日数 BETWEEN ? AND ?",
-                        SQLiteUtil.CreateParameter(DbType.String, src["馬ID"]),
-                        SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MIN),
-                        SQLiteUtil.CreateParameter(DbType.Int64, src["開催日数"].GetInt64() - 開催日数MAX)
-                    );
+                    UMASYO1[$"{raceid},{src["馬ID"]}"] = umasyo.ContainsKey(src["馬ID"].Str()) ? umasyo[src["馬ID"].Str()] : 100F;
                 }
-                UMASYO2[raceid] = 同ﾚｰｽ.Average(src => UMASYO1[$"{raceid},{src["馬ID"]}"]);
+                UMASYO2[raceid] = 同ﾚｰｽ.Sum(src => UMASYO1[$"{raceid},{src["馬ID"]}"]);
             }
 
             // ﾚｰｽ毎の纏まり
@@ -307,7 +326,7 @@ namespace Netkeiba
             dic["馬性"] = 馬性.IndexOf(src["馬性"]);
             dic["馬齢"] = src.SINGLE("馬齢");
             dic["斤量"] = src.SINGLE("斤量");
-            dic["枠"] = dic.SINGLE("馬番") / TOU[dic["ﾚｰｽID"].GetInt64()];
+            dic["枠"] = dic.SINGLE("馬番") / TOP[dic["ﾚｰｽID"].GetInt64()]["頭数"];
             dic["距離"] = src.SINGLE("距離");
 
             // 追切基準で濃い色付きの数
@@ -328,12 +347,12 @@ namespace Netkeiba
             {
                 float GET着順(Dictionary<string, object> tgt, float jun)
                 {
-                    var 頭数 = TOU[tgt["ﾚｰｽID"].GetInt64()];
+                    var 頭数 = TOP[tgt["ﾚｰｽID"].GetInt64()]["頭数"];
                     var 着順 = tgt.SINGLE("着順") + jun;
                     //var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
                     //var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                     //return (着順 / 頭数).Pow(1.5F);
-                    return (SYO[tgt["ﾚｰｽID"].GetInt64()] + UMASYO2[$"{tgt["ﾚｰｽID"]}"]) / 着順;
+                    return (UMASYO2[$"{tgt["ﾚｰｽID"]}"] / 100).Pow(2) / 着順;
                 }
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());
@@ -384,10 +403,10 @@ namespace Netkeiba
                 dic[$"{KEY}出遅"] = Calc(arr.Count(x => x["備考"].Str().Contains("出遅")), arr.Count, (c1, c2) => c2 == 0 ? 0 : c1 / c2).GetSingle() * 100F;
 
                 dic[$"{KEY}ﾀｲﾑ差"] = !rnk.Contains("障")
-                    ? Median(arr.Select(x => x.SINGLE("ﾀｲﾑ指数") / TOP[x["ﾚｰｽID"]].SINGLE("ﾀｲﾑ指数")), DEF[rnk]["ﾀｲﾑ差"])
+                    ? Median(arr.Select(x => x.SINGLE("ﾀｲﾑ指数") / TOP[x["ﾚｰｽID"].GetInt64()]["ﾀｲﾑ指数"]), DEF[rnk]["ﾀｲﾑ差"])
                     : 0F;
 
-                dic[$"{KEY}ﾀｲﾑ変換"] = Median(arr.Select(x => x.SINGLE("ﾀｲﾑ変換") - TOP[x["ﾚｰｽID"]].SINGLE("ﾀｲﾑ変換")), DEF[rnk]["勝時差"]);
+                dic[$"{KEY}ﾀｲﾑ変換"] = Median(arr.Select(x => x.SINGLE("ﾀｲﾑ変換") - TOP[x["ﾚｰｽID"].GetInt64()]["ﾀｲﾑ変換"]), DEF[rnk]["勝時差"]);
 
                 dic[$"{KEY}ﾀｲﾑ基準"] = Median(arr.Select(x => x.SINGLE("ﾀｲﾑ変換") - TIM[$"{x["馬場"]},{x["距離"]},{x["ﾗﾝｸ1"].Str().Contains("障")}"]), 0F);
             }
@@ -412,7 +431,7 @@ namespace Netkeiba
                 float GET通過(object v) => v.Str().Split('-')
                     .Skip(1)
                     .Take(1)
-                    .Run(xxx => xxx.Any() ? xxx.Average(x => x.GetSingle() / TOU[src["ﾚｰｽID"].GetInt64()]) : 0.5F);
+                    .Run(xxx => xxx.Any() ? xxx.Average(x => x.GetSingle() / TOP[src["ﾚｰｽID"].GetInt64()]["頭数"]) : 0.5F);
 
                 ADD情報("馬", arr, i);
 
@@ -424,13 +443,13 @@ namespace Netkeiba
                 dic[$"ﾀｲﾑ指数A{KEY}"] = !rnk.Contains("障") ? Median(arr, rnk, "ﾀｲﾑ指数") : 0F;
 
                 // 通過の平均、及び他の馬との比較⇒ﾚｰｽ単位で計算が終わったら
-                dic[$"通過{KEY}"] = Median(arr.Select(x => GET通過(x["通過"])), TOU[dic["ﾚｰｽID"].GetInt64()] / 2);
+                dic[$"通過{KEY}"] = Median(arr.Select(x => GET通過(x["通過"])), TOP[dic["ﾚｰｽID"].GetInt64()]["頭数"] / 2);
 
                 // 上り×斤量
                 dic[$"斤上{KEY}"] = Median(arr.Select(x => Get斤上(x)), DEF[rnk]["斤上"]);
 
                 // 1着との差(上り×斤量)
-                dic[$"勝上差{KEY}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"]])), DEF[rnk]["勝上差"]);
+                dic[$"勝上差{KEY}"] = Median(arr.Select(x => Get斤上(x) - Get斤上(TOP[x["ﾚｰｽID"].GetInt64()])), DEF[rnk]["勝上差"]);
             });
 
             //using (MessageService.Measure("父馬"))
@@ -527,10 +546,8 @@ namespace Netkeiba
         private const string SELECT_DATA = "ﾚｰｽID, ﾗﾝｸ1, ﾗﾝｸ2, 着順, 上り, 斤量, ﾀｲﾑ変換, ﾀｲﾑ指数, 賞金, 距離, 馬場, 馬場状態, 備考, 開催日数, 通過";
 
         private float Get斤上(float 上り, float 斤量) => 上り.GetSingle() * 600F / (斤量.GetSingle() + 545F);
-
-        private float Get斤上(Dictionary<string, object> src, string k1, string k2) => Get斤上(src.SINGLE(k1), src.SINGLE(k2));
-
-        private float Get斤上(Dictionary<string, object> src) => Get斤上(src, "上り", "斤量");
+        private float Get斤上(Dictionary<string, float> src) => Get斤上(src["上り"], src["斤量"]);
+        private float Get斤上(Dictionary<string, object> src) => Get斤上(src["上り"].GetSingle(), src["斤量"].GetSingle());
 
         private async Task RefreshKetto(SQLiteControl conn)
         {
