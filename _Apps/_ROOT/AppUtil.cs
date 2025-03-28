@@ -320,5 +320,12 @@ namespace Netkeiba
         }
 
         public static IEnumerable<int> OrderBys => AppSetting.Instance.OrderBys.Split(',').Select(x => x.GetInt32());
+
+        public static string[] DropKeys => ["ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID", "調教場所", "枠番", "馬番"];
+
+        public static byte[] CreateFeatures(Dictionary<string, object> ins)
+        {
+            return ins.Keys.Where(x => !DropKeys.Contains(x)).ToArray().SelectMany(x => BitConverter.GetBytes(ins.SINGLE(x))).ToArray();
+        }
     }
 }
