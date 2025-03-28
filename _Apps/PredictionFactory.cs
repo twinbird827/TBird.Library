@@ -21,36 +21,6 @@ namespace Netkeiba
             _result = result;
         }
 
-        private async void Initialize(MLContext context, string rank, string index, ITransformer model)
-        {
-            using (await Locker.LockAsync(_lockkey))
-            {
-                _engine = _context.Model.CreatePredictionEngine<TSrc, TDst>(context.Model.Load(result.Path, out DataViewSchema schema));
-                _setengine = true;
-            });
-            _result = result;
-        }
-
-        private async void Initialize(MLContext context, string rank, string index, ITransformer model)
-        {
-            using (await Locker.LockAsync(_lockkey))
-            {
-                _engine = await Task.Run(() => _context.Model.CreatePredictionEngine<TSrc, TDst>(model));
-            }
-        }
-
-        private async void Initialize(MLContext context, string rank, string index, PredictionResult result)
-        {
-            ITransformer model;
-            using (await Locker.LockAsync(_lockkey))
-            {
-                model = await Task.Run(() => context.Model.Load(result.Path, out DataViewSchema schema));
-            }
-            Initialize(context, rank, index, model);
-        }
-
-        private static string _lockkey = Guid.NewGuid().ToString();
-
         private PredictionFactory(MLContext context, string rank, string index)
         {
             _context = context;
