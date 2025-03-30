@@ -246,7 +246,7 @@ namespace Netkeiba
                 };
             }
 
-            if (!UMASYO2.ContainsKey(raceid))
+            if (同ﾚｰｽ.Any(x => !UMASYO2.ContainsKey($"{raceid},{x["馬ID"]}")))
             {
                 var umasyosql = Arr(
                     $"SELECT 馬ID, IFNULL(SUM(c.賞金 / b.着順), 100) 賞金",
@@ -283,7 +283,7 @@ namespace Netkeiba
                 {
                     var val = dic.SINGLE(key);
 
-                    dic[$"{key}"] = val == 0F ? 0F : arr.Percentile(50) / val;
+                    dic[$"{key}_Diff"] = val == 0F ? 0F : arr.Percentile(50) / val;
                 });
             });
 
@@ -328,7 +328,8 @@ namespace Netkeiba
             dic["調教場所"] = 調教場所.IndexOf(src["調教場所"]);
             dic["追切評価"] = 追切.IndexOf(src["追切評価"]).GetSingle() / 追切.Count.GetSingle();
 
-            dic["UMASYO"] = UMASYO1[$"{src["ﾚｰｽID"]},{src["馬ID"]}"] / UMASYO2[$"{src["ﾚｰｽID"]}"];
+            dic["能力比較A"] = UMASYO1[$"{src["ﾚｰｽID"]},{src["馬ID"]}"];
+            dic["能力比較B"] = UMASYO1[$"{src["ﾚｰｽID"]},{src["馬ID"]}"] / UMASYO2[$"{src["ﾚｰｽID"]}"];
 
             void ADD情報(string key, List<Dictionary<string, object>> arr, int i)
             {
@@ -339,7 +340,7 @@ namespace Netkeiba
                     //var 基礎点 = Math.Abs(AppUtil.RankRateBase - 着順).Pow(1.25F) * (AppUtil.RankRateBase < 着順 ? -1F : 1F);
                     //var ﾗﾝｸ点 = AppUtil.RankRate[tgt["ﾗﾝｸ1"].Str()] / 着順.Pow(0.75F);
                     //return (着順 / 頭数).Pow(1.5F);
-                    return (TOP[tgt["ﾚｰｽID"].GetInt64()]["賞金"] + UMASYO2[$"{tgt["ﾚｰｽID"]}"]) / 着順;
+                    return UMASYO2[$"{tgt["ﾚｰｽID"]}"] / 着順;
                 }
 
                 float GET距離(Dictionary<string, object> tgt) => Arr(tgt, src).Select(y => y["距離"].Single()).Run(arr => arr.Min() / arr.Max());

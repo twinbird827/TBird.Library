@@ -105,17 +105,19 @@ namespace Netkeiba
                             await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_shutuba (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
 
                             // ｲﾝﾃﾞｯｸｽ作成
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index00 ON t_orig (着順)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index01 ON t_orig (開催日数,ﾚｰｽID)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index02 ON t_orig (ﾗﾝｸ1)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index03 ON t_orig (馬ID,開催日数,回り)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index04 ON t_orig (騎手ID,開催日数,回り)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index05 ON t_orig (調教師ID,開催日数,回り)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index06 ON t_orig (馬主ID,開催日数,回り)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index07 ON t_orig (ﾚｰｽID,着順)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index08 ON t_orig (馬性)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index09 ON t_orig (調教場所)");
-                            await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_orig_index10 ON t_orig (ﾚｰｽID)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index00 ON t_orig (着順)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index01 ON t_orig (開催日数,ﾚｰｽID)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index02 ON t_orig (ﾚｰｽID,開催日数)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index03 ON t_orig (馬ID,開催日数)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index04 ON t_orig (騎手ID,開催日数)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index05 ON t_orig (調教師ID,開催日数)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index06 ON t_orig (馬主ID,開催日数)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index07 ON t_orig (ﾚｰｽID,着順)");
+                            await conn.ExecuteNonQueryAsync($"CREATE UNIQUE INDEX IF NOT EXISTS t_orig_index08 ON t_orig (ﾚｰｽID,馬ID)");
+                            await conn.ExecuteNonQueryAsync($"CREATE UNIQUE INDEX IF NOT EXISTS t_orig_index09 ON t_orig (ﾚｰｽID,騎手ID)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index10 ON t_orig (ﾗﾝｸ1)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index11 ON t_orig (馬性)");
+                            await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index12 ON t_orig (調教場所)");
 
                             await conn.BeginTransaction();
                         }
