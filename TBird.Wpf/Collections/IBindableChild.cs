@@ -2,8 +2,8 @@
 
 namespace TBird.Wpf.Collections
 {
-	public interface IBindableChild : IDisposable
-	{
+    public interface IBindableChild : IDisposable
+    {
 
-	}
+    }
 }

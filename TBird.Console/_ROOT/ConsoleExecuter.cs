@@ -70,7 +70,10 @@ namespace TBird.Console
 			}
 		}
 
-		protected abstract Dictionary<string, string> GetOptions(Dictionary<string, string> options);
+		protected virtual Dictionary<string, string> GetOptions(Dictionary<string, string> options)
+		{
+			return options;
+		}
 
 		protected abstract void Process(Dictionary<string, string> options, string[] args);
 
