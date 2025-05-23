@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows;
 using TBird.Console;
 using TBird.Core;
 using TBird.IO.Html;
@@ -49,8 +44,10 @@ namespace EBook2PDF
 			}
 		}
 
-		private static async Task<bool> Execute(string src)
+		private async Task<bool> Execute(string src)
 		{
+			// ******************************
+			// Amazon kindle -> epub変換
 			if (IsTarget(src, ".azw", ".azw3"))
 			{
 				// epubﾌｧｲﾙ生成
@@ -60,6 +57,8 @@ namespace EBook2PDF
 				src = Path.Combine(AppSetting.Instance.OutputDir, FileUtil.GetFileNameWithoutExtension(src) + ".epub");
 			}
 
+			// ******************************
+			// epub -> htmlz
 			if (IsTarget(src, ".epub"))
 			{
 				// htmlzﾌｧｲﾙ生成
@@ -69,6 +68,8 @@ namespace EBook2PDF
 				src = Path.Combine(AppSetting.Instance.OutputDir, FileUtil.GetFileNameWithoutExtension(src) + ".htmlz");
 			}
 
+			// ******************************
+			// htmlz -> 展開したhtml
 			if (IsTarget(src, ".htmlz"))
 			{
 				// ZIPﾌｧｲﾙを解凍する。
@@ -81,8 +82,18 @@ namespace EBook2PDF
 				src = FileUtil.GetFullPathWithoutExtension(src);
 			}
 
+			// ******************************
+			// 展開したhtml -> pdf
+
 			// ｽﾀｲﾙｼｰﾄの上書き
 			await FileUtil.CopyAsync(Directories.GetAbsolutePath("style.css"), Path.Combine(src, "style.css"));
+
+			// 縦書きに適した文字に置換
+			FileUtil.Replace(Path.Combine(src, "index.html"), Encoding.UTF8, Enumerable.Range(0, 5)
+				.Select(i => (int)Math.Pow(2, 4 - i))
+				.SelectMany(i => Arr('…'.Repeat(i).Kvp("・・・"), '―'.Repeat(i).Kvp("|"), '─'.Repeat(i).Kvp("|")))
+				.ToArray()
+			);
 
 			// HTMLをPDFに変換
 			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
@@ -101,9 +112,18 @@ namespace EBook2PDF
 			// ﾌｧｲﾙ名をﾀｲﾄﾙにする。
 			ChangeFilename(srcpdf, ref dstpdf, epub);
 
+			// ******************************
+			// pdf -> jpg
+
 			// 同PC上にPDF2JPGが存在するなら
 			if (await FileUtil.Exists(AppSetting.Instance.PDF2JPG))
 			{
+				// PDF->JPG変換後のﾌｫﾙﾀﾞﾊﾟｽ
+				var dstjpg = FileUtil.GetFullPathWithoutExtension(dstpdf);
+
+				// HTMLﾌｫﾙﾀﾞとJPG変換後のﾌｫﾙﾀﾞが同名なら予めHTMLﾌｫﾙﾀﾞをﾘﾈｰﾑしておく
+				DirectoryUtil.Move(src, src = src + "HTML", false);
+
 				await CoreUtil.ExecuteAsync(new ProcessStartInfo()
 				{
 					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.PDF2JPG),
@@ -113,9 +133,6 @@ namespace EBook2PDF
 					CreateNoWindow = true,
 					RedirectStandardOutput = true,
 				}, Console.WriteLine);
-
-				// PDF->JPG変換後のﾌｫﾙﾀﾞﾊﾟｽ
-				var dstjpg = FileUtil.GetFullPathWithoutExtension(dstpdf);
 
 				// ｶﾊﾞｰを移動する
 				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(dstjpg, @"000.jpg"));
@@ -127,12 +144,12 @@ namespace EBook2PDF
 			return true;
 		}
 
-		private static bool IsTarget(string src, params string[] extensions)
+		private bool IsTarget(string src, params string[] extensions)
 		{
 			return extensions.Contains(Path.GetExtension(src).ToLower());
 		}
 
-		private static Task CallCalibre(string src, string dstextension)
+		private Task CallCalibre(string src, string dstextension)
 		{
 			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
 			var dst = Path.Combine(AppSetting.Instance.OutputDir, withoutextension + dstextension);
@@ -159,7 +176,7 @@ namespace EBook2PDF
 			}
 		}
 
-		private static IEnumerable<string> GetFiles(string dir)
+		private IEnumerable<string> GetFiles(string dir)
 		{
 			if (Directory.Exists(dir) && DirectoryUtil.GetFiles(dir, "index.html").Any())
 			{
@@ -192,7 +209,7 @@ namespace EBook2PDF
 			}
 		}
 
-		public static void ChangeFilename(string srchtml, ref string pdf, string epub)
+		public void ChangeFilename(string srchtml, ref string pdf, string epub)
 		{
 			var src = File.ReadAllText(srchtml);
 

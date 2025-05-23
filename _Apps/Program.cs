@@ -1,5 +1,4 @@
-﻿using TBird.Core;
-using EBook2PDF;
+﻿using EBook2PDF;
 
 /* **************************************************
  *  ﾒｲﾝﾒｿｯﾄﾞ
