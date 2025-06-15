@@ -110,5 +110,17 @@ namespace TBird.Core
 		{
 			return Task.WhenAll(tasks);
 		}
+
+		/// <summary>
+		/// 非同期ﾀｽｸをすべて実行します。
+		/// </summary>
+		/// <param name="tasks">非同期ﾀｽｸﾘｽﾄ</param>
+		/// <returns></returns>
+		public static async Task<IEnumerable<T>> WhenAllExpand<T>(this IEnumerable<Task<IEnumerable<T>>> tasks)
+		{
+			var arr = await Task.WhenAll(tasks);
+			return arr.Expand();
+		}
+
 	}
 }

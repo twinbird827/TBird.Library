@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace TBird.Core
@@ -80,7 +79,7 @@ namespace TBird.Core
 
 		private void Writeline(string message)
 		{
-			System.Console.WriteLine(message);
+			System.Diagnostics.Debug.WriteLine(message);
 		}
 	}
 }

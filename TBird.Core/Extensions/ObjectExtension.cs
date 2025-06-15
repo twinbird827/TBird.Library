@@ -1,24 +1,66 @@
 ﻿using System;
-using System.CodeDom;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace TBird.Core
 {
 	public static class ObjectExtension
 	{
+		/// <summary>
+		/// <see cref="KeyValuePair{TKey, TValue}"/>を作成します。
+		/// </summary>
+		/// <typeparam name="TKey">ｷｰの型</typeparam>
+		/// <typeparam name="TValue">値の型</typeparam>
+		/// <param name="key">ｷｰ</param>
+		/// <param name="value">値</param>
+		/// <returns></returns>
+		public static KeyValuePair<TKey, TValue> Kvp<TKey, TValue>(this TKey key, TValue value) => new KeyValuePair<TKey, TValue>(key, value);
+
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="string"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <returns></returns>
 		public static string Str(this object value) => value is string s ? s : $"{value}";
 
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="bool"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
 		public static bool Bool(this object value, bool def = false) => bool.TryParse(value.Str(), out bool o) ? o : def;
 
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="double"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
 		public static double Double(this object? value, double def = 0D) => GetDouble(value, def);
 
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="float"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
 		public static float Single(this object? value, float def = 0F) => GetSingle(value, def);
 
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="int"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
 		public static int Int32(this object? value, int def = 0) => GetInt32(value, def);
 
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="long"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
 		public static long Int64(this object? value, long def = 0L) => GetInt64(value, def);
 
 		/// <summary>

@@ -250,5 +250,16 @@ namespace TBird.Core
 				.WhenAll()
 				.RunAsync(x => x.OfType<T>());
 		}
+
+		/// <summary>
+		/// 2次元配列を1次元配列に展開します。
+		/// </summary>
+		/// <typeparam name="T">配列の型</typeparam>
+		/// <param name="arr">2次元配列</param>
+		/// <returns></returns>
+		public static IEnumerable<T> Expand<T>(this IEnumerable<IEnumerable<T>> arr)
+		{
+			return arr.SelectMany(arr => arr);
+		}
 	}
 }
