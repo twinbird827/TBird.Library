@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Reflection;
 using TBird.Core;
 
 namespace TBird.Console
@@ -70,7 +65,10 @@ namespace TBird.Console
 			}
 		}
 
-		protected abstract Dictionary<string, string> GetOptions(Dictionary<string, string> options);
+		protected virtual Dictionary<string, string> GetOptions(Dictionary<string, string> options)
+		{
+			return options;
+		}
 
 		protected abstract void Process(Dictionary<string, string> options, string[] args);
 

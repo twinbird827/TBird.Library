@@ -169,5 +169,35 @@ namespace TBird.Core
 				await sw.FlushAsync();
 			}
 		}
+
+		/// <summary>
+		/// ﾌｧｲﾙの内容を置換します。
+		/// </summary>
+		/// <param name="path">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <param name="encoding">ｴﾝｺｰﾃﾞｨﾝｸﾞ</param>
+		/// <param name="old">置換前の文字</param>
+		/// <param name="dst">置換後の文字</param>
+		public static void Replace(string path, Encoding encoding, string old, string dst) => Replace(path, encoding, old.Kvp(dst));
+
+		/// <summary>
+		/// ﾌｧｲﾙの内容を置換します。
+		/// </summary>
+		/// <param name="path">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <param name="encoding">ｴﾝｺｰﾃﾞｨﾝｸﾞ</param>
+		/// <param name="pairs">置換前後の文字を<see cref="KeyValuePair{string, string}"/>に纏めたﾘｽﾄ</param>
+		public static void Replace(string path, Encoding encoding, params KeyValuePair<string, string>[] pairs) => Replace(path, encoding, pairs.ToDictionary(x => x.Key, x => x.Value));
+
+		/// <summary>
+		/// ﾌｧｲﾙの内容を置換します。
+		/// </summary>
+		/// <param name="path">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <param name="encoding">ｴﾝｺｰﾃﾞｨﾝｸﾞ</param>
+		/// <param name="dic">置換前後の文字を<see cref="Dictionary{string, string}"/>に纏めたﾘｽﾄ</param>
+		public static void Replace(string path, Encoding encoding, Dictionary<string, string> dic)
+		{
+			var contents = File.ReadAllText(path, encoding);
+			var results = Regex.Replace(contents, $"({dic.Keys.GetString("|")})", m => dic[m.Value]);
+			File.WriteAllText(path, results, encoding);
+		}
 	}
 }
