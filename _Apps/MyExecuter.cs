@@ -48,7 +48,7 @@ namespace EBook2PDF
 		{
 			// ******************************
 			// Amazon kindle -> epub変換
-			if (IsTarget(src, ".azw", ".azw3"))
+			if (IsTarget(src, ".azw", ".azw3", ".prc"))
 			{
 				// epubﾌｧｲﾙ生成
 				await CallCalibre(src, ".epub");
@@ -184,7 +184,7 @@ namespace EBook2PDF
 				yield break;
 			}
 
-			var extensions = new[] { "*.azw", "*.azw3", "*.epub", "*.htmlz" };
+			var extensions = new[] { "*.azw", "*.azw3", "*.prc", "*.epub", "*.htmlz" };
 
 			if (File.Exists(dir) && extensions.Contains("*" + Path.GetExtension(dir)))
 			{
