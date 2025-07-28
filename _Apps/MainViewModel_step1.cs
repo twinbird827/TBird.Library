@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB.SQLite;
@@ -38,37 +36,29 @@ namespace Netkeiba
 
 		public CheckboxItemModel S1Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
 
-		private async Task<int> GetLastMonth()
-		{
-			using (var conn = AppUtil.CreateSQLiteControl())
-			{
-				return await conn.ExecuteScalarAsync("SELECT CAST(IFNULL(STRFTIME('%m', REPLACE(MAX(開催日), '/', '-')), 1) AS INTEGER) FROM t_orig").RunAsync(x => x.GetInt32());
-			}
-		}
-
 		public IRelayCommand S1EXEC => RelayCommand.Create(async _ =>
 		{
-			var racebases = await GetRecentRaceIds(SYear, EYear, await GetLastMonth()).RunAsync(races =>
-			{
-				return races
-					.Select(x => x.Left(10))
-					.Distinct()
-					.ToArray();
-			});
-
-			Progress.Value = 0;
-			Progress.Minimum = 0;
-			Progress.Maximum = racebases.Length;
-
-			bool create = S1Overwrite.IsChecked || !File.Exists(AppUtil.Sqlitepath);
-
-			if (create)
-			{
-				DirectoryUtil.Create(Path.GetDirectoryName(AppUtil.Sqlitepath));
-			}
-
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
+				var racebases = await NetkeibaGetter.GetRecentRaceIds(SYear, EYear, await conn.GetLastMonth()).RunAsync(races =>
+				{
+					return races
+						.Select(x => x.Left(10))
+						.Distinct()
+						.ToArray();
+				});
+
+				Progress.Value = 0;
+				Progress.Minimum = 0;
+				Progress.Maximum = racebases.Length;
+
+				bool create = S1Overwrite.IsChecked || !File.Exists(AppUtil.Sqlitepath);
+
+				if (create)
+				{
+					DirectoryUtil.Create(Path.GetDirectoryName(AppUtil.Sqlitepath));
+				}
+
 				if (create)
 				{
 					// 作成し直すために全ﾃｰﾌﾞﾙDROP
@@ -87,40 +77,9 @@ namespace Netkeiba
 					{
 						if (racearr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) continue;
 
-						if (create)
-						{
-							create = false;
+						create = await conn.CreateOrigAndBeginTransaction(create);
 
-							var integers = new[] { "開催日数", "着順" };
-							var keynames = racearr.First().Keys.Select(x => integers.Contains(x) ? $"{x} INTEGER" : $"{x} TEXT");
-							// ﾃｰﾌﾞﾙ作成
-							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_orig (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
-							await conn.ExecuteNonQueryAsync("CREATE TABLE IF NOT EXISTS t_shutuba (" + keynames.GetString(",") + ", PRIMARY KEY (ﾚｰｽID, 馬番))");
-
-							// ｲﾝﾃﾞｯｸｽ作成
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index00 ON t_orig (着順)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index01 ON t_orig (開催日数,ﾚｰｽID)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index02 ON t_orig (ﾚｰｽID,開催日数)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index03 ON t_orig (馬ID,開催日数)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index04 ON t_orig (騎手ID,開催日数)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index05 ON t_orig (調教師ID,開催日数)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index06 ON t_orig (馬主ID,開催日数)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index07 ON t_orig (ﾚｰｽID,着順)");
-							await conn.ExecuteNonQueryAsync($"CREATE UNIQUE INDEX IF NOT EXISTS t_orig_index08 ON t_orig (ﾚｰｽID,馬ID)");
-							await conn.ExecuteNonQueryAsync($"CREATE UNIQUE INDEX IF NOT EXISTS t_orig_index09 ON t_orig (ﾚｰｽID,騎手ID)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index10 ON t_orig (ﾗﾝｸ1)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index11 ON t_orig (馬性)");
-							await conn.ExecuteNonQueryAsync($"CREATE        INDEX IF NOT EXISTS t_orig_index12 ON t_orig (調教場所)");
-
-							await conn.BeginTransaction();
-						}
-
-						foreach (var x in racearr)
-						{
-							var sql = "REPLACE INTO t_orig (" + x.Keys.GetString(",") + ") VALUES (" + x.Keys.Select(x => "?").GetString(",") + ")";
-							var prm = x.Keys.Select(k => SQLiteUtil.CreateParameter(DbType.String, x[k])).ToArray();
-							await conn.ExecuteNonQueryAsync(sql, prm);
-						}
+						await conn.InsertOrigAsync(racearr);
 					}
 					conn.Commit();
 
@@ -154,13 +113,13 @@ namespace Netkeiba
 
 		private async Task<List<Dictionary<string, string>>> GetSTEP1Racearr(SQLiteControl conn, string raceid)
 		{
-			return await GetRaceResults(raceid).RunAsync(async arr =>
+			return await NetkeibaGetter.GetRaceResults(raceid).RunAsync(async arr =>
 			{
 				if (arr.Count != 0)
 				{
-					var oikiri = await GetOikiris(raceid);
+					var oikiri = await NetkeibaGetter.GetOikiris(raceid);
 
-					arr.ForEach(row => SetOikiris(oikiri, row));
+					arr.ForEach(row => NetkeibaGetter.SetOikiris(oikiri, row));
 				}
 			});
 		}
