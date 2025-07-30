@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
 using TBird.Core;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
@@ -81,5 +82,32 @@ namespace Netkeiba
 				vm.Show(() => new ModelWindow());
 			}
 		});
+
+		public BindableCollection<ComboboxItemModel> LogSource { get; } = new BindableCollection<ComboboxItemModel>();
+
+		public BindableContextCollection<ComboboxItemModel> Logs { get; }
+
+		public BindableCollection<CheckboxItemModel> BasyoSources { get; } = new BindableCollection<CheckboxItemModel>();
+
+		public BindableContextCollection<CheckboxItemModel> Basyos { get; }
+
+		public int SYear
+		{
+			get => _SYear;
+			set => SetProperty(ref _SYear, value);
+		}
+		private int _SYear;
+
+		public int EYear
+		{
+			get => _EYear;
+			set => SetProperty(ref _EYear, value);
+		}
+		private int _EYear;
+
+		public CheckboxItemModel S1Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
+
+		public IRelayCommand S1EXEC => new STEP1Command(this).CreateCommand();
+
 	}
 }

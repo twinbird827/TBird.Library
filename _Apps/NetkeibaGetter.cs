@@ -26,7 +26,10 @@ namespace Netkeiba
 
 				// *****
 				// 「ダ左1200m / 天候 : 晴 / ダート : 良 / 発走 : 10:01」この部分を取得して分類する
-				var spans = raceparser.GetElementsByTagName("span").Select(x => x.GetInnerHtml().Split('/')).First(x => 3 < x.Length);
+				var spans = raceparser.GetElementsByTagName("span").Select(x => x.GetInnerHtml().Replace("\n", ""))
+					.Where(x => x.Contains("発走"))
+					.Select(x => x.Split('/'))
+					.First(x => 3 < x.Length);
 
 				// 1文字目(ダ or 芝 or 障)
 				var left = spans[0].Left(1);

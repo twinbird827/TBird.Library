@@ -61,10 +61,12 @@ namespace Netkeiba
 		/// </summary>
 		/// <param name="conn"></param>
 		/// <returns></returns>
-		public static async Task<int> GetLastMonth(this SQLiteControl conn)
+		public static async Task<DateTime> GetLastMonth(this SQLiteControl conn)
 		{
-			var datestring = await conn.ExecuteScalarAsync("SELECT IFNULL(MAX(開催日), '2000/01/01') FROM t_orig_h").RunAsync(x => x.Str());
-			return DateTime.Parse(datestring).Month;
+			var datestring = await conn.ExistsColumn("t_orig_h", "ﾚｰｽID")
+				? await conn.ExecuteScalarAsync("SELECT IFNULL(MAX(開催日), '2010/01/01') FROM t_orig_h").RunAsync(x => x.Str())
+				: "2010/01/01";
+			return DateTime.Parse(datestring);
 		}
 
 		/// <summary>馬ﾍｯﾀﾞ</summary>
@@ -73,36 +75,29 @@ namespace Netkeiba
 		/// <summary>馬明細</summary>
 		private static readonly string[] col_orig_d = Arr("ﾚｰｽID", "着順", "枠番", "馬番", "馬名", "馬ID", "馬性", "馬齢", "斤量", "騎手名", "騎手ID", "ﾀｲﾑ", "ﾀｲﾑ変換", "着差", "ﾀｲﾑ指数", "通過", "上り", "単勝", "人気", "体重", "増減", "備考", "調教場所", "調教師名", "調教師ID", "馬主名", "馬主ID", "賞金");
 
-		public static async Task<bool> CreateOrigAndBeginTransaction(this SQLiteControl conn, bool create)
+		public static async Task CreateOrig(this SQLiteControl conn)
 		{
-			if (create)
-			{
-				await conn.Create(
-					"t_orig_h",
-					col_orig_h,
-					Arr("ﾚｰｽID")
-				);
+			await conn.Create(
+				"t_orig_h",
+				col_orig_h,
+				Arr("ﾚｰｽID")
+			);
 
-				// TODO 開催日時と着順をINTEGERにする
+			// TODO 開催日時と着順をINTEGERにする
 
-				await conn.Create(
-					"t_orig_d",
-					col_orig_d,
-					Arr("ﾚｰｽID", "馬番")
-				);
+			await conn.Create(
+				"t_orig_d",
+				col_orig_d,
+				Arr("ﾚｰｽID", "馬番")
+			);
 
-				await conn.Create(
-					"t_orig_k",
-					Arr("馬ID", "父ID", "母ID"),
-					Arr("馬ID")
-				);
+			await conn.Create(
+				"t_orig_k",
+				Arr("馬ID", "父ID", "母ID"),
+				Arr("馬ID")
+			);
 
-				// TODO indexの作成
-
-				await conn.BeginTransaction();
-			}
-
-			return false;
+			// TODO indexの作成
 		}
 
 		public static async Task InsertOrigAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
@@ -130,6 +125,15 @@ namespace Netkeiba
 				await conn.InsertAsync("t_orig_d", col_orig_d.ToDictionary(s => s, s => x[s]));
 				await InsertKettoAsync(x["馬ID"]);
 			}
+		}
+
+		public static async Task<bool> ExistsOrigAsync(this SQLiteControl conn, string raceid)
+		{
+			var cnt = await conn.ExecuteScalarAsync(
+				"SELECT COUNT(*) FROM t_orig_h WHERE ﾚｰｽID = ?",
+				SQLiteUtil.CreateParameter(DbType.String, raceid)
+			).RunAsync(x => x.GetInt32());
+			return 0 < cnt;
 		}
 	}
 }
