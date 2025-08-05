@@ -1,0 +1,220 @@
+# CLAUDE.md
+
+このファイルは、このリポジトリでコードを扱う際のClaude Code (claude.ai/code) への指針を提供します。
+
+## リポジトリ概要
+
+TBird.Libraryは、WPFアプリケーション、Webスクレイピング、データベース操作、PDF処理などのユーティリティを提供する包括的な.NETライブラリコレクションです。ソリューションは複数の.NETバージョン（.NET Standard 2.0、.NET Framework 4.8、.NET 5.0、.NET 7.0、.NET 8.0）をターゲットとしています。
+
+## ビルドコマンド
+
+```bash
+# ソリューション全体をビルド
+dotnet build TBird.Library.sln
+dotnet build TBird.Library.sln -c Release
+
+# クリーンして再ビルド
+dotnet clean TBird.Library.sln
+dotnet build TBird.Library.sln --no-incremental
+
+# NuGetパッケージの復元
+dotnet restore TBird.Library.sln
+
+# 個別プロジェクトのビルド
+dotnet build TBird.Core/TBird.Core.csproj
+dotnet build TBird.Wpf/TBird.Wpf.csproj
+```
+
+## テストコマンド
+
+プロジェクトはユニットテストフレームワークではなく、実行可能なテストアプリケーションを使用しています：
+
+```bash
+# テストアプリケーションの実行
+dotnet run --project coretest/coretest.csproj    # .NET Framework 4.8
+dotnet run --project wpftest/wpftest.csproj      # .NET 8.0 Windows
+dotnet run --project roslyntest/roslyntest.csproj # .NET 5.0
+```
+
+## アーキテクチャ概要
+
+### コア基盤パターン
+
+すべての主要コンポーネントは`TBirdObject`を継承し、以下を提供します：
+- GUIDベースのアイデンティティ管理
+- マネージド/アンマネージドリソース処理を含むIDisposableパターン
+- `ILocker`インターフェースを使用したスレッドセーフなロック機構
+- 破棄時のイベントクリーンアップ
+
+**重要**: TBirdObjectではDisposeメソッドはsealedであり、派生クラスでオーバーライドできません。代わりに以下のメソッドをオーバーライドします：
+- `DisposeManagedResource()` - マネージドリソースの解放
+- `DisposeUnmanagedResource()` - アンマネージドリソースの解放
+
+### レイヤー構造
+
+1. **コアレイヤー** (`TBird.Core`)
+   - 基底クラス：TBirdObject、BindableBase
+   - サービス抽象化：IMessageService
+   - 共通型の拡張メソッド
+   - スレッドセーフティのためのLockerパターン
+
+2. **UIレイヤー** (`TBird.Wpf`)
+   - 拡張されたINotifyPropertyChangedを持つMVVMフレームワーク
+   - 特殊な監視可能コレクション（BindableCollectionバリアント）
+   - WPFビヘイビアとコントロール
+   - ダイアログとウィンドウの基底ビューモデル
+
+3. **データレイヤー** (`TBird.DB.*`)
+   - IDbControlによるデータベース抽象化
+   - SQLiteとSQL Server実装
+   - トランザクションと非同期操作サポート
+
+4. **プラグインシステム** (`TBird.Plugin`)
+   - 動的読み込み用のIPluginインターフェース
+   - ライフサイクル管理用のPluginManagerシングルトン
+   - "plugins"ディレクトリからDLLを読み込み
+
+5. **サービスレイヤー** (`TBird.Service`)
+   - コンソールフォールバック付きWindowsサービスサポート
+   - 自己インストール機能（/i、/uスイッチ）
+
+### 主要パターン
+
+- **Disposableパターン**：広範囲にわたるリソース管理
+- **シングルトン**：マネージャー（Plugin、Roslyn）で使用
+- **MVVM**：自動破棄とコレクション管理で拡張
+- **Async/Await**：全レイヤーでの包括的な非同期サポート
+
+### アプリケーション例
+
+**Netkeiba** (_Apps/Netkeiba)：競馬データ分析アプリケーション
+- MahApps.MetroによるWPF UI
+- SQLiteデータベース
+- 機械学習用のML.NET
+- WebスクレイピングのためのSelenium
+- HTML解析のためのAngleSharp
+
+## 開発ガイドライン
+
+### 新しいコンポーネントを追加する場合
+
+1. 適切な破棄管理のために`TBirdObject`を継承
+   - リソース解放が必要な場合は`DisposeManagedResource()`をオーバーライド
+   - `Dispose(bool disposing)`をオーバーライドしないこと（sealedのため）
+2. MVVMビューモデルには`BindableBase`を使用
+3. スレッドセーフなコンポーネントには`ILocker`を実装
+4. 既存の名前空間規則に従う（TBird.{レイヤー}.{機能}）
+
+### WPFで作業する場合
+
+1. 監視可能コレクションには`BindableCollection`バリアントを使用
+2. TBird.Wpf.Behaviorsの既存ビヘイビアを活用
+3. ダイアログビューモデルは`DialogViewModel`を継承
+
+### データベースで作業する場合
+
+1. `IDbControl`抽象化を使用
+2. 既存の非同期パターンに従う
+3. データベース接続を適切に破棄
+
+### コード標準
+
+- C# 10言語機能が有効
+- null許容参照型が有効（`<Nullable>enable</Nullable>`）
+- プロジェクトタイプに基づいて適切な.NETバージョンをターゲット
+- 拡張メソッドの既存パターンに従う
+
+## 一般的なタスク
+
+### 新しいプラグインの追加
+1. `IPlugin`インターフェースを実装するクラスを作成
+2. DLLとしてビルドし、"plugins"ディレクトリに配置
+3. PluginManagerが自動的に検出して読み込み
+
+### コンソールアプリケーションの作成
+1. `ConsoleExecuter`を継承
+2. `MainExecute`メソッドをオーバーライド
+3. 組み込みの引数解析を使用（'-'付きオプション、なしはパラメータ）
+
+### WPFウィンドウ/ダイアログの追加
+1. `WindowViewModel`または`DialogViewModel`を継承するビューモデルを作成
+2. データバインディングには`BindableBase`プロパティパターンを使用
+3. 一般的なシナリオには既存のビヘイビアを活用
+
+### リソース管理の実装
+`TBirdObject`を継承したクラスでリソース管理が必要な場合：
+
+**マネージドリソースの例**：
+```csharp
+public class MyClass : TBirdObject
+{
+    private FileStream _fileStream;
+    private SqliteConnection _connection;
+    
+    protected override void DisposeManagedResource()
+    {
+        _fileStream?.Dispose();
+        _connection?.Dispose();
+        base.DisposeManagedResource();
+    }
+}
+```
+
+**アンマネージドリソースの例**：
+```csharp
+public class MyNativeWrapper : TBirdObject
+{
+    private IntPtr _nativeHandle;
+    
+    public MyNativeWrapper()
+    {
+        _nativeHandle = NativeMethods.CreateHandle();
+    }
+    
+    protected override void DisposeUnmanagedResource()
+    {
+        if (_nativeHandle != IntPtr.Zero)
+        {
+            NativeMethods.ReleaseHandle(_nativeHandle);
+            _nativeHandle = IntPtr.Zero;
+        }
+        base.DisposeUnmanagedResource();
+    }
+    
+    // アンマネージドリソースを扱う場合はファイナライザーも実装
+    ~MyNativeWrapper()
+    {
+        Dispose(false);
+    }
+}
+```
+
+**両方のリソースを扱う例**：
+```csharp
+public class HybridResource : TBirdObject
+{
+    private Bitmap _bitmap;              // マネージドリソース
+    private IntPtr _deviceContext;       // アンマネージドリソース
+    
+    protected override void DisposeManagedResource()
+    {
+        _bitmap?.Dispose();
+        base.DisposeManagedResource();
+    }
+    
+    protected override void DisposeUnmanagedResource()
+    {
+        if (_deviceContext != IntPtr.Zero)
+        {
+            NativeMethods.DeleteDC(_deviceContext);
+            _deviceContext = IntPtr.Zero;
+        }
+        base.DisposeUnmanagedResource();
+    }
+    
+    ~HybridResource()
+    {
+        Dispose(false);
+    }
+}
+```

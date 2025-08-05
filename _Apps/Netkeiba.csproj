@@ -7,14 +7,20 @@
     <UseWPF>true</UseWPF>
     <PlatformTarget>x64</PlatformTarget>
     <SatelliteResourceLanguages>_</SatelliteResourceLanguages>
+    <ApplicationIcon>8c15bc8df7b8b13774a3ac6e33d6315f_xxo.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="8c15bc8df7b8b13774a3ac6e33d6315f_xxo.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.2.0" />
     <PackageReference Include="AngleSharp.Js" Version="0.15.0" />
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
-    <PackageReference Include="Microsoft.ML" Version="4.0.1" />
-    <PackageReference Include="Microsoft.ML.AutoML" Version="0.22.1" />
+    <PackageReference Include="Microsoft.ML" Version="4.0.2" />
+    <PackageReference Include="Microsoft.ML.AutoML" Version="0.22.2" />
+    <PackageReference Include="Microsoft.ML.LightGbm" Version="4.0.2" />
     <PackageReference Include="Selenium.WebDriver" Version="4.28.0" />
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="132.0.6834.15900" />
   </ItemGroup>

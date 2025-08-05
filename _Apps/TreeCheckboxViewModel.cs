@@ -6,36 +6,36 @@ using TBird.Wpf.Collections;
 
 namespace Netkeiba
 {
-    public class TreeCheckboxViewModel : BindableBase
-    {
-        public TreeCheckboxViewModel(CheckboxItemModel value) : this(value, Enumerable.Empty<TreeCheckboxViewModel>())
-        {
+	public class TreeCheckboxViewModel : BindableBase
+	{
+		public TreeCheckboxViewModel(CheckboxItemModel value) : this(value, Enumerable.Empty<TreeCheckboxViewModel>())
+		{
 
-        }
+		}
 
-        public TreeCheckboxViewModel(CheckboxItemModel value, IEnumerable<TreeCheckboxViewModel> children)
-        {
-            Children = ChildrenSource.ToBindableContextCollection();
+		public TreeCheckboxViewModel(CheckboxItemModel value, IEnumerable<TreeCheckboxViewModel> children)
+		{
+			Children = ChildrenSource.ToBindableContextCollection();
 
-            ChildrenSource.AddRange(children);
+			ChildrenSource.AddRange(children);
 
-            _Value = value;
-            _Value.AddOnPropertyChanged(this, (sender, e) =>
-            {
-                ChildrenSource.ForEach(x => x.Value.IsChecked = _Value.IsChecked);
-            });
-        }
+			_Value = value;
+			_Value.AddOnPropertyChanged(this, (sender, e) =>
+			{
+				ChildrenSource.ForEach(x => x.Value.IsChecked = _Value.IsChecked);
+			});
+		}
 
-        public CheckboxItemModel Value
-        {
-            get => _Value;
-            set => SetProperty(ref _Value, value);
-        }
-        private CheckboxItemModel _Value;
+		public CheckboxItemModel Value
+		{
+			get => _Value;
+			set => SetProperty(ref _Value, value);
+		}
+		private CheckboxItemModel _Value;
 
-        public BindableCollection<TreeCheckboxViewModel> ChildrenSource { get; } = new BindableCollection<TreeCheckboxViewModel>();
+		public BindableCollection<TreeCheckboxViewModel> ChildrenSource { get; } = new BindableCollection<TreeCheckboxViewModel>();
 
-        public BindableContextCollection<TreeCheckboxViewModel> Children { get; }
+		public BindableContextCollection<TreeCheckboxViewModel> Children { get; }
 
-    }
+	}
 }
