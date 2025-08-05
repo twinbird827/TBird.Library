@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB.SQLite;
 using TBird.DB;
+using System.DirectoryServices.ActiveDirectory;
+using System.Text.Json;
 
 namespace Netkeiba
 {
@@ -35,11 +37,45 @@ namespace Netkeiba
 
 				// ﾃｰﾌﾞﾙ作成
 				await conn.CreateModel();
+
+				using (var repo = new SQLiteRepository())
+				{
+					await repo.LoadDataAsync();
+
+					var gene = new TrainingDataGenerator(repo);
+					var data = await gene.GenerateTrainingDataAsync(DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-1));
+
+					var report = gene.ValidateTrainingData(data);
+					report.PrintReport();
+					if (!report.IsValid)
+					{
+						MainViewModel.AddLog("⚠️ データ品質に問題があります。修正してください。");
+						return;
+					}
+
+					await SaveTrainingDataAsync(data, $@"C:\work\train-{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.json");
+				}
 			}
+		}
+
+		private static async Task SaveTrainingDataAsync(List<OptimizedHorseFeatures> data, string filePath)
+		{
+			var directory = Path.GetDirectoryName(filePath);
+			if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+			{
+				Directory.CreateDirectory(directory);
+			}
+
+			var json = JsonSerializer.Serialize(data, new JsonSerializerOptions
+			{
+				WriteIndented = true
+			});
+			await File.WriteAllTextAsync(filePath, json);
+			MainViewModel.AddLog($"訓練データを保存しました: {filePath}");
 		}
 	}
 
-	public class SQLiteRepository : IDataRepository
+	public class SQLiteRepository : TBirdObject, IDataRepository
 	{
 		private List<RaceData> _allRaceData = new();
 		private List<HorseData> _allHorseData = new();
@@ -48,6 +84,15 @@ namespace Netkeiba
 		public SQLiteRepository()
 		{
 
+		}
+
+		protected override void DisposeManagedResource()
+		{
+			base.DisposeManagedResource();
+
+			_allRaceData.Clear();
+			_allHorseData.Clear();
+			_allConnectionData.Clear();
 		}
 
 		public async Task LoadDataAsync()
@@ -234,14 +279,14 @@ namespace Netkeiba
 		}
 
 		/// <summary>馬ﾍｯﾀﾞ</summary>
-		private static readonly string[] col_model = Arr("ﾚｰｽID", "ﾚｰｽ名", "開催日", "開催日数", "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "距離", "天候", "馬場", "馬場状態");
+		private static readonly string[] col_model = Arr("ﾚｰｽID", "馬番", "着順", "Features");
 
 		public static async Task CreateModel(this SQLiteControl conn)
 		{
 			await conn.Create(
 				"t_model",
 				col_model,
-				Arr("ﾚｰｽID")
+				Arr("ﾚｰｽID", "馬番")
 			);
 
 			// TODO indexの作成

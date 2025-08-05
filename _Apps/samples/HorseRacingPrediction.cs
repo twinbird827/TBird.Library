@@ -10,6 +10,7 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Trainers.LightGbm;
 using System.Formats.Asn1;
+using Netkeiba;
 
 namespace HorseRacingPrediction
 {
@@ -45,7 +46,7 @@ namespace HorseRacingPrediction
 
 	//	private void LoadData()
 	//	{
-	//		Console.WriteLine("CSVデータを読み込み中...");
+	//		MainViewModel.AddLog("CSVデータを読み込み中...");
 
 	//		// レースデータの読み込み
 	//		_allRaceData = LoadCsvData<RaceData>(Path.Combine(_dataDirectory, "races.csv"));
@@ -64,14 +65,14 @@ namespace HorseRacingPrediction
 	//			_allConnectionData = new List<ConnectionData>();
 	//		}
 
-	//		Console.WriteLine($"読み込み完了: レース {_allRaceData.Count} 件, 馬 {_allHorseData.Count} 件, 関係者 {_allConnectionData.Count} 件");
+	//		MainViewModel.AddLog($"読み込み完了: レース {_allRaceData.Count} 件, 馬 {_allHorseData.Count} 件, 関係者 {_allConnectionData.Count} 件");
 	//	}
 
 	//	private List<T> LoadCsvData<T>(string filePath)
 	//	{
 	//		if (!File.Exists(filePath))
 	//		{
-	//			Console.WriteLine($"警告: ファイルが見つかりません: {filePath}");
+	//			MainViewModel.AddLog($"警告: ファイルが見つかりません: {filePath}");
 	//			return new List<T>();
 	//		}
 
@@ -1157,7 +1158,7 @@ namespace HorseRacingPrediction
 			// ML.NET 4.0.2でのモデル保存方法
 			using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Write);
 			_mlContext.Model.Save(_model, null, fileStream);
-			Console.WriteLine($"モデルを保存しました: {filePath}");
+			MainViewModel.AddLog($"モデルを保存しました: {filePath}");
 		}
 
 		public void LoadModel(string filePath)
@@ -1168,7 +1169,7 @@ namespace HorseRacingPrediction
 			// ML.NET 4.0.2でのモデル読み込み方法
 			using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 			_model = _mlContext.Model.Load(fileStream, out var modelInputSchema);
-			Console.WriteLine($"モデルを読み込みました: {filePath}");
+			MainViewModel.AddLog($"モデルを読み込みました: {filePath}");
 		}
 
 		public bool IsModelTrained => _model != null;
@@ -1178,13 +1179,13 @@ namespace HorseRacingPrediction
 		/// </summary>
 		public void TrainAndSaveModel(IEnumerable<OptimizedHorseFeatures> trainingData, string saveFilePath)
 		{
-			Console.WriteLine("モデル訓練を開始します...");
+			MainViewModel.AddLog("モデル訓練を開始します...");
 			var startTime = DateTime.Now;
 
 			TrainModel(trainingData);
 
 			var trainTime = DateTime.Now - startTime;
-			Console.WriteLine($"訓練完了: {trainTime.TotalSeconds:F1}秒");
+			MainViewModel.AddLog($"訓練完了: {trainTime.TotalSeconds:F1}秒");
 
 			SaveModel(saveFilePath);
 		}
@@ -1196,12 +1197,12 @@ namespace HorseRacingPrediction
 		{
 			if (File.Exists(modelFilePath))
 			{
-				Console.WriteLine("既存のモデルファイルを読み込みます...");
+				MainViewModel.AddLog("既存のモデルファイルを読み込みます...");
 				LoadModel(modelFilePath);
 			}
 			else
 			{
-				Console.WriteLine("モデルファイルが見つかりません。新しく訓練します...");
+				MainViewModel.AddLog("モデルファイルが見つかりません。新しく訓練します...");
 				TrainAndSaveModel(trainingData, modelFilePath);
 			}
 		}
@@ -1254,7 +1255,7 @@ namespace HorseRacingPrediction
 			int minRaceCount = 2,
 			bool includeNewHorses = true)
 		{
-			Console.WriteLine($"訓練データ生成開始: {startDate:yyyy-MM-dd} ～ {endDate:yyyy-MM-dd}");
+			MainViewModel.AddLog($"訓練データ生成開始: {startDate:yyyy-MM-dd} ～ {endDate:yyyy-MM-dd}");
 
 			var trainingData = new List<OptimizedHorseFeatures>();
 			var races = await _dataRepository.GetRacesAsync(startDate, endDate);
@@ -1272,17 +1273,17 @@ namespace HorseRacingPrediction
 					processedCount++;
 					if (processedCount % 100 == 0)
 					{
-						Console.WriteLine($"進捗: {processedCount}/{totalRaces} レース処理完了");
+						MainViewModel.AddLog($"進捗: {processedCount}/{totalRaces} レース処理完了");
 					}
 				}
 				catch (Exception ex)
 				{
-					Console.WriteLine($"レース {race.RaceId} の処理でエラー: {ex.Message}");
+					MainViewModel.AddLog($"レース {race.RaceId} の処理でエラー: {ex.Message}");
 					continue;
 				}
 			}
 
-			Console.WriteLine($"訓練データ生成完了: {trainingData.Count} 件のデータを生成");
+			MainViewModel.AddLog($"訓練データ生成完了: {trainingData.Count} 件のデータを生成");
 			return trainingData;
 		}
 
@@ -1520,32 +1521,32 @@ namespace HorseRacingPrediction
 
 		public void PrintReport()
 		{
-			Console.WriteLine("=== 訓練データ品質レポート ===");
-			Console.WriteLine($"総レコード数: {TotalRecords:N0}");
-			Console.WriteLine($"ユニークレース数: {UniqueRaces:N0}");
-			Console.WriteLine($"新馬比率: {NewHorseRatio:P1}");
-			Console.WriteLine($"ラベル統計: Min={LabelMin:F3}, Max={LabelMax:F3}, Mean={LabelMean:F3}, StdDev={LabelStdDev:F3}");
+			MainViewModel.AddLog("=== 訓練データ品質レポート ===");
+			MainViewModel.AddLog($"総レコード数: {TotalRecords:N0}");
+			MainViewModel.AddLog($"ユニークレース数: {UniqueRaces:N0}");
+			MainViewModel.AddLog($"新馬比率: {NewHorseRatio:P1}");
+			MainViewModel.AddLog($"ラベル統計: Min={LabelMin:F3}, Max={LabelMax:F3}, Mean={LabelMean:F3}, StdDev={LabelStdDev:F3}");
 
 			if (MissingValueRatios.Any())
 			{
-				Console.WriteLine("\n欠損値比率:");
+				MainViewModel.AddLog("\n欠損値比率:");
 				foreach (var missing in MissingValueRatios.Where(m => m.Value > 0))
 				{
-					Console.WriteLine($"  {missing.Key}: {missing.Value:P1}");
+					MainViewModel.AddLog($"  {missing.Key}: {missing.Value:P1}");
 				}
 			}
 
 			if (Issues.Any())
 			{
-				Console.WriteLine("\n⚠️ 品質上の問題:");
+				MainViewModel.AddLog("\n⚠️ 品質上の問題:");
 				foreach (var issue in Issues)
 				{
-					Console.WriteLine($"  - {issue}");
+					MainViewModel.AddLog($"  - {issue}");
 				}
 			}
 			else
 			{
-				Console.WriteLine("\n✅ データ品質に問題はありません");
+				MainViewModel.AddLog("\n✅ データ品質に問題はありません");
 			}
 		}
 	}
@@ -1570,7 +1571,7 @@ namespace HorseRacingPrediction
 			// 騎手・調教師データCSVの生成
 			GenerateConnectionsCsv(Path.Combine(outputDirectory, "connections.csv"));
 
-			Console.WriteLine($"サンプルCSVファイルを生成しました: {outputDirectory}");
+			MainViewModel.AddLog($"サンプルCSVファイルを生成しました: {outputDirectory}");
 		}
 
 		/// <summary>
@@ -1668,7 +1669,7 @@ namespace HorseRacingPrediction
 			File.WriteAllText(filePath, csvContent.ToString(), Encoding.UTF8);
 
 			var totalLines = csvContent.ToString().Split('\n').Length - 2; // ヘッダーと最後の空行を除く
-			Console.WriteLine($"races.csv: {totalLines:N0} レース結果を生成");
+			MainViewModel.AddLog($"races.csv: {totalLines:N0} レース結果を生成");
 		}
 
 		/// <summary>
@@ -1706,7 +1707,7 @@ namespace HorseRacingPrediction
 			}
 
 			File.WriteAllText(filePath, csvContent.ToString(), Encoding.UTF8);
-			Console.WriteLine($"horses.csv: {horseNames.Count} 頭の馬データを生成");
+			MainViewModel.AddLog($"horses.csv: {horseNames.Count} 頭の馬データを生成");
 		}
 
 		/// <summary>
@@ -1745,7 +1746,7 @@ namespace HorseRacingPrediction
 			}
 
 			File.WriteAllText(filePath, csvContent.ToString(), Encoding.UTF8);
-			Console.WriteLine($"connections.csv: 騎手・調教師の組み合わせデータを生成");
+			MainViewModel.AddLog($"connections.csv: 騎手・調教師の組み合わせデータを生成");
 		}
 
 		/// <summary>
@@ -1828,7 +1829,7 @@ namespace HorseRacingPrediction
 
 	//		if (!qualityReport.IsValid)
 	//		{
-	//			Console.WriteLine("⚠️ データ品質に問題があります。修正してください。");
+	//			MainViewModel.AddLog("⚠️ データ品質に問題があります。修正してください。");
 	//			return null;
 	//		}
 
@@ -1851,7 +1852,7 @@ namespace HorseRacingPrediction
 	//			WriteIndented = true
 	//		});
 	//		await File.WriteAllTextAsync(filePath, json);
-	//		Console.WriteLine($"訓練データを保存しました: {filePath}");
+	//		MainViewModel.AddLog($"訓練データを保存しました: {filePath}");
 	//	}
 
 	//	public static async Task<List<OptimizedHorseFeatures>> LoadTrainingDataAsync(string filePath)
@@ -1872,63 +1873,63 @@ namespace HorseRacingPrediction
 	//	{
 	//		try
 	//		{
-	//			Console.WriteLine("=== 競馬予想システム 完全ワークフロー ===");
+	//			MainViewModel.AddLog("=== 競馬予想システム 完全ワークフロー ===");
 
 	//			// Step 0: サンプルデータ生成（初回のみ）
 	//			var dataDirectory = @"C:\HorseRacingData";
 	//			if (!Directory.Exists(dataDirectory) || !File.Exists(Path.Combine(dataDirectory, "races.csv")))
 	//			{
-	//				Console.WriteLine("\n0. サンプルデータ生成中...");
+	//				MainViewModel.AddLog("\n0. サンプルデータ生成中...");
 	//				CsvSampleDataGenerator.GenerateSampleCsvFiles(dataDirectory);
 	//			}
 
 	//			// Step 1: 訓練データ生成
-	//			Console.WriteLine("\n1. 訓練データ生成中...");
+	//			MainViewModel.AddLog("\n1. 訓練データ生成中...");
 	//			var trainingData = await TrainingDataCreationExample.CreateTrainingDataExample();
 
 	//			if (trainingData == null || !trainingData.Any())
 	//			{
-	//				Console.WriteLine("❌ 訓練データの生成に失敗しました");
+	//				MainViewModel.AddLog("❌ 訓練データの生成に失敗しました");
 	//				return;
 	//			}
 
 	//			// Step 2: モデル訓練
-	//			Console.WriteLine("\n2. モデル訓練中...");
+	//			MainViewModel.AddLog("\n2. モデル訓練中...");
 	//			var model = new HorseRacingPredictionModel();
 	//			var modelPath = @"C:\Models\horse_racing_model.zip";
 
 	//			model.TrainAndSaveModel(trainingData, modelPath);
 
 	//			// Step 3: テストデータで評価
-	//			Console.WriteLine("\n3. モデル評価中...");
+	//			MainViewModel.AddLog("\n3. モデル評価中...");
 	//			var testData = await GenerateTestDataAsync();
 	//			var evaluation = await EvaluateModelAsync(model, testData);
 
-	//			Console.WriteLine($"モデル精度: {evaluation.Accuracy:P1}");
-	//			Console.WriteLine($"Top3的中率: {evaluation.Top3HitRate:P1}");
+	//			MainViewModel.AddLog($"モデル精度: {evaluation.Accuracy:P1}");
+	//			MainViewModel.AddLog($"Top3的中率: {evaluation.Top3HitRate:P1}");
 
 	//			// Step 4: 実際の予想
-	//			Console.WriteLine("\n4. 実際の予想実行...");
+	//			MainViewModel.AddLog("\n4. 実際の予想実行...");
 	//			var todayRaces = await GetTodayRacesAsync();
 
 	//			foreach (var race in todayRaces.Take(3)) // 最初の3レースのみ
 	//			{
 	//				var predictions = model.PredictRace(race.Horses, race);
 
-	//				Console.WriteLine($"\n📍 {race.CourseName} {race.Distance}m {race.Grade}");
+	//				MainViewModel.AddLog($"\n📍 {race.CourseName} {race.Distance}m {race.Grade}");
 	//				foreach (var pred in predictions.Take(5))
 	//				{
-	//					Console.WriteLine($"  {pred.PredictedRank}位: {pred.Horse.Name} " +
+	//					MainViewModel.AddLog($"  {pred.PredictedRank}位: {pred.Horse.Name} " +
 	//						$"(スコア: {pred.Score:F3}, 信頼度: {pred.Confidence:P0})");
 	//				}
 	//			}
 
-	//			Console.WriteLine("\n✅ ワークフロー完了");
+	//			MainViewModel.AddLog("\n✅ ワークフロー完了");
 	//		}
 	//		catch (Exception ex)
 	//		{
-	//			Console.WriteLine($"❌ エラーが発生しました: {ex.Message}");
-	//			Console.WriteLine($"スタックトレース: {ex.StackTrace}");
+	//			MainViewModel.AddLog($"❌ エラーが発生しました: {ex.Message}");
+	//			MainViewModel.AddLog($"スタックトレース: {ex.StackTrace}");
 	//		}
 	//	}
 
@@ -2049,7 +2050,7 @@ namespace HorseRacingPrediction
 	//{
 	//	public static async Task Main(string[] args)
 	//	{
-	//		Console.WriteLine("競馬予想システムを開始します...");
+	//		MainViewModel.AddLog("競馬予想システムを開始します...");
 
 	//		try
 	//		{
@@ -2057,10 +2058,10 @@ namespace HorseRacingPrediction
 	//		}
 	//		catch (Exception ex)
 	//		{
-	//			Console.WriteLine($"システムエラー: {ex.Message}");
+	//			MainViewModel.AddLog($"システムエラー: {ex.Message}");
 	//		}
 
-	//		Console.WriteLine("\nEnterキーを押して終了してください...");
+	//		MainViewModel.AddLog("\nEnterキーを押して終了してください...");
 	//		Console.ReadLine();
 	//	}
 	//}
