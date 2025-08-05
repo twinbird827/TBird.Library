@@ -1,17 +1,21 @@
 ﻿using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using ControlzEx.Standard;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Documents;
 using TBird.Core;
 
 namespace Netkeiba
 {
 	public static class NetkeibaGetter
 	{
+		private static string[] Arr(params string[] arr) => arr;
+
 		public static async Task<List<Dictionary<string, string>>> GetRaceResults(string raceid)
 		{
 			var arr = new List<Dictionary<string, string>>();
@@ -516,6 +520,147 @@ namespace Netkeiba
 			return Enumerable.Range(0, new int[] { result.Length, payout.Length }.Min())
 				.Select(i => $"{result[i]},{payout[i]}")
 				.GetString(";");
+		}
+
+		public static async Task<Dictionary<string, string>> GetUmaInfo(string uma, string name)
+		{
+
+			var dic = new Dictionary<string, string>();
+
+			dic["馬ID"] = uma;
+			dic["馬名"] = name;
+
+			async Task SetKetto()
+			{
+				var url = $"https://db.netkeiba.com/horse/ped/{uma}/";
+
+				using (var ped = await AppUtil.GetDocument(false, url))
+				{
+					IElement[] GetRowSpan(IHtmlTableElement table, int i) => table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == i).ToArray();
+
+					if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
+					{
+						Func<IElement[], int, string> func = (tags, i) => tags
+							.Skip(i).Take(1)
+							.Select(x => x.GetHrefAttribute("href"))
+							.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/').Run(split => split[split.Length - 2]) : string.Empty)
+							.FirstOrDefault() ?? string.Empty;
+
+						var rowspan16 = GetRowSpan(table, 16);
+						var f = func(rowspan16, 0);
+						var m = func(rowspan16, 1);
+						var rowspan08 = GetRowSpan(table, 8);
+						var ff = func(rowspan08, 0);
+						var fm = func(rowspan08, 1);
+						var mf = func(rowspan08, 2);
+						var mm = func(rowspan08, 3);
+
+						dic["父ID"] = f;
+						dic["母父ID"] = mf;
+					}
+					else
+					{
+						await Task.Delay(10000);
+						await SetKetto();
+					}
+				}
+			}
+			await SetKetto();
+
+			string ReplaceJapanesePrice(string input)
+			{
+				var clean = Regex.Replace(input.Replace(",", ""), @"<[^>]*>|(\d+(?:\.\d+)?)万",
+					m => m.Value.Contains("万")
+						? ((long)(decimal.Parse(m.Groups[1].Value) * 10000)).ToString()
+						: ""
+				);
+				return clean;
+			}
+
+			long CalculatePrice(string input)
+			{
+				// HTMLタグ除去 + カンマ除去 + 万を0000に置換
+				var clean = ReplaceJapanesePrice(input);
+
+				var match = Regex.Match(clean, @"(\d+)[円]?[/:：／\s]+(\d+)口");
+				return match.Success
+					? long.Parse(match.Groups[1].Value) * long.Parse(match.Groups[2].Value)
+					: 0;
+			}
+
+			long CalculateSeri(string input)
+			{
+				// HTMLタグ除去 + カンマ除去 + 万を0000に置換
+				var clean = ReplaceJapanesePrice(input);
+
+				var match = Regex.Match(clean, @"(\d+)円");
+				return match.Success
+					? long.Parse(match.Groups[1].Value)
+					: 0;
+			}
+
+			async Task SetUmaInfo()
+			{
+				var url = $"https://db.netkeiba.com/horse/{uma}/";
+
+				using (var ped = await AppUtil.GetDocument(false, url))
+				{
+					dic["生年月日"] = string.Empty;
+					dic["調教師ID"] = string.Empty;
+					dic["調教師名"] = string.Empty;
+					dic["馬主ID"] = string.Empty;
+					dic["馬主名"] = string.Empty;
+					dic["生産者ID"] = string.Empty;
+					dic["生産者名"] = string.Empty;
+					dic["セリ取引価格"] = string.Empty;
+					dic["募集情報"] = string.Empty;
+
+					var classnames = Arr("db_prof_table ", "db_prof_table no_OwnerUnit");
+					var isget = false;
+					foreach (var classname in classnames)
+					{
+						if (ped.GetElementsByClassName(classname).FirstOrDefault() is IHtmlTableElement table)
+						{
+							foreach (var r in table.Rows)
+							{
+								switch (r.Cells[0].GetInnerHtml())
+								{
+									case "生年月日":
+										dic["生年月日"] = r.Cells[1].GetInnerHtml().Date().ToString("yyyy/MM/dd");
+										break;
+									case "調教師":
+										dic["調教師ID"] = r.Cells[1].GetHrefAttribute("href").Split('/')[2];
+										dic["調教師名"] = r.Cells[1].GetHrefAttribute("title");
+										break;
+									case "馬主":
+										dic["馬主ID"] = r.Cells[1].GetHrefAttribute("href").Split('/')[2];
+										dic["馬主名"] = r.Cells[1].GetHrefAttribute("title");
+										break;
+									case "生産者":
+										dic["生産者ID"] = r.Cells[1].GetHrefAttribute("href").Split('/')[2];
+										dic["生産者名"] = r.Cells[1].GetHrefAttribute("title");
+										break;
+									case "セリ取引価格":
+										dic["セリ取引価格"] = CalculateSeri(r.Cells[1].InnerHtml).Str();
+										break;
+									case "募集情報":
+										dic["募集情報"] = CalculatePrice(r.Cells[1].GetHrefInnerHtml()).Str();
+										break;
+								}
+							}
+							isget = true;
+						}
+					}
+					if (!isget)
+					{
+						await Task.Delay(10000);
+						await SetUmaInfo();
+					}
+				}
+			}
+			await SetUmaInfo();
+
+			return dic;
 		}
 
 		public static async IAsyncEnumerable<Dictionary<string, string>> GetKetto(string uma)

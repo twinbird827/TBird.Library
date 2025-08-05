@@ -11,9 +11,6 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB.SQLite;
 using TBird.DB;
-using MathNet.Numerics;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
-using System.Windows.Media.Media3D;
 
 namespace Netkeiba
 {
@@ -66,7 +63,7 @@ namespace Netkeiba
 				_allHorseData = conn.GetHorseDataAsync().ToBlockingEnumerable().ToList();
 
 				// 関係者データの読み込み
-				var connectionsPath = Path.Combine(_dataDirectory, "connections.csv");
+				//var connectionsPath = Path.Combine(_dataDirectory, "connections.csv");
 
 				MainViewModel.AddLog($"読み込み完了: レース {_allRaceData.Count} 件, 馬 {_allHorseData.Count} 件, 関係者 {_allConnectionData.Count} 件");
 
@@ -310,23 +307,23 @@ namespace Netkeiba
 			}
 		}
 
-		public static async IAsyncEnumerable<ConnectionData> GetConnectionDataAsync(this SQLiteControl conn)
-		{
-			var sql = "SELECT 馬ID, 馬名, 誕生日, 購入額, 馬主ID, 父ID, 母父ID FROM t_uma";
+		//public static async IAsyncEnumerable<ConnectionData> GetConnectionDataAsync(this SQLiteControl conn)
+		//{
+		//	var sql = "SELECT 馬ID, 馬名, 誕生日, 購入額, 馬主ID, 父ID, 母父ID FROM t_uma";
 
-			foreach (var x in await conn.GetRows(sql))
-			{
-				yield return new ConnectionData()
-				{
-					Name = x["馬ID"].Str(),
-					BirthDate = x["誕生日"].Date(),
-					SireName = x["父ID"].Str(),
-					DamSireName = x["母父ID"].Str(),
-					BreederName = x["馬主ID"].Str(),
-					PurchasePrice = x["購入額"].Int64()
-				};
-			}
-		}
+		//	foreach (var x in await conn.GetRows(sql))
+		//	{
+		//		yield return new ConnectionData()
+		//		{
+		//			Name = x["馬ID"].Str(),
+		//			BirthDate = x["誕生日"].Date(),
+		//			SireName = x["父ID"].Str(),
+		//			DamSireName = x["母父ID"].Str(),
+		//			BreederName = x["馬主ID"].Str(),
+		//			PurchasePrice = x["購入額"].Int64()
+		//		};
+		//	}
+		//}
 
 	}
 

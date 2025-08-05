@@ -53,26 +53,26 @@ namespace Netkeiba
 					var dates = await sdate
 						.AddMonths(i)
 						.Run(target => NetkeibaGetter.GetKaisaiDate(target.Year, target.Month));
-					var racebases = await dates
-						.Select(date => NetkeibaGetter.GetRaceIds(DateTime.ParseExact(date, "yyyyMMdd", null)))
-						.WhenAllExpand();
-
-					await conn.BeginTransaction();
-
-					foreach (var racebase in racebases)
+					foreach (var date in dates)
 					{
-
-						await foreach (var racearr in GetSTEP1Racearrs(conn, racebase))
+						var racebases = await NetkeibaGetter.GetRaceIds(DateTime.ParseExact(date, "yyyyMMdd", null));
+						var existsrace = false;
+						foreach (var racebase in racebases)
 						{
-							await conn.InsertOrigAsync(racearr);
+							await conn.BeginTransaction();
+							await foreach (var racearr in GetSTEP1Racearrs(conn, racebase))
+							{
+								await conn.InsertOrigAsync(racearr);
+							}
+							conn.Commit();
+							AddLog($"completed racebase:{racebase}");
+
+							Progress.Value += 1D / racebases.Count();
+							existsrace = true;
 						}
-
-						AddLog($"completed racebase:{racebase}");
-
-						Progress.Value += 1D / racebases.Count();
+						if (!existsrace) Progress.Value += 1;
 					}
 
-					conn.Commit();
 				}
 			}
 		}
@@ -101,7 +101,7 @@ namespace Netkeiba
 		{
 			await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_orig_h");
 			await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_orig_d");
-			await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_orig_k");
+			await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_uma");
 		}
 
 		/// <summary>
@@ -138,9 +138,9 @@ namespace Netkeiba
 		private static readonly string[] col_orig_h = Arr("ﾚｰｽID", "ﾚｰｽ名", "開催日", "開催日数", "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "距離", "天候", "馬場", "馬場状態", "優勝賞金", "頭数");
 
 		/// <summary>ﾚｰｽ明細</summary>
-		private static readonly string[] col_orig_d = Arr("ﾚｰｽID", "着順", "枠番", "馬番", "馬名", "馬ID", "馬性", "馬齢", "斤量", "騎手名", "騎手ID", "ﾀｲﾑ", "ﾀｲﾑ変換", "着差", "ﾀｲﾑ指数", "通過", "上り", "単勝", "人気", "体重", "増減", "備考", "調教場所", "調教師名", "調教師ID", "馬主名", "馬主ID", "賞金");
+		private static readonly string[] col_orig_d = Arr("ﾚｰｽID", "着順", "枠番", "馬番", "馬ID", "馬性", "馬齢", "斤量", "騎手名", "騎手ID", "ﾀｲﾑ", "ﾀｲﾑ変換", "着差", "ﾀｲﾑ指数", "通過", "上り", "単勝", "人気", "体重", "増減", "備考", "調教場所", "調教師名", "調教師ID", "馬主名", "馬主ID", "賞金");
 
-		private static readonly string[] col_uma = Arr("馬ID", "誕生日", "購入額", "馬主ID", "父ID", "母父ID");
+		private static readonly string[] col_uma = Arr("馬ID", "馬名", "父ID", "母父ID", "生年月日", "調教師ID", "調教師名", "馬主ID", "馬主名", "生産者ID", "生産者名", "セリ取引価格", "募集情報");
 
 		public static async Task CreateOrig(this SQLiteControl conn)
 		{
@@ -169,14 +169,11 @@ namespace Netkeiba
 
 		public static async Task InsertOrigAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
 		{
-			async Task InsertKettoAsync(string uma)
+			async Task InsertKettoAsync(string uma, string name)
 			{
-				if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_orig_k WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
+				if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
 				{
-					await foreach (var ketto in NetkeibaGetter.GetKetto(uma))
-					{
-						await conn.InsertAsync("t_orig_k", ketto);
-					}
+					await conn.InsertAsync("t_uma", await NetkeibaGetter.GetUmaInfo(uma, name));
 				}
 			}
 
@@ -191,7 +188,7 @@ namespace Netkeiba
 						switch (s)
 						{
 							case "優勝賞金":
-								return racearr.Max(x => x["賞金"].GetDouble()).Str();
+								return racearr.Sum(x => x["賞金"].GetDouble()).Str();
 							case "頭数":
 								return racearr.Count.Str();
 							default:
@@ -202,7 +199,7 @@ namespace Netkeiba
 					await conn.InsertAsync("t_orig_h", col_orig_h.ToDictionary(s => s, s => ToValue(s)));
 				}
 				await conn.InsertAsync("t_orig_d", col_orig_d.ToDictionary(s => s, s => x[s]));
-				await InsertKettoAsync(x["馬ID"]);
+				await InsertKettoAsync(x["馬ID"], x["馬名"]);
 			}
 		}
 

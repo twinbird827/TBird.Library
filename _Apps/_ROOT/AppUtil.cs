@@ -137,7 +137,7 @@ namespace Netkeiba
 
 			using (await Locker.LockAsync(_guid, _pararell))
 			{
-				await Task.Delay(100);
+				await Task.Delay(1500);
 
 				MainViewModel.AddLog($"req: {url}");
 
