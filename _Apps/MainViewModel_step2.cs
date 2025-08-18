@@ -17,93 +17,92 @@ namespace Netkeiba
 {
 	public partial class MainViewModel
 	{
-		public CheckboxItemModel S2Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
 
-		public IRelayCommand S2EXEC => RelayCommand.Create(async _ =>
-		{
-			using var selenium = TBirdSeleniumFactory.GetDisposer();
-			using (var conn = AppUtil.CreateSQLiteControl())
-			{
-				var create = S2Overwrite.IsChecked || !await conn.ExistsColumn("t_model", "着順");
+		//public IRelayCommand S2EXEC => RelayCommand.Create(async _ =>
+		//{
+		//	using var selenium = TBirdSeleniumFactory.GetDisposer();
+		//	using (var conn = AppUtil.CreateSQLiteControl())
+		//	{
+		//		var create = S2Overwrite.IsChecked || !await conn.ExistsColumn("t_model", "着順");
 
-				var drops = await conn.ExistsColumn("t_model", "着順") && !create
-					? await conn.GetRows(r => $"{r.GetValue(0)}", "SELECT DISTINCT ﾚｰｽID FROM t_model")
-					: Enumerable.Empty<string>();
+		//		var drops = await conn.ExistsColumn("t_model", "着順") && !create
+		//			? await conn.GetRows(r => $"{r.GetValue(0)}", "SELECT DISTINCT ﾚｰｽID FROM t_model")
+		//			: Enumerable.Empty<string>();
 
-				var maxdate = await conn.ExecuteScalarAsync("SELECT MAX(開催日数) FROM t_orig");
-				var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
-				var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
-				var racbase = await conn.GetRows(r => r.Get<string>(0),
-					"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? ORDER BY ﾚｰｽID DESC",
-					SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
-				);
+		//		var maxdate = await conn.ExecuteScalarAsync("SELECT MAX(開催日数) FROM t_orig");
+		//		var mindate = await conn.ExecuteScalarAsync("SELECT MIN(開催日数) FROM t_orig");
+		//		var target = maxdate.GetDouble().Subtract(mindate.GetDouble()).Multiply(0.3).Add(mindate.GetDouble());
+		//		var racbase = await conn.GetRows(r => r.Get<string>(0),
+		//			"SELECT DISTINCT ﾚｰｽID FROM t_orig WHERE 開催日数 >= ? ORDER BY ﾚｰｽID DESC",
+		//			SQLiteUtil.CreateParameter(System.Data.DbType.Int64, target)
+		//		);
 
-				var rac = racbase
-					.Where(id => !drops.Contains(id))
-					.ToArray();
+		//		var rac = racbase
+		//			.Where(id => !drops.Contains(id))
+		//			.ToArray();
 
-				var 馬性 = await AppUtil.Get馬性(conn);
-				var 調教場所 = await AppUtil.Get調教場所(conn);
-				var 追切 = await AppUtil.Get追切(conn);
+		//		var 馬性 = await AppUtil.Get馬性(conn);
+		//		var 調教場所 = await AppUtil.Get調教場所(conn);
+		//		var 追切 = await AppUtil.Get追切(conn);
 
-				// 血統情報の作成
-				await RefreshKetto(conn);
+		//		// 血統情報の作成
+		//		await RefreshKetto(conn);
 
-				//// 産駒成績の更新
-				//await RefreshSanku(conn);
+		//		//// 産駒成績の更新
+		//		//await RefreshSanku(conn);
 
-				// ﾚｰｽ情報の初期化
-				await InitializeModelBase(conn);
+		//		// ﾚｰｽ情報の初期化
+		//		await InitializeModelBase(conn);
 
-				Progress.Value = 0;
-				Progress.Minimum = 0;
-				Progress.Maximum = rac.Length;
+		//		Progress.Value = 0;
+		//		Progress.Minimum = 0;
+		//		Progress.Maximum = rac.Length;
 
-				foreach (var raceid in rac)
-				{
-					MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
+		//		foreach (var raceid in rac)
+		//		{
+		//			MessageService.Debug($"ﾚｰｽID:開始:{raceid}");
 
-					// ﾚｰｽ毎の纏まり
-					var racarr = await CreateRaceModel(conn, "v_orig", raceid, 馬性, 調教場所, 追切);
-					var header = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
+		//			// ﾚｰｽ毎の纏まり
+		//			var racarr = await CreateRaceModel(conn, "v_orig", raceid, 馬性, 調教場所, 追切);
+		//			var header = Arr("ﾚｰｽID", "開催日数", "枠番", "馬番", "着順", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID");
 
-					if (create)
-					{
-						create = false;
+		//			if (create)
+		//			{
+		//				create = false;
 
-						// ﾃｰﾌﾞﾙ作成
-						await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
-						await conn.ExecuteNonQueryAsync(Arr(
-							"CREATE TABLE IF NOT EXISTS t_model (",
-							header.Select(x => $"{x} INTEGER").GetString(","),
-							",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
+		//				// ﾃｰﾌﾞﾙ作成
+		//				await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
+		//				await conn.ExecuteNonQueryAsync(Arr(
+		//					"CREATE TABLE IF NOT EXISTS t_model (",
+		//					header.Select(x => $"{x} INTEGER").GetString(","),
+		//					",単勝 REAL,Features BLOB, PRIMARY KEY (ﾚｰｽID, 馬番))").GetString(" "));
 
-						await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID, 馬番)");
-					}
+		//				await conn.ExecuteNonQueryAsync($"CREATE INDEX IF NOT EXISTS t_model_index00 ON t_model (開催日数, ﾗﾝｸ2, ﾚｰｽID, 馬番)");
+		//			}
 
-					await conn.BeginTransaction();
-					foreach (var ins in racarr)
-					{
-						var prms1 = header.Select(x => SQLiteUtil.CreateParameter(DbType.Int64, ins[x]));
-						var prms2 = SQLiteUtil.CreateParameter(DbType.Single, ins["単勝"]);
-						var prms3 = SQLiteUtil.CreateParameter(DbType.Binary, AppUtil.CreateFeatures(ins));
+		//			await conn.BeginTransaction();
+		//			foreach (var ins in racarr)
+		//			{
+		//				var prms1 = header.Select(x => SQLiteUtil.CreateParameter(DbType.Int64, ins[x]));
+		//				var prms2 = SQLiteUtil.CreateParameter(DbType.Single, ins["単勝"]);
+		//				var prms3 = SQLiteUtil.CreateParameter(DbType.Binary, AppUtil.CreateFeatures(ins));
 
-						await conn.ExecuteNonQueryAsync(
-							$"REPLACE INTO t_model ({header.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", header.Length).GetString(",")}, ?, ?)",
-							prms1.Concat(Arr(prms2)).Concat(Arr(prms3)).ToArray()
-						);
-					}
-					conn.Commit();
+		//				await conn.ExecuteNonQueryAsync(
+		//					$"REPLACE INTO t_model ({header.GetString(",")},単勝,Features) VALUES ({Enumerable.Repeat("?", header.Length).GetString(",")}, ?, ?)",
+		//					prms1.Concat(Arr(prms2)).Concat(Arr(prms3)).ToArray()
+		//				);
+		//			}
+		//			conn.Commit();
 
-					AddLog($"Step5 Proccess ﾚｰｽID: {raceid}");
+		//			AddLog($"Step5 Proccess ﾚｰｽID: {raceid}");
 
-					Progress.Value += 1;
-				}
-				AppSetting.Instance.Save();
+		//			Progress.Value += 1;
+		//		}
+		//		AppSetting.Instance.Save();
 
-				MessageService.Info("Step5 Completed!!");
-			}
-		});
+		//		MessageService.Info("Step5 Completed!!");
+		//	}
+		//});
 		private Dictionary<string, Dictionary<string, float>> DEF = new();
 
 		//private Dictionary<long, float> TOU = new();
@@ -406,7 +405,8 @@ namespace Netkeiba
 			List<Dictionary<string, object>>[] CREATE情報(IEnumerable<Dictionary<string, object>> arr, int[] takes)
 			{
 				return takes.Select(i => arr.Take(i).ToList()).ToArray();
-			};
+			}
+			;
 
 			var 馬情報 = await conn.GetRows(
 					$"SELECT {SELECT_DATA} FROM t_orig WHERE 馬ID = ? AND 開催日数 < ? {rankwhere} ORDER BY 開催日数 DESC",

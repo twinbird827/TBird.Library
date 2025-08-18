@@ -70,6 +70,7 @@ namespace Netkeiba
 			}
 			_this.LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
 
+			MessageService.Debug(message);
 			MessageService.AppendLogfile(message);
 		}
 
@@ -109,5 +110,8 @@ namespace Netkeiba
 
 		public IRelayCommand S1EXEC => new STEP1Command(this).CreateCommand();
 
+		public CheckboxItemModel S2Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
+
+		public IRelayCommand S2EXEC => new STEP2Command(this).CreateCommand();
 	}
 }
