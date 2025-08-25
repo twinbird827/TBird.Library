@@ -99,8 +99,8 @@ namespace HorseRacingPrediction
 	//				NumberOfHorses = r.NumberOfHorses,
 	//				RaceDate = r.RaceDate,
 	//				AverageRating = CalculateAverageRating(r.RaceId),
-	//				IsInternational = r.Grade == "G1" && r.FirstPrizeMoney > 200000000,
-	//				IsAgedHorseRace = r.Grade != "新馬" && r.Grade != "未勝利"
+	//				IsInternational = (r.Grade == "G1古" || r.Grade == "G1ク") && r.FirstPrizeMoney > 200000000,
+	//				IsAgedHorseRace = r.Grade.EndsWith("古") || r.Grade.EndsWith("障")
 	//			})
 	//			.ToList();
 	//	}
@@ -449,16 +449,34 @@ namespace HorseRacingPrediction
 		{
 			return grade switch
 			{
-				"G1" => 2.5f,
-				"G2" => 2.0f,
-				"G3" => 1.7f,
-				"OP" => 1.4f,
-				"L" => 1.3f,
-				"3勝" => 1.2f,
-				"2勝" => 1.1f,
-				"1勝" => 1.0f,
-				"未勝利" => 0.8f,
-				"新馬" => 0.6f,
+				// 平場G1
+				"G1古" => 2.5f,
+				"G1ク" => 2.4f,
+				// 障害G1
+				"G1障" => 2.3f,
+				// 平場G2
+				"G2古" => 2.0f,
+				"G2ク" => 1.9f,
+				// 障害G2
+				"G2障" => 1.8f,
+				// 平場G3
+				"G3古" => 1.7f,
+				"G3ク" => 1.6f,
+				// 障害G3
+				"G3障" => 1.5f,
+				// オープン
+				"オープン古" => 1.4f,
+				"オープンク" => 1.3f,
+				"オープン障" => 1.2f,
+				// 条件戦
+				"3勝古" => 1.2f,
+				"2勝古" => 1.1f,
+				"1勝古" => 1.0f,
+				"1勝ク" => 0.95f,
+				// 未勝利・新馬
+				"未勝利ク" => 0.8f,
+				"未勝利障" => 0.75f,
+				"新馬ク" => 0.6f,
 				_ => 1.0f
 			};
 		}
@@ -485,7 +503,7 @@ namespace HorseRacingPrediction
 		{
 			float multiplier = 1.0f;
 
-			if (race.IsInternational && race.Grade == "G1")
+			if (race.IsInternational && (race.Grade == "G1古" || race.Grade == "G1ク"))
 				multiplier *= 1.2f;
 
 			if (race.IsAgedHorseRace)
@@ -523,9 +541,9 @@ namespace HorseRacingPrediction
 				BestAdjustedScore = adjustedScores.DefaultIfEmpty(0.1f).Max(),
 				LastRaceAdjustedScore = adjustedScores.FirstOrDefault(0.1f),
 				AdjustedConsistency = CalculateConsistency(adjustedScores),
-				G1AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "G1"),
-				G2G3AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "G2", "G3"),
-				OpenAdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "OP")
+				G1AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "G1古", "G1ク", "G1障"),
+				G2G3AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "G2古", "G2ク", "G2障", "G3古", "G3ク", "G3障"),
+				OpenAdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "オープン古", "オープンク", "オープン障")
 			};
 		}
 
@@ -967,13 +985,31 @@ namespace HorseRacingPrediction
 		{
 			return grade switch
 			{
-				"G1" => 7,
-				"G2" => 6,
-				"G3" => 5,
-				"OP" => 4,
-				"3勝" => 3,
-				"2勝" => 2,
-				"1勝" => 1,
+				// G1
+				"G1古" => 19,
+				"G1ク" => 18,
+				"G1障" => 17,
+				// G2
+				"G2古" => 16,
+				"G2ク" => 15,
+				"G2障" => 14,
+				// G3
+				"G3古" => 13,
+				"G3ク" => 12,
+				"G3障" => 11,
+				// オープン
+				"オープン古" => 10,
+				"オープンク" => 9,
+				"オープン障" => 8,
+				// 条件戦
+				"3勝古" => 7,
+				"2勝古" => 6,
+				"1勝古" => 5,
+				"1勝ク" => 4,
+				// 未勝利・新馬
+				"未勝利ク" => 3,
+				"未勝利障" => 2,
+				"新馬ク" => 1,
 				_ => 0
 			};
 		}
@@ -1551,257 +1587,6 @@ namespace HorseRacingPrediction
 		}
 	}
 
-	// ===== CSVサンプルデータ生成 =====
-
-	public class CsvSampleDataGenerator
-	{
-		/// <summary>
-		/// サンプルCSVファイルを生成（開発・テスト用）
-		/// </summary>
-		public static void GenerateSampleCsvFiles(string outputDirectory)
-		{
-			Directory.CreateDirectory(outputDirectory);
-
-			// レースデータCSVの生成
-			GenerateRacesCsv(Path.Combine(outputDirectory, "races.csv"));
-
-			// 馬基本情報CSVの生成
-			GenerateHorsesCsv(Path.Combine(outputDirectory, "horses.csv"));
-
-			// 騎手・調教師データCSVの生成
-			GenerateConnectionsCsv(Path.Combine(outputDirectory, "connections.csv"));
-
-			MainViewModel.AddLog($"サンプルCSVファイルを生成しました: {outputDirectory}");
-		}
-
-		/// <summary>
-		/// レースデータCSV生成
-		/// races.csv - レース結果の詳細データ
-		/// </summary>
-		private static void GenerateRacesCsv(string filePath)
-		{
-			var csvContent = new StringBuilder();
-
-			// CSVヘッダー
-			csvContent.AppendLine("RaceId,CourseName,Distance,TrackType,TrackCondition,Grade,FirstPrizeMoney,NumberOfHorses,RaceDate,HorseName,FinishPosition,Weight,Time,Odds,JockeyName,TrainerName");
-
-			// サンプルデータ生成
-			var random = new Random(42); // 固定シード
-			var courseNames = new[] { "東京", "京都", "阪神", "中山", "中京", "新潟", "小倉", "札幌", "函館" };
-			var trackTypes = new[] { "芝", "ダート" };
-			var trackConditions = new[] { "良", "稍重", "重", "不良" };
-			var grades = new[] { "G1", "G2", "G3", "OP", "3勝", "2勝", "1勝", "未勝利", "新馬" };
-			var distances = new[] { 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 3000, 3200 };
-
-			var horseNames = GenerateHorseNames(500); // 500頭の馬名を生成
-			var jockeyNames = new[] { "武豊", "川田将雅", "福永祐一", "戸崎圭太", "ルメール", "デムーロ", "岩田康誠", "池添謙一", "松山弘平", "横山典弘", "田辺裕信", "津村明秀", "石橋脩", "吉田隼人", "大野拓弥", "丸田恭介", "菱田裕二", "丹内祐次", "勝浦正樹", "柴田善臣" };
-			var trainerNames = new[] { "友道康夫", "藤沢和雄", "音無秀孝", "池江泰寿", "堀宣行", "国枝栄", "木村哲也", "角居勝彦", "松田国英", "橋口弘次郎", "中内田充正", "須貝尚介", "安田隆行", "斉藤崇史", "西村真幸", "高野友和", "矢作芳人", "鹿戸雄一", "大久保龍志", "田中博康" };
-
-			// 過去2年間のレースデータを生成
-			var startDate = DateTime.Now.AddYears(-2);
-			var endDate = DateTime.Now.AddMonths(-1);
-			var raceIdCounter = 1;
-
-			for (var date = startDate; date <= endDate; date = date.AddDays(1))
-			{
-				// 土日のみレース開催
-				if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
-					continue;
-
-				// 1日あたり8-12レース
-				var racesPerDay = random.Next(8, 13);
-
-				for (int raceNum = 1; raceNum <= racesPerDay; raceNum++)
-				{
-					var raceId = $"{date:yyyyMMdd}_R{raceNum:D2}";
-					var courseName = courseNames[random.Next(courseNames.Length)];
-					var distance = distances[random.Next(distances.Length)];
-					var trackType = trackTypes[random.Next(trackTypes.Length)];
-					var trackCondition = trackConditions[random.Next(trackConditions.Length)];
-					var grade = grades[random.Next(grades.Length)];
-
-					// グレードに応じた賞金設定
-					var prizeMoney = grade switch
-					{
-						"G1" => random.Next(150000000, 300000000),
-						"G2" => random.Next(50000000, 100000000),
-						"G3" => random.Next(30000000, 60000000),
-						"OP" => random.Next(15000000, 35000000),
-						"3勝" => random.Next(10000000, 20000000),
-						"2勝" => random.Next(8000000, 15000000),
-						"1勝" => random.Next(7000000, 12000000),
-						"未勝利" => random.Next(7000000, 10000000),
-						"新馬" => random.Next(7000000, 9000000),
-						_ => 7000000
-					};
-
-					// 出走頭数（距離とグレードに応じて調整）
-					var numberOfHorses = grade switch
-					{
-						"G1" => random.Next(15, 19),
-						"G2" or "G3" => random.Next(12, 17),
-						_ => random.Next(10, 17)
-					};
-
-					// 各馬のデータを生成
-					var raceHorses = horseNames.OrderBy(x => random.Next()).Take(numberOfHorses).ToList();
-					var baseTime = CalculateBaseTime(distance, trackType);
-
-					for (int position = 1; position <= numberOfHorses; position++)
-					{
-						var horseName = raceHorses[position - 1];
-						var weight = random.Next(420, 520); // 420-520kg
-						var timeVariation = random.NextSingle() * 5.0f - 1.0f; // ±1-5秒の変動
-						var time = baseTime + timeVariation + (position - 1) * 0.2f; // 着順による時間差
-
-						// 人気に応じたオッズ生成
-						var popularity = random.Next(1, numberOfHorses + 1);
-						var odds = GenerateOdds(popularity, numberOfHorses, random);
-
-						var jockey = jockeyNames[random.Next(jockeyNames.Length)];
-						var trainer = trainerNames[random.Next(trainerNames.Length)];
-
-						csvContent.AppendLine($"{raceId},{courseName},{distance},{trackType},{trackCondition},{grade},{prizeMoney},{numberOfHorses},{date:yyyy-MM-dd},{horseName},{position},{weight},{time:F1},{odds:F1},{jockey},{trainer}");
-					}
-				}
-			}
-
-			File.WriteAllText(filePath, csvContent.ToString(), Encoding.UTF8);
-
-			var totalLines = csvContent.ToString().Split('\n').Length - 2; // ヘッダーと最後の空行を除く
-			MainViewModel.AddLog($"races.csv: {totalLines:N0} レース結果を生成");
-		}
-
-		/// <summary>
-		/// 馬基本情報CSV生成
-		/// horses.csv - 馬の血統、生年月日、購入価格等
-		/// </summary>
-		private static void GenerateHorsesCsv(string filePath)
-		{
-			var csvContent = new StringBuilder();
-			csvContent.AppendLine("Name,BirthDate,SireName,DamSireName,BreederName,PurchasePrice");
-
-			var horseNames = GenerateHorseNames(500);
-			var sireNames = new[] { "ディープインパクト", "キングカメハメハ", "ダイワメジャー", "ステイゴールド", "ハーツクライ", "ルーラーシップ", "オルフェーヴル", "ロードカナロア", "モーリス", "エピファネイア", "キズナ", "ゴールドシップ", "ドリームジャーニー", "ヴィクトワールピサ", "エイシンフラッシュ" };
-			var breederNames = new[] { "ノーザンファーム", "社台ファーム", "千代田牧場", "優駿ファーム", "白老ファーム", "下河辺牧場", "追分ファーム", "レースホース", "サンデーファーム", "グランド牧場" };
-
-			var random = new Random(42);
-
-			foreach (var horseName in horseNames)
-			{
-				var birthDate = DateTime.Now.AddYears(-random.Next(2, 8)).AddDays(-random.Next(0, 365));
-				var sireName = sireNames[random.Next(sireNames.Length)];
-				var damSireName = sireNames[random.Next(sireNames.Length)];
-				var breederName = breederNames[random.Next(breederNames.Length)];
-
-				// 血統に応じた購入価格（種牡馬の実績を反映）
-				var basePrice = sireName switch
-				{
-					"ディープインパクト" => random.Next(30000000, 100000000),
-					"キングカメハメハ" => random.Next(20000000, 80000000),
-					"ダイワメジャー" => random.Next(15000000, 60000000),
-					_ => random.Next(5000000, 40000000)
-				};
-
-				csvContent.AppendLine($"{horseName},{birthDate:yyyy-MM-dd},{sireName},{damSireName},{breederName},{basePrice}");
-			}
-
-			File.WriteAllText(filePath, csvContent.ToString(), Encoding.UTF8);
-			MainViewModel.AddLog($"horses.csv: {horseNames.Count} 頭の馬データを生成");
-		}
-
-		/// <summary>
-		/// 騎手・調教師データCSV生成
-		/// connections.csv - 騎手・調教師の組み合わせ履歴
-		/// </summary>
-		private static void GenerateConnectionsCsv(string filePath)
-		{
-			var csvContent = new StringBuilder();
-			csvContent.AppendLine("HorseName,JockeyName,TrainerName,FromDate,ToDate,IsActive");
-
-			var horseNames = GenerateHorseNames(500);
-			var jockeyNames = new[] { "武豊", "川田将雅", "福永祐一", "戸崎圭太", "ルメール", "デムーロ", "岩田康誠", "池添謙一", "松山弘平", "横山典弘" };
-			var trainerNames = new[] { "友道康夫", "藤沢和雄", "音無秀孝", "池江泰寿", "堀宣行", "国枝栄", "木村哲也", "角居勝彦", "松田国英", "橋口弘次郎" };
-
-			var random = new Random(42);
-
-			foreach (var horseName in horseNames)
-			{
-				var trainer = trainerNames[random.Next(trainerNames.Length)];
-				var primaryJockey = jockeyNames[random.Next(jockeyNames.Length)];
-				var fromDate = DateTime.Now.AddYears(-random.Next(1, 4));
-
-				// メイン騎手
-				csvContent.AppendLine($"{horseName},{primaryJockey},{trainer},{fromDate:yyyy-MM-dd},,True");
-
-				// 過去の騎手変更（30%の確率）
-				if (random.NextDouble() < 0.3)
-				{
-					var previousJockey = jockeyNames[random.Next(jockeyNames.Length)];
-					var previousFromDate = fromDate.AddMonths(-random.Next(6, 18));
-					var previousToDate = fromDate.AddDays(-1);
-
-					csvContent.AppendLine($"{horseName},{previousJockey},{trainer},{previousFromDate:yyyy-MM-dd},{previousToDate:yyyy-MM-dd},False");
-				}
-			}
-
-			File.WriteAllText(filePath, csvContent.ToString(), Encoding.UTF8);
-			MainViewModel.AddLog($"connections.csv: 騎手・調教師の組み合わせデータを生成");
-		}
-
-		/// <summary>
-		/// 馬名生成（実際の競走馬名に近い形式）
-		/// </summary>
-		private static List<string> GenerateHorseNames(int count)
-		{
-			var prefixes = new[] { "ディープ", "ゴールド", "ダイワ", "エイシン", "メイショウ", "サクラ", "タガノ", "コスモ", "アドマイヤ", "シゲル", "キング", "ロード", "スマート", "マーベラス", "ビッグ" };
-			var suffixes = new[] { "インパクト", "シップ", "メジャー", "フラッシュ", "サムソン", "チャンス", "ホープ", "ドリーム", "ビクトリー", "レジェンド", "マスター", "ファイター", "ジャーニー", "ストーリー", "ミラクル", "グローリー", "エンペラー", "プリンス", "ナイト", "ウィナー" };
-
-			var random = new Random(42);
-			var horseNames = new HashSet<string>();
-
-			while (horseNames.Count < count)
-			{
-				var prefix = prefixes[random.Next(prefixes.Length)];
-				var suffix = suffixes[random.Next(suffixes.Length)];
-				var horseName = prefix + suffix;
-
-				// 重複チェック
-				if (!horseNames.Contains(horseName))
-				{
-					horseNames.Add(horseName);
-				}
-			}
-
-			return horseNames.ToList();
-		}
-
-		/// <summary>
-		/// 距離・馬場種別に応じた基準タイム計算
-		/// </summary>
-		private static float CalculateBaseTime(int distance, string trackType)
-		{
-			var baseTimePerMeter = trackType == "芝" ? 0.061f : 0.064f; // 芝は少し速い
-			return distance * baseTimePerMeter;
-		}
-
-		/// <summary>
-		/// 人気に応じたオッズ生成（リアルな分布）
-		/// </summary>
-		private static float GenerateOdds(int popularity, int numberOfHorses, Random random)
-		{
-			return popularity switch
-			{
-				1 => 1.5f + (float)random.NextDouble() * 2.0f,      // 1番人気: 1.5-3.5倍
-				2 => 3.0f + (float)random.NextDouble() * 3.0f,      // 2番人気: 3.0-6.0倍
-				3 => 5.0f + (float)random.NextDouble() * 4.0f,      // 3番人気: 5.0-9.0倍
-				<= 5 => 8.0f + (float)random.NextDouble() * 10.0f,  // 4-5番人気: 8-18倍
-				<= 8 => 15.0f + (float)random.NextDouble() * 20.0f, // 6-8番人気: 15-35倍
-				_ => 30.0f + (float)random.NextDouble() * 100.0f     // 9番人気以下: 30-130倍
-			};
-		}
-	}
-
 	// ===== 使用例とワークフロー =====
 
 	//public class TrainingDataCreationExample
@@ -1991,7 +1776,7 @@ namespace HorseRacingPrediction
 	//				Distance = 1600,
 	//				TrackType = "芝",
 	//				TrackCondition = "良",
-	//				Grade = "G1",
+	//				Grade = "G1古",
 	//				FirstPrizeMoney = 200000000,
 	//				NumberOfHorses = 16,
 	//				RaceDate = DateTime.Today,

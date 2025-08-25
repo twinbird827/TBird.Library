@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-このファイルは、このリポジトリでコードを扱う際のClaude Code (claude.ai/code) への指針を提供します。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## リポジトリ概要
 
@@ -218,3 +218,110 @@ public class HybridResource : TBirdObject
     }
 }
 ```
+
+## 追加のビルドとデバッグコマンド
+
+### リンティングとコード品質
+
+```bash
+# コード分析の実行
+dotnet build /p:RunAnalyzers=true /p:AnalysisLevel=latest
+
+# 特定のプロジェクトでコード分析
+dotnet build TBird.Core/TBird.Core.csproj /p:RunAnalyzers=true
+```
+
+### デバッグビルド
+
+```bash
+# デバッグシンボル付きビルド
+dotnet build -c Debug /p:DebugType=full /p:DebugSymbols=true
+
+# 詳細なビルドログ
+dotnet build -v detailed > build.log
+```
+
+## プロジェクト間の依存関係
+
+### 依存関係階層
+
+```
+TBird.Core (基盤)
+├── TBird.Wpf (UIフレームワーク)
+├── TBird.DB (データベース抽象化)
+│   ├── TBird.DB.SQLite
+│   └── TBird.DB.SQLServer
+├── TBird.Web (Web関連機能)
+├── TBird.Pdf (PDF処理)
+├── TBird.Roslyn (C#スクリプティング)
+├── TBird.Plugin (プラグインシステム)
+└── TBird.Service (サービス基盤)
+```
+
+### ターゲットフレームワーク別の考慮事項
+
+- **.NET Standard 2.0**: 最大の互換性のための基本ライブラリ
+- **.NET Framework 4.8**: レガシーWindowsアプリケーションサポート
+- **.NET 5.0/7.0/8.0**: モダンなクロスプラットフォーム機能
+
+## 重要な実装詳細
+
+### TBirdObjectのライフサイクル
+
+1. **コンストラクタ**: GUIDが自動生成される
+2. **使用中**: イベントハンドラーとリソースが管理される
+3. **Dispose呼び出し**: 
+   - マネージドリソースが解放される
+   - イベントハンドラーが自動的に削除される
+   - アンマネージドリソースが解放される
+4. **ファイナライザー**: アンマネージドリソースのみ解放
+
+### BindableCollectionの使い分け
+
+- `BindableCollection<T>`: 基本的なスレッドセーフコレクション
+- `SortableBindableCollection<T>`: ソート機能付き
+- `FilterableBindableCollection<T>`: フィルタリング機能付き
+- `GroupableBindableCollection<T>`: グルーピング機能付き
+
+### 非同期パターン
+
+```csharp
+// データベース操作の例
+public async Task<IEnumerable<T>> GetDataAsync<T>(string query)
+{
+    using var control = new SqliteDbControl(connectionString);
+    return await control.SelectAsync<T>(query);
+}
+```
+
+## トラブルシューティング
+
+### ビルドエラーの対処
+
+1. **NuGetパッケージの復元エラー**
+   ```bash
+   dotnet nuget locals all --clear
+   dotnet restore --force
+   ```
+
+2. **ターゲットフレームワークの不一致**
+   - プロジェクトファイルの`<TargetFramework>`を確認
+   - 必要に応じて適切なSDKをインストール
+
+3. **参照の循環**
+   - プロジェクト間の依存関係を確認
+   - 必要に応じてインターフェースを別プロジェクトに分離
+
+## セキュリティとベストプラクティス
+
+### 接続文字列の管理
+
+- ハードコードされた接続文字列を避ける
+- アプリケーション設定または環境変数を使用
+- 例: `ConfigurationManager.ConnectionStrings["DbConnection"].ConnectionString`
+
+### リソースの適切な解放
+
+- `using`ステートメントまたは`using`宣言を必ず使用
+- `TBirdObject`を継承する場合は適切なDisposeパターンに従う
+- 非同期操作では`await using`を使用

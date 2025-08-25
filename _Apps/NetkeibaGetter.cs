@@ -619,6 +619,13 @@ namespace Netkeiba
 					var isget = false;
 					foreach (var classname in classnames)
 					{
+						string GetId(IHtmlTableRowElement r) => !string.IsNullOrEmpty(r.Cells[1].GetHrefAttribute("href"))
+							? r.Cells[1].GetHrefAttribute("href").Split('/')[2]
+							: r.Cells[1].GetInnerHtml();
+						string GetName(IHtmlTableRowElement r) => !string.IsNullOrEmpty(r.Cells[1].GetHrefAttribute("href"))
+							? r.Cells[1].GetHrefAttribute("title")
+							: r.Cells[1].GetInnerHtml();
+
 						if (ped.GetElementsByClassName(classname).FirstOrDefault() is IHtmlTableElement table)
 						{
 							foreach (var r in table.Rows)
@@ -629,16 +636,16 @@ namespace Netkeiba
 										dic["生年月日"] = r.Cells[1].GetInnerHtml().Date().ToString("yyyy/MM/dd");
 										break;
 									case "調教師":
-										dic["調教師ID"] = r.Cells[1].GetHrefAttribute("href").Split('/')[2];
-										dic["調教師名"] = r.Cells[1].GetHrefAttribute("title");
+										dic["調教師ID"] = GetId(r);
+										dic["調教師名"] = GetName(r);
 										break;
 									case "馬主":
-										dic["馬主ID"] = r.Cells[1].GetHrefAttribute("href").Split('/')[2];
-										dic["馬主名"] = r.Cells[1].GetHrefAttribute("title");
+										dic["馬主ID"] = GetId(r);
+										dic["馬主名"] = GetName(r);
 										break;
 									case "生産者":
-										dic["生産者ID"] = r.Cells[1].GetHrefAttribute("href").Split('/')[2];
-										dic["生産者名"] = r.Cells[1].GetHrefAttribute("title");
+										dic["生産者ID"] = GetId(r);
+										dic["生産者名"] = GetName(r);
 										break;
 									case "セリ取引価格":
 										dic["セリ取引価格"] = CalculateSeri(r.Cells[1].InnerHtml).Str();

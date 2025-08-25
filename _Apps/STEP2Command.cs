@@ -50,7 +50,6 @@ namespace Netkeiba
 					if (!report.IsValid)
 					{
 						MainViewModel.AddLog("⚠️ データ品質に問題があります。修正してください。");
-						return;
 					}
 
 					await SaveTrainingDataAsync(data, $@"C:\work\train-{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.json");
@@ -309,7 +308,7 @@ namespace Netkeiba
 		public static async IAsyncEnumerable<RaceData> GetRaceDataAsync(this SQLiteControl conn, int days)
 		{
 			var sql = @"
-SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬名, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
 FROM t_orig_h h, t_orig_d d, t_uma u
 WHERE h.開催日数 > ? AND h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID
 			";
@@ -327,7 +326,7 @@ WHERE h.開催日数 > ? AND h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID
 					FirstPrizeMoney = x["優勝賞金"].Int64(),
 					NumberOfHorses = x["頭数"].Int32(),
 					RaceDate = x["開催日"].Date(),
-					HorseName = x["馬名"].Str(),
+					HorseName = x["馬ID"].Str(),
 					FinishPosition = x["着順"].Int32(),
 					Weight = x["体重"].Single(),
 					Time = x["ﾀｲﾑ変換"].Single(),
