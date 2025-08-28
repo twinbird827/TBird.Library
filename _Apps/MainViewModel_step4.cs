@@ -183,13 +183,13 @@ namespace Netkeiba
 						var 馬IDs = racearr.Select(x => x["馬ID"]).Distinct();
 
 						// 血統情報の作成
-						await RefreshKetto(conn, 馬IDs, false);
+						//await RefreshKetto(conn, 馬IDs, false);
 
 						//// 産駒成績の更新
 						//await RefreshSanku(conn, 馬IDs, false);
 
 						// ﾚｰｽ情報の初期化
-						await InitializeModelBase(conn);
+						//await InitializeModelBase(conn);
 
 						foreach (var o in AppUtil.OrderBys)
 						{
@@ -202,64 +202,64 @@ namespace Netkeiba
 							using (MessageService.Measure($"CreateRaceModel:{raceid}"))
 							{
 								// ﾓﾃﾞﾙﾃﾞｰﾀ作成
-								foreach (var m in await CreateRaceModel(conn, "v_shutuba", raceid, 馬性, 調教場所, 追切))
-								{
-									var tmp = new List<object>();
-									var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
+								//foreach (var m in await CreateRaceModel(conn, "v_shutuba", raceid, 馬性, 調教場所, 追切))
+								//{
+								//	var tmp = new List<object>();
+								//	var src = racearr.First(x => x["馬ID"].GetInt64() == (long)m["馬ID"]);
 
-									var features = AppUtil.CreateFeatures(m);
+								//	var features = AppUtil.CreateFeatures(m);
 
-									// 共通ﾍｯﾀﾞ
-									tmp.Add(src["ﾚｰｽID"]);
-									tmp.Add(src["ﾗﾝｸ1"]);
-									tmp.Add(src["ﾚｰｽ名"]);
-									tmp.Add(src["開催場所"]);
-									tmp.Add(src["ﾚｰｽID"].Right(2));
-									tmp.Add(m["枠番"]);
-									tmp.Add(m["馬番"]);
-									tmp.Add(src["馬名"]);
-									tmp.Add(src["着順"]);
+								//	// 共通ﾍｯﾀﾞ
+								//	tmp.Add(src["ﾚｰｽID"]);
+								//	tmp.Add(src["ﾗﾝｸ1"]);
+								//	tmp.Add(src["ﾚｰｽ名"]);
+								//	tmp.Add(src["開催場所"]);
+								//	tmp.Add(src["ﾚｰｽID"].Right(2));
+								//	tmp.Add(m["枠番"]);
+								//	tmp.Add(m["馬番"]);
+								//	tmp.Add(src["馬名"]);
+								//	tmp.Add(src["着順"]);
 
-									IEnumerable<(int i, float predict)> GetPredicts<TSrc, TDst>(PredictionFactory<TSrc, TDst>[] factories, int len) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
-									{
-										var predicts = factories
-											.Select(x => x.Predict(features, src["ﾚｰｽID"].GetInt64()))
-											.OrderByDescending(x => x)
-											.Run(x => x.Count() <= len ? x : x.Skip(1))
-											.Run(x => x.Count() <= len ? x : x.Skip(1))
-											.ToArray();
+								//	IEnumerable<(int i, float predict)> GetPredicts<TSrc, TDst>(PredictionFactory<TSrc, TDst>[] factories, int len) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
+								//	{
+								//		var predicts = factories
+								//			.Select(x => x.Predict(features, src["ﾚｰｽID"].GetInt64()))
+								//			.OrderByDescending(x => x)
+								//			.Run(x => x.Count() <= len ? x : x.Skip(1))
+								//			.Run(x => x.Count() <= len ? x : x.Skip(1))
+								//			.ToArray();
 
-										for (var i = 0; i < predicts.Length; i++)
-										{
-											yield return (i % len, predicts[i]);
-										}
-									}
+								//		for (var i = 0; i < predicts.Length; i++)
+								//		{
+								//			yield return (i % len, predicts[i]);
+								//		}
+								//	}
 
-									Dictionary<int, IEnumerable<float>> ToPredictDictionary(IEnumerable<(int i, float predict)> values) => values
-										.Select(x => x.i)
-										.Distinct()
-										.ToDictionary(i => i, i => values.Where(x => x.i == i).Select(x => x.predict));
+								//	Dictionary<int, IEnumerable<float>> ToPredictDictionary(IEnumerable<(int i, float predict)> values) => values
+								//		.Select(x => x.i)
+								//		.Distinct()
+								//		.ToDictionary(i => i, i => values.Where(x => x.i == i).Select(x => x.predict));
 
-									var 以内s = ToPredictDictionary(GetPredicts(以内[src["ﾗﾝｸ2"]], 4).ToArray());
-									var 着外s = ToPredictDictionary(GetPredicts(着外[src["ﾗﾝｸ2"]], 4).ToArray());
-									var 着順s = ToPredictDictionary(GetPredicts(着順[src["ﾗﾝｸ2"]], 1).ToArray());
+								//	var 以内s = ToPredictDictionary(GetPredicts(以内[src["ﾗﾝｸ2"]], 4).ToArray());
+								//	var 着外s = ToPredictDictionary(GetPredicts(着外[src["ﾗﾝｸ2"]], 4).ToArray());
+								//	var 着順s = ToPredictDictionary(GetPredicts(着順[src["ﾗﾝｸ2"]], 1).ToArray());
 
-									var binaries1 = 以内s.Values.Select(x => (object)x.Average()).ToArray();
-									tmp.AddRange(binaries1);
+								//	var binaries1 = 以内s.Values.Select(x => (object)x.Average()).ToArray();
+								//	tmp.AddRange(binaries1);
 
-									var binaries2 = 着外s.Values.Select(x => (object)x.Average()).ToArray();
-									tmp.AddRange(binaries2);
+								//	var binaries2 = 着外s.Values.Select(x => (object)x.Average()).ToArray();
+								//	tmp.AddRange(binaries2);
 
-									var regressions = 着順s.Values.Select(x => (object)x.Average()).ToArray();
-									tmp.AddRange(regressions);
+								//	var regressions = 着順s.Values.Select(x => (object)x.Average()).ToArray();
+								//	tmp.AddRange(regressions);
 
-									var scores = Arr(
-										// 合計値1
-										binaries1.Concat(binaries2).Average(x => x.GetSingle())
-									);
-									tmp.AddRange(scores.Select(x => (object)x));
-									arr.Add(tmp);
-								}
+								//	var scores = Arr(
+								//		// 合計値1
+								//		binaries1.Concat(binaries2).Average(x => x.GetSingle())
+								//	);
+								//	tmp.AddRange(scores.Select(x => (object)x));
+								//	arr.Add(tmp);
+								//}
 							}
 
 							if (arr.Any()) lists[$"Best-{o}"].AddRange(arr);

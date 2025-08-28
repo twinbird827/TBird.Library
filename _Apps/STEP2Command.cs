@@ -72,196 +72,309 @@ namespace Netkeiba
 			await File.WriteAllTextAsync(filePath, json);
 			MainViewModel.AddLog($"訓練データを保存しました: {filePath}");
 		}
-	}
 
-	public class SQLiteRepository : TBirdObject, IDataRepository
-	{
-		private List<RaceData> _allRaceData = new();
-		private List<HorseData> _allHorseData = new();
-		private List<ConnectionData> _allConnectionData = new();
+		// ===== 訓練データ生成システム =====
 
-		public SQLiteRepository()
+		public class TrainingDataGenerator
 		{
+			private readonly IDataRepository _dataRepository;
 
-		}
-
-		protected override void DisposeManagedResource()
-		{
-			base.DisposeManagedResource();
-
-			_allRaceData.Clear();
-			_allHorseData.Clear();
-			_allConnectionData.Clear();
-		}
-
-		public async Task LoadDataAsync()
-		{
-			using (var conn = AppUtil.CreateSQLiteControl())
+			public TrainingDataGenerator(IDataRepository dataRepository)
 			{
-				var days = (DateTime.Now.AddYears(-7) - DateTime.Parse("1990/01/01")).TotalDays.Int32();
-
-				// レースデータの読み込み
-				_allRaceData = conn.GetRaceDataAsync(days).ToBlockingEnumerable().ToList();
-
-				// 馬データの読み込み
-				_allHorseData = conn.GetHorseDataAsync().ToBlockingEnumerable().ToList();
-
-				// 関係者データの読み込み
-				//var connectionsPath = Path.Combine(_dataDirectory, "connections.csv");
-
-				MainViewModel.AddLog($"読み込み完了: レース {_allRaceData.Count} 件, 馬 {_allHorseData.Count} 件, 関係者 {_allConnectionData.Count} 件");
-
+				_dataRepository = dataRepository ?? throw new ArgumentNullException(nameof(dataRepository));
 			}
-		}
 
-		public async Task<List<Race>> GetRacesAsync(DateTime startDate, DateTime endDate)
-		{
-			return _allRaceData
-				.Where(r => r.RaceDate >= startDate && r.RaceDate <= endDate)
-				.GroupBy(r => r.RaceId)
-				.Select(g => g.First())
-				.Select(r => new Race
-				{
-					RaceId = r.RaceId,
-					CourseName = r.CourseName,
-					Distance = r.Distance,
-					TrackType = r.TrackType,
-					TrackCondition = r.TrackCondition,
-					Grade = r.Grade,
-					FirstPrizeMoney = r.FirstPrizeMoney,
-					NumberOfHorses = r.NumberOfHorses,
-					RaceDate = r.RaceDate,
-					AverageRating = CalculateAverageRating(r.RaceId),
-					IsInternational = r.Grade == "G1" && r.FirstPrizeMoney > 200000000,
-					IsAgedHorseRace = r.Grade != "新馬" && r.Grade != "未勝利"
-				})
-				.ToList();
-		}
+			/// <summary>
+			/// 指定期間のレースデータから訓練データを生成
+			/// </summary>
+			public async Task<List<OptimizedHorseFeatures>> GenerateTrainingDataAsync(
+				DateTime startDate,
+				DateTime endDate,
+				int minRaceCount = 2,
+				bool includeNewHorses = true)
+			{
+				MainViewModel.AddLog($"訓練データ生成開始: {startDate:yyyy-MM-dd} ～ {endDate:yyyy-MM-dd}");
 
-		public async Task<List<RaceResultData>> GetRaceResultsAsync(string raceId)
-		{
-			return _allRaceData
-				.Where(r => r.RaceId == raceId)
-				.Select(r => new RaceResultData
-				{
-					RaceId = r.RaceId,
-					HorseName = r.HorseName,
-					FinishPosition = r.FinishPosition,
-					Weight = r.Weight,
-					Time = r.Time,
-					Odds = r.Odds,
-					JockeyName = r.JockeyName,
-					TrainerName = r.TrainerName,
-					RaceDate = r.RaceDate
-				})
-				.OrderBy(r => r.FinishPosition)
-				.ToList();
-		}
+				var trainingData = new List<OptimizedHorseFeatures>();
+				var races = await _dataRepository.GetRacesAsync(startDate, endDate);
 
-		public async Task<List<RaceResult>> GetHorseHistoryBeforeAsync(string horseName, DateTime beforeDate)
-		{
-			return _allRaceData
-				.Where(r => r.HorseName == horseName && r.RaceDate < beforeDate)
-				.OrderByDescending(r => r.RaceDate)
-				.Select(r => new RaceResult
+				var processedCount = 0;
+				var totalRaces = races.Count;
+
+				foreach (var race in races.OrderBy(r => r.RaceDate))
 				{
-					FinishPosition = r.FinishPosition,
-					Time = r.Time,
-					TotalHorses = r.NumberOfHorses,
-					RaceDate = r.RaceDate,
-					HorseExperience = CalculateHorseExperience(r.HorseName, r.RaceDate),
-					Race = new Race
+					try
 					{
-						RaceId = r.RaceId,
-						Distance = r.Distance,
-						TrackType = r.TrackType,
-						TrackCondition = r.TrackCondition,
-						Grade = r.Grade,
-						CourseName = r.CourseName,
-						FirstPrizeMoney = r.FirstPrizeMoney,
-						NumberOfHorses = r.NumberOfHorses,
-						RaceDate = r.RaceDate
+						var raceTrainingData = await GenerateRaceTrainingDataAsync(race, minRaceCount, includeNewHorses);
+						trainingData.AddRange(raceTrainingData);
+
+						processedCount++;
+						if (processedCount % 100 == 0)
+						{
+							MainViewModel.AddLog($"進捗: {processedCount}/{totalRaces} レース処理完了");
+						}
 					}
-				})
-				.ToList();
-		}
+					catch (Exception ex)
+					{
+						MainViewModel.AddLog($"レース {race.RaceId} の処理でエラー: {ex.Message}");
+						continue;
+					}
+				}
 
-		public async Task<HorseDetails> GetHorseDetailsAsync(string horseName, DateTime asOfDate)
-		{
-			var horseData = _allHorseData.FirstOrDefault(h => h.Name == horseName);
-			var raceHistory = _allRaceData
-				.Where(r => r.HorseName == horseName && r.RaceDate < asOfDate)
-				.OrderByDescending(r => r.RaceDate)
-				.ToList();
-
-			return new HorseDetails
-			{
-				Name = horseName,
-				Age = CalculateAge(horseData?.BirthDate ?? DateTime.Now.AddYears(-4), asOfDate),
-				PreviousWeight = raceHistory.Skip(1).FirstOrDefault()?.Weight ?? 456,
-				SireName = horseData?.SireName ?? "Unknown",
-				DamSireName = horseData?.DamSireName ?? "Unknown",
-				BreederName = horseData?.BreederName ?? "Unknown",
-				LastRaceDate = raceHistory.FirstOrDefault()?.RaceDate ?? DateTime.MinValue,
-				PurchasePrice = horseData?.PurchasePrice ?? 10000000,
-				RaceCount = raceHistory.Count
-			};
-		}
-
-		public async Task<ConnectionDetails> GetConnectionsAsync(string horseName, DateTime asOfDate)
-		{
-			// 最新の関係者情報を取得
-			var activeConnection = _allConnectionData
-				.Where(c => c.HorseName == horseName && c.IsActive)
-				.OrderByDescending(c => c.FromDate)
-				.FirstOrDefault();
-
-			if (activeConnection != null)
-			{
-				return new ConnectionDetails
-				{
-					JockeyName = activeConnection.JockeyName,
-					TrainerName = activeConnection.TrainerName,
-					AsOfDate = asOfDate
-				};
+				MainViewModel.AddLog($"訓練データ生成完了: {trainingData.Count} 件のデータを生成");
+				return trainingData;
 			}
 
-			// 関係者データがない場合、最新のレース結果から取得
-			var latestRace = _allRaceData
-				.Where(r => r.HorseName == horseName && r.RaceDate <= asOfDate)
-				.OrderByDescending(r => r.RaceDate)
-				.FirstOrDefault();
-
-			return new ConnectionDetails
+			/// <summary>
+			/// 単一レースから訓練データを生成
+			/// </summary>
+			private async Task<List<OptimizedHorseFeatures>> GenerateRaceTrainingDataAsync(
+				Race race,
+				int minRaceCount,
+				bool includeNewHorses)
 			{
-				JockeyName = latestRace?.JockeyName ?? "Unknown",
-				TrainerName = latestRace?.TrainerName ?? "Unknown",
-				AsOfDate = asOfDate
-			};
+				var raceTrainingData = new List<OptimizedHorseFeatures>();
+				var raceResults = await _dataRepository.GetRaceResultsAsync(race.RaceId);
+
+				// レース前の各馬の戦歴を取得（レース当日より前のデータのみ）
+				var horsesHistoryMap = new Dictionary<string, List<RaceResult>>();
+
+				foreach (var result in raceResults)
+				{
+					var horseHistory = await _dataRepository.GetHorseHistoryBeforeAsync(
+						result.HorseName, race.RaceDate);
+
+					// 最低出走回数チェック
+					if (!includeNewHorses && horseHistory.Count < minRaceCount)
+						continue;
+
+					horsesHistoryMap[result.HorseName] = horseHistory;
+				}
+
+				// 各馬の特徴量を生成
+				foreach (var result in raceResults)
+				{
+					if (!horsesHistoryMap.ContainsKey(result.HorseName))
+						continue;
+
+					var horse = await CreateHorseFromResultAsync(result, race.RaceDate);
+					var horseHistory = horsesHistoryMap[result.HorseName];
+					horse.RaceHistory = horseHistory;
+
+					// 他の出走馬も設定（人気順計算等に必要）
+					var allHorsesInRace = await CreateAllHorsesInRaceAsync(raceResults, race.RaceDate);
+
+					// 関係者情報
+					var jockeyRaces = _dataRepository.GetJockeyRecentRaces(result.JockeyName, race.RaceDate, 100);
+					var trainerRaces = _dataRepository.GetTrainerRecentRaces(result.TrainerName, race.RaceDate, 100);
+
+					// 特徴量抽出
+					var features = FeatureExtractor.ExtractFeatures(horse, race, allHorsesInRace, jockeyRaces, trainerRaces);
+
+					// ラベル生成（難易度調整済み着順スコア）
+					features.Label = result.CalculateAdjustedInverseScore(race);
+					features.RaceId = race.RaceId;
+
+					raceTrainingData.Add(features);
+				}
+
+				return raceTrainingData;
+			}
+
+			/// <summary>
+			/// レース結果から馬オブジェクトを作成
+			/// </summary>
+			private async Task<Horse> CreateHorseFromResultAsync(RaceResultData result, DateTime raceDate)
+			{
+				var horseDetails = await _dataRepository.GetHorseDetailsAsync(result.HorseName, raceDate);
+
+				return new Horse(result, horseDetails);
+			}
+
+			/// <summary>
+			/// レース内の全馬を作成（相対指標計算用）
+			/// </summary>
+			private async Task<List<Horse>> CreateAllHorsesInRaceAsync(List<RaceResultData> results, DateTime raceDate)
+			{
+				var horses = new List<Horse>();
+
+				foreach (var result in results)
+				{
+					var horse = await CreateHorseFromResultAsync(result, raceDate);
+					horses.Add(horse);
+				}
+
+				return horses;
+			}
+
+			/// <summary>
+			/// 訓練データの品質チェック
+			/// </summary>
+			public TrainingDataQualityReport ValidateTrainingData(List<OptimizedHorseFeatures> trainingData)
+			{
+				var report = new TrainingDataQualityReport();
+
+				if (!trainingData.Any())
+				{
+					report.IsValid = false;
+					report.Issues.Add("訓練データが空です");
+					return report;
+				}
+
+				// 基本統計
+				report.TotalRecords = trainingData.Count;
+				report.UniqueRaces = trainingData.Select(d => d.RaceId).Distinct().Count();
+				report.NewHorseRatio = trainingData.Count(d => d.IsNewHorse) / (float)trainingData.Count;
+
+				// ラベル分布チェック
+				var labels = trainingData.Select(d => d.Label).ToArray();
+				report.LabelMin = labels.Min();
+				report.LabelMax = labels.Max();
+				report.LabelMean = labels.Average();
+				report.LabelStdDev = CalculateStandardDeviation(labels);
+
+				// 欠損値チェック
+				CheckMissingValues(trainingData, report);
+
+				// 異常値チェック
+				CheckOutliers(trainingData, report);
+
+				// 特徴量相関チェック
+				CheckFeatureCorrelation(trainingData, report);
+
+				report.IsValid = !report.Issues.Any();
+
+				return report;
+			}
+
+			private void CheckMissingValues(List<OptimizedHorseFeatures> data, TrainingDataQualityReport report)
+			{
+				var missingChecks = new Dictionary<string, Func<OptimizedHorseFeatures, bool>>
+				{
+					["Recent3AdjustedAvg"] = f => f.Recent3AdjustedAvg == 0,
+					["CurrentDistanceAptitude"] = f => f.CurrentDistanceAptitude == 0,
+					["JockeyCurrentConditionAvg"] = f => f.JockeyCurrentConditionAvg == 0,
+					["TrainerCurrentConditionAvg"] = f => f.TrainerCurrentConditionAvg == 0
+				};
+
+				foreach (var check in missingChecks)
+				{
+					var missingCount = data.Count(check.Value);
+					var missingRatio = missingCount / (float)data.Count;
+
+					if (missingRatio > 0.3f) // 30%以上欠損
+					{
+						report.Issues.Add($"{check.Key}: {missingRatio:P1} のデータが欠損");
+					}
+
+					report.MissingValueRatios[check.Key] = missingRatio;
+				}
+			}
+
+			private void CheckOutliers(List<OptimizedHorseFeatures> data, TrainingDataQualityReport report)
+			{
+				// 異常に高いスコアをチェック
+				var highScores = data.Where(d => d.Recent3AdjustedAvg > 2.0f).ToList();
+				if (highScores.Count > data.Count * 0.05f) // 5%以上
+				{
+					report.Issues.Add($"異常に高いスコアが {highScores.Count} 件あります");
+				}
+
+				// 異常に古い馬をチェック
+				var oldHorses = data.Where(d => d.Age > 8).ToList();
+				if (oldHorses.Count > data.Count * 0.02f) // 2%以上
+				{
+					report.Issues.Add($"8歳以上の馬が {oldHorses.Count} 件あります");
+				}
+
+				// 異常な体重変化をチェック
+				var extremeWeightChanges = data.Where(d => Math.Abs(d.WeightChange) > 20).ToList();
+				if (extremeWeightChanges.Count > data.Count * 0.02f) // 2%以上
+				{
+					report.Issues.Add($"20kg以上の体重変化が {extremeWeightChanges.Count} 件あります");
+				}
+			}
+
+			private void CheckFeatureCorrelation(List<OptimizedHorseFeatures> data, TrainingDataQualityReport report)
+			{
+				// 高相関の特徴量ペアをチェック
+				var recent3Avg = data.Select(d => d.Recent3AdjustedAvg).ToArray();
+				var recent5Avg = data.Select(d => d.Recent5AdjustedAvg).ToArray();
+
+				var correlation = CalculateCorrelation(recent3Avg, recent5Avg);
+				if (correlation > 0.95f)
+				{
+					report.Issues.Add($"Recent3AdjustedAvgとRecent5AdjustedAvgの相関が高すぎます: {correlation:F3}");
+				}
+			}
+
+			private float CalculateStandardDeviation(float[] values)
+			{
+				var mean = values.Average();
+				var variance = values.Select(v => (v - mean) * (v - mean)).Average();
+				return (float)Math.Sqrt(variance);
+			}
+
+			private float CalculateCorrelation(float[] x, float[] y)
+			{
+				if (x.Length != y.Length) return 0;
+
+				var meanX = x.Average();
+				var meanY = y.Average();
+
+				var numerator = x.Zip(y, (xi, yi) => (xi - meanX) * (yi - meanY)).Sum();
+				var denomX = Math.Sqrt(x.Select(xi => (xi - meanX) * (xi - meanX)).Sum());
+				var denomY = Math.Sqrt(y.Select(yi => (yi - meanY) * (yi - meanY)).Sum());
+
+				return (float)(numerator / (denomX * denomY));
+			}
 		}
 
-		private float CalculateAverageRating(string raceId)
-		{
-			// 簡易レーティング計算（実際の実装では詳細な計算を行う）
-			var raceHorses = _allRaceData.Where(r => r.RaceId == raceId).ToList();
-			if (!raceHorses.Any()) return 80.0f;
+		// ===== 品質レポート =====
 
-			// オッズから逆算した強さ指標
-			var avgOdds = raceHorses.Average(h => h.Odds);
-			return Math.Max(70.0f, Math.Min(95.0f, 100.0f - (float)Math.Log(avgOdds) * 5.0f));
-		}
-
-		private int CalculateHorseExperience(string horseName, DateTime raceDate)
+		public class TrainingDataQualityReport
 		{
-			return _allRaceData
-				.Count(r => r.HorseName == horseName && r.RaceDate < raceDate);
-		}
+			public bool IsValid { get; set; } = true;
+			public List<string> Issues { get; set; } = new();
+			public int TotalRecords { get; set; }
+			public int UniqueRaces { get; set; }
+			public float NewHorseRatio { get; set; }
+			public float LabelMin { get; set; }
+			public float LabelMax { get; set; }
+			public float LabelMean { get; set; }
+			public float LabelStdDev { get; set; }
+			public Dictionary<string, float> MissingValueRatios { get; set; } = new();
 
-		private int CalculateAge(DateTime birthDate, DateTime asOfDate)
-		{
-			var age = asOfDate.Year - birthDate.Year;
-			if (asOfDate.DayOfYear < birthDate.DayOfYear) age--;
-			return Math.Max(2, Math.Min(age, 10)); // 2-10歳の範囲に制限
+			public void PrintReport()
+			{
+				MainViewModel.AddLog("=== 訓練データ品質レポート ===");
+				MainViewModel.AddLog($"総レコード数: {TotalRecords:N0}");
+				MainViewModel.AddLog($"ユニークレース数: {UniqueRaces:N0}");
+				MainViewModel.AddLog($"新馬比率: {NewHorseRatio:P1}");
+				MainViewModel.AddLog($"ラベル統計: Min={LabelMin:F3}, Max={LabelMax:F3}, Mean={LabelMean:F3}, StdDev={LabelStdDev:F3}");
+
+				if (MissingValueRatios.Any())
+				{
+					MainViewModel.AddLog("\n欠損値比率:");
+					foreach (var missing in MissingValueRatios.Where(m => m.Value > 0))
+					{
+						MainViewModel.AddLog($"  {missing.Key}: {missing.Value:P1}");
+					}
+				}
+
+				if (Issues.Any())
+				{
+					MainViewModel.AddLog("⚠️ 品質上の問題:");
+					foreach (var issue in Issues)
+					{
+						MainViewModel.AddLog($"  - {issue}");
+					}
+				}
+				else
+				{
+					MainViewModel.AddLog("✅ データ品質に問題はありません");
+				}
+			}
 		}
 	}
 
@@ -315,25 +428,7 @@ WHERE h.開催日数 > ? AND h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID
 
 			foreach (var x in await conn.GetRows(sql, SQLiteUtil.CreateParameter(DbType.Int32, days)))
 			{
-				yield return new RaceData()
-				{
-					RaceId = x["ﾚｰｽID"].Str(),
-					CourseName = x["ﾚｰｽ名"].Str(),
-					Distance = x["距離"].Int32(),
-					TrackType = x["馬場"].Str(),
-					TrackCondition = x["馬場状態"].Str(),
-					Grade = x["ﾗﾝｸ1"].Str(),
-					FirstPrizeMoney = x["優勝賞金"].Int64(),
-					NumberOfHorses = x["頭数"].Int32(),
-					RaceDate = x["開催日"].Date(),
-					HorseName = x["馬ID"].Str(),
-					FinishPosition = x["着順"].Int32(),
-					Weight = x["体重"].Single(),
-					Time = x["ﾀｲﾑ変換"].Single(),
-					Odds = x["単勝"].Single(),
-					JockeyName = x["騎手ID"].Str(),
-					TrainerName = x["調教師ID"].Str()
-				};
+				yield return new RaceData(x);
 			}
 		}
 
@@ -360,15 +455,7 @@ LEFT JOIN v_uma3 ON v_uma.馬主ID = v_uma3.馬主ID
 
 			foreach (var x in await conn.GetRows(sql))
 			{
-				yield return new HorseData()
-				{
-					Name = x["馬ID"].Str(),
-					BirthDate = x["生年月日"].Date(),
-					SireName = x["父ID"].Str(),
-					DamSireName = x["母父ID"].Str(),
-					BreederName = x["馬主ID"].Str(),
-					PurchasePrice = x["購入額"].Int64()
-				};
+				yield return new HorseData(x);
 			}
 		}
 
