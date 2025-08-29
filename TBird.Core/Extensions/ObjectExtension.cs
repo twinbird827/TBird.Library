@@ -17,6 +17,13 @@ namespace TBird.Core
 		public static KeyValuePair<TKey, TValue> Kvp<TKey, TValue>(this TKey key, TValue value) => new KeyValuePair<TKey, TValue>(key, value);
 
 		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="DateTime"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <returns></returns>
+		public static DateTime Date(this object value) => value is DateTime x ? x : DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""));
+
+		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="string"/>型に変換します。
 		/// </summary>
 		/// <param name="value">元となる値</param>
