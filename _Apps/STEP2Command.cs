@@ -251,12 +251,12 @@ namespace Netkeiba
 					report.Issues.Add($"8歳以上の馬が {oldHorses.Count} 件あります");
 				}
 
-				// 異常な体重変化をチェック
-				var extremeWeightChanges = data.Where(d => Math.Abs(d.WeightChange) > 20).ToList();
-				if (extremeWeightChanges.Count > data.Count * 0.02f) // 2%以上
-				{
-					report.Issues.Add($"20kg以上の体重変化が {extremeWeightChanges.Count} 件あります");
-				}
+				//// 異常な体重変化をチェック
+				//var extremeWeightChanges = data.Where(d => Math.Abs(d.WeightChange) > 20).ToList();
+				//if (extremeWeightChanges.Count > data.Count * 0.02f) // 2%以上
+				//{
+				//	report.Issues.Add($"20kg以上の体重変化が {extremeWeightChanges.Count} 件あります");
+				//}
 			}
 
 			private void CheckFeatureCorrelation(List<OptimizedHorseFeaturesModel> data, TrainingDataQualityReport report)
@@ -402,66 +402,6 @@ namespace Netkeiba
 			).RunAsync(x => x.GetInt32());
 			return 0 < cnt;
 		}
-
-		public static async IAsyncEnumerable<RaceData> GetRaceDataAsync(this SQLiteControl conn, int days)
-		{
-			var sql = @"
-SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
-FROM t_orig_h h, t_orig_d d, t_uma u
-WHERE h.開催日数 > ? AND h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID
-			";
-
-			foreach (var x in await conn.GetRows(sql, SQLiteUtil.CreateParameter(DbType.Int32, days)))
-			{
-				yield return new RaceData(x);
-			}
-		}
-
-		public static async IAsyncEnumerable<HorseData> GetHorseDataAsync(this SQLiteControl conn)
-		{
-			var sql = @"
-with v_uma AS (SELECT 馬ID, 馬名, 生年月日, MAX(セリ取引価格*1, 募集情報*0.7) 購入額, 馬主ID, 父ID, 母父ID FROM t_uma),
-v_uma0 AS (SELECT 父ID, 母父ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 父ID, 母父ID),
-v_uma1 AS (SELECT 父ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 父ID),
-v_uma2 AS (SELECT 母父ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 母父ID),
-v_uma3 AS (SELECT 馬主ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 馬主ID)
-SELECT 馬ID, 馬名, 生年月日, (CASE WHEN v_uma.購入額>0 THEN v_uma.購入額 ELSE COALESCE(
-v_uma0.購入額*0.9,
-v_uma1.購入額*0.8,
-v_uma2.購入額*0.7,
-v_uma3.購入額*0.6
-) END) 購入額, v_uma.馬主ID, v_uma.父ID, v_uma.母父ID
-FROM v_uma
-LEFT JOIN v_uma0 ON v_uma.父ID = v_uma0.父ID AND v_uma.母父ID = v_uma0.母父ID
-LEFT JOIN v_uma1 ON v_uma.父ID = v_uma1.父ID
-LEFT JOIN v_uma2 ON v_uma.母父ID = v_uma2.母父ID
-LEFT JOIN v_uma3 ON v_uma.馬主ID = v_uma3.馬主ID
-			";
-
-			foreach (var x in await conn.GetRows(sql))
-			{
-				yield return new HorseData(x);
-			}
-		}
-
-		//public static async IAsyncEnumerable<ConnectionData> GetConnectionDataAsync(this SQLiteControl conn)
-		//{
-		//	var sql = "SELECT 馬ID, 馬名, 誕生日, 購入額, 馬主ID, 父ID, 母父ID FROM t_uma";
-
-		//	foreach (var x in await conn.GetRows(sql))
-		//	{
-		//		yield return new ConnectionData()
-		//		{
-		//			Name = x["馬ID"].Str(),
-		//			BirthDate = x["誕生日"].Date(),
-		//			SireName = x["父ID"].Str(),
-		//			DamSireName = x["母父ID"].Str(),
-		//			BreederName = x["馬主ID"].Str(),
-		//			PurchasePrice = x["購入額"].Int64()
-		//		};
-		//	}
-		//}
-
 	}
 
 }

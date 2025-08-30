@@ -1,11 +1,15 @@
-﻿using HorseRacingPrediction;
-using Microsoft.ML.TorchSharp.Roberta;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SQLite;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using TBird.Core;
+using TBird.DB;
+using TBird.DB.SQLite;
+using Tensorflow.Keras.Layers;
 
 namespace Netkeiba
 {
@@ -39,12 +43,13 @@ namespace Netkeiba
 
 	public class SQLiteRepository : TBirdObject, IDataRepository
 	{
+		private SQLiteControl _conn;
 		private List<RaceData> _allRaceData = new();
 		private List<HorseData> _allHorseData = new();
 
 		public SQLiteRepository()
 		{
-
+			_conn = AppUtil.CreateSQLiteControl();
 		}
 
 		protected override void DisposeManagedResource()
@@ -53,23 +58,19 @@ namespace Netkeiba
 
 			_allRaceData.Clear();
 			_allHorseData.Clear();
+			_conn.Dispose();
 		}
 
 		public async Task LoadDataAsync()
 		{
-			using (var conn = AppUtil.CreateSQLiteControl())
-			{
-				var days = (DateTime.Now.AddYears(-7) - DateTime.Parse("1990/01/01")).TotalDays.Int32();
+			// レースデータの読み込み
+			_allRaceData = _conn.GetRaceDataAsync(DateTime.Now.AddYears(-7).ToTotalDays()).ToBlockingEnumerable().ToList();
 
-				// レースデータの読み込み
-				_allRaceData = conn.GetRaceDataAsync(days).ToBlockingEnumerable().ToList();
+			// 馬データの読み込み
+			_allHorseData = _conn.GetHorseDataAsync().ToBlockingEnumerable().ToList();
 
-				// 馬データの読み込み
-				_allHorseData = conn.GetHorseDataAsync().ToBlockingEnumerable().ToList();
+			MainViewModel.AddLog($"読み込み完了: レース {_allRaceData.Count} 件, 馬 {_allHorseData.Count} 件");
 
-				MainViewModel.AddLog($"読み込み完了: レース {_allRaceData.Count} 件, 馬 {_allHorseData.Count} 件");
-
-			}
 		}
 
 		public List<Race> GetRacesAsync(DateTime startDate, DateTime endDate)
@@ -112,8 +113,7 @@ namespace Netkeiba
 
 		public List<RaceResult> GetJockeyRecentRaces(string jockey, DateTime asOfDate, int count)
 		{
-			var raceHistory = _allRaceData
-				.Where(r => r.JockeyName == jockey && r.RaceDate < asOfDate)
+			var raceHistory = _conn.GetJockeyRecentRaces(jockey, asOfDate, count).ToBlockingEnumerable()
 				.OrderByDescending(r => r.RaceDate)
 				.ToList();
 
@@ -124,8 +124,7 @@ namespace Netkeiba
 
 		public List<RaceResult> GetTrainerRecentRaces(string trainer, DateTime asOfDate, int count)
 		{
-			var raceHistory = _allRaceData
-				.Where(r => r.TrainerName == trainer && r.RaceDate < asOfDate)
+			var raceHistory = _conn.GetTrainerRecentRaces(trainer, asOfDate, count).ToBlockingEnumerable()
 				.OrderByDescending(r => r.RaceDate)
 				.ToList();
 
@@ -146,10 +145,8 @@ namespace Netkeiba
 
 		public float GetTrainerStats(string trainer, DateTime asOfDate)
 		{
-			var raceHistory = _allRaceData
-				.Where(r => r.TrainerName == trainer && r.RaceDate < asOfDate)
+			var raceHistory = GetTrainerRecentRaces(trainer, asOfDate, 999)
 				.OrderByDescending(r => r.RaceDate)
-				.Select(r => new RaceResult(r, _allRaceData))
 				.Where(r => r.HorseExperience == 0)
 				.ToList();
 
@@ -158,10 +155,8 @@ namespace Netkeiba
 
 		public float GetJockeyStats(string jockey, DateTime asOfDate)
 		{
-			var raceHistory = _allRaceData
-				.Where(r => r.JockeyName == jockey && r.RaceDate < asOfDate)
+			var raceHistory = GetJockeyRecentRaces(jockey, asOfDate, 999)
 				.OrderByDescending(r => r.RaceDate)
-				.Select(r => new RaceResult(r, _allRaceData))
 				.Where(r => r.HorseExperience == 0)
 				.ToList();
 
@@ -196,6 +191,92 @@ namespace Netkeiba
 		}
 
 		public float GetSireQuality(string sire) => GetSireStats(sire);
+
+	}
+
+	public static partial class SQLite3Extensions
+	{
+
+		public static async IAsyncEnumerable<RaceData> GetRaceDataAsync(this SQLiteControl conn, int days)
+		{
+			var sql = @"
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
+FROM t_orig_h h, t_orig_d d, t_uma u
+WHERE h.開催日数 > ? AND h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID
+			";
+
+			foreach (var x in await conn.GetRows(sql, SQLiteUtil.CreateParameter(DbType.Int32, days)))
+			{
+				yield return new RaceData(x);
+			}
+		}
+
+		public static async IAsyncEnumerable<HorseData> GetHorseDataAsync(this SQLiteControl conn)
+		{
+			var sql = @"
+with v_uma AS (SELECT 馬ID, 馬名, 生年月日, MAX(セリ取引価格*1, 募集情報*0.7) 購入額, 馬主ID, 父ID, 母父ID FROM t_uma),
+v_uma0 AS (SELECT 父ID, 母父ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 父ID, 母父ID),
+v_uma1 AS (SELECT 父ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 父ID),
+v_uma2 AS (SELECT 母父ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 母父ID),
+v_uma3 AS (SELECT 馬主ID, AVG(購入額) 購入額 FROM v_uma WHERE 購入額 > 0 GROUP BY 馬主ID)
+SELECT 馬ID, 馬名, 生年月日, (CASE WHEN v_uma.購入額>0 THEN v_uma.購入額 ELSE COALESCE(
+v_uma0.購入額*0.9,
+v_uma1.購入額*0.8,
+v_uma2.購入額*0.7,
+v_uma3.購入額*0.6
+) END) 購入額, v_uma.馬主ID, v_uma.父ID, v_uma.母父ID
+FROM v_uma
+LEFT JOIN v_uma0 ON v_uma.父ID = v_uma0.父ID AND v_uma.母父ID = v_uma0.母父ID
+LEFT JOIN v_uma1 ON v_uma.父ID = v_uma1.父ID
+LEFT JOIN v_uma2 ON v_uma.母父ID = v_uma2.母父ID
+LEFT JOIN v_uma3 ON v_uma.馬主ID = v_uma3.馬主ID
+			";
+
+			foreach (var x in await conn.GetRows(sql))
+			{
+				yield return new HorseData(x);
+			}
+		}
+
+		public static async IAsyncEnumerable<RaceData> GetJockeyRecentRaces(this SQLiteControl conn, string jockey, DateTime asOfDate, int count)
+		{
+			var sql = @"
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
+FROM t_orig_h h, t_orig_d d, t_uma u
+WHERE h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.騎手ID = ? AND h.開催日数 < ?
+			";
+
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.String, jockey),
+				SQLiteUtil.CreateParameter(DbType.Int32, asOfDate.ToTotalDays())
+			};
+
+			foreach (var x in await conn.GetRows(sql, parameters))
+			{
+				yield return new RaceData(x);
+			}
+		}
+
+		public static async IAsyncEnumerable<RaceData> GetTrainerRecentRaces(this SQLiteControl conn, string trainer, DateTime asOfDate, int count)
+		{
+			var sql = @"
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
+FROM t_orig_h h, t_orig_d d, t_uma u
+WHERE h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.調教師ID = ? AND h.開催日数 < ?
+			";
+
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.String, trainer),
+				SQLiteUtil.CreateParameter(DbType.Int32, asOfDate.ToTotalDays())
+			};
+
+			foreach (var x in await conn.GetRows(sql, parameters))
+			{
+				yield return new RaceData(x);
+			}
+		}
 
 	}
 
