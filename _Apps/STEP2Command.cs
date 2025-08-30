@@ -120,22 +120,17 @@ namespace Netkeiba
 				// 各馬の特徴量を生成
 				foreach (var result in raceResults)
 				{
-					// TODO osoi
-					var raceHistory = _dataRepository.GetHorseHistoryBeforeAsync(
+					var raceHistory = _dataRepository.GetHorseRecentRaces(
 						result.HorseName, race.RaceDate
 					);
 					var horse = CreateHorseFromResultAsync(result, race.RaceDate, raceHistory);
-
-					// 他の出走馬も設定（人気順計算等に必要）
-					// TODO osoi
-					var allHorsesInRace = CreateAllHorsesInRaceAsync(raceResults, race.RaceDate);
 
 					// 関係者情報
 					var jockeyRaces = _dataRepository.GetJockeyRecentRaces(result.JockeyName, race.RaceDate, 100);
 					var trainerRaces = _dataRepository.GetTrainerRecentRaces(result.TrainerName, race.RaceDate, 100);
 
 					// 特徴量抽出
-					var features = FeatureExtractor.ExtractFeatures(horse, race, allHorsesInRace, _dataRepository);
+					var features = FeatureExtractor.ExtractFeatures(horse, race, _dataRepository);
 
 					// ラベル生成（難易度調整済み着順スコア）
 					features.Label = result.CalculateAdjustedInverseScore(race);

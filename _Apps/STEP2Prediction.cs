@@ -77,7 +77,7 @@ namespace Netkeiba
 			var gradeRaces = races.Where(r => targetGrades.Contains(r.Race.Grade));
 			if (!gradeRaces.Any()) return 0.0f;
 
-			return gradeRaces.Select(r => r.AdjustedInverseScore).Average();
+			return gradeRaces.AdjustedInverseScoreAverage();
 		}
 
 		// ===== レース難易度分析 =====
@@ -209,7 +209,7 @@ namespace Netkeiba
 		{
 			if (!races.Any()) return 0.2f;
 
-			return races.Select(r => r.AdjustedInverseScore).Average();
+			return races.AdjustedInverseScoreAverage();
 		}
 	}
 
@@ -243,7 +243,7 @@ namespace Netkeiba
 
 			if (!matchingRaces.Any()) return 0.2f;
 
-			return matchingRaces.Select(r => r.AdjustedInverseScore).Average();
+			return matchingRaces.AdjustedInverseScoreAverage();
 		}
 	}
 
@@ -366,14 +366,14 @@ namespace Netkeiba
 
 	public static class FeatureExtractor
 	{
-		public static OptimizedHorseFeaturesModel ExtractFeatures(Horse horse, Race currentRace, List<Horse> allHorsesInRace, IDataRepository repo)
+		public static OptimizedHorseFeaturesModel ExtractFeatures(Horse horse, Race currentRace, IDataRepository repo)
 		{
 			var raceHistory = horse.RaceHistory.OrderByDescending(r => r.RaceDate).ToList();
 			var adjustedMetrics = AdjustedPerformanceCalculator.CalculateAdjustedPerformance(raceHistory);
 			var connectionMetrics = ConnectionAnalyzer.AnalyzeConnections(
 				repo.GetJockeyRecentRaces(horse.Jockey, currentRace.RaceDate, 100),
 				repo.GetTrainerRecentRaces(horse.Trainer, currentRace.RaceDate, 100), currentRace);
-			var weightMetrics = WeightAnalyzer.AnalyzeWeight(horse, allHorsesInRace);
+			var weightMetrics = WeightAnalyzer.AnalyzeWeight(horse, new List<Horse>());
 
 			var features = new OptimizedHorseFeaturesModel(currentRace.RaceId, horse.Name)
 			{
@@ -412,7 +412,7 @@ namespace Netkeiba
 				// 状態・変化
 				RestDays = CalculateRestDays(horse.LastRaceDate),
 				Age = horse.Age,
-				Popularity = CalculatePopularity(horse, allHorsesInRace),
+				Popularity = 1F,
 				PerformanceTrend = CalculatePerformanceTrend(adjustedMetrics),
 				DistanceChangeAdaptation = CalculateDistanceChangeAdaptation(raceHistory, currentRace),
 				ClassChangeAdaptation = CalculateClassChangeAdaptation(raceHistory, currentRace),
@@ -449,14 +449,14 @@ namespace Netkeiba
 		{
 			var heavyRaces = races.Where(r => new[] { TrackConditionType.Heavy, TrackConditionType.Poor }.Contains(r.Race.TrackConditionType));
 			if (!heavyRaces.Any()) return 0.2f;
-			return heavyRaces.Select(r => r.AdjustedInverseScore).Average();
+			return heavyRaces.AdjustedInverseScoreAverage();
 		}
 
 		private static float CalculateSpecificCourseAptitude(List<RaceResult> races, string courseName)
 		{
 			var courseRaces = races.Where(r => r.Race.CourseName == courseName);
 			if (!courseRaces.Any()) return 0.2f;
-			return courseRaces.Select(r => r.AdjustedInverseScore).Average();
+			return courseRaces.AdjustedInverseScoreAverage();
 		}
 
 		private static int CalculateRestDays(DateTime lastRaceDate)
@@ -464,10 +464,9 @@ namespace Netkeiba
 			return (DateTime.Now - lastRaceDate).Days;
 		}
 
-		private static float CalculatePopularity(Horse horse, List<Horse> allHorses)
+		private static float CalculatePopularity(Horse horse, List<float> allOdds)
 		{
-			var popularityRank = allHorses.OrderBy(h => h.Odds).ToList().IndexOf(horse) + 1;
-			return (float)popularityRank / allHorses.Count;
+			return (float)horse.Odds / allOdds.Average();
 		}
 
 		private static float CalculatePerformanceTrend(AdjustedPerformanceMetrics metrics)
@@ -613,7 +612,7 @@ namespace Netkeiba
 		public List<HorsePrediction> PredictRace(List<Horse> horses, Race race, IDataRepository repo)
 		{
 			var features = horses
-				.Select(horse => FeatureExtractor.ExtractFeatures(horse, race, horses, repo) as OptimizedHorseFeatures)
+				.Select(horse => FeatureExtractor.ExtractFeatures(horse, race, repo) as OptimizedHorseFeatures)
 				.ToList();
 
 			var dataView = _mlContext.Data.LoadFromEnumerable(features);

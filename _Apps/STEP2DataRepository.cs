@@ -19,7 +19,7 @@ namespace Netkeiba
 
 		List<RaceData> GetRaceResultsAsync(string raceId);
 
-		List<RaceResult> GetHorseHistoryBeforeAsync(string horseName, DateTime beforeDate);
+		List<RaceResult> GetHorseRecentRaces(string horseName, DateTime beforeDate);
 
 		HorseDetails GetHorseDetailsAsync(string horseName, DateTime asOfDate);
 
@@ -91,13 +91,14 @@ namespace Netkeiba
 				.ToList();
 		}
 
-		public List<RaceResult> GetHorseHistoryBeforeAsync(string horseName, DateTime beforeDate)
+		public List<RaceResult> GetHorseRecentRaces(string horseName, DateTime asOfDate)
 		{
-			return _allRaceData
-				.Where(r => r.HorseName == horseName && r.RaceDate < beforeDate)
+			var raceHistory = _conn.GetHorseRecentRaces(horseName, asOfDate).ToBlockingEnumerable()
 				.OrderByDescending(r => r.RaceDate)
 				.Select(r => new RaceResult(r, _allRaceData))
 				.ToList();
+
+			return raceHistory;
 		}
 
 		public HorseDetails GetHorseDetailsAsync(string horseName, DateTime asOfDate)
@@ -113,7 +114,7 @@ namespace Netkeiba
 
 		public List<RaceResult> GetJockeyRecentRaces(string jockey, DateTime asOfDate, int count)
 		{
-			var raceHistory = _conn.GetJockeyRecentRaces(jockey, asOfDate, count).ToBlockingEnumerable()
+			var raceHistory = _conn.GetJockeyRecentRaces(jockey, asOfDate).ToBlockingEnumerable()
 				.OrderByDescending(r => r.RaceDate)
 				.ToList();
 
@@ -124,7 +125,7 @@ namespace Netkeiba
 
 		public List<RaceResult> GetTrainerRecentRaces(string trainer, DateTime asOfDate, int count)
 		{
-			var raceHistory = _conn.GetTrainerRecentRaces(trainer, asOfDate, count).ToBlockingEnumerable()
+			var raceHistory = _conn.GetTrainerRecentRaces(trainer, asOfDate).ToBlockingEnumerable()
 				.OrderByDescending(r => r.RaceDate)
 				.ToList();
 
@@ -150,7 +151,7 @@ namespace Netkeiba
 				.Where(r => r.HorseExperience == 0)
 				.ToList();
 
-			return raceHistory.Average(x => x.AdjustedInverseScore);
+			return raceHistory.AdjustedInverseScoreAverage();
 		}
 
 		public float GetJockeyStats(string jockey, DateTime asOfDate)
@@ -160,7 +161,7 @@ namespace Netkeiba
 				.Where(r => r.HorseExperience == 0)
 				.ToList();
 
-			return raceHistory.Average(x => x.AdjustedInverseScore);
+			return raceHistory.AdjustedInverseScoreAverage();
 		}
 
 		public float GetSireStats(string sire)
@@ -171,7 +172,7 @@ namespace Netkeiba
 				.Select(r => new RaceResult(r, _allRaceData))
 				.ToList();
 
-			return raceHistory.Average(x => x.AdjustedInverseScore);
+			return raceHistory.AdjustedInverseScoreAverage();
 		}
 
 		public float GetBreederStats(string breeder, DateTime asOfDate)
@@ -187,7 +188,7 @@ namespace Netkeiba
 				.Where(r => r.HorseExperience == 0)
 				.ToList();
 
-			return raceHistory.Average(x => x.AdjustedInverseScore);
+			return raceHistory.AdjustedInverseScoreAverage();
 		}
 
 		public float GetSireQuality(string sire) => GetSireStats(sire);
@@ -238,7 +239,27 @@ LEFT JOIN v_uma3 ON v_uma.馬主ID = v_uma3.馬主ID
 			}
 		}
 
-		public static async IAsyncEnumerable<RaceData> GetJockeyRecentRaces(this SQLiteControl conn, string jockey, DateTime asOfDate, int count)
+		public static async IAsyncEnumerable<RaceData> GetHorseRecentRaces(this SQLiteControl conn, string horse, DateTime asOfDate)
+		{
+			var sql = @"
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
+FROM t_orig_h h, t_orig_d d, t_uma u
+WHERE h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.馬ID = ? AND h.開催日数 < ?
+			";
+
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.String, horse),
+				SQLiteUtil.CreateParameter(DbType.Int32, asOfDate.ToTotalDays())
+			};
+
+			foreach (var x in await conn.GetRows(sql, parameters))
+			{
+				yield return new RaceData(x);
+			}
+		}
+
+		public static async IAsyncEnumerable<RaceData> GetJockeyRecentRaces(this SQLiteControl conn, string jockey, DateTime asOfDate)
 		{
 			var sql = @"
 SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
@@ -258,7 +279,7 @@ WHERE h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.騎手ID = ? AND
 			}
 		}
 
-		public static async IAsyncEnumerable<RaceData> GetTrainerRecentRaces(this SQLiteControl conn, string trainer, DateTime asOfDate, int count)
+		public static async IAsyncEnumerable<RaceData> GetTrainerRecentRaces(this SQLiteControl conn, string trainer, DateTime asOfDate)
 		{
 			var sql = @"
 SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, u.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID

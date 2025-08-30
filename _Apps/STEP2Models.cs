@@ -447,5 +447,7 @@ namespace Netkeiba
 			"不良" => TrackConditionType.Poor,
 			_ => TrackConditionType.Unknown
 		};
+
+		public static float AdjustedInverseScoreAverage(this IEnumerable<RaceResult> arr) => arr.Aggregate(tmp => tmp.Average(x => x.AdjustedInverseScore), 0.1F);
 	}
 }
