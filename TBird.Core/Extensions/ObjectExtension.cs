@@ -28,7 +28,7 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="value">元となる値</param>
 		/// <returns></returns>
-		public static string Str(this object value) => value is string s ? s : $"{value}";
+		public static string Str(this object value, string def = "") => CoreUtil.Nvl(value is string s ? s : string.Empty, def, $"{value}");
 
 		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="bool"/>型に変換します。
