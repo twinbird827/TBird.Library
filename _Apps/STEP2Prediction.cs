@@ -1,4 +1,5 @@
-﻿using HorseRacingPrediction;
+﻿using ControlzEx.Standard;
+using HorseRacingPrediction;
 using Microsoft.ML;
 using Microsoft.ML.Data;
 using System;
@@ -7,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace Netkeiba
 {
@@ -41,7 +43,8 @@ namespace Netkeiba
 		public static AdjustedPerformanceMetrics CalculateAdjustedPerformance(List<RaceResult> raceHistory)
 		{
 			var adjustedScores = raceHistory
-				.Select(result => result.CalculateAdjustedInverseScore())
+				.OrderByDescending(result => result.RaceDate)
+				.Select(result => result.AdjustedInverseScore)
 				.ToArray();
 
 			return new AdjustedPerformanceMetrics
@@ -52,9 +55,9 @@ namespace Netkeiba
 				BestAdjustedScore = adjustedScores.DefaultIfEmpty(0.1f).Max(),
 				LastRaceAdjustedScore = adjustedScores.FirstOrDefault(0.1f),
 				AdjustedConsistency = CalculateConsistency(adjustedScores),
-				G1AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "G1古", "G1ク", "G1障"),
-				G2G3AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "G2古", "G2ク", "G2障", "G3古", "G3ク", "G3障"),
-				OpenAdjustedAvg = CalculateGradeSpecificAverage(raceHistory, "オープン古", "オープンク", "オープン障")
+				G1AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, EnumUtil.GetValues<GradeType>().Where(x => x.IsG1())),
+				G2G3AdjustedAvg = CalculateGradeSpecificAverage(raceHistory, EnumUtil.GetValues<GradeType>().Where(x => x.IsG2() || x.IsG3())),
+				OpenAdjustedAvg = CalculateGradeSpecificAverage(raceHistory, EnumUtil.GetValues<GradeType>().Where(x => x.IsOPEN()))
 			};
 		}
 
@@ -69,12 +72,12 @@ namespace Netkeiba
 			return mean / (stdDev + 0.1f); // 安定性指標
 		}
 
-		private static float CalculateGradeSpecificAverage(List<RaceResult> races, params string[] targetGrades)
+		private static float CalculateGradeSpecificAverage(List<RaceResult> races, IEnumerable<GradeType> targetGrades)
 		{
 			var gradeRaces = races.Where(r => targetGrades.Contains(r.Race.Grade));
 			if (!gradeRaces.Any()) return 0.0f;
 
-			return gradeRaces.Select(r => r.CalculateAdjustedInverseScore()).Average();
+			return gradeRaces.Select(r => r.AdjustedInverseScore).Average();
 		}
 
 		// ===== レース難易度分析 =====
@@ -103,40 +106,9 @@ namespace Netkeiba
 				return multiplier;
 			}
 
-			private static float GetGradeMultiplier(string grade)
+			private static float GetGradeMultiplier(GradeType grade)
 			{
-				return grade switch
-				{
-					// 平場G1
-					"G1古" => 2.5f,
-					"G1ク" => 2.4f,
-					// 障害G1
-					"G1障" => 2.3f,
-					// 平場G2
-					"G2古" => 2.0f,
-					"G2ク" => 1.9f,
-					// 障害G2
-					"G2障" => 1.8f,
-					// 平場G3
-					"G3古" => 1.7f,
-					"G3ク" => 1.6f,
-					// 障害G3
-					"G3障" => 1.5f,
-					// オープン
-					"オープン古" => 1.4f,
-					"オープンク" => 1.3f,
-					"オープン障" => 1.2f,
-					// 条件戦
-					"3勝古" => 1.2f,
-					"2勝古" => 1.1f,
-					"1勝古" => 1.0f,
-					"1勝ク" => 0.95f,
-					// 未勝利・新馬
-					"未勝利ク" => 0.8f,
-					"未勝利障" => 0.75f,
-					"新馬ク" => 0.6f,
-					_ => 1.0f
-				};
+				return (grade.Single() + 5F) / 10F;
 			}
 
 			private static float CalculatePrizeMultiplier(long prizeMoney)
@@ -161,7 +133,7 @@ namespace Netkeiba
 			{
 				float multiplier = 1.0f;
 
-				if (race.IsInternational && (race.Grade == "G1古" || race.Grade == "G1ク"))
+				if (race.IsInternational)
 					multiplier *= 1.2f;
 
 				if (race.IsAgedHorseRace)
@@ -182,7 +154,7 @@ namespace Netkeiba
 			var similarRaces = raceHistory.Where(r =>
 				r.Race.Distance == currentRace.Distance &&
 				r.Race.TrackType == currentRace.TrackType &&
-				r.Race.TrackCondition == currentRace.TrackCondition).ToList();
+				r.Race.TrackConditionType == currentRace.TrackConditionType).ToList();
 
 			if (!similarRaces.Any())
 			{
@@ -192,18 +164,27 @@ namespace Netkeiba
 			return CalculateAdjustedAverageScore(similarRaces);
 		}
 
-		public static float CalculateDistanceCategoryAptitude(List<RaceResult> races, string category)
+		public static float CalculateDistanceCategoryAptitude(List<RaceResult> races, DistanceCategory category)
 		{
-			var categoryRaces = races.Where(r =>
-				GetDistanceCategory(r.Race.Distance) == category).ToList();
+			var categoryRaces = races
+				.Where(r => r.Race.DistanceCategory == category)
+				.ToList();
 
 			return CalculateAdjustedAverageScore(categoryRaces);
 		}
 
-		public static float CalculateTrackConditionAptitude(List<RaceResult> races, string condition)
+		public static float CalculateTrackTypeAptitude(List<RaceResult> races, TrackType type)
 		{
 			var conditionRaces = races.Where(r =>
-				r.Race.TrackCondition == condition).ToList();
+				r.Race.TrackType == type).ToList();
+
+			return CalculateAdjustedAverageScore(conditionRaces);
+		}
+
+		public static float CalculateTrackConditionAptitude(List<RaceResult> races, TrackConditionType condition)
+		{
+			var conditionRaces = races.Where(r =>
+				r.Race.TrackConditionType == condition).ToList();
 
 			return CalculateAdjustedAverageScore(conditionRaces);
 		}
@@ -216,8 +197,7 @@ namespace Netkeiba
 				return CalculateAdjustedAverageScore(sameDistance.ToList());
 
 			// 2. 同距離カテゴリ
-			var sameCategory = raceHistory.Where(r =>
-				GetDistanceCategory(r.Race.Distance) == GetDistanceCategory(currentRace.Distance));
+			var sameCategory = raceHistory.Where(r => r.Race.DistanceCategory == currentRace.DistanceCategory);
 			if (sameCategory.Any())
 				return CalculateAdjustedAverageScore(sameCategory.ToList());
 
@@ -229,18 +209,7 @@ namespace Netkeiba
 		{
 			if (!races.Any()) return 0.2f;
 
-			return races.Select(r => r.CalculateAdjustedInverseScore()).Average();
-		}
-
-		private static string GetDistanceCategory(int distance)
-		{
-			return distance switch
-			{
-				<= 1400 => "Sprint",
-				<= 1800 => "Mile",
-				<= 2200 => "Middle",
-				_ => "Long"
-			};
+			return races.Select(r => r.AdjustedInverseScore).Average();
 		}
 	}
 
@@ -251,10 +220,10 @@ namespace Netkeiba
 		public static ConnectionMetrics AnalyzeConnections(List<RaceResult> jockeyRaces, List<RaceResult> trainerRaces, Race upcomingRace)
 		{
 			// 騎手分析
-			var jockeyInverseScores = jockeyRaces.Select(r => r.CalculateAdjustedInverseScore()).ToArray();
+			var jockeyInverseScores = jockeyRaces.Select(r => r.AdjustedInverseScore).ToArray();
 
 			// 調教師分析
-			var trainerInverseScores = trainerRaces.Select(r => r.CalculateAdjustedInverseScore()).ToArray();
+			var trainerInverseScores = trainerRaces.Select(r => r.AdjustedInverseScore).ToArray();
 
 			return new ConnectionMetrics
 			{
@@ -269,24 +238,12 @@ namespace Netkeiba
 
 		private static float CalculateConditionSpecific(IEnumerable<RaceResult> races, Race upcomingRace)
 		{
-			var matchingRaces = races.Where(r =>
-				GetDistanceCategory(r.Race.Distance) == GetDistanceCategory(upcomingRace.Distance) &&
-				r.Race.TrackType == upcomingRace.TrackType);
+			var matchingRaces = races
+				.Where(r => r.Race.DistanceCategory == upcomingRace.DistanceCategory && r.Race.TrackType == upcomingRace.TrackType);
 
 			if (!matchingRaces.Any()) return 0.2f;
 
-			return matchingRaces.Select(r => r.CalculateAdjustedInverseScore()).Average();
-		}
-
-		private static string GetDistanceCategory(int distance)
-		{
-			return distance switch
-			{
-				<= 1400 => "Sprint",
-				<= 1800 => "Mile",
-				<= 2200 => "Middle",
-				_ => "Long"
-			};
+			return matchingRaces.Select(r => r.AdjustedInverseScore).Average();
 		}
 	}
 
@@ -366,51 +323,33 @@ namespace Netkeiba
 
 	public static class MaidenRaceAnalyzer
 	{
-		public static NewHorseMetrics AnalyzeNewHorse(Horse horse, Race race)
+		public static NewHorseMetrics AnalyzeNewHorse(Horse horse, Race race, IDataRepository repo)
 		{
-			var trainerStats = GetTrainerStats(horse.Trainer);
-			var jockeyStats = GetJockeyStats(horse.Jockey);
-			var sireStats = GetSireStats(horse.Sire);
-
 			return new NewHorseMetrics
 			{
-				TrainerNewHorseInverse = trainerStats.NewHorseWinRate,
-				JockeyNewHorseInverse = jockeyStats.NewHorseWinRate,
-				SireNewHorseInverse = sireStats.NewHorseWinRate,
-				BreederSuccessRate = GetBreederStats(horse.Breeder).SuccessRate,
-				PurchasePriceRank = CalculatePriceRank(horse.PurchasePrice, race.Horses),
-				BloodlineQuality = CalculateBloodlineQuality(horse.Sire, horse.DamSire)
+				TrainerNewHorseInverse = repo.GetTrainerStats(horse.Trainer, race.RaceDate),
+				JockeyNewHorseInverse = repo.GetJockeyStats(horse.Jockey, race.RaceDate),
+				SireNewHorseInverse = repo.GetSireStats(horse.Sire),
+				BreederSuccessRate = repo.GetBreederStats(horse.Breeder, race.RaceDate),
+				PurchasePriceRank = CalculatePriceRank(horse, race, repo),
+				BloodlineQuality = CalculateBloodlineQuality(horse.Sire, horse.DamSire, repo)
 			};
 		}
 
-		private static float CalculatePriceRank(long price, List<Horse> allHorses)
+		private static float CalculatePriceRank(Horse horse, Race race, IDataRepository repo)
 		{
-			var priceRank = allHorses
-				.OrderByDescending(h => h.PurchasePrice)
-				.ToList()
-				.FindIndex(h => h.PurchasePrice == price) + 1;
+			var priceRank = repo.GetHorseDatasInRace(race.RaceId).Average(x => x.PurchasePrice);
 
-			return (float)priceRank / allHorses.Count;
+			return horse.PurchasePrice / priceRank.Single();
 		}
 
-		private static float CalculateBloodlineQuality(string sire, string damSire)
+		private static float CalculateBloodlineQuality(string sire, string damSire, IDataRepository repo)
 		{
 			// 簡易血統評価（実際の実装では血統データベースを使用）
-			var sireQuality = GetSireQuality(sire);
-			var damSireQuality = GetSireQuality(damSire);
+			var sireQuality = repo.GetSireStats(sire);
+			var damSireQuality = repo.GetSireStats(damSire);
 			return (sireQuality + damSireQuality) / 2.0f;
 		}
-
-		// モックメソッド
-		private static TrainerStats GetTrainerStats(string trainer) => new() { NewHorseWinRate = 0.15f };
-
-		private static JockeyStats GetJockeyStats(string jockey) => new() { NewHorseWinRate = 0.12f };
-
-		private static SireStats GetSireStats(string sire) => new() { NewHorseWinRate = 0.10f };
-
-		private static BreederStats GetBreederStats(string breeder) => new() { SuccessRate = 0.08f };
-
-		private static float GetSireQuality(string sire) => 0.5f;
 	}
 
 	public class NewHorseMetrics
@@ -423,23 +362,11 @@ namespace Netkeiba
 		public float BloodlineQuality { get; set; }
 	}
 
-	public class TrainerStats
-	{ public float NewHorseWinRate { get; set; } }
-
-	public class JockeyStats
-	{ public float NewHorseWinRate { get; set; } }
-
-	public class SireStats
-	{ public float NewHorseWinRate { get; set; } }
-
-	public class BreederStats
-	{ public float SuccessRate { get; set; } }
-
 	// ===== 特徴量抽出メインクラス =====
 
 	public static class FeatureExtractor
 	{
-		public static OptimizedHorseFeatures ExtractFeatures(Horse horse, Race currentRace, List<Horse> allHorsesInRace, IDataRepository repo)
+		public static OptimizedHorseFeaturesModel ExtractFeatures(Horse horse, Race currentRace, List<Horse> allHorsesInRace, IDataRepository repo)
 		{
 			var raceHistory = horse.RaceHistory.OrderByDescending(r => r.RaceDate).ToList();
 			var adjustedMetrics = AdjustedPerformanceCalculator.CalculateAdjustedPerformance(raceHistory);
@@ -448,7 +375,7 @@ namespace Netkeiba
 				repo.GetTrainerRecentRaces(horse.Trainer, currentRace.RaceDate, 100), currentRace);
 			var weightMetrics = WeightAnalyzer.AnalyzeWeight(horse, allHorsesInRace);
 
-			var features = new OptimizedHorseFeatures
+			var features = new OptimizedHorseFeaturesModel(currentRace.RaceId, horse.Name)
 			{
 				// 基本実績
 				Recent3AdjustedAvg = adjustedMetrics.Recent3AdjustedAvg,
@@ -460,16 +387,16 @@ namespace Netkeiba
 
 				// 条件適性
 				CurrentDistanceAptitude = ConditionAptitudeCalculator.CalculateCurrentConditionAptitude(raceHistory, currentRace),
-				CurrentTrackTypeAptitude = ConditionAptitudeCalculator.CalculateTrackConditionAptitude(raceHistory, currentRace.TrackType),
-				CurrentTrackConditionAptitude = ConditionAptitudeCalculator.CalculateTrackConditionAptitude(raceHistory, currentRace.TrackCondition),
+				CurrentTrackTypeAptitude = ConditionAptitudeCalculator.CalculateTrackTypeAptitude(raceHistory, currentRace.TrackType),
+				CurrentTrackConditionAptitude = ConditionAptitudeCalculator.CalculateTrackConditionAptitude(raceHistory, currentRace.TrackConditionType),
 				HeavyTrackAptitude = CalculateHeavyTrackAptitude(raceHistory),
 				SpecificCourseAptitude = CalculateSpecificCourseAptitude(raceHistory, currentRace.CourseName),
 
 				// 距離適性
-				SprintAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, "Sprint"),
-				MileAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, "Mile"),
-				MiddleDistanceAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, "Middle"),
-				LongDistanceAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, "Long"),
+				SprintAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, DistanceCategory.Sprint),
+				MileAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, DistanceCategory.Mile),
+				MiddleDistanceAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, DistanceCategory.Middle),
+				LongDistanceAptitude = ConditionAptitudeCalculator.CalculateDistanceCategoryAptitude(raceHistory, DistanceCategory.Long),
 
 				// 関係者実績
 				JockeyCurrentConditionAvg = connectionMetrics.JockeyCurrentConditionAvg,
@@ -502,13 +429,12 @@ namespace Netkeiba
 
 				// ラベル（トレーニング時に設定）
 				Label = 0, // 実際の着順から計算
-				RaceId = currentRace.RaceId
 			};
 
 			// 新馬の場合は特別処理
 			if (horse.RaceCount == 0)
 			{
-				var newHorseMetrics = MaidenRaceAnalyzer.AnalyzeNewHorse(horse, currentRace);
+				var newHorseMetrics = MaidenRaceAnalyzer.AnalyzeNewHorse(horse, currentRace, repo);
 				features.TrainerNewHorseInverse = newHorseMetrics.TrainerNewHorseInverse;
 				features.JockeyNewHorseInverse = newHorseMetrics.JockeyNewHorseInverse;
 				features.SireNewHorseInverse = newHorseMetrics.SireNewHorseInverse;
@@ -521,16 +447,16 @@ namespace Netkeiba
 		// 補助計算メソッド
 		private static float CalculateHeavyTrackAptitude(List<RaceResult> races)
 		{
-			var heavyRaces = races.Where(r => r.Race.TrackCondition == "重" || r.Race.TrackCondition == "不良");
+			var heavyRaces = races.Where(r => new[] { TrackConditionType.Heavy, TrackConditionType.Poor }.Contains(r.Race.TrackConditionType));
 			if (!heavyRaces.Any()) return 0.2f;
-			return heavyRaces.Select(r => r.CalculateAdjustedInverseScore()).Average();
+			return heavyRaces.Select(r => r.AdjustedInverseScore).Average();
 		}
 
 		private static float CalculateSpecificCourseAptitude(List<RaceResult> races, string courseName)
 		{
 			var courseRaces = races.Where(r => r.Race.CourseName == courseName);
 			if (!courseRaces.Any()) return 0.2f;
-			return courseRaces.Select(r => r.CalculateAdjustedInverseScore()).Average();
+			return courseRaces.Select(r => r.AdjustedInverseScore).Average();
 		}
 
 		private static int CalculateRestDays(DateTime lastRaceDate)
@@ -561,41 +487,8 @@ namespace Netkeiba
 		{
 			if (!races.Any()) return 0.5f;
 			var lastGrade = races.First().Race.Grade;
-			var gradeChange = GetGradeNumeric(currentRace.Grade) - GetGradeNumeric(lastGrade);
+			var gradeChange = currentRace.Grade.Int32() - lastGrade.Int32();
 			return gradeChange <= 0 ? 1.0f : 1.0f / (1.0f + gradeChange * 0.2f);
-		}
-
-		private static int GetGradeNumeric(string grade)
-		{
-			return grade switch
-			{
-				// G1
-				"G1古" => 19,
-				"G1ク" => 18,
-				"G1障" => 17,
-				// G2
-				"G2古" => 16,
-				"G2ク" => 15,
-				"G2障" => 14,
-				// G3
-				"G3古" => 13,
-				"G3ク" => 12,
-				"G3障" => 11,
-				// オープン
-				"オープン古" => 10,
-				"オープンク" => 9,
-				"オープン障" => 8,
-				// 条件戦
-				"3勝古" => 7,
-				"2勝古" => 6,
-				"1勝古" => 5,
-				"1勝ク" => 4,
-				// 未勝利・新馬
-				"未勝利ク" => 3,
-				"未勝利障" => 2,
-				"新馬ク" => 1,
-				_ => 0
-			};
 		}
 
 		private static float CalculateSameDistanceTimeIndex(List<RaceResult> races, int distance)
@@ -631,7 +524,7 @@ namespace Netkeiba
 			var relevantRaces = races.Count(r =>
 				r.Race.Distance == currentRace.Distance ||
 				r.Race.TrackType == currentRace.TrackType ||
-				r.Race.TrackCondition == currentRace.TrackCondition);
+				r.Race.TrackConditionType == currentRace.TrackConditionType);
 
 			return Math.Min(relevantRaces * 0.2f, 1.0f);
 		}
@@ -717,10 +610,11 @@ namespace Netkeiba
 			_model = pipeline.Fit(dataView);
 		}
 
-		public List<HorsePrediction> PredictRace(List<Horse> horses, Race race, List<RaceResult> jockeyRaces, List<RaceResult> trainerRaces)
+		public List<HorsePrediction> PredictRace(List<Horse> horses, Race race, IDataRepository repo)
 		{
-			var features = horses.Select(horse =>
-				FeatureExtractor.ExtractFeatures(horse, race, horses, jockeyRaces, trainerRaces)).ToList();
+			var features = horses
+				.Select(horse => FeatureExtractor.ExtractFeatures(horse, race, horses, repo) as OptimizedHorseFeatures)
+				.ToList();
 
 			var dataView = _mlContext.Data.LoadFromEnumerable(features);
 			var predictions = _model.Transform(dataView);

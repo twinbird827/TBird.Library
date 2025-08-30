@@ -43,7 +43,7 @@ namespace Netkeiba
 					await repo.LoadDataAsync();
 
 					var gene = new TrainingDataGenerator(repo);
-					var data = await gene.GenerateTrainingDataAsync(DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-1));
+					var data = gene.GenerateTrainingDataAsync(DateTime.Now.AddYears(-2), DateTime.Now.AddMonths(-1));
 
 					var report = gene.ValidateTrainingData(data);
 					report.PrintReport();
@@ -52,25 +52,9 @@ namespace Netkeiba
 						MainViewModel.AddLog("⚠️ データ品質に問題があります。修正してください。");
 					}
 
-					await SaveTrainingDataAsync(data, $@"C:\work\train-{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.json");
+					await conn.InsertModelAsync(data);
 				}
 			}
-		}
-
-		private static async Task SaveTrainingDataAsync(List<OptimizedHorseFeatures> data, string filePath)
-		{
-			var directory = Path.GetDirectoryName(filePath);
-			if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
-
-			var json = JsonSerializer.Serialize(data, new JsonSerializerOptions
-			{
-				WriteIndented = true
-			});
-			await File.WriteAllTextAsync(filePath, json);
-			MainViewModel.AddLog($"訓練データを保存しました: {filePath}");
 		}
 
 		// ===== 訓練データ生成システム =====
@@ -87,7 +71,7 @@ namespace Netkeiba
 			/// <summary>
 			/// 指定期間のレースデータから訓練データを生成
 			/// </summary>
-			public async Task<List<OptimizedHorseFeatures>> GenerateTrainingDataAsync(
+			public List<OptimizedHorseFeaturesModel> GenerateTrainingDataAsync(
 				DateTime startDate,
 				DateTime endDate,
 				int minRaceCount = 2,
@@ -95,8 +79,8 @@ namespace Netkeiba
 			{
 				MainViewModel.AddLog($"訓練データ生成開始: {startDate:yyyy-MM-dd} ～ {endDate:yyyy-MM-dd}");
 
-				var trainingData = new List<OptimizedHorseFeatures>();
-				var races = await _dataRepository.GetRacesAsync(startDate, endDate);
+				var trainingData = new List<OptimizedHorseFeaturesModel>();
+				var races = _dataRepository.GetRacesAsync(startDate, endDate);
 
 				var processedCount = 0;
 				var totalRaces = races.Count;
@@ -105,7 +89,7 @@ namespace Netkeiba
 				{
 					try
 					{
-						var raceTrainingData = await GenerateRaceTrainingDataAsync(race, minRaceCount, includeNewHorses);
+						var raceTrainingData = GenerateRaceTrainingDataAsync(race);
 						trainingData.AddRange(raceTrainingData);
 
 						processedCount++;
@@ -128,48 +112,28 @@ namespace Netkeiba
 			/// <summary>
 			/// 単一レースから訓練データを生成
 			/// </summary>
-			private async Task<List<OptimizedHorseFeatures>> GenerateRaceTrainingDataAsync(
-				Race race,
-				int minRaceCount,
-				bool includeNewHorses)
+			private List<OptimizedHorseFeaturesModel> GenerateRaceTrainingDataAsync(Race race)
 			{
-				var raceTrainingData = new List<OptimizedHorseFeatures>();
-				var raceResults = await _dataRepository.GetRaceResultsAsync(race.RaceId);
-
-				// レース前の各馬の戦歴を取得（レース当日より前のデータのみ）
-				var horsesHistoryMap = new Dictionary<string, List<RaceResult>>();
-
-				foreach (var result in raceResults)
-				{
-					var horseHistory = await _dataRepository.GetHorseHistoryBeforeAsync(
-						result.HorseName, race.RaceDate);
-
-					// 最低出走回数チェック
-					if (!includeNewHorses && horseHistory.Count < minRaceCount)
-						continue;
-
-					horsesHistoryMap[result.HorseName] = horseHistory;
-				}
+				var raceTrainingData = new List<OptimizedHorseFeaturesModel>();
+				var raceResults = _dataRepository.GetRaceResultsAsync(race.RaceId);
 
 				// 各馬の特徴量を生成
 				foreach (var result in raceResults)
 				{
-					if (!horsesHistoryMap.ContainsKey(result.HorseName))
-						continue;
-
-					var horse = await CreateHorseFromResultAsync(result, race.RaceDate);
-					var horseHistory = horsesHistoryMap[result.HorseName];
-					horse.RaceHistory = horseHistory;
+					var raceHistory = _dataRepository.GetHorseHistoryBeforeAsync(
+						result.HorseName, race.RaceDate
+					);
+					var horse = CreateHorseFromResultAsync(result, race.RaceDate, raceHistory);
 
 					// 他の出走馬も設定（人気順計算等に必要）
-					var allHorsesInRace = await CreateAllHorsesInRaceAsync(raceResults, race.RaceDate);
+					var allHorsesInRace = CreateAllHorsesInRaceAsync(raceResults, race.RaceDate);
 
 					// 関係者情報
 					var jockeyRaces = _dataRepository.GetJockeyRecentRaces(result.JockeyName, race.RaceDate, 100);
 					var trainerRaces = _dataRepository.GetTrainerRecentRaces(result.TrainerName, race.RaceDate, 100);
 
 					// 特徴量抽出
-					var features = FeatureExtractor.ExtractFeatures(horse, race, allHorsesInRace, jockeyRaces, trainerRaces);
+					var features = FeatureExtractor.ExtractFeatures(horse, race, allHorsesInRace, _dataRepository);
 
 					// ラベル生成（難易度調整済み着順スコア）
 					features.Label = result.CalculateAdjustedInverseScore(race);
@@ -184,23 +148,23 @@ namespace Netkeiba
 			/// <summary>
 			/// レース結果から馬オブジェクトを作成
 			/// </summary>
-			private async Task<Horse> CreateHorseFromResultAsync(RaceResultData result, DateTime raceDate)
+			private Horse CreateHorseFromResultAsync(RaceData result, DateTime raceDate, IEnumerable<RaceResult> raceHistory)
 			{
-				var horseDetails = await _dataRepository.GetHorseDetailsAsync(result.HorseName, raceDate);
+				var horseDetails = _dataRepository.GetHorseDetailsAsync(result.HorseName, raceDate);
 
-				return new Horse(result, horseDetails);
+				return new Horse(result, horseDetails, raceHistory);
 			}
 
 			/// <summary>
 			/// レース内の全馬を作成（相対指標計算用）
 			/// </summary>
-			private async Task<List<Horse>> CreateAllHorsesInRaceAsync(List<RaceResultData> results, DateTime raceDate)
+			private List<Horse> CreateAllHorsesInRaceAsync(List<RaceData> results, DateTime raceDate)
 			{
 				var horses = new List<Horse>();
 
 				foreach (var result in results)
 				{
-					var horse = await CreateHorseFromResultAsync(result, raceDate);
+					var horse = CreateHorseFromResultAsync(result, raceDate, Enumerable.Empty<RaceResult>());
 					horses.Add(horse);
 				}
 
@@ -210,7 +174,7 @@ namespace Netkeiba
 			/// <summary>
 			/// 訓練データの品質チェック
 			/// </summary>
-			public TrainingDataQualityReport ValidateTrainingData(List<OptimizedHorseFeatures> trainingData)
+			public TrainingDataQualityReport ValidateTrainingData(List<OptimizedHorseFeaturesModel> trainingData)
 			{
 				var report = new TrainingDataQualityReport();
 
@@ -247,7 +211,7 @@ namespace Netkeiba
 				return report;
 			}
 
-			private void CheckMissingValues(List<OptimizedHorseFeatures> data, TrainingDataQualityReport report)
+			private void CheckMissingValues(List<OptimizedHorseFeaturesModel> data, TrainingDataQualityReport report)
 			{
 				var missingChecks = new Dictionary<string, Func<OptimizedHorseFeatures, bool>>
 				{
@@ -271,7 +235,7 @@ namespace Netkeiba
 				}
 			}
 
-			private void CheckOutliers(List<OptimizedHorseFeatures> data, TrainingDataQualityReport report)
+			private void CheckOutliers(List<OptimizedHorseFeaturesModel> data, TrainingDataQualityReport report)
 			{
 				// 異常に高いスコアをチェック
 				var highScores = data.Where(d => d.Recent3AdjustedAvg > 2.0f).ToList();
@@ -295,7 +259,7 @@ namespace Netkeiba
 				}
 			}
 
-			private void CheckFeatureCorrelation(List<OptimizedHorseFeatures> data, TrainingDataQualityReport report)
+			private void CheckFeatureCorrelation(List<OptimizedHorseFeaturesModel> data, TrainingDataQualityReport report)
 			{
 				// 高相関の特徴量ペアをチェック
 				var recent3Avg = data.Select(d => d.Recent3AdjustedAvg).ToArray();
@@ -391,14 +355,14 @@ namespace Netkeiba
 		}
 
 		/// <summary>馬ﾍｯﾀﾞ</summary>
-		private static readonly string[] col_model = Arr("ﾚｰｽID", "馬番", "着順", "Features");
+		private static readonly string[] col_model = Arr("ﾚｰｽID", "馬ID", "Features");
 
 		public static async Task CreateModel(this SQLiteControl conn)
 		{
 			await conn.Create(
 				"t_model",
 				col_model,
-				Arr("ﾚｰｽID", "馬番")
+				Arr("ﾚｰｽID", "馬ID")
 			);
 
 			// TODO indexの作成
@@ -407,6 +371,27 @@ namespace Netkeiba
 		public static async Task<bool> ExistsModelTableAsync(this SQLiteControl conn)
 		{
 			return await conn.ExistsColumn("t_model", "ﾚｰｽID");
+		}
+
+		public static async Task InsertModelAsync(this SQLiteControl conn, List<OptimizedHorseFeaturesModel> data)
+		{
+			if (!data.Any()) return;
+
+			foreach (var chunk in data.GroupBy(x => x.RaceId))
+			{
+				await conn.BeginTransaction();
+				foreach (var x in chunk)
+				{
+					var parameters = new[]
+					{
+						SQLiteUtil.CreateParameter(DbType.String, x.RaceId),
+						SQLiteUtil.CreateParameter(DbType.String, x.HorseName),
+						SQLiteUtil.CreateParameter(DbType.Object, x)
+					};
+					await conn.ExecuteNonQueryAsync("REPLACE INTO t_model (ﾚｰｽID, 馬ID, Features) VALUES (?, ?, ?)", parameters);
+				}
+				conn.Commit();
+			}
 		}
 
 		public static async Task<bool> ExistsModelAsync(this SQLiteControl conn, string raceid)

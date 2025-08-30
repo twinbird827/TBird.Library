@@ -12,134 +12,81 @@ namespace Netkeiba
 {
 	// ===== データモデル =====
 
-	public class Horse
+	public class HorseData
 	{
-		public Horse(RaceResultData result, HorseDetails horseDetails)
+		public HorseData(Dictionary<string, object> x)
 		{
-			Name = result.HorseName;
-			Age = horseDetails.Age;
-			Weight = result.Weight;
-			PreviousWeight = horseDetails.PreviousWeight;
-			Jockey = result.JockeyName;
-			Trainer = result.TrainerName;
-			Sire = horseDetails.SireName;
-			DamSire = horseDetails.DamSireName;
-			Breeder = horseDetails.BreederName;
-			LastRaceDate = horseDetails.LastRaceDate;
-			PurchasePrice = horseDetails.PurchasePrice;
-			Odds = result.Odds;
-			RaceCount = horseDetails.RaceCount;
+			Name = x["馬ID"].Str();
+			BirthDate = x["生年月日"].Date();
+			SireName = x["父ID"].Str("Unknown");
+			DamSireName = x["母父ID"].Str("Unknown");
+			BreederName = x["馬主ID"].Str("Unknown");
+			PurchasePrice = x["購入額"].Int64();
 		}
 
-		public string Name { get; set; }
-		public int Age { get; set; }
-		public float Weight { get; set; }
-		public float PreviousWeight { get; set; }
-		public string Jockey { get; set; }
-		public string Trainer { get; set; }
-		public string Sire { get; set; }
-		public string DamSire { get; set; }
-		public string Breeder { get; set; }
-		public DateTime LastRaceDate { get; set; }
-		public long PurchasePrice { get; set; }
-		public float Odds { get; set; }
-		public int RaceCount { get; set; }
-		public List<RaceResult> RaceHistory { get; set; } = new();
-	}
-
-	public class Race
-	{
-		public string RaceId { get; set; }
-		public string CourseName { get; set; }
-		public int Distance { get; set; }
-		public string TrackType { get; set; } // 芝, ダート
-		public string TrackCondition { get; set; } // 良, 稍重, 重, 不良
-		public string Grade { get; set; } // G1, G2, G3, OP, 3勝, 2勝, 1勝, 未勝利, 新馬
-		public long FirstPrizeMoney { get; set; }
-		public int NumberOfHorses { get; set; }
-		public float AverageRating { get; set; }
-		public bool IsInternational { get; set; }
-		public bool IsAgedHorseRace { get; set; }
-		public DateTime RaceDate { get; set; }
-		public List<Horse> Horses { get; set; } = new();
-	}
-
-	public class RaceResult
-	{
-		public RaceResult(RaceData r, List<RaceData> all)
-		{
-			FinishPosition = r.FinishPosition;
-			Time = r.Time;
-			TotalHorses = r.NumberOfHorses;
-			RaceDate = r.RaceDate;
-			HorseExperience = CalculateHorseExperience(all, r.HorseName, r.RaceDate);
-			Race = new Race
-			{
-				RaceId = r.RaceId,
-				Distance = r.Distance,
-				TrackType = r.TrackType,
-				TrackCondition = r.TrackCondition,
-				Grade = r.Grade,
-				CourseName = r.CourseName,
-				FirstPrizeMoney = r.FirstPrizeMoney,
-				NumberOfHorses = r.NumberOfHorses,
-				RaceDate = r.RaceDate
-			};
-		}
-
-		private int CalculateHorseExperience(List<RaceData> all, string horseName, DateTime raceDate)
-		{
-			return all
-				.Count(r => r.HorseName == horseName && r.RaceDate < raceDate);
-		}
-
-		public Race Race { get; set; }
-		public int FinishPosition { get; set; }
-		public float Time { get; set; }
-		public int TotalHorses { get; set; }
-		public int HorseExperience { get; set; }
-		public DateTime RaceDate { get; set; }
-
-		public float CalculateAdjustedInverseScore() => AdjustedPerformanceCalculator.CalculateAdjustedInverseScore(FinishPosition, Race);
-	}
-
-	public class RaceResultData
-	{
-		public string RaceId { get; set; }
-		public string HorseName { get; set; }
-		public int FinishPosition { get; set; }
-		public float Weight { get; set; }
-		public float Time { get; set; }
-		public float Odds { get; set; }
-		public string JockeyName { get; set; }
-		public string TrainerName { get; set; }
-		public DateTime RaceDate { get; set; }
-
-		public float CalculateAdjustedInverseScore(Race race) => AdjustedPerformanceCalculator.CalculateAdjustedInverseScore(FinishPosition, race);
-
+		public string Name { get; }
+		public DateTime BirthDate { get; }
+		public string SireName { get; }
+		public string DamSireName { get; }
+		public string BreederName { get; }
+		public long PurchasePrice { get; }
 	}
 
 	public class HorseDetails
 	{
-		public string Name { get; set; }
-		public int Age { get; set; }
-		public float PreviousWeight { get; set; }
-		public string SireName { get; set; }
-		public string DamSireName { get; set; }
-		public string BreederName { get; set; }
-		public DateTime LastRaceDate { get; set; }
-		public long PurchasePrice { get; set; }
-		public int RaceCount { get; set; }
+		public HorseDetails(HorseData horseData, List<RaceData> raceHistory, DateTime asOfDate)
+		{
+			Source = horseData;
+			Age = CalculateAge(horseData?.BirthDate ?? asOfDate.AddYears(-4), asOfDate);
+			PreviousWeight = raceHistory.Skip(1).FirstOrDefault()?.Weight ?? 456;
+			LastRaceDate = raceHistory.FirstOrDefault()?.RaceDate ?? DateTime.MinValue;
+			RaceCount = raceHistory.Count;
+		}
+
+		private HorseData Source { get; }
+		public string Name => Source.Name;
+		public float Age { get; }
+		public float PreviousWeight { get; }
+		public string SireName => Source.SireName;
+		public string DamSireName => Source.DamSireName;
+		public string BreederName => Source.BreederName;
+		public DateTime LastRaceDate { get; }
+		public long PurchasePrice => Source.PurchasePrice;
+		public int RaceCount { get; }
+
+		private float CalculateAge(DateTime birthDate, DateTime asOfDate)
+		{
+			return (asOfDate - birthDate).TotalDays.Single() / 365F;
+		}
 	}
 
-	public class ConnectionDetails
+	public class Horse
 	{
-		public string JockeyName { get; set; }
-		public string TrainerName { get; set; }
-		public DateTime AsOfDate { get; set; }
-	}
+		public Horse(RaceData result, HorseDetails horseDetails, IEnumerable<RaceResult> history)
+		{
+			RaceSource = result;
+			HorseSource = horseDetails;
+			RaceHistory = history.ToArray();
+		}
 
-	// ===== CSVファイル用のデータクラス =====
+		private RaceData RaceSource { get; }
+		private HorseDetails HorseSource { get; }
+
+		public string Name => HorseSource.Name;
+		public float Age => HorseSource.Age;
+		public float Weight => RaceSource.Weight;
+		public float PreviousWeight => HorseSource.Age;
+		public string Jockey => RaceSource.JockeyName;
+		public string Trainer => RaceSource.TrainerName;
+		public string Sire => HorseSource.SireName;
+		public string DamSire => HorseSource.DamSireName;
+		public string Breeder => HorseSource.BreederName;
+		public DateTime LastRaceDate => HorseSource.LastRaceDate;
+		public long PurchasePrice => HorseSource.PurchasePrice;
+		public float Odds => RaceSource.Odds;
+		public int RaceCount => HorseSource.RaceCount;
+		public RaceResult[] RaceHistory { get; }
+	}
 
 	public class RaceData
 	{
@@ -148,9 +95,12 @@ namespace Netkeiba
 			RaceId = x["ﾚｰｽID"].Str();
 			CourseName = x["ﾚｰｽ名"].Str();
 			Distance = x["距離"].Int32();
-			TrackType = x["馬場"].Str();
+			DistanceCategory = Distance.ToDistanceCategory();
+			Track = x["馬場"].Str();
+			TrackType = Track.ToTrackType();
 			TrackCondition = x["馬場状態"].Str();
-			Grade = x["ﾗﾝｸ1"].Str();
+			TrackConditionType = TrackCondition.ToTrackConditionType();
+			Grade = x["ﾗﾝｸ1"].Str().ToGrade();
 			FirstPrizeMoney = x["優勝賞金"].Int64();
 			NumberOfHorses = x["頭数"].Int32();
 			RaceDate = x["開催日"].Date();
@@ -163,58 +113,110 @@ namespace Netkeiba
 			TrainerName = x["調教師ID"].Str();
 		}
 
-		public string RaceId { get; set; }
-		public string CourseName { get; set; }
-		public int Distance { get; set; }
-		public string TrackType { get; set; }
-		public string TrackCondition { get; set; }
-		public string Grade { get; set; }
-		public long FirstPrizeMoney { get; set; }
-		public int NumberOfHorses { get; set; }
-		public DateTime RaceDate { get; set; }
-		public string HorseName { get; set; }
-		public int FinishPosition { get; set; }
-		public float Weight { get; set; }
-		public float Time { get; set; }
-		public float Odds { get; set; }
-		public string JockeyName { get; set; }
-		public string TrainerName { get; set; }
+		public string RaceId { get; }
+		public string CourseName { get; }
+		public int Distance { get; }
+		public DistanceCategory DistanceCategory { get; }
+		public string Track { get; }
+		public TrackType TrackType { get; }
+		public string TrackCondition { get; }
+		public TrackConditionType TrackConditionType { get; }
+		public GradeType Grade { get; }
+		public long FirstPrizeMoney { get; }
+		public int NumberOfHorses { get; }
+		public DateTime RaceDate { get; }
+		public string HorseName { get; }
+		public int FinishPosition { get; }
+		public float Weight { get; }
+		public float Time { get; }
+		public float Odds { get; }
+		public string JockeyName { get; }
+		public string TrainerName { get; }
+
+		public float CalculateAdjustedInverseScore(Race race) => AdjustedPerformanceCalculator.CalculateAdjustedInverseScore(FinishPosition, race);
 	}
 
-	public class HorseData
+	public class Race
 	{
-		public HorseData(Dictionary<string, object> x)
+		public Race(RaceData r, List<RaceData> all)
 		{
-			Name = x["馬ID"].Str();
-			BirthDate = x["生年月日"].Date();
-			SireName = x["父ID"].Str();
-			DamSireName = x["母父ID"].Str();
-			BreederName = x["馬主ID"].Str();
-			PurchasePrice = x["購入額"].Int64();
+			Source = r;
+			AverageRating = CalculateAverageRating(r.RaceId, all);
+			IsInternational = Grade.IsG1() && FirstPrizeMoney > 200000000;
+			IsAgedHorseRace = Grade.IsCLASSIC() == false;
 		}
 
-		public string Name { get; set; }
-		public DateTime BirthDate { get; set; }
-		public string SireName { get; set; }
-		public string DamSireName { get; set; }
-		public string BreederName { get; set; }
-		public long PurchasePrice { get; set; }
+		private RaceData Source { get; }
+
+		public string RaceId => Source.RaceId;
+		public string CourseName => Source.CourseName;
+		public int Distance => Source.Distance;
+		public DistanceCategory DistanceCategory => Source.DistanceCategory;
+		public TrackType TrackType => Source.TrackType;
+		public TrackConditionType TrackConditionType => Source.TrackConditionType;
+		public GradeType Grade => Source.Grade;
+		public long FirstPrizeMoney => Source.FirstPrizeMoney;
+		public int NumberOfHorses => Source.NumberOfHorses;
+		public DateTime RaceDate => Source.RaceDate;
+		public float AverageRating { get; }
+		public bool IsInternational { get; }
+		public bool IsAgedHorseRace { get; }
+
+		private float CalculateAverageRating(string raceId, List<RaceData> all)
+		{
+			// 簡易レーティング計算（実際の実装では詳細な計算を行う）
+			var raceHorses = all.Where(r => r.RaceId == raceId).ToList();
+			if (!raceHorses.Any()) return 80.0f;
+
+			// オッズから逆算した強さ指標
+			var avgOdds = raceHorses.Average(h => h.Odds);
+			return Math.Max(70.0f, Math.Min(95.0f, 100.0f - (float)Math.Log(avgOdds) * 5.0f));
+		}
 	}
 
-	public class ConnectionData
+	public class RaceResult
 	{
-		public string HorseName { get; set; }
-		public string JockeyName { get; set; }
-		public string TrainerName { get; set; }
-		public DateTime FromDate { get; set; }
-		public DateTime? ToDate { get; set; }
-		public bool IsActive { get; set; }
+		public RaceResult(RaceData r, List<RaceData> all)
+		{
+			Source = r;
+			HorseExperience = CalculateHorseExperience(all, r.HorseName, r.RaceDate);
+			Race = new Race(r, all);
+			AdjustedInverseScore = Source.CalculateAdjustedInverseScore(Race);
+		}
+
+		private RaceData Source { get; }
+
+		public int FinishPosition => Source.FinishPosition;
+		public float Time => Source.Time;
+		public int TotalHorses => Source.NumberOfHorses;
+		public int HorseExperience { get; }
+		public DateTime RaceDate => Source.RaceDate;
+		public Race Race { get; }
+		public float AdjustedInverseScore { get; }
+
+		private int CalculateHorseExperience(List<RaceData> all, string horseName, DateTime raceDate)
+		{
+			return all
+				.Count(r => r.HorseName == horseName && r.RaceDate < raceDate);
+		}
 	}
+
+	// ===== CSVファイル用のデータクラス =====
 
 	// ===== 特徴量クラス =====
 
 	public class OptimizedHorseFeatures
 	{
+		public OptimizedHorseFeatures() : this(string.Empty)
+		{
+
+		}
+
+		public OptimizedHorseFeatures(string raceId)
+		{
+			RaceId = raceId;
+		}
+
 		// 馬の基本実績（難易度調整済み）
 		[LoadColumn(0)] public float Recent3AdjustedAvg { get; set; }
 		[LoadColumn(1)] public float Recent5AdjustedAvg { get; set; }
@@ -255,7 +257,7 @@ namespace Netkeiba
 
 		// 馬の状態・変化指標
 		[LoadColumn(26)] public int RestDays { get; set; }
-		[LoadColumn(27)] public int Age { get; set; }
+		[LoadColumn(27)] public float Age { get; set; }
 		[LoadColumn(28)] public float Popularity { get; set; }
 		[LoadColumn(29)] public float PerformanceTrend { get; set; }
 		[LoadColumn(30)] public float DistanceChangeAdaptation { get; set; }
@@ -274,5 +276,176 @@ namespace Netkeiba
 		// ラベル・グループ情報
 		[LoadColumn(38)] public float Label { get; set; }
 		[LoadColumn(39)] public string RaceId { get; set; }
+
+	}
+
+	public class OptimizedHorseFeaturesModel : OptimizedHorseFeatures
+	{
+		public OptimizedHorseFeaturesModel(string raceId, string horseName) : base(raceId)
+		{
+			HorseName = horseName;
+		}
+
+		public string HorseName { get; set; }
+	}
+
+	public enum GradeType
+	{
+		// G1
+		G1古 = 20,
+
+		G1ク = 19,
+
+		G1障 = 18,
+
+		// G2
+		G2古 = 17,
+
+		G2ク = 16,
+
+		G2障 = 15,
+
+		// G3
+		G3古 = 14,
+
+		G3ク = 13,
+
+		G3障 = 12,
+
+		// オープン
+		オープン古 = 11,
+
+		オープンク = 10,
+
+		オープン障 = 9,
+
+		// 条件戦
+		勝3古 = 8,
+
+		勝2古 = 7,
+
+		勝2ク = 6,
+
+		勝1古 = 5,
+
+		勝1ク = 4,
+
+		// 未勝利・新馬
+		未勝利ク = 3,
+
+		未勝利障 = 2,
+
+		新馬ク = 1,
+
+	}
+
+	public enum DistanceCategory
+	{
+		Sprint,
+		Mile,
+		Middle,
+		Long
+	}
+
+	public enum TrackType
+	{
+		// 芝
+		Grass,
+
+		// ダート
+		Dirt,
+
+		Unknown
+	}
+
+	public enum TrackConditionType
+	{
+		// 良
+		Good,
+
+		// 稍重
+		SlightlyHeavy,
+
+		// 重
+		Heavy,
+
+		// 不良
+		Poor,
+
+		Unknown,
+	}
+
+	public static class ModelExtensions
+	{
+		public static GradeType ToGrade(this string grade) => EnumUtil.ToEnum<GradeType>(grade);
+
+		public static bool IsG1(this GradeType grade) => grade switch
+		{
+			GradeType.G1ク => true,
+			GradeType.G1古 => true,
+			GradeType.G1障 => true,
+			_ => false
+		};
+
+		public static bool IsG2(this GradeType grade) => grade switch
+		{
+			GradeType.G2ク => true,
+			GradeType.G2古 => true,
+			GradeType.G2障 => true,
+			_ => false
+		};
+
+		public static bool IsG3(this GradeType grade) => grade switch
+		{
+			GradeType.G3ク => true,
+			GradeType.G3古 => true,
+			GradeType.G3障 => true,
+			_ => false
+		};
+
+		public static bool IsOPEN(this GradeType grade) => grade switch
+		{
+			GradeType.オープンク => true,
+			GradeType.オープン古 => true,
+			GradeType.オープン障 => true,
+			_ => false
+		};
+
+		public static bool IsCLASSIC(this GradeType grade) => grade switch
+		{
+			GradeType.G1ク => true,
+			GradeType.G2ク => true,
+			GradeType.G3ク => true,
+			GradeType.オープンク => true,
+			GradeType.勝2ク => true,
+			GradeType.勝1ク => true,
+			GradeType.未勝利ク => true,
+			GradeType.新馬ク => true,
+			_ => false,
+		};
+
+		public static DistanceCategory ToDistanceCategory(this int distance) => distance switch
+		{
+			<= 1400 => DistanceCategory.Sprint,
+			<= 1800 => DistanceCategory.Mile,
+			<= 2200 => DistanceCategory.Middle,
+			_ => DistanceCategory.Long
+		};
+
+		public static TrackType ToTrackType(this string track) => track switch
+		{
+			"芝" => TrackType.Grass,
+			"ダート" => TrackType.Dirt,
+			_ => TrackType.Unknown
+		};
+
+		public static TrackConditionType ToTrackConditionType(this string condition) => condition switch
+		{
+			"良" => TrackConditionType.Good,
+			"稍重" => TrackConditionType.SlightlyHeavy,
+			"重" => TrackConditionType.Heavy,
+			"不良" => TrackConditionType.Poor,
+			_ => TrackConditionType.Unknown
+		};
 	}
 }

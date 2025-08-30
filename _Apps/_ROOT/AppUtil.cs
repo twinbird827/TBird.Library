@@ -18,32 +18,6 @@ namespace Netkeiba
 	{
 		public const float RankRateBase = 7F;
 
-		public static readonly Dictionary<string, float> RankRate = new Dictionary<string, float>()
-		{
-			{ "G1古",       RankRateBase * 3.00F },
-			{ "G2古",       RankRateBase * 2.75F },
-			{ "G1ク",       RankRateBase * 2.50F },
-			{ "G3古",       RankRateBase * 2.25F },
-			{ "G2ク",       RankRateBase * 2.00F },
-			{ "オープン古", RankRateBase * 1.50F },
-			{ "G3ク",       RankRateBase * 1.50F },
-			{ "オープンク", RankRateBase * 1.25F },
-			{ "3勝古",      RankRateBase * 1.00F },
-			{ "2勝古",      RankRateBase * 0.75F },
-			{ "2勝ク",      RankRateBase * 1.00F },
-			{ "1勝古",      RankRateBase * 0.50F },
-			{ "1勝ク",      RankRateBase * 0.50F },
-			{ "未勝利ク",   0F },
-			{ "新馬ク",     0F },
-			{ "G1障",       RankRateBase * 1.75F },
-			{ "G2障",       RankRateBase * 1.25F },
-			{ "G3障",       RankRateBase * 0.75F },
-			{ "オープン障", RankRateBase * 0.50F },
-			{ "未勝利障",   0F },
-		};
-
-		public static readonly string[] ﾗﾝｸ1Arr = RankRate.Keys.ToArray();
-
 		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
@@ -247,16 +221,16 @@ namespace Netkeiba
 			{ "(G)", "オープン" },
 			{ "(L)", "オープン" },
 			{ "オープン", "オープン" },
-			{ "３勝クラス", "3勝" },
-			{ "3勝クラス", "3勝" },
-			{ "(3勝)", "3勝" },
-			{ "1600万下", "3勝" },
-			{ "２勝クラス", "2勝" },
-			{ "2勝クラス", "2勝" },
-			{ "1000万下", "2勝" },
-			{ "１勝クラス", "1勝" },
-			{ "1勝クラス", "1勝" },
-			{ "500万下", "1勝" },
+			{ "３勝クラス", "勝3" },
+			{ "3勝クラス", "勝3" },
+			{ "(3勝)", "勝3" },
+			{ "1600万下", "勝3" },
+			{ "２勝クラス", "勝2" },
+			{ "2勝クラス", "勝2" },
+			{ "1000万下", "勝2" },
+			{ "１勝クラス", "勝1" },
+			{ "1勝クラス", "勝1" },
+			{ "500万下", "勝1" },
 			{ "未勝利", "未勝利" },
 			{ "新馬", "新馬" },
 			{ "OP", "オープン" },
@@ -276,11 +250,11 @@ namespace Netkeiba
 
 		public static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
 		{
-			{ "1勝ク", "勝ク" },
-			{ "1勝古", "勝古" },
-			{ "2勝ク", "勝ク" },
-			{ "2勝古", "勝古" },
-			{ "3勝古", "勝古" },
+			{ "勝1ク", "勝ク" },
+			{ "勝1古", "勝古" },
+			{ "勝2ク", "勝ク" },
+			{ "勝2古", "勝古" },
+			{ "勝3古", "勝古" },
 			{ "G1ク", "オク" },
 			{ "G1古", "オ古" },
 			{ "G1障", "オ障" },
