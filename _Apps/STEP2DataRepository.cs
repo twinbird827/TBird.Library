@@ -166,23 +166,19 @@ namespace Netkeiba
 
 		public float GetSireStats(string sire)
 		{
-			var raceHistory = _allRaceData
-				.Where(r => r.HorseName == sire)
-				.OrderByDescending(r => r.RaceDate)
-				.Select(r => new RaceResult(r, _allRaceData))
+			if (SireStats.ContainsKey(sire)) return SireStats[sire];
+
+			var raceHistory = GetHorseRecentRaces(sire, DateTime.Now)
 				.ToList();
 
-			return raceHistory.AdjustedInverseScoreAverage();
+			return SireStats[sire] = raceHistory.AdjustedInverseScoreAverage();
 		}
+
+		private Dictionary<string, float> SireStats = new();
 
 		public float GetBreederStats(string breeder, DateTime asOfDate)
 		{
-			var breedHorses = _allHorseData
-				.Where(x => x.BreederName == breeder && x.BirthDate.AddYears(2) < asOfDate)
-				.Select(x => x.Name)
-				.ToArray();
-			var raceHistory = _allRaceData
-				.Where(r => breedHorses.Contains(r.HorseName) && r.RaceDate < asOfDate)
+			var raceHistory = _conn.GetBreederRecentRaces(breeder, asOfDate).ToBlockingEnumerable()
 				.OrderByDescending(r => r.RaceDate)
 				.Select(r => new RaceResult(r, _allRaceData))
 				.Where(r => r.HorseExperience == 0)
@@ -290,6 +286,26 @@ WHERE h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.調教師ID = ? 
 			var parameters = new[]
 			{
 				SQLiteUtil.CreateParameter(DbType.String, trainer),
+				SQLiteUtil.CreateParameter(DbType.Int32, asOfDate.ToTotalDays())
+			};
+
+			foreach (var x in await conn.GetRows(sql, parameters))
+			{
+				yield return new RaceData(x);
+			}
+		}
+
+		public static async IAsyncEnumerable<RaceData> GetBreederRecentRaces(this SQLiteControl conn, string breeder, DateTime asOfDate)
+		{
+			var sql = @"
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.頭数, h.開催日, d.馬ID, d.着順, d.体重, d.ﾀｲﾑ変換, d.単勝, d.騎手ID, d.調教師ID
+FROM t_orig_h h, t_orig_d d
+WHERE h.ﾚｰｽID = d.ﾚｰｽID AND h.開催日数 < ? AND d.馬主ID = ?
+			";
+
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.String, breeder),
 				SQLiteUtil.CreateParameter(DbType.Int32, asOfDate.ToTotalDays())
 			};
 
