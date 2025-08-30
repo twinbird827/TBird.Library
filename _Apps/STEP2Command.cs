@@ -120,12 +120,14 @@ namespace Netkeiba
 				// 各馬の特徴量を生成
 				foreach (var result in raceResults)
 				{
+					// TODO osoi
 					var raceHistory = _dataRepository.GetHorseHistoryBeforeAsync(
 						result.HorseName, race.RaceDate
 					);
 					var horse = CreateHorseFromResultAsync(result, race.RaceDate, raceHistory);
 
 					// 他の出走馬も設定（人気順計算等に必要）
+					// TODO osoi
 					var allHorsesInRace = CreateAllHorsesInRaceAsync(raceResults, race.RaceDate);
 
 					// 関係者情報
