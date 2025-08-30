@@ -261,5 +261,10 @@ namespace TBird.Core
 		{
 			return arr.SelectMany(arr => arr);
 		}
+
+		public static TResult Aggregate<T, TResult>(this IEnumerable<T> arr, Func<IEnumerable<T>, TResult> func, TResult def)
+		{
+			return arr.Any() ? func(arr) : def;
+		}
 	}
 }
