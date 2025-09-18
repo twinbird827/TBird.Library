@@ -21,14 +21,25 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="value">元となる値</param>
 		/// <returns></returns>
-		public static DateTime Date(this object value) => value is DateTime x ? x : DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""));
+		public static DateTime Date(this object? value) => value is DateTime x ? x : DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""));
+
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="DateTime"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <returns></returns>
+		public static DateTime Date(this object? value, DateTime def) => value is DateTime x 
+			? x 
+			: value != null
+			? DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""))
+			: def;
 
 		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="string"/>型に変換します。
 		/// </summary>
 		/// <param name="value">元となる値</param>
 		/// <returns></returns>
-		public static string Str(this object value, string def = "") => CoreUtil.Nvl(value is string s ? s : string.Empty, def, $"{value}");
+		public static string Str(this object? value, string def = "") => CoreUtil.Nvl(value is string s ? s : string.Empty, def, $"{value}");
 
 		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="bool"/>型に変換します。
@@ -36,7 +47,7 @@ namespace TBird.Core
 		/// <param name="value">元となる値</param>
 		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
 		/// <returns></returns>
-		public static bool Bool(this object value, bool def = false) => bool.TryParse(value.Str(), out bool o) ? o : def;
+		public static bool Bool(this object? value, bool def = false) => bool.TryParse(value.Str(), out bool o) ? o : def;
 
 		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="double"/>型に変換します。
@@ -74,7 +85,7 @@ namespace TBird.Core
 		/// 指定したｵﾌﾞｼﾞｪｸﾄがIDisposableを実装しているなら破棄します。
 		/// </summary>
 		/// <param name="value">ｵﾌﾞｼﾞｪｸﾄ</param>
-		public static void TryDispose(this object value)
+		public static void TryDispose(this object? value)
 		{
 			if (value is IDisposable disposable)
 			{
