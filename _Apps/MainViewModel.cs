@@ -113,5 +113,26 @@ namespace Netkeiba
 		public CheckboxItemModel S2Overwrite { get; } = new CheckboxItemModel("", "") { IsChecked = false };
 
 		public IRelayCommand S2EXEC => new STEP2Command(this).CreateCommand();
+
+		public IRelayCommand S3EXEC => new STEP3Command(this).CreateCommand();
+
+		public IRelayCommand S4EXEC => new STEP4Command(this).CreateCommand();
+
+		public string S4Text
+		{
+			get => _S4Text;
+			set => SetProperty(ref _S4Text, value);
+		}
+		private string _S4Text = string.Empty;
+
+		public ComboboxViewModel S4Dates
+		{
+			get => _S4Dates;
+			set => SetProperty(ref _S4Dates, value);
+		}
+		private ComboboxViewModel _S4Dates = new(Enumerable.Empty<ComboboxItemModel>());
+
+		public IRelayCommand S4UPDATELIST => new STEP4UpdateListCommand(this).CreateCommand();
+
 	}
 }

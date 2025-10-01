@@ -1,4 +1,5 @@
 ﻿using Microsoft.ML.AutoML;
+using Netkeiba.Models;
 using System.Collections.Generic;
 using System.Linq;
 using TBird.Core;
@@ -16,6 +17,7 @@ namespace Netkeiba
 				TrainingTimeSecond = [1800, 2000, 2200];
 				BinaryClassificationResults = [];
 				RegressionResults = [];
+				RankingTrains = [];
 				NetkeibaResult = "result";
 
 			}
@@ -256,5 +258,40 @@ namespace Netkeiba
 		}
 		private string _OrderBys = "3,4,5";
 
+		public RankingTrain[] RankingTrains
+		{
+			get => GetProperty(_RankingTrains);
+			set => SetProperty(ref _RankingTrains, value);
+		}
+		public RankingTrain[] _RankingTrains = [];
+
+		public void UpdateRankingTrains(RankingTrain now)
+		{
+			RankingTrains = RankingTrains.Concat(Arr(now)).ToArray();
+			Save();
+		}
+
+		public IEnumerable<RankingTrain> GetRankingTrains(string grade)
+		{
+			return RankingTrains.Where(x => x.Grade == grade);
+		}
+
+		public RankingTrain GetRankingTrain(string grade)
+		{
+			return GetRankingTrains(grade).Run(arr =>
+			{
+				return arr.FirstOrDefault(x => x.NDCG1 == arr.Max(y => y.NDCG1)) ?? RankingTrain.Default;
+			});
+		}
+
+		public void RemoveAllRankingTrain()
+		{
+			foreach (var x in RankingTrains)
+			{
+				FileUtil.Delete(x.Path);
+			}
+			RankingTrains = [];
+			Save();
+		}
 	}
 }

@@ -77,7 +77,7 @@ namespace Netkeiba
 					dic["ﾚｰｽID"] = raceid;
 					dic["ﾚｰｽ名"] = title;
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
-					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
+					dic["開催日数"] = AppUtil.ToTotalDays(date).Str();
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
@@ -308,6 +308,12 @@ namespace Netkeiba
 				var basyo = Regex.Match(details, @"日 (?<basyo>[^\d]+)\d+R").Groups["basyo"].Value;
 				// ｸﾗｽ
 				var clas = raceparser.GetElementsByClassName("RaceData02").SelectMany(x => x.GetElementsByTagName("span")).Skip(4).First().GetInnerHtml();
+				//優勝賞金
+				var prise = raceparser.GetElementsByClassName("RaceData02").SelectMany(x => x.GetElementsByTagName("span")).Skip(8).First().GetInnerHtml()
+					.Split(':')[1]
+					.Replace("万円", "")
+					.Split(',')
+					.Sum(x => float.Parse(x.Trim()));
 
 				// *****
 				// ﾚｰｽ名を取得
@@ -323,10 +329,11 @@ namespace Netkeiba
 					// ﾍｯﾀﾞ情報を挿入
 					dic["ﾚｰｽID"] = raceid;
 					dic["ﾚｰｽ名"] = title;
+					dic["優勝賞金"] = prise.Str();
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
-					dic["開催日数"] = $"{(date - DateTime.Parse("1990/01/01")).TotalDays}";
+					dic["開催日数"] = AppUtil.ToTotalDays(date).Str();
 					dic["開催場所"] = basyo.Replace("1", "");
-					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
+					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"].Str(), clas);
 					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = title.Contains("障害") ? "障" : mawari;
 					dic["距離"] = kyori;
@@ -362,7 +369,7 @@ namespace Netkeiba
 					dic["騎手ID"] = row.Cells[6].GetHrefAttribute("href").Split('/').Reverse().ToArray()[1];
 					// ﾀｲﾑ(なし)
 					dic["ﾀｲﾑ"] = "0:00.0";
-					dic["ﾀｲﾑ変換"] = dic["ﾀｲﾑ"].Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle()).Str();
+					dic["ﾀｲﾑ変換"] = dic["ﾀｲﾑ"].Str().Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle()).Str();
 
 					// 着差(なし)
 					dic["着差"] = "0";
@@ -395,16 +402,13 @@ namespace Netkeiba
 					// 賞金
 					dic["賞金"] = "0";
 
-					// 追切情報の枠だけ用意する
-					SetOikirisEmpty(dic);
-
 					arr.Add(dic);
 				}
 
 				if (arr.Any()) arr.ForEach(x =>
 				{
-					x["ﾗﾝｸ1"] += x["回り"] == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古";
-					x["ﾗﾝｸ2"] = AppUtil.ﾗﾝｸ2[x["ﾗﾝｸ1"]];
+					x["ﾗﾝｸ1"] += x["回り"].Str() == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古";
+					x["ﾗﾝｸ2"] = AppUtil.ﾗﾝｸ2[x["ﾗﾝｸ1"].Str()];
 				});
 			}
 

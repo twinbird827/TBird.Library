@@ -211,52 +211,52 @@ namespace Netkeiba
 			System.Diagnostics.Process.Start("EXPLORER.EXE", Path.GetFullPath("result"));
 		});
 
-		public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
-		{
-			var seconds = AppSetting.Instance.TrainingCount;
+		//public IRelayCommand S3EXEC => RelayCommand.Create(async _ =>
+		//{
+		//	var seconds = AppSetting.Instance.TrainingCount;
 
-			DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
+		//	DirectoryUtil.DeleteInFiles("model", x => Path.GetExtension(x.FullName) == ".csv");
 
-			using (var conn = AppUtil.CreateSQLiteControl())
-			{
-				var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
-				var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
-				tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
-			}
+		//	using (var conn = AppUtil.CreateSQLiteControl())
+		//	{
+		//		var maxdate = await conn.ExecuteScalarAsync<long>("SELECT MAX(開催日数) FROM t_model");
+		//		var mindate = await conn.ExecuteScalarAsync<long>("SELECT MIN(開催日数) FROM t_model");
+		//		tgtdate = Calc(maxdate, (maxdate - mindate) * 0.1, (x, y) => x - y).GetInt64();
+		//	}
 
-			var checkes = CreateModels
-				.Select(x => x.Value)
-				.Where(x => x.IsChecked)
-				.ToArray();
+		//	var checkes = CreateModels
+		//		.Select(x => x.Value)
+		//		.Where(x => x.IsChecked)
+		//		.ToArray();
 
-			const int NumberOfCreateModel = 4;
-			Progress.Value = 0;
-			Progress.Minimum = 0;
-			Progress.Maximum = seconds * AppUtil.OrderBys.Count() * checkes.Length * (NumberOfCreateModel * 2 + 1);
+		//	const int NumberOfCreateModel = 4;
+		//	Progress.Value = 0;
+		//	Progress.Minimum = 0;
+		//	Progress.Maximum = seconds * AppUtil.OrderBys.Count() * checkes.Length * (NumberOfCreateModel * 2 + 1);
 
-			AppSetting.Instance.Save();
+		//	AppSetting.Instance.Save();
 
-			for (var tmp = 0; tmp < seconds * NumberOfCreateModel; tmp++)
-			{
-				var random = new Random();
-				foreach (var o in AppUtil.OrderBys)
-				{
-					var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
+		//	for (var tmp = 0; tmp < seconds * NumberOfCreateModel; tmp++)
+		//	{
+		//		var random = new Random();
+		//		foreach (var o in AppUtil.OrderBys)
+		//		{
+		//			var second = (uint)random.Next((int)AppSetting.Instance.MinimumTrainingTimeSecond, (int)AppSetting.Instance.MaximumTrainingTimeSecond);
 
-					foreach (var x in checkes)
-					{
-						var rank = x.Value;
+		//			foreach (var x in checkes)
+		//			{
+		//				var rank = x.Value;
 
-						(float 着順, float 単勝) GET着勝(DbDataReader r) => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
+		//				(float 着順, float 単勝) GET着勝(DbDataReader r) => (r.GetValue("着順").GetSingle(), r.GetValue("単勝").GetSingle());
 
-						await BinaryClassification($"1-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 <= o));
-						await BinaryClassification($"6-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 > o));
+		//				await BinaryClassification($"1-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 <= o));
+		//				await BinaryClassification($"6-{o}", rank, second, BinaryClassificationMetric.AreaUnderRocCurve, r => GET着勝(r).Run(x => x.着順 > o));
 
-						if (tmp % NumberOfCreateModel == 0) await Regression(rank, second);
-					}
-				}
-			}
-		});
+		//				if (tmp % NumberOfCreateModel == 0) await Regression(rank, second);
+		//			}
+		//		}
+		//	}
+		//});
 
 		private async Task BinaryClassification(string index, string rank, uint second, BinaryClassificationMetric metric, Func<DbDataReader, object> func_yoso)
 		{

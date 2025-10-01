@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
-using System.IO;
 using TBird.DB.SQLite;
-using System.Data;
+using Tensorflow.Keras.Layers;
 
 namespace Netkeiba
 {
@@ -140,7 +141,7 @@ namespace Netkeiba
 		/// <summary>ﾚｰｽ明細</summary>
 		private static readonly string[] col_orig_d = Arr("ﾚｰｽID", "着順", "枠番", "馬番", "馬ID", "馬性", "馬齢", "斤量", "騎手名", "騎手ID", "ﾀｲﾑ", "ﾀｲﾑ変換", "着差", "ﾀｲﾑ指数", "通過", "上り", "単勝", "人気", "体重", "増減", "備考", "調教場所", "調教師名", "調教師ID", "馬主名", "馬主ID", "賞金");
 
-		private static readonly string[] col_uma = Arr("馬ID", "馬名", "父ID", "母父ID", "生年月日", "調教師ID", "調教師名", "馬主ID", "馬主名", "生産者ID", "生産者名", "セリ取引価格", "募集情報");
+		private static readonly string[] col_uma = Arr("馬ID", "馬名", "父ID", "母父ID", "生年月日", "調教師ID", "調教師名", "馬主ID", "馬主名", "生産者ID", "生産者名", "セリ取引価格", "募集情報", "評価額");
 
 		public static async Task CreateOrig(this SQLiteControl conn)
 		{
@@ -169,14 +170,6 @@ namespace Netkeiba
 
 		public static async Task InsertOrigAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
 		{
-			async Task InsertKettoAsync(string uma, string name)
-			{
-				if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
-				{
-					await conn.InsertAsync("t_uma", await NetkeibaGetter.GetUmaInfo(uma, name));
-				}
-			}
-
 			var first = true;
 
 			foreach (var x in racearr)
@@ -199,7 +192,33 @@ namespace Netkeiba
 					await conn.InsertAsync("t_orig_h", col_orig_h.ToDictionary(s => s, s => ToValue(s)));
 				}
 				await conn.InsertAsync("t_orig_d", col_orig_d.ToDictionary(s => s, s => x[s]));
-				await InsertKettoAsync(x["馬ID"], x["馬名"]);
+				await conn.InsertUmaInfoAsync(x["馬ID"], x["馬名"]);
+			}
+		}
+
+		public static async Task InsertShutsubaAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
+		{
+			var first = true;
+
+			foreach (var x in racearr)
+			{
+				if (first)
+				{
+					string ToValue(string s)
+					{
+						switch (s)
+						{
+							case "頭数":
+								return racearr.Count.Str();
+							default:
+								return x[s];
+						}
+					}
+					first = false;
+					await conn.InsertAsync("t_orig_h", col_orig_h.ToDictionary(s => s, s => ToValue(s)));
+				}
+				await conn.InsertAsync("t_orig_d", col_orig_d.ToDictionary(s => s, s => x[s]));
+				await conn.InsertUmaInfoAsync(x["馬ID"], x["馬名"]);
 			}
 		}
 
@@ -210,6 +229,47 @@ namespace Netkeiba
 				SQLiteUtil.CreateParameter(DbType.String, raceid)
 			).RunAsync(x => x.GetInt32());
 			return 0 < cnt;
+		}
+
+		private static async Task InsertUmaInfoAsync(this SQLiteControl conn, string uma, string name)
+		{
+			if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
+			{
+				var info = await NetkeibaGetter.GetUmaInfo(uma, name);
+
+				info["評価額"] = await conn.GetUmaValuation(info);
+
+				await conn.InsertAsync("t_uma", info);
+			}
+		}
+
+		private static async Task<string> GetUmaValuation(this SQLiteControl conn, Dictionary<string, string> dic)
+		{
+			var sql = $@"
+WITH vv_uma AS (SELECT * FROM (SELECT 生年月日, MAX(セリ取引価格 * 1, 募集情報 * 0.7) 購入額, 馬主ID, 父ID, 母父ID, 生産者ID FROM t_uma) WHERE 購入額 > 0),
+vvv_uma AS (SELECT * FROM vv_uma WHERE 生年月日 < ?)
+SELECT COALESCE(
+	(SELECT AVG(購入額) FROM vvv_uma WHERE 父ID = ? AND 母父ID = ?),
+	(SELECT AVG(購入額) FROM vvv_uma WHERE 父ID = ?),
+	(SELECT AVG(購入額) FROM vvv_uma WHERE 母父ID = ?),
+	(SELECT AVG(購入額) FROM vvv_uma WHERE 馬主ID = ?),
+	(SELECT AVG(購入額) FROM vvv_uma WHERE 生産者ID = ?),
+	(SELECT AVG(購入額) FROM vvv_uma),
+	(SELECT AVG(購入額) FROM vv_uma)
+)";
+
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.String, dic["生年月日"]),
+				SQLiteUtil.CreateParameter(DbType.String, dic["父ID"]),
+				SQLiteUtil.CreateParameter(DbType.String, dic["母父ID"]),
+				SQLiteUtil.CreateParameter(DbType.String, dic["父ID"]),
+				SQLiteUtil.CreateParameter(DbType.String, dic["母父ID"]),
+				SQLiteUtil.CreateParameter(DbType.String, dic["馬主ID"]),
+				SQLiteUtil.CreateParameter(DbType.String, dic["生産者ID"]),
+			};
+
+			return await conn.ExecuteScalarAsync(sql, parameters).RunAsync(x => x.Str());
 		}
 	}
 }
