@@ -149,6 +149,13 @@ namespace Netkeiba.Models
 			nameof(PerformanceTrend),
 			nameof(DistanceChangeAdaptation),
 			nameof(ClassChangeAdaptation),
+			nameof(JockeyWeightDiff),
+			nameof(JockeyWeightRankInRace),
+			nameof(JockeyWeightDiffFromAvgInRace),
+			nameof(AverageTuka),
+			nameof(LastRaceTuka),
+			nameof(TukaConsistency),
+			nameof(AverageTukaInRace),
 		};
 
 		// 馬の状態・変化指標
@@ -158,18 +165,33 @@ namespace Netkeiba.Models
 		[LoadColumn(42)] public float PerformanceTrend { get; set; }
 		[LoadColumn(43)] public float DistanceChangeAdaptation { get; set; }
 		[LoadColumn(44)] public float ClassChangeAdaptation { get; set; }
+		[LoadColumn(45)] public float JockeyWeightDiff { get; set; }
+		[LoadColumn(46)] public float JockeyWeightRankInRace { get; set; }
+		[LoadColumn(47)] public float JockeyWeightDiffFromAvgInRace { get; set; }
+		[LoadColumn(48)] public float AverageTuka { get; set; }
+		[LoadColumn(49)] public float LastRaceTuka { get; set; }
+		[LoadColumn(50)] public float TukaConsistency { get; set; }
+		[LoadColumn(51)] public float AverageTukaInRace { get; set; }
 
 		public static string[] GetTimeItemNames() => new[]
 		{
 			nameof(SameDistanceTimeIndex),
 			nameof(LastRaceTimeDeviation),
 			nameof(TimeConsistencyScore),
+			nameof(AdjustedLastThreeFurlongsAvg),
+			nameof(LastRaceAdjustedLastThreeFurlongs),
+			nameof(AdjustedLastThreeFurlongsRankInRace),
+			nameof(AdjustedLastThreeFurlongsDiffFromAvgInRace),
 		};
 
 		// タイム関連（正規化済み）
-		[LoadColumn(45)] public float SameDistanceTimeIndex { get; set; }
-		[LoadColumn(46)] public float LastRaceTimeDeviation { get; set; }
-		[LoadColumn(47)] public float TimeConsistencyScore { get; set; }
+		[LoadColumn(52)] public float SameDistanceTimeIndex { get; set; }
+		[LoadColumn(53)] public float LastRaceTimeDeviation { get; set; }
+		[LoadColumn(54)] public float TimeConsistencyScore { get; set; }
+		[LoadColumn(55)] public float AdjustedLastThreeFurlongsAvg { get; set; }
+		[LoadColumn(56)] public float LastRaceAdjustedLastThreeFurlongs { get; set; }
+		[LoadColumn(57)] public float AdjustedLastThreeFurlongsRankInRace { get; set; }
+		[LoadColumn(58)] public float AdjustedLastThreeFurlongsDiffFromAvgInRace { get; set; }
 
 		public static string[] GetMetadataNames() => new[]
 		{
@@ -179,13 +201,13 @@ namespace Netkeiba.Models
 		};
 
 		// メタ情報
-		[LoadColumn(48)] public bool IsNewHorse { get; set; }
-		[LoadColumn(49)] public bool HasRaceExperience { get; set; }
-		[LoadColumn(50)] public float AptitudeReliability { get; set; }
+		[LoadColumn(59)] public bool IsNewHorse { get; set; }
+		[LoadColumn(60)] public bool HasRaceExperience { get; set; }
+		[LoadColumn(61)] public float AptitudeReliability { get; set; }
 
 		// ラベル・グループ情報
-		[LoadColumn(51)] public uint Label { get; set; }
-		[LoadColumn(52)] public string RaceId { get; set; }
+		[LoadColumn(62)] public uint Label { get; set; }
+		[LoadColumn(63)] public string RaceId { get; set; }
 
 		public static string[] GetFlagItemNames() => new[]
 		{

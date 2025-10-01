@@ -567,7 +567,7 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		public static async IAsyncEnumerable<RaceDetail> GetRaceDetailsAsync(this SQLiteControl conn, Race race)
 		{
 			var sql = @"
-SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日
+SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り
 FROM v_orig_d d, t_uma u
 WHERE d.ﾚｰｽID = ? AND d.馬ID = u.馬ID
 ";
