@@ -197,10 +197,16 @@ namespace Netkeiba
 			if (scores.Length < 2) return 1.0f;
 
 			var mean = scores.Average();
+			if (mean < 0.01f) return 0.1f; // ゼロ除算回避（極端に低い成績）
+
 			var variance = scores.Select(s => (s - mean) * (s - mean)).Average();
 			var stdDev = (float)Math.Sqrt(variance);
 
-			return mean / (stdDev + 0.1f); // 安定性指標
+			// 変動係数(CV)の逆数を0-1範囲に正規化
+			// CV = stdDev / mean（相対的なばらつき）
+			// 安定している（CVが小さい）ほど1に近く、不安定なほど0に近い
+			var cv = stdDev / mean;
+			return 1.0f / (1.0f + cv);
 		}
 
 		private static float CalculateGradeSpecificAverage(List<RaceDetail> races, Func<GradeType, bool> is_target)
@@ -281,13 +287,6 @@ namespace Netkeiba
 		public float CurrentDistanceAptitude { get; set; }
 		public float CurrentTrackTypeAptitude { get; set; }
 		public float CurrentTrackConditionAptitude { get; set; }
-		public float HeavyTrackAptitude { get; set; }
-		public float SpecificCourseAptitude { get; set; }
-
-		public float SprintAptitude { get; set; }
-		public float MileAptitude { get; set; }
-		public float MiddleDistanceAptitude { get; set; }
-		public float LongDistanceAptitude { get; set; }
 	}
 
 	public static class ConditionAptitudeCalculator
@@ -299,54 +298,95 @@ namespace Netkeiba
 				CurrentDistanceAptitude = ConditionAptitudeCalculator.CalculateCurrentConditionAptitude(horses, race),
 				CurrentTrackTypeAptitude = ConditionAptitudeCalculator.CalculateTrackTypeAptitude(horses, race.TrackType),
 				CurrentTrackConditionAptitude = ConditionAptitudeCalculator.CalculateTrackConditionAptitude(horses, race.TrackConditionType),
-				HeavyTrackAptitude = CalculateHeavyTrackAptitude(horses),
-				SpecificCourseAptitude = CalculateSpecificCourseAptitude(horses, race.CourseName),
-				SprintAptitude = CalculateDistanceCategoryAptitude(horses, DistanceCategory.Sprint),
-				MileAptitude = CalculateDistanceCategoryAptitude(horses, DistanceCategory.Mile),
-				MiddleDistanceAptitude = CalculateDistanceCategoryAptitude(horses, DistanceCategory.Middle),
-				LongDistanceAptitude = CalculateDistanceCategoryAptitude(horses, DistanceCategory.Long),
 			};
 		}
 
 		private static float CalculateCurrentConditionAptitude(List<RaceDetail> horses, Race race)
 		{
-			// 今回と同じ条件のレースを抽出
-			var similarRaces = horses.Where(r =>
-				r.Race.Distance == race.Distance &&
+			// 1. 同距離カテゴリ+同芝ダート+同馬場状態
+			var level1 = horses.Where(r =>
+				r.Race.DistanceCategory == race.DistanceCategory &&
 				r.Race.TrackType == race.TrackType &&
 				r.Race.TrackConditionType == race.TrackConditionType).ToList();
 
-			if (!similarRaces.Any())
-			{
-				return CalculateRelaxedConditionAptitude(horses, race);
-			}
+			// レベル1が十分あれば（5戦以上）それを優先
+			if (level1.Count >= 5)
+				return level1.AdjustedInverseScoreAverage();
 
-			return CalculateAdjustedAverageScore(similarRaces);
+			// 2. 同距離カテゴリ+同芝ダート（馬場状態問わず）
+			var level2 = horses.Where(r =>
+				r.Race.DistanceCategory == race.DistanceCategory &&
+				r.Race.TrackType == race.TrackType).ToList();
+
+			// レベル1が少数ある場合は次レベルと組み合わせ
+			if (level1.Any() && level2.Any())
+				return level1.AdjustedInverseScoreAverage() * 0.7f
+				     + level2.AdjustedInverseScoreAverage() * 0.3f;
+
+			// レベル2のみ
+			if (level2.Count >= 5)
+				return level2.AdjustedInverseScoreAverage();
+
+			// 3. 同芝ダート（距離問わず）
+			var level3 = horses.Where(r =>
+				r.Race.TrackType == race.TrackType).ToList();
+
+			// レベル2が少数ある場合は次レベルと組み合わせ
+			if (level2.Any() && level3.Any())
+				return level2.AdjustedInverseScoreAverage() * 0.7f
+				     + level3.AdjustedInverseScoreAverage() * 0.3f;
+
+			// レベル3のみ、または全体平均
+			if (level3.Any())
+				return level3.AdjustedInverseScoreAverage();
+
+			// 4. 全体平均
+			return horses.AdjustedInverseScoreAverage();
 		}
 
-		private static float CalculateDistanceCategoryAptitude(List<RaceDetail> races, DistanceCategory category)
-		{
-			var categoryRaces = races
-				.Where(r => r.Race.DistanceCategory == category)
-				.ToList();
+		//private static float CalculateDistanceCategoryAptitude(List<RaceDetail> races, DistanceCategory category)
+		//{
+		//	var categoryRaces = races
+		//		.Where(r => r.Race.DistanceCategory == category)
+		//		.ToList();
 
-			return CalculateAdjustedAverageScore(categoryRaces);
-		}
+		//	return CalculateAdjustedAverageScore(categoryRaces);
+		//}
 
 		private static float CalculateTrackTypeAptitude(List<RaceDetail> races, TrackType type)
 		{
-			var conditionRaces = races.Where(r =>
-				r.Race.TrackType == type).ToList();
-
-			return CalculateAdjustedAverageScore(conditionRaces);
+			return races.Where(r => r.Race.TrackType == type).AdjustedInverseScoreAverage();
 		}
 
 		private static float CalculateTrackConditionAptitude(List<RaceDetail> races, TrackConditionType condition)
 		{
-			var conditionRaces = races.Where(r =>
-				r.Race.TrackConditionType == condition).ToList();
+			// 1. 完全一致（同じ馬場状態）
+			var exactMatches = races.Where(r => r.Race.TrackConditionType == condition).ToList();
 
-			return CalculateAdjustedAverageScore(conditionRaces);
+			// 完全一致が十分あれば（5戦以上）それを優先
+			if (exactMatches.Count >= 5)
+				return exactMatches.AdjustedInverseScoreAverage();
+
+			// 2. 類似馬場状態（良+稍重 or 重+不良）
+			var similarMatches = races.Where(r =>
+			{
+				var current = (int)condition;
+				var past = (int)r.Race.TrackConditionType;
+				// 良(0)と稍重(1)、または重(2)と不良(3)をグループ化
+				return (current <= 1 && past <= 1) || (current >= 2 && past >= 2);
+			}).ToList();
+
+			// 完全一致が少数ある場合は類似と組み合わせ
+			if (exactMatches.Any() && similarMatches.Any())
+				return exactMatches.AdjustedInverseScoreAverage() * 0.7f
+				     + similarMatches.AdjustedInverseScoreAverage() * 0.3f;
+
+			// 類似のみ、または全体平均
+			if (similarMatches.Any())
+				return similarMatches.AdjustedInverseScoreAverage();
+
+			// 3. 全体平均
+			return races.AdjustedInverseScoreAverage();
 		}
 
 		private static float CalculateRelaxedConditionAptitude(List<RaceDetail> raceHistory, Race currentRace)
@@ -354,37 +394,20 @@ namespace Netkeiba
 			// 1. 同距離のみ
 			var sameDistance = raceHistory.Where(r => r.Race.Distance == currentRace.Distance);
 			if (sameDistance.Any())
-				return CalculateAdjustedAverageScore(sameDistance.ToList());
+				return sameDistance.AdjustedInverseScoreAverage();
 
 			// 2. 同距離カテゴリ
 			var sameCategory = raceHistory.Where(r => r.Race.DistanceCategory == currentRace.DistanceCategory);
 			if (sameCategory.Any())
-				return CalculateAdjustedAverageScore(sameCategory.ToList());
+				return sameCategory.AdjustedInverseScoreAverage();
 
 			// 3. 全体平均
-			return CalculateAdjustedAverageScore(raceHistory);
-		}
-
-		private static float CalculateAdjustedAverageScore(List<RaceDetail> races)
-		{
-			if (!races.Any()) return 0.2f;
-
-			return races.AdjustedInverseScoreAverage();
-		}
-
-		// 補助計算メソッド
-		private static float CalculateHeavyTrackAptitude(List<RaceDetail> races)
-		{
-			var heavyRaces = races.Where(r => new[] { TrackConditionType.Heavy, TrackConditionType.Poor }.Contains(r.Race.TrackConditionType));
-			if (!heavyRaces.Any()) return 0.2f;
-			return heavyRaces.AdjustedInverseScoreAverage();
+			return raceHistory.AdjustedInverseScoreAverage();
 		}
 
 		private static float CalculateSpecificCourseAptitude(List<RaceDetail> races, string courseName)
 		{
-			var courseRaces = races.Where(r => r.Race.CourseName == courseName);
-			if (!courseRaces.Any()) return 0.2f;
-			return courseRaces.AdjustedInverseScoreAverage();
+			return races.Where(r => r.Race.CourseName == courseName).AdjustedInverseScoreAverage();
 		}
 
 	}

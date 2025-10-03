@@ -79,7 +79,6 @@ namespace Netkeiba
 				.Append(_ml.Transforms.Concatenate("Features",
 					OptimizedHorseFeatures.GetAdjustedPerformanceItemNames()
 					.Concat(OptimizedHorseFeatures.GetCondition1ItemNames())
-					.Concat(OptimizedHorseFeatures.GetCondition2ItemNames())
 					.Concat(OptimizedHorseFeatures.GetConnectionItemNames())
 					.Concat(OptimizedHorseFeatures.GetNewHorseItemNames())
 					.Concat(OptimizedHorseFeatures.GetStatusItemNames())

@@ -180,28 +180,49 @@ namespace Netkeiba.Models
 			// 購入価格ランク（全レースで有効）
 			var avgPurchasePriceInRace = inRaces.Select(r => r.PurchasePrice).DefaultIfEmpty(PurchasePrice).Average();
 
+			// 休養期間カテゴリ計算
+			float CalculateRestDaysCategory()
+			{
+				var restDays = (Race.RaceDate - LastRaceDate).Days;
+				if (restDays <= 14) return 0f;      // 中1週
+				if (restDays <= 21) return 0.33f;   // 中2週
+				if (restDays <= 56) return 0.67f;   // 中3週～7週
+				return 1f;                          // 長期休養(8週以上)
+			}
+
+			// クラス昇級判定
+			float CalculateClassUpChallenge()
+			{
+				if (!horses.Any()) return 0f;
+				var lastGrade = horses[0].Race.Grade;
+				return Race.Grade.Int32() > lastGrade.Int32() ? 1f : 0f;
+			}
+
+			// 馬場状態変化
+			float CalculateTrackConditionChangeFromLast()
+			{
+				if (!horses.Any()) return 0f;
+				var lastCondition = horses[0].Race.TrackConditionType;
+				return Race.TrackConditionType.Int32() - lastCondition.Int32();
+			}
+
+			// 経験回数計算
+			var sameCourseExperience = horses.Count(h => h.Race.CourseName == Race.CourseName);
+			var sameDistanceCategoryExperience = horses.Count(h => h.Race.DistanceCategory == Race.DistanceCategory);
+			var sameTrackTypeExperience = horses.Count(h => h.Race.TrackType == Race.TrackType);
+
 			var features = new OptimizedHorseFeaturesModel(this)
 			{
 				// 基本実績
 				Recent3AdjustedAvg = adjustedMetrics.Recent3AdjustedAvg,
 				Recent5AdjustedAvg = adjustedMetrics.Recent5AdjustedAvg,
 				LastRaceAdjustedScore = adjustedMetrics.LastRaceAdjustedScore,
-				BestAdjustedScore = adjustedMetrics.BestAdjustedScore,
 				AdjustedConsistency = adjustedMetrics.AdjustedConsistency,
-				OverallAdjustedAvg = adjustedMetrics.OverallAdjustedAvg,
 
 				// 条件適性
 				CurrentDistanceAptitude = conditionMetrics.CurrentDistanceAptitude,
 				CurrentTrackTypeAptitude = conditionMetrics.CurrentTrackTypeAptitude,
 				CurrentTrackConditionAptitude = conditionMetrics.CurrentTrackConditionAptitude,
-				HeavyTrackAptitude = conditionMetrics.HeavyTrackAptitude,
-				SpecificCourseAptitude = conditionMetrics.SpecificCourseAptitude,
-
-				// 距離適性
-				SprintAptitude = conditionMetrics.SprintAptitude,
-				MileAptitude = conditionMetrics.MileAptitude,
-				MiddleDistanceAptitude = conditionMetrics.MiddleDistanceAptitude,
-				LongDistanceAptitude = conditionMetrics.LongDistanceAptitude,
 
 				// 関係者実績
 				JockeyRecentInverseAvg = connectionMetrics.JockeyRecentInverseAvg,
@@ -221,12 +242,15 @@ namespace Netkeiba.Models
 
 				// 状態・変化
 				RestDays = (Race.RaceDate - LastRaceDate).Days,
+				IsRentoFlag = (Race.RaceDate - LastRaceDate).Days < 14,  // 中1週以下
 				Age = Age,
+				Gender = 0f,  // TODO: 性別データ取得後に実装
+				Season = (Race.RaceDate.Month - 1) / 3,  // 0=1-3月, 1=4-6月, 2=7-9月, 3=10-12月
+				RaceDistance = Race.Distance,
 				PerformanceTrend = adjustedMetrics.Recent3AdjustedAvg - adjustedMetrics.OverallAdjustedAvg,
 				DistanceChangeAdaptation = CalculateDistanceChangeAdaptation(),
 				ClassChangeAdaptation = CalculateClassChangeAdaptation(),
 				JockeyWeightDiff = jockeyWeightMetrics.JockeyWeightDiff,
-				JockeyWeightRankInRace = jockeyWeightMetrics.JockeyWeightRankInRace,
 				JockeyWeightDiffFromAvgInRace = jockeyWeightMetrics.JockeyWeightDiffFromAvgInRace,
 				AverageTuka = tukaMetrics.AverageTuka,
 				LastRaceTuka = tukaMetrics.LastRaceTuka,
@@ -235,8 +259,14 @@ namespace Netkeiba.Models
 				LastRaceFinishPosition = finishPositionMetrics.LastRaceFinishPosition,
 				Recent3AvgFinishPosition = finishPositionMetrics.Recent3AvgFinishPosition,
 				FinishPositionImprovement = finishPositionMetrics.FinishPositionImprovement,
-				LastRaceFinishPositionNormalized = finishPositionMetrics.LastRaceFinishPositionNormalized,
 				PaceAdvantageScore = tukaMetrics.PaceAdvantageScore,
+				CurrentGrade = Race.Grade.Int32(),
+				ClassUpChallenge = CalculateClassUpChallenge(),
+				CurrentTrackCondition = Race.TrackConditionType.Int32(),
+				TrackConditionChangeFromLast = CalculateTrackConditionChangeFromLast(),
+				SameCourseExperience = sameCourseExperience,
+				SameDistanceCategoryExperience = sameDistanceCategoryExperience,
+				SameTrackTypeExperience = sameTrackTypeExperience,
 
 				// タイム関連
 				SameDistanceTimeIndex = CalculateSameDistanceTimeIndex(Race.Distance),
@@ -244,7 +274,6 @@ namespace Netkeiba.Models
 				TimeConsistencyScore = CalculateTimeConsistency(),
 				AdjustedLastThreeFurlongsAvg = lastThreeFurlongsMetrics.AdjustedLastThreeFurlongsAvg,
 				LastRaceAdjustedLastThreeFurlongs = lastThreeFurlongsMetrics.LastRaceAdjustedLastThreeFurlongs,
-				AdjustedLastThreeFurlongsRankInRace = lastThreeFurlongsMetrics.AdjustedLastThreeFurlongsRankInRace,
 				AdjustedLastThreeFurlongsDiffFromAvgInRace = lastThreeFurlongsMetrics.AdjustedLastThreeFurlongsDiffFromAvgInRace,
 
 				// メタ情報
@@ -258,25 +287,16 @@ namespace Netkeiba.Models
 				Label = 0, // 実際の着順から計算
 			};
 
-			// 新馬の場合は特別処理
-			if (RaceCount == 0)
-			{
-				var newHorseMetrics = MaidenRaceAnalyzer.AnalyzeNewHorse(this, inRaces, horses, jockeys, trainers, breeders, sires, damsires);
-				features.TrainerNewHorseInverse = newHorseMetrics.TrainerNewHorseInverse;
-				features.JockeyNewHorseInverse = newHorseMetrics.JockeyNewHorseInverse;
-				features.SireNewHorseInverse = newHorseMetrics.SireNewHorseInverse;
-				features.DamSireNewHorseInverse = newHorseMetrics.DamSireNewHorseInverse;
-				features.BreederNewHorseInverse = newHorseMetrics.BreederNewHorseInverse;
-			}
-			else
-			{
-				// 新馬以外は通常成績を使用
-				features.TrainerNewHorseInverse = connectionMetrics.TrainerRecentInverseAvg;
-				features.JockeyNewHorseInverse = connectionMetrics.JockeyRecentInverseAvg;
-				features.SireNewHorseInverse = connectionMetrics.SireRecentInverseAvg;
-				features.DamSireNewHorseInverse = connectionMetrics.DamSireRecentInverseAvg;
-				features.BreederNewHorseInverse = connectionMetrics.BreederRecentInverseAvg;
-			}
+			// 新馬専用成績と通常成績を加重平均で組み合わせ (新馬専用70% + 通常30%)
+			float GravityCalculate(float newhorse, float regular) => newhorse * 0.7F + regular * 0.3F;
+
+			var newHorseMetrics = MaidenRaceAnalyzer.AnalyzeNewHorse(this, inRaces, horses, jockeys, trainers, breeders, sires, damsires);
+
+			features.TrainerNewHorseInverse = GravityCalculate(newHorseMetrics.TrainerNewHorseInverse, connectionMetrics.TrainerRecentInverseAvg);
+			features.JockeyNewHorseInverse = GravityCalculate(newHorseMetrics.JockeyNewHorseInverse, connectionMetrics.JockeyRecentInverseAvg);
+			features.SireNewHorseInverse = GravityCalculate(newHorseMetrics.SireNewHorseInverse, connectionMetrics.SireRecentInverseAvg);
+			features.DamSireNewHorseInverse = GravityCalculate(newHorseMetrics.DamSireNewHorseInverse, connectionMetrics.DamSireRecentInverseAvg);
+			features.BreederNewHorseInverse = GravityCalculate(newHorseMetrics.BreederNewHorseInverse, connectionMetrics.BreederRecentInverseAvg);
 
 			return features;
 		}
@@ -293,13 +313,12 @@ namespace Netkeiba.Models
 			features.ForEach(x =>
 			{
 				// 同レース他馬との補正済み上がり比較
-				x.AdjustedLastThreeFurlongsRankInRace = inraceAdjustedLastThreeFurlongsAvgs.Count(f => f > x.AdjustedLastThreeFurlongsAvg) + 1f;
 				x.AdjustedLastThreeFurlongsDiffFromAvgInRace = inraceAdjustedLastThreeFurlongsAvgs.Average() / x.AdjustedLastThreeFurlongsAvg;
 
 				// 通過順比較
 				x.AverageTukaInRace = inraceAverageTuka.Average();
 				x.PaceAdvantageScore = x.AverageTuka < 0.3F
-					// 自分は逃げ→前に行く馬が少ないほど有利
+					// 自分は逃げ→前に行く馬が少ないほど有利(数値が大きくなる)
 					? (float)(race.NumberOfHorses - frontRunnerCount) / (float)race.NumberOfHorses
 					: 0.6F < x.AverageTuka
 					// 自分は追込→逃げ馬が多いほど有利(数値が大きくなる)
