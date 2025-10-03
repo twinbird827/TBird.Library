@@ -22,6 +22,7 @@ namespace Netkeiba
 		private Dictionary<string, List<RaceDetail>> _DamSires = new();
 		private Dictionary<string, List<RaceDetail>> _SireDamSires = new();
 		private Dictionary<string, List<RaceDetail>> _Breeders = new();
+		private Dictionary<string, List<RaceDetail>> _JockeyTrainers = new();
 
 		public STEP2Command(MainViewModel vm) : base(vm)
 		{
@@ -56,6 +57,7 @@ namespace Netkeiba
 				_DamSires.Clear();
 				_SireDamSires.Clear();
 				_Breeders.Clear();
+				_JockeyTrainers.Clear();
 			}
 		}
 
@@ -94,14 +96,15 @@ namespace Netkeiba
 								_Breeders.Get(x.Breeder, new List<RaceDetail>()),
 								_Sires.Get(x.Sire, new List<RaceDetail>()),
 								_DamSires.Get(x.DamSire, new List<RaceDetail>()),
-								_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>())
+								_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>()),
+								_JockeyTrainers.Get(x.JockeyTrainer, new List<RaceDetail>())
 							);
 
 							// ラベル生成（難易度調整済み着順スコア）
 							features.Label = (x.FinishPosition - 1).Run(x => x < 12 ? x : 11);
 
 							return features;
-						});
+						}).CalculateInRaces(race);
 
 						// ﾃﾞｰﾀﾍﾞｰｽに格納
 						await conn.InsertModelAsync(results);
@@ -126,6 +129,7 @@ namespace Netkeiba
 						AddHistory(_DamSires, x, x.DamSire);
 						AddHistory(_SireDamSires, x, x.SireDamSire);
 						AddHistory(_Breeders, x, x.Breeder);
+						AddHistory(_JockeyTrainers, x, x.JockeyTrainer);
 					});
 
 					MainViewModel.AddLog($"訓練データ生成完了：{race.RaceId} {race.RaceDate}");
@@ -389,33 +393,30 @@ namespace Netkeiba
 
 	public static class ConnectionAnalyzer
 	{
-		public static ConnectionMetrics AnalyzeConnections(Race upcomingRace, List<RaceDetail> jockeys, List<RaceDetail> trainers, List<RaceDetail> breeders, List<RaceDetail> sires, List<RaceDetail> damsires, List<RaceDetail> siredamsires)
+		public static ConnectionMetrics AnalyzeConnections(Race upcomingRace, List<RaceDetail> jockeys, List<RaceDetail> trainers, List<RaceDetail> breeders, List<RaceDetail> sires, List<RaceDetail> damsires, List<RaceDetail> siredamsires, List<RaceDetail> jockeytrainers)
 		{
 			return new ConnectionMetrics
 			{
-				JockeyOverallInverseAvg = jockeys.AdjustedInverseScoreAverage(0.2F),
 				JockeyRecentInverseAvg = jockeys.Take(30).AdjustedInverseScoreAverage(0.2F),
 				JockeyCurrentConditionAvg = CalculateConditionSpecific(jockeys, upcomingRace),
 
-				TrainerOverallInverseAvg = trainers.AdjustedInverseScoreAverage(0.2F),
 				TrainerRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
 				TrainerCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
 
-				BreederOverallInverseAvg = trainers.AdjustedInverseScoreAverage(0.2F),
 				BreederRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
 				BreederCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
 
-				SireOverallInverseAvg = trainers.AdjustedInverseScoreAverage(0.2F),
 				SireRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
 				SireCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
 
-				DamSireOverallInverseAvg = trainers.AdjustedInverseScoreAverage(0.2F),
 				DamSireRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
 				DamSireCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
 
-				SireDamSireOverallInverseAvg = trainers.AdjustedInverseScoreAverage(0.2F),
 				SireDamSireRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
 				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
+
+				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(0.2F),
+				JockeyTrainerCurrentConditionAvg = CalculateConditionSpecific(jockeytrainers, upcomingRace),
 			};
 		}
 
@@ -432,29 +433,26 @@ namespace Netkeiba
 
 	public class ConnectionMetrics
 	{
-		public float JockeyOverallInverseAvg { get; set; }
 		public float JockeyRecentInverseAvg { get; set; }
 		public float JockeyCurrentConditionAvg { get; set; }
 
-		public float TrainerOverallInverseAvg { get; set; }
 		public float TrainerRecentInverseAvg { get; set; }
 		public float TrainerCurrentConditionAvg { get; set; }
 
-		public float BreederOverallInverseAvg { get; set; }
 		public float BreederRecentInverseAvg { get; set; }
 		public float BreederCurrentConditionAvg { get; set; }
 
-		public float SireOverallInverseAvg { get; set; }
 		public float SireRecentInverseAvg { get; set; }
 		public float SireCurrentConditionAvg { get; set; }
 
-		public float DamSireOverallInverseAvg { get; set; }
 		public float DamSireRecentInverseAvg { get; set; }
 		public float DamSireCurrentConditionAvg { get; set; }
 
-		public float SireDamSireOverallInverseAvg { get; set; }
 		public float SireDamSireRecentInverseAvg { get; set; }
 		public float SireDamSireCurrentConditionAvg { get; set; }
+
+		public float JockeyTrainerRecentInverseAvg { get; set; }
+		public float JockeyTrainerCurrentConditionAvg { get; set; }
 	}
 
 	// ===== 新馬・未勝利戦対応 =====
@@ -465,6 +463,7 @@ namespace Netkeiba
 		{
 			float CalculateNewHorseInverse(List<RaceDetail> arr) => arr
 				.Where(r => r.RaceCount == 0)
+				.Take(30)
 				.AdjustedInverseScoreAverage();
 
 			return new NewHorseMetrics
@@ -474,7 +473,6 @@ namespace Netkeiba
 				SireNewHorseInverse = CalculateNewHorseInverse(sires),
 				DamSireNewHorseInverse = CalculateNewHorseInverse(damsires),
 				BreederNewHorseInverse = CalculateNewHorseInverse(breeders),
-				PurchasePriceRank = detail.PurchasePrice / inraces.Average(x => x.PurchasePrice),
 			};
 		}
 	}
@@ -486,7 +484,127 @@ namespace Netkeiba
 		public float SireNewHorseInverse { get; set; }
 		public float DamSireNewHorseInverse { get; set; }
 		public float BreederNewHorseInverse { get; set; }
-		public float PurchasePriceRank { get; set; }
+	}
+
+	public static class LastThreeFurlongsAnalyzer
+	{
+		public static LastThreeFurlongsMetrics AnalyzeLastThreeFurlongs(RaceDetail detail, List<RaceDetail> horses)
+		{
+			float GetAverage(int take) => horses.Take(take).Select(CalculateAdjustedLastThreeFurlongs).DefaultIfEmpty(35F).Average();
+
+			return new LastThreeFurlongsMetrics()
+			{
+				AdjustedLastThreeFurlongsAvg = GetAverage(5),
+				LastRaceAdjustedLastThreeFurlongs = GetAverage(1),
+				AdjustedLastThreeFurlongsRankInRace = 0,
+				AdjustedLastThreeFurlongsDiffFromAvgInRace = 0,
+			};
+		}
+
+		private static float CalculateAdjustedLastThreeFurlongs(RaceDetail detail)
+		{
+			// 通過順補正: 前方(Tuka小)ほど脚を使っているので、より速く補正
+			// Tuka=0.2(前方) → correction=0.8、Tuka=0.8(後方) → correction=0.2
+			var positionCorrection = (1.0f - detail.Tuka); // 前方ほど大きく、後方ほど小さく
+
+			// 距離補正: 短距離ほど上がりが重要
+			var distanceFactor = detail.Race.Distance <= 1400 ? 1.2f :
+								 detail.Race.Distance <= 1800 ? 1.0f : 0.8f;
+
+			// 補正済み上がり = 実際の上がり - 補正値（マイナスすることで速くなる）
+			// 前方にいた馬ほど補正値が大きく、上がりタイムが速く補正される
+			// 後方にいた馬ほど補正値が小さく、実際の上がりに近い値になる
+			return detail.LastThreeFurlongs - (positionCorrection * distanceFactor);
+		}
+
+	}
+
+	public class LastThreeFurlongsMetrics
+	{
+		public float AdjustedLastThreeFurlongsAvg { get; set; }
+		public float LastRaceAdjustedLastThreeFurlongs { get; set; }
+		public float AdjustedLastThreeFurlongsRankInRace { get; set; }
+		public float AdjustedLastThreeFurlongsDiffFromAvgInRace { get; set; }
+	}
+
+	public static class JockeyWeightAnalyzer
+	{
+		public static JockeyWeightMetrics AnalyzeJockeyWeight(RaceDetail detail, List<RaceDetail> horses, RaceDetail[] inraces)
+		{
+			var inraceweights = inraces.Select(r => r.JockeyWeight).ToArray();
+
+			return new JockeyWeightMetrics()
+			{
+				JockeyWeightDiff = horses.Any() ? detail.JockeyWeight - horses[0].JockeyWeight : 0f,
+				JockeyWeightRankInRace = inraceweights.DefaultIfEmpty(detail.Race.NumberOfHorses / 2).Count(w => w < detail.JockeyWeight) + 1f,
+				JockeyWeightDiffFromAvgInRace = detail.JockeyWeight / inraceweights.DefaultIfEmpty(detail.JockeyWeight).Average()
+			};
+		}
+	}
+
+	public class JockeyWeightMetrics
+	{
+		public float JockeyWeightDiff { get; set; }
+		public float JockeyWeightRankInRace { get; set; }
+		public float JockeyWeightDiffFromAvgInRace { get; set; }
+	}
+
+	public static class FinishPositionAnalyzer
+	{
+		public static FinishPositionMetrics AnalyzeFinishPosition(List<RaceDetail> horses, Race race)
+		{
+			var positions = horses.Select(x => (float)x.FinishPosition).ToArray();
+			var def = race.NumberOfHorses / 2f;
+
+			return new FinishPositionMetrics()
+			{
+				LastRaceFinishPosition = horses.Any() ? positions[0] : def,
+				Recent3AvgFinishPosition = positions.Take(3).DefaultIfEmpty(def).Average(),
+				FinishPositionImprovement = positions.Length >= 2
+					? positions[1] - positions[0]
+					: 0f,
+				LastRaceFinishPositionNormalized = horses.Any()
+					? positions[0] / (float)horses[0].Race.NumberOfHorses
+					: 0.5f,
+			};
+		}
+	}
+
+	public class FinishPositionMetrics
+	{
+		public float LastRaceFinishPosition { get; set; }
+		public float Recent3AvgFinishPosition { get; set; }
+		public float FinishPositionImprovement { get; set; }
+		public float LastRaceFinishPositionNormalized { get; set; }
+	}
+
+	public static class TukaAnalyzer
+	{
+		public static TukaMetrics AnalyzeTuka(List<RaceDetail> horses)
+		{
+			var tukas = horses.Select(x => x.Tuka).ToArray();
+
+			return new TukaMetrics()
+			{
+				AverageTuka = tukas.Take(5).DefaultIfEmpty(0.5F).Average(),
+				LastRaceTuka = tukas.Take(1).DefaultIfEmpty(0.5F).Average(),
+				TukaConsistency = horses.Count >= 2
+					? 1.0f / (AppUtil.CalculateStandardDeviation(tukas.Take(5).ToArray()) + 0.01f)
+					: 1.0f,
+				// 以下2項目は後で設定する
+				AverageTukaInRace = 0F,
+				PaceAdvantageScore = 0F,
+			};
+		}
+	}
+
+	public class TukaMetrics
+	{
+		public float AverageTuka { get; set; }
+		public float LastRaceTuka { get; set; }
+		public float TukaConsistency { get; set; }
+		public float AverageTukaInRace { get; set; }
+		public float PaceAdvantageScore { get; set; }
 	}
 
 	public static partial class SQLite3Extensions
