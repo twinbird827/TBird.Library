@@ -303,5 +303,13 @@ namespace Netkeiba
 		}
 
 		public static int ToTotalDays(this DateTime date) => (date - DateTime.Parse("1990/01/01")).TotalDays.Int32();
+
+		public static float CalculateStandardDeviation(float[] values)
+		{
+			if (values.Length < 2) return 1.0f;
+			var mean = values.Average();
+			var variance = values.Select(v => (v - mean) * (v - mean)).Average();
+			return (float)Math.Sqrt(variance);
+		}
 	}
 }
