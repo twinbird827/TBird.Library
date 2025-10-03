@@ -27,6 +27,7 @@ namespace Netkeiba
 		private Dictionary<string, List<RaceDetail>> _DamSires = new();
 		private Dictionary<string, List<RaceDetail>> _SireDamSires = new();
 		private Dictionary<string, List<RaceDetail>> _Breeders = new();
+		private Dictionary<string, List<RaceDetail>> _JockeyTrainers = new();
 
 		public STEP4Command(MainViewModel vm) : base(vm)
 		{
@@ -76,6 +77,7 @@ namespace Netkeiba
 						if (!_Sires.ContainsKey(x.Sire)) _Sires[x.Sire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.父ID", x.Sire));
 						if (!_DamSires.ContainsKey(x.DamSire)) _DamSires[x.DamSire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.母父ID", x.DamSire));
 						if (!_SireDamSires.ContainsKey(x.SireDamSire)) _SireDamSires[x.SireDamSire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.父ID", x.Sire), ("u.母父ID", x.DamSire));
+						if (!_JockeyTrainers.ContainsKey(x.JockeyTrainer)) _JockeyTrainers[x.JockeyTrainer] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("d.騎手ID", x.Jockey), ("d.調教師ID", x.Trainer));
 					}
 
 					// 過去ﾚｰｽの結果をｾｯﾄする
@@ -95,14 +97,15 @@ namespace Netkeiba
 							_Breeders.Get(x.Breeder, new List<RaceDetail>()),
 							_Sires.Get(x.Sire, new List<RaceDetail>()),
 							_DamSires.Get(x.DamSire, new List<RaceDetail>()),
-							_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>())
+							_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>()),
+							_JockeyTrainers.Get(x.JockeyTrainer, new List<RaceDetail>())
 						);
 
 						// ラベル生成（難易度調整済み着順スコア）
 						value.Label = 0;
 
 						return value;
-					}).ToArray();
+					}).CalculateInRaces(race).ToArray();
 
 					// ｽｺｱ計算
 					var predictions = RacePrediction.CalculatePrediction(ml, mo, details, features);
