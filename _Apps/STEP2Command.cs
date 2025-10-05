@@ -1,6 +1,7 @@
 ﻿using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.IO;
 using System.Linq;
@@ -321,7 +322,7 @@ namespace Netkeiba
 			// レベル1が少数ある場合は次レベルと組み合わせ
 			if (level1.Any() && level2.Any())
 				return level1.AdjustedInverseScoreAverage() * 0.7f
-				     + level2.AdjustedInverseScoreAverage() * 0.3f;
+					 + level2.AdjustedInverseScoreAverage() * 0.3f;
 
 			// レベル2のみ
 			if (level2.Count >= 5)
@@ -334,7 +335,7 @@ namespace Netkeiba
 			// レベル2が少数ある場合は次レベルと組み合わせ
 			if (level2.Any() && level3.Any())
 				return level2.AdjustedInverseScoreAverage() * 0.7f
-				     + level3.AdjustedInverseScoreAverage() * 0.3f;
+					 + level3.AdjustedInverseScoreAverage() * 0.3f;
 
 			// レベル3のみ、または全体平均
 			if (level3.Any())
@@ -379,7 +380,7 @@ namespace Netkeiba
 			// 完全一致が少数ある場合は類似と組み合わせ
 			if (exactMatches.Any() && similarMatches.Any())
 				return exactMatches.AdjustedInverseScoreAverage() * 0.7f
-				     + similarMatches.AdjustedInverseScoreAverage() * 0.3f;
+					 + similarMatches.AdjustedInverseScoreAverage() * 0.3f;
 
 			// 類似のみ、または全体平均
 			if (similarMatches.Any())
@@ -515,17 +516,20 @@ namespace Netkeiba
 		{
 			float GetAverage(int take) => horses.Take(take).Select(CalculateAdjustedLastThreeFurlongs).DefaultIfEmpty(35F).Average();
 
-			return new LastThreeFurlongsMetrics()
+			var result = new LastThreeFurlongsMetrics()
 			{
 				AdjustedLastThreeFurlongsAvg = GetAverage(5),
 				LastRaceAdjustedLastThreeFurlongs = GetAverage(1),
-				AdjustedLastThreeFurlongsRankInRace = 0,
 				AdjustedLastThreeFurlongsDiffFromAvgInRace = 0,
 			};
+			return result;
 		}
 
 		private static float CalculateAdjustedLastThreeFurlongs(RaceDetail detail)
 		{
+			// 37秒を超える上がりは異常値（騎手が諦めて流した等）としてキャップ
+			var cappedTime = Math.Min(detail.LastThreeFurlongs, 37.0f);
+
 			// 通過順補正: 前方(Tuka小)ほど脚を使っているので、より速く補正
 			// Tuka=0.2(前方) → correction=0.8、Tuka=0.8(後方) → correction=0.2
 			var positionCorrection = (1.0f - detail.Tuka); // 前方ほど大きく、後方ほど小さく
@@ -537,7 +541,7 @@ namespace Netkeiba
 			// 補正済み上がり = 実際の上がり - 補正値（マイナスすることで速くなる）
 			// 前方にいた馬ほど補正値が大きく、上がりタイムが速く補正される
 			// 後方にいた馬ほど補正値が小さく、実際の上がりに近い値になる
-			return detail.LastThreeFurlongs - (positionCorrection * distanceFactor);
+			return cappedTime - (positionCorrection * distanceFactor);
 		}
 
 	}
@@ -546,7 +550,6 @@ namespace Netkeiba
 	{
 		public float AdjustedLastThreeFurlongsAvg { get; set; }
 		public float LastRaceAdjustedLastThreeFurlongs { get; set; }
-		public float AdjustedLastThreeFurlongsRankInRace { get; set; }
 		public float AdjustedLastThreeFurlongsDiffFromAvgInRace { get; set; }
 	}
 
@@ -605,19 +608,28 @@ namespace Netkeiba
 	{
 		public static TukaMetrics AnalyzeTuka(List<RaceDetail> horses)
 		{
-			var tukas = horses.Select(x => x.Tuka).ToArray();
+			var tukas = horses.Select(x => x.Tuka).Take(5).ToArray();
 
 			return new TukaMetrics()
 			{
-				AverageTuka = tukas.Take(5).DefaultIfEmpty(0.5F).Average(),
+				AverageTuka = tukas.DefaultIfEmpty(0.5F).Average(),
 				LastRaceTuka = tukas.Take(1).DefaultIfEmpty(0.5F).Average(),
-				TukaConsistency = horses.Count >= 2
-					? 1.0f / (AppUtil.CalculateStandardDeviation(tukas.Take(5).ToArray()) + 0.01f)
-					: 1.0f,
+				TukaConsistency = CalculateTukaConsistency(tukas),
 				// 以下2項目は後で設定する
 				AverageTukaInRace = 0F,
 				PaceAdvantageScore = 0F,
 			};
+		}
+
+		private static float CalculateTukaConsistency(float[] tukas)
+		{
+			if (tukas.Length < 2) return 1.0f;
+
+			var stdDev = AppUtil.CalculateStandardDeviation(tukas);
+
+			// 標準偏差を0～1の範囲に正規化
+			// 標準偏差が小さい（一貫性が高い）ほど1に近く、大きい（バラバラ）ほど0に近い
+			return 1.0f - Math.Min(stdDev, 1.0f);
 		}
 	}
 
@@ -708,7 +720,7 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		public static async IAsyncEnumerable<RaceDetail> GetRaceDetailsAsync(this SQLiteControl conn, Race race)
 		{
 			var sql = @"
-SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り
+SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性
 FROM v_orig_d d, t_uma u
 WHERE d.ﾚｰｽID = ? AND d.馬ID = u.馬ID
 ";
