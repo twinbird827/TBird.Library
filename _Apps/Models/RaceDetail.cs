@@ -35,8 +35,9 @@ namespace Netkeiba.Models
 					.Run(y => 1 < y.Length ? y[1] : y.Length == 1 ? y[0] : (Race.NumberOfHorses / 2).Str())
 					.Run(y => (object)y)
 					.Single() / (float)Race.NumberOfHorses;
+				Tuka = Math.Min(Tuka, 1.0F);
 				LastThreeFurlongs = x.Get("上り").Single();
-
+				Gender = x.Get("馬性").Str();
 				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
 			}
 			catch (Exception ex)
@@ -67,6 +68,7 @@ namespace Netkeiba.Models
 		public float JockeyWeight { get; }
 		public float Tuka { get; }
 		public float LastThreeFurlongs { get; }
+		public string Gender { get; set; }
 
 		/// <summary>
 		/// 斤量で補正したタイム（基準斤量55kg、1kgあたり0.2秒）
@@ -180,16 +182,6 @@ namespace Netkeiba.Models
 			// 購入価格ランク（全レースで有効）
 			var avgPurchasePriceInRace = inRaces.Select(r => r.PurchasePrice).DefaultIfEmpty(PurchasePrice).Average();
 
-			// 休養期間カテゴリ計算
-			float CalculateRestDaysCategory()
-			{
-				var restDays = (Race.RaceDate - LastRaceDate).Days;
-				if (restDays <= 14) return 0f;      // 中1週
-				if (restDays <= 21) return 0.33f;   // 中2週
-				if (restDays <= 56) return 0.67f;   // 中3週～7週
-				return 1f;                          // 長期休養(8週以上)
-			}
-
 			// クラス昇級判定
 			float CalculateClassUpChallenge()
 			{
@@ -204,6 +196,15 @@ namespace Netkeiba.Models
 				if (!horses.Any()) return 0f;
 				var lastCondition = horses[0].Race.TrackConditionType;
 				return Race.TrackConditionType.Int32() - lastCondition.Int32();
+			}
+
+			// 性別を数値に変換
+			float ConvertGenderToFloat(string gender)
+			{
+				if (string.IsNullOrEmpty(gender)) return 0f;
+				if (gender.Contains("牝")) return 0.5f;  // 牝馬
+				if (gender.Contains("セ")) return 1.0f;  // セン馬
+				return 0f;  // 牡馬（デフォルト）
 			}
 
 			// 経験回数計算
@@ -244,7 +245,7 @@ namespace Netkeiba.Models
 				RestDays = (Race.RaceDate - LastRaceDate).Days,
 				IsRentoFlag = (Race.RaceDate - LastRaceDate).Days < 14,  // 中1週以下
 				Age = Age,
-				Gender = 0f,  // TODO: 性別データ取得後に実装
+				Gender = ConvertGenderToFloat(Gender),  // 牡=0, 牝=0.5, セン=1
 				Season = (Race.RaceDate.Month - 1) / 3,  // 0=1-3月, 1=4-6月, 2=7-9月, 3=10-12月
 				RaceDistance = Race.Distance,
 				PerformanceTrend = adjustedMetrics.Recent3AdjustedAvg - adjustedMetrics.OverallAdjustedAvg,

@@ -41,6 +41,7 @@ namespace Netkeiba.Models
 			nameof(SameCourseExperience),
 			nameof(SameDistanceCategoryExperience),
 			nameof(SameTrackTypeExperience),
+			nameof(PurchasePriceRank),
 		};
 
 		public static string[] GetAdjustedPerformanceItemNames() => new[]
