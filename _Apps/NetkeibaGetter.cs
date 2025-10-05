@@ -166,11 +166,13 @@ namespace Netkeiba
 
 		public static string GetAgari(string 距離, string 馬場, bool 障害, string 上り)
 		{
+			var nobo = 上り.GetDouble().Run(x => x == 0D ? 50D : x);
+
 			return 障害
-				? 上り.GetDouble().Divide(0.36 + 距離.GetDouble().Multiply(1.5).Divide(100000)).ToString()
+				? nobo.Divide(0.36 + 距離.GetDouble().Multiply(1.5).Divide(100000)).ToString()
 				: 馬場 == "芝"
-				? 上り.GetDouble().Divide(0.94 + 距離.GetDouble().Divide(20000)).ToString()
-				: 上り.GetDouble().Divide(1.01 + 距離.GetDouble().Divide(20000)).ToString();
+				? nobo.Divide(0.94 + 距離.GetDouble().Divide(20000)).ToString()
+				: nobo.Divide(1.01 + 距離.GetDouble().Divide(20000)).ToString();
 		}
 
 		public static async Task<List<Dictionary<string, string>>> GetOikiris(string raceid)
