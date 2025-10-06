@@ -23,8 +23,7 @@ namespace Netkeiba.Models
 			nameof(RestDays),
 			nameof(Age),
 			nameof(Gender),
-			nameof(Season),
-			nameof(RaceDistance),
+			// Season, RaceDistance: カテゴリ値のため正規化から除外
 			nameof(SameDistanceTimeIndex),
 			nameof(LastRaceTimeDeviation),
 			nameof(AdjustedLastThreeFurlongsAvg),
@@ -33,8 +32,7 @@ namespace Netkeiba.Models
 			nameof(LastRaceFinishPosition),
 			nameof(Recent3AvgFinishPosition),
 			nameof(FinishPositionImprovement),
-			nameof(CurrentGrade),
-			nameof(CurrentTrackCondition),
+			// CurrentGrade, CurrentTrackCondition: カテゴリ値のため正規化から除外
 			nameof(TrackConditionChangeFromLast),
 			nameof(SameCourseExperience),
 			nameof(SameDistanceCategoryExperience),
@@ -140,8 +138,7 @@ namespace Netkeiba.Models
 			nameof(IsRentoFlag),
 			nameof(Age),
 			nameof(Gender),
-			nameof(Season),
-			nameof(RaceDistance),
+			// Season, RaceDistance: カテゴリ値のため正規化から除外
 			nameof(PerformanceTrend),
 			nameof(DistanceChangeAdaptation),
 			nameof(ClassChangeAdaptation),
@@ -154,10 +151,9 @@ namespace Netkeiba.Models
 			nameof(LastRaceFinishPosition),
 			nameof(Recent3AvgFinishPosition),
 			nameof(FinishPositionImprovement),
+			// CurrentGrade, CurrentTrackCondition: カテゴリ値のため正規化から除外
 			nameof(PaceAdvantageScore),
-			nameof(CurrentGrade),
 			nameof(ClassUpChallenge),
-			nameof(CurrentTrackCondition),
 			nameof(TrackConditionChangeFromLast),
 			nameof(SameCourseExperience),
 			nameof(SameDistanceCategoryExperience),

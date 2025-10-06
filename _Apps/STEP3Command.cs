@@ -98,10 +98,10 @@ namespace Netkeiba
 					LabelColumnName = "LabelKey",
 					FeatureColumnName = "Features",
 					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = 1500,     // 血統特徴量正規化後は学習回数を増やす（1000→1500）
-					LearningRate = 0.02,           // 学習率をさらに下げて安定化（0.03→0.02）
+					NumberOfIterations = 1200,     // 正規化最適化後は学習回数を調整（1500→1200）
+					LearningRate = 0.025,          // 学習率を微調整（0.02→0.025）
 					NumberOfLeaves = 63,           // 葉の数を増やしてモデル表現力向上（31→63）
-					MinimumExampleCountPerLeaf = 15, // 最小サンプル数を減らして細かいパターン学習（20→15）
+					MinimumExampleCountPerLeaf = 20, // 最小サンプル数を増やして過学習防止（15→20）
 					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
 					UseCategoricalSplit = false,   // カテゴリ分割使用（デフォルトfalse）
 					HandleMissingValue = true,     // 欠損値処理（デフォルトtrue）
@@ -112,9 +112,9 @@ namespace Netkeiba
 					L2CategoricalRegularization = 10.0, // L2カテゴリ正則化（デフォルト10.0）
 					Booster = new Microsoft.ML.Trainers.LightGbm.GradientBooster.Options
 					{
-						L2Regularization = 1.0,    // L2正則化を強化（0.5→1.0）過学習防止
-						L1Regularization = 0.1,    // L1正則化を追加（0.0→0.1）特徴選択を促進
-						MinimumSplitGain = 0.01,   // 分割の最小ゲインを設定（0.0→0.01）不要な分割を抑制
+						L2Regularization = 0.7,    // L2正則化を調整（1.0→0.7）
+						L1Regularization = 0.05,   // L1正則化を調整（0.1→0.05）
+						MinimumSplitGain = 0.005,  // 分割の最小ゲインを調整（0.01→0.005）
 						MaximumTreeDepth = -1,      // 最大木の深さ（-1=制限なし、0→-1に変更）
 					}
 				}));
