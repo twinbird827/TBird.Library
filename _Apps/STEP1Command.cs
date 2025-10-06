@@ -136,7 +136,7 @@ namespace Netkeiba
 		}
 
 		/// <summary>ﾚｰｽﾍｯﾀﾞ</summary>
-		private static readonly string[] col_orig_h = Arr("ﾚｰｽID", "ﾚｰｽ名", "開催日", "開催日数", "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "距離", "天候", "馬場", "馬場状態", "優勝賞金", "頭数");
+		private static readonly string[] col_orig_h = Arr("ﾚｰｽID", "ﾚｰｽ名", "開催日", "開催日数", "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "距離", "天候", "馬場", "馬場状態", "優勝賞金", "頭数, 障害");
 
 		/// <summary>ﾚｰｽ明細</summary>
 		private static readonly string[] col_orig_d = Arr("ﾚｰｽID", "着順", "枠番", "馬番", "馬ID", "馬性", "馬齢", "斤量", "騎手名", "騎手ID", "ﾀｲﾑ", "ﾀｲﾑ変換", "着差", "ﾀｲﾑ指数", "通過", "上り", "単勝", "人気", "体重", "増減", "備考", "調教場所", "調教師名", "調教師ID", "馬主名", "馬主ID", "賞金");
@@ -184,6 +184,8 @@ namespace Netkeiba
 								return racearr.Sum(x => x["賞金"].GetDouble()).Str();
 							case "頭数":
 								return racearr.Count.Str();
+							case "障害":
+								return racearr.Any(x => x["ﾗﾝｸ1"].Contains("障")) ? "1" : "0";
 							default:
 								return x[s];
 						}
@@ -210,6 +212,8 @@ namespace Netkeiba
 						{
 							case "頭数":
 								return racearr.Count.Str();
+							case "障害":
+								return racearr.Any(x => x["ﾗﾝｸ1"].Contains("障")) ? "1" : "0";
 							default:
 								return x[s];
 						}
