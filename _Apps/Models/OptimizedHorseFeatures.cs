@@ -1,10 +1,8 @@
 ﻿using Codeplex.Data;
 using Microsoft.ML.Data;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using TBird.Core;
 
 namespace Netkeiba.Models
 {
@@ -42,6 +40,14 @@ namespace Netkeiba.Models
 			nameof(SameDistanceCategoryExperience),
 			nameof(SameTrackTypeExperience),
 			nameof(PurchasePriceRank),
+			nameof(BreederRecentInverseAvg),
+			nameof(BreederCurrentConditionAvg),
+			nameof(SireRecentInverseAvg),
+			nameof(SireCurrentConditionAvg),
+			nameof(DamSireRecentInverseAvg),
+			nameof(DamSireCurrentConditionAvg),
+			nameof(SireDamSireRecentInverseAvg),
+			nameof(SireDamSireCurrentConditionAvg),
 		};
 
 		public static string[] GetAdjustedPerformanceItemNames() => new[]
@@ -194,6 +200,9 @@ namespace Netkeiba.Models
 			nameof(AdjustedLastThreeFurlongsAvg),
 			nameof(LastRaceAdjustedLastThreeFurlongs),
 			nameof(AdjustedLastThreeFurlongsDiffFromAvgInRace),
+			nameof(AverageTimeIndex),
+			nameof(LastRaceTimeIndex),
+			nameof(AverageTimeIndexRankInRace),
 		};
 
 		// タイム関連（正規化済み）
@@ -203,6 +212,16 @@ namespace Netkeiba.Models
 		[LoadColumn(56)] public float AdjustedLastThreeFurlongsAvg { get; set; }
 		[LoadColumn(57)] public float LastRaceAdjustedLastThreeFurlongs { get; set; }
 		[LoadColumn(58)] public float AdjustedLastThreeFurlongsDiffFromAvgInRace { get; set; }
+		[LoadColumn(59)] public float AverageTimeIndex { get; set; }
+		[LoadColumn(60)] public float LastRaceTimeIndex { get; set; }
+		[LoadColumn(61)] public float AverageTimeIndexRankInRace { get; set; }
+
+		public static string[] GetRacePositionItemNames() => new[]
+		{
+			nameof(Umaban),
+		};
+
+		[LoadColumn(62)] public int Umaban { get; set; }
 
 		public static string[] GetMetadataNames() => new[]
 		{
@@ -211,12 +230,12 @@ namespace Netkeiba.Models
 		};
 
 		// メタ情報
-		[LoadColumn(59)] public bool IsNewHorse { get; set; }
-		[LoadColumn(60)] public float AptitudeReliability { get; set; }
+		[LoadColumn(63)] public bool IsNewHorse { get; set; }
+		[LoadColumn(64)] public float AptitudeReliability { get; set; }
 
 		// ラベル・グループ情報
-		[LoadColumn(61)] public uint Label { get; set; }
-		[LoadColumn(62)] public string RaceId { get; set; }
+		[LoadColumn(65)] public uint Label { get; set; }
+		[LoadColumn(66)] public string RaceId { get; set; }
 
 		public static string[] GetFlagItemNames() => new[]
 		{
@@ -230,22 +249,92 @@ namespace Netkeiba.Models
 	{
 		public OptimizedHorseFeaturesModel() : base()
 		{
-			HorseName = string.Empty;
+			Horse = string.Empty;
 		}
 
 		public OptimizedHorseFeaturesModel(RaceDetail detail) : base(detail.RaceId)
 		{
-			HorseName = detail.Horse;
+			Horse = detail.Horse;
 		}
 
-		public string HorseName { get; set; }
+		public string Horse { get; set; }
 
 		public string Serialize() => DynamicJson.Serialize(this);
 
-		public static OptimizedHorseFeaturesModel? Deserialize(string json)
+		public static OptimizedHorseFeaturesModel? Deserialize(Dictionary<string, object> x)
 		{
-			var obj = DynamicJson.Parse(json);
-			return obj?.Deserialize<OptimizedHorseFeaturesModel>() ?? default;
+			var instance = new OptimizedHorseFeaturesModel();
+
+			instance.Recent3AdjustedAvg = x["Recent3AdjustedAvg"].Single();
+			instance.Recent5AdjustedAvg = x["Recent5AdjustedAvg"].Single();
+			instance.LastRaceAdjustedScore = x["LastRaceAdjustedScore"].Single();
+			instance.AdjustedConsistency = x["AdjustedConsistency"].Single();
+			instance.CurrentDistanceAptitude = x["CurrentDistanceAptitude"].Single();
+			instance.CurrentTrackTypeAptitude = x["CurrentTrackTypeAptitude"].Single();
+			instance.CurrentTrackConditionAptitude = x["CurrentTrackConditionAptitude"].Single();
+			instance.JockeyRecentInverseAvg = x["JockeyRecentInverseAvg"].Single();
+			instance.JockeyCurrentConditionAvg = x["JockeyCurrentConditionAvg"].Single();
+			instance.TrainerRecentInverseAvg = x["TrainerRecentInverseAvg"].Single();
+			instance.TrainerCurrentConditionAvg = x["TrainerCurrentConditionAvg"].Single();
+			instance.BreederRecentInverseAvg = x["BreederRecentInverseAvg"].Single();
+			instance.BreederCurrentConditionAvg = x["BreederCurrentConditionAvg"].Single();
+			instance.SireRecentInverseAvg = x["SireRecentInverseAvg"].Single();
+			instance.SireCurrentConditionAvg = x["SireCurrentConditionAvg"].Single();
+			instance.DamSireRecentInverseAvg = x["DamSireRecentInverseAvg"].Single();
+			instance.DamSireCurrentConditionAvg = x["DamSireCurrentConditionAvg"].Single();
+			instance.SireDamSireRecentInverseAvg = x["SireDamSireRecentInverseAvg"].Single();
+			instance.SireDamSireCurrentConditionAvg = x["SireDamSireCurrentConditionAvg"].Single();
+			instance.JockeyTrainerRecentInverseAvg = x["JockeyTrainerRecentInverseAvg"].Single();
+			instance.JockeyTrainerCurrentConditionAvg = x["JockeyTrainerCurrentConditionAvg"].Single();
+			instance.TrainerNewHorseInverse = x["TrainerNewHorseInverse"].Single();
+			instance.JockeyNewHorseInverse = x["JockeyNewHorseInverse"].Single();
+			instance.SireNewHorseInverse = x["SireNewHorseInverse"].Single();
+			instance.DamSireNewHorseInverse = x["DamSireNewHorseInverse"].Single();
+			instance.BreederNewHorseInverse = x["BreederNewHorseInverse"].Single();
+			instance.PurchasePriceRank = x["PurchasePriceRank"].Single();
+			instance.RestDays = x["RestDays"].Single();
+			instance.IsRentoFlag = x["IsRentoFlag"].Int32() > 0;
+			instance.Age = x["Age"].Single();
+			instance.Gender = x["Gender"].Single();
+			instance.Season = x["Season"].Single();
+			instance.RaceDistance = x["RaceDistance"].Single();
+			instance.PerformanceTrend = x["PerformanceTrend"].Single();
+			instance.DistanceChangeAdaptation = x["DistanceChangeAdaptation"].Single();
+			instance.ClassChangeAdaptation = x["ClassChangeAdaptation"].Single();
+			instance.JockeyWeightDiff = x["JockeyWeightDiff"].Single();
+			instance.JockeyWeightDiffFromAvgInRace = x["JockeyWeightDiffFromAvgInRace"].Single();
+			instance.AverageTuka = x["AverageTuka"].Single();
+			instance.LastRaceTuka = x["LastRaceTuka"].Single();
+			instance.TukaConsistency = x["TukaConsistency"].Single();
+			instance.AverageTukaInRace = x["AverageTukaInRace"].Single();
+			instance.LastRaceFinishPosition = x["LastRaceFinishPosition"].Single();
+			instance.Recent3AvgFinishPosition = x["Recent3AvgFinishPosition"].Single();
+			instance.FinishPositionImprovement = x["FinishPositionImprovement"].Single();
+			instance.PaceAdvantageScore = x["PaceAdvantageScore"].Single();
+			instance.CurrentGrade = x["CurrentGrade"].Single();
+			instance.ClassUpChallenge = x["ClassUpChallenge"].Single();
+			instance.CurrentTrackCondition = x["CurrentTrackCondition"].Single();
+			instance.TrackConditionChangeFromLast = x["TrackConditionChangeFromLast"].Single();
+			instance.SameCourseExperience = x["SameCourseExperience"].Single();
+			instance.SameDistanceCategoryExperience = x["SameDistanceCategoryExperience"].Single();
+			instance.SameTrackTypeExperience = x["SameTrackTypeExperience"].Single();
+			instance.SameDistanceTimeIndex = x["SameDistanceTimeIndex"].Single();
+			instance.LastRaceTimeDeviation = x["LastRaceTimeDeviation"].Single();
+			instance.TimeConsistencyScore = x["TimeConsistencyScore"].Single();
+			instance.AdjustedLastThreeFurlongsAvg = x["AdjustedLastThreeFurlongsAvg"].Single();
+			instance.LastRaceAdjustedLastThreeFurlongs = x["LastRaceAdjustedLastThreeFurlongs"].Single();
+			instance.AdjustedLastThreeFurlongsDiffFromAvgInRace = x["AdjustedLastThreeFurlongsDiffFromAvgInRace"].Single();
+			instance.AverageTimeIndex = x["AverageTimeIndex"].Single();
+			instance.LastRaceTimeIndex = x["LastRaceTimeIndex"].Single();
+			instance.AverageTimeIndexRankInRace = x["AverageTimeIndexRankInRace"].Single();
+			instance.Umaban = x["Umaban"].Int32();
+			instance.IsNewHorse = x["IsNewHorse"].Int32() > 0;
+			instance.AptitudeReliability = x["AptitudeReliability"].Single();
+			instance.Label = (uint)x["Label"].Int32();
+			instance.RaceId = x["RaceId"].Str();
+			instance.Horse = x["Horse"].Str();
+
+			return instance;
 		}
 	}
 }
