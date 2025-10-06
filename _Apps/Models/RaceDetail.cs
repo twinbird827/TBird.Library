@@ -39,6 +39,7 @@ namespace Netkeiba.Models
 				LastThreeFurlongs = x.Get("上り").Single();
 				Gender = x.Get("馬性").Str();
 				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
+				TimeIndex = x.Get("ﾀｲﾑ指数").Single();
 			}
 			catch (Exception ex)
 			{
@@ -69,6 +70,13 @@ namespace Netkeiba.Models
 		public float Tuka { get; }
 		public float LastThreeFurlongs { get; }
 		public string Gender { get; set; }
+		public float TimeIndex { get; }
+
+		private float AverageTimeIndex(IEnumerable<RaceDetail> horses, int take) => horses
+				.Select(x => x.TimeIndex < 40 ? 60F : x.TimeIndex) // 40未満は異常値として除外（全体の5%）
+				.Take(take)
+				.DefaultIfEmpty(60f) // デフォルトは新馬・未勝利平均の60
+				.Average();
 
 		/// <summary>
 		/// 斤量で補正したタイム（基準斤量55kg、1kgあたり0.2秒）
@@ -84,9 +92,9 @@ namespace Netkeiba.Models
 		public void Initialize(List<RaceDetail> horses)
 		{
 			RaceCount = horses.Count;
-			AverageRating = horses.Select(x => x.PrizeMoney)
-				.DefaultIfEmpty(PurchasePrice / 10000F / 10F)
-				.Average();
+
+			// タイム指数でAverageRatingを計算（より正確な能力評価）
+			AverageRating = AverageTimeIndex(horses, 5);
 
 			if (horses.Count == 0)
 			{
@@ -128,8 +136,8 @@ namespace Netkeiba.Models
 			float CalculateClassChangeAdaptation()
 			{
 				if (!horses.Any()) return 0.5f;
-				var lastGrade = horses.First().Race.Grade;
-				var gradeChange = Race.Grade.Int32() - lastGrade.Int32();
+				var lastGrade = horses[0].Race.Grade;
+				var gradeChange = Race.Grade - lastGrade;
 				return gradeChange <= 0 ? 1.0f : 1.0f / (1.0f + gradeChange * 0.2f);
 			}
 
@@ -187,7 +195,7 @@ namespace Netkeiba.Models
 			{
 				if (!horses.Any()) return 0f;
 				var lastGrade = horses[0].Race.Grade;
-				return Race.Grade.Int32() > lastGrade.Int32() ? 1f : 0f;
+				return (int)Race.Grade > (int)lastGrade ? 1f : 0f;
 			}
 
 			// 馬場状態変化
@@ -195,7 +203,7 @@ namespace Netkeiba.Models
 			{
 				if (!horses.Any()) return 0f;
 				var lastCondition = horses[0].Race.TrackConditionType;
-				return Race.TrackConditionType.Int32() - lastCondition.Int32();
+				return Race.TrackConditionType - lastCondition;
 			}
 
 			// 性別を数値に変換
@@ -242,13 +250,13 @@ namespace Netkeiba.Models
 				JockeyTrainerCurrentConditionAvg = connectionMetrics.JockeyTrainerCurrentConditionAvg,
 
 				// 状態・変化
-				RestDays = (Race.RaceDate - LastRaceDate).Days,
+				RestDays = Math.Min((Race.RaceDate - LastRaceDate).Days, 365F),
 				IsRentoFlag = (Race.RaceDate - LastRaceDate).Days < 14,  // 中1週以下
 				Age = Age,
 				Gender = ConvertGenderToFloat(Gender),  // 牡=0, 牝=0.5, セン=1
-				Season = (Race.RaceDate.Month - 1) / 3,  // 0=1-3月, 1=4-6月, 2=7-9月, 3=10-12月
+				Season = (float)(Race.RaceDate.Month - 1) / 3F,  // 0=1-3月, 1=4-6月, 2=7-9月, 3=10-12月
 				RaceDistance = Race.Distance,
-				PerformanceTrend = adjustedMetrics.Recent3AdjustedAvg - adjustedMetrics.OverallAdjustedAvg,
+				PerformanceTrend = adjustedMetrics.Recent3AdjustedAvg / adjustedMetrics.OverallAdjustedAvg,
 				DistanceChangeAdaptation = CalculateDistanceChangeAdaptation(),
 				ClassChangeAdaptation = CalculateClassChangeAdaptation(),
 				JockeyWeightDiff = jockeyWeightMetrics.JockeyWeightDiff,
@@ -261,9 +269,9 @@ namespace Netkeiba.Models
 				Recent3AvgFinishPosition = finishPositionMetrics.Recent3AvgFinishPosition,
 				FinishPositionImprovement = finishPositionMetrics.FinishPositionImprovement,
 				PaceAdvantageScore = tukaMetrics.PaceAdvantageScore,
-				CurrentGrade = Race.Grade.Int32(),
+				CurrentGrade = Race.Grade.GetGradeFeatures(),
 				ClassUpChallenge = CalculateClassUpChallenge(),
-				CurrentTrackCondition = Race.TrackConditionType.Int32(),
+				CurrentTrackCondition = (int)Race.TrackConditionType,
 				TrackConditionChangeFromLast = CalculateTrackConditionChangeFromLast(),
 				SameCourseExperience = sameCourseExperience,
 				SameDistanceCategoryExperience = sameDistanceCategoryExperience,
@@ -276,6 +284,11 @@ namespace Netkeiba.Models
 				AdjustedLastThreeFurlongsAvg = lastThreeFurlongsMetrics.AdjustedLastThreeFurlongsAvg,
 				LastRaceAdjustedLastThreeFurlongs = lastThreeFurlongsMetrics.LastRaceAdjustedLastThreeFurlongs,
 				AdjustedLastThreeFurlongsDiffFromAvgInRace = lastThreeFurlongsMetrics.AdjustedLastThreeFurlongsDiffFromAvgInRace,
+				AverageTimeIndex = AverageTimeIndex(horses, 5),
+				LastRaceTimeIndex = AverageTimeIndex(horses, 1),
+
+				// レース内位置情報
+				Umaban = Umaban,
 
 				// メタ情報
 				IsNewHorse = RaceCount == 0,
@@ -311,6 +324,9 @@ namespace Netkeiba.Models
 			var inraceAverageTuka = features.Select(r => r.AverageTuka).ToArray();
 			var frontRunnerCount = inraceAverageTuka.Count(tuka => tuka < 0.3f);  // 逃げ・先行馬の数
 
+			// タイム指数のレース内ランクを計算
+			var inraceTimeIndexes = features.Select(r => r.AverageTimeIndex).ToArray();
+
 			features.ForEach(x =>
 			{
 				// 同レース他馬との補正済み上がり比較
@@ -325,6 +341,9 @@ namespace Netkeiba.Models
 					// 自分は追込→逃げ馬が多いほど有利(数値が大きくなる)
 					? (float)frontRunnerCount / (float)race.NumberOfHorses
 					: 0.5F;
+
+				// タイム指数のレース内ランク（降順、高いほど上位）
+				x.AverageTimeIndexRankInRace = inraceTimeIndexes.Count(t => t > x.AverageTimeIndex) + 1;
 			});
 
 			return features;
