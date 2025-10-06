@@ -105,7 +105,7 @@ namespace Netkeiba
 						value.Label = 0;
 
 						return value;
-					}).CalculateInRaces(race).ToArray();
+					}).ToArray().CalculateInRaces(race).ToArray();
 
 					// ｽｺｱ計算
 					var predictions = RacePrediction.CalculatePrediction(ml, mo, details, features);
@@ -180,7 +180,7 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		public static async Task<List<RaceDetail>> GetShutsubaRaceDetailAsync(this SQLiteControl conn, DateTime date, params (string Key, string Value)[] kvp)
 		{
 			var sql = $@"
-SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性
+SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性, d.ﾀｲﾑ指数, d.着差
 FROM   t_orig_h h, v_orig_d d, t_uma u
 WHERE  h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND h.開催日 < ? AND {kvp.Select(x => $"{x.Key} = ?").GetString(" AND ")}
 ORDER BY h.開催日 ASC, h.ﾚｰｽID ASC
