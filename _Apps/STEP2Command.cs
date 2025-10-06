@@ -1,10 +1,13 @@
-﻿using Netkeiba.Models;
+﻿using Jint.Parser.Ast;
+using Microsoft.ML.Data;
+using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -105,7 +108,7 @@ namespace Netkeiba
 							features.Label = (x.FinishPosition - 1).Run(x => x < 12 ? x : 11);
 
 							return features;
-						}).CalculateInRaces(race);
+						}).ToArray().CalculateInRaces(race);
 
 						// ﾃﾞｰﾀﾍﾞｰｽに格納
 						await conn.InsertModelAsync(results);
@@ -152,12 +155,13 @@ namespace Netkeiba
 		public float Recent3AdjustedAvg { get; set; }
 		public float Recent5AdjustedAvg { get; set; }
 		public float OverallAdjustedAvg { get; set; }
-		public float BestAdjustedScore { get; set; }
+
+		//public float BestAdjustedScore { get; set; }
 		public float LastRaceAdjustedScore { get; set; }
 		public float AdjustedConsistency { get; set; }
-		public float G1AdjustedAvg { get; set; }
-		public float G2G3AdjustedAvg { get; set; }
-		public float OpenAdjustedAvg { get; set; }
+		//public float G1AdjustedAvg { get; set; }
+		//public float G2G3AdjustedAvg { get; set; }
+		//public float OpenAdjustedAvg { get; set; }
 	}
 
 	public static class AdjustedPerformanceCalculator
@@ -184,12 +188,12 @@ namespace Netkeiba
 				Recent3AdjustedAvg = adjustedScores.Take(3).DefaultIfEmpty(0.1f).Average(),
 				Recent5AdjustedAvg = adjustedScores.Take(5).DefaultIfEmpty(0.1f).Average(),
 				OverallAdjustedAvg = adjustedScores.DefaultIfEmpty(0.1f).Average(),
-				BestAdjustedScore = adjustedScores.DefaultIfEmpty(0.1f).Max(),
+				//BestAdjustedScore = adjustedScores.DefaultIfEmpty(0.1f).Max(),
 				LastRaceAdjustedScore = adjustedScores.FirstOrDefault(0.1f),
 				AdjustedConsistency = CalculateConsistency(adjustedScores),
-				G1AdjustedAvg = CalculateGradeSpecificAverage(results, x => x.IsG1()),
-				G2G3AdjustedAvg = CalculateGradeSpecificAverage(results, x => x.IsG2() || x.IsG3()),
-				OpenAdjustedAvg = CalculateGradeSpecificAverage(results, x => x.IsOPEN())
+				//G1AdjustedAvg = CalculateGradeSpecificAverage(results, x => x.IsG1()),
+				//G2G3AdjustedAvg = CalculateGradeSpecificAverage(results, x => x.IsG2() || x.IsG3()),
+				//OpenAdjustedAvg = CalculateGradeSpecificAverage(results, x => x.IsOPEN())
 			};
 		}
 
@@ -264,7 +268,15 @@ namespace Netkeiba
 
 			private static float CalculateQualityMultiplier(float averageRating)
 			{
-				return (float)Math.Log(averageRating) * 0.01f + 1.0f;
+				// 60を基準に、40-100の範囲で補正
+				const float baseRating = 60f;
+				const float range = 40f; // ±40ポイントの範囲
+
+				// 正規化（-0.5 ～ +1.0程度）
+				float normalized = (averageRating - baseRating) / range;
+
+				// 0.9 ～ 1.2の範囲で補正（±20%まで）
+				return 1.0f + Math.Max(-0.1f, Math.Min(normalized * 0.2f, 0.2f));
 			}
 
 			private static float GetSpecialConditionMultiplier(Race race)
@@ -421,37 +433,34 @@ namespace Netkeiba
 		{
 			return new ConnectionMetrics
 			{
-				JockeyRecentInverseAvg = jockeys.Take(30).AdjustedInverseScoreAverage(0.2F),
+				JockeyRecentInverseAvg = jockeys.Take(30).AdjustedInverseScoreAverage(),
 				JockeyCurrentConditionAvg = CalculateConditionSpecific(jockeys, upcomingRace),
 
-				TrainerRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
+				TrainerRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(),
 				TrainerCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
 
-				BreederRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
-				BreederCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
+				BreederRecentInverseAvg = breeders.Take(30).AdjustedInverseScoreAverage(),
+				BreederCurrentConditionAvg = CalculateConditionSpecific(breeders, upcomingRace),
 
-				SireRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
-				SireCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
+				SireRecentInverseAvg = sires.Take(30).AdjustedInverseScoreAverage(),
+				SireCurrentConditionAvg = CalculateConditionSpecific(sires, upcomingRace),
 
-				DamSireRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
-				DamSireCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
+				DamSireRecentInverseAvg = damsires.Take(30).AdjustedInverseScoreAverage(),
+				DamSireCurrentConditionAvg = CalculateConditionSpecific(damsires, upcomingRace),
 
-				SireDamSireRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(0.2F),
-				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
+				SireDamSireRecentInverseAvg = siredamsires.Take(30).AdjustedInverseScoreAverage(),
+				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(siredamsires, upcomingRace),
 
-				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(0.2F),
+				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(),
 				JockeyTrainerCurrentConditionAvg = CalculateConditionSpecific(jockeytrainers, upcomingRace),
 			};
 		}
 
 		private static float CalculateConditionSpecific(IEnumerable<RaceDetail> races, Race upcomingRace)
 		{
-			var matchingRaces = races
-				.Where(r => r.Race.DistanceCategory == upcomingRace.DistanceCategory && r.Race.TrackType == upcomingRace.TrackType);
-
-			if (!matchingRaces.Any()) return 0.2f;
-
-			return matchingRaces.AdjustedInverseScoreAverage();
+			return races
+				.Where(r => r.Race.DistanceCategory == upcomingRace.DistanceCategory && r.Race.TrackType == upcomingRace.TrackType)
+				.AdjustedInverseScoreAverage();
 		}
 	}
 
@@ -654,15 +663,16 @@ namespace Netkeiba
 			await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_model");
 		}
 
-		/// <summary>馬ﾍｯﾀﾞ</summary>
-		private static readonly string[] col_model = Arr("ﾚｰｽID", "馬ID", "Features");
-
 		public static async Task CreateModel(this SQLiteControl conn)
 		{
 			await conn.Create(
 				"t_model",
-				col_model,
-				Arr("ﾚｰｽID", "馬ID")
+				typeof(OptimizedHorseFeaturesModel).GetPropertiesEX().Select(x => new Column()
+				{
+					Name = x.Name,
+					Type = x.GetTypeString(),
+					IsKey = new[] { "RaceId", "Horse" }.Contains(x.Name)
+				}).ToArray()
 			);
 
 			// TODO indexの作成
@@ -670,7 +680,7 @@ namespace Netkeiba
 
 		public static async Task<bool> ExistsModelTableAsync(this SQLiteControl conn)
 		{
-			return await conn.ExistsColumn("t_model", "ﾚｰｽID");
+			return await conn.ExistsColumn("t_model", "RaceId");
 		}
 
 		public static async Task InsertModelAsync(this SQLiteControl conn, IEnumerable<OptimizedHorseFeaturesModel> data)
@@ -682,13 +692,13 @@ namespace Netkeiba
 				await conn.BeginTransaction();
 				foreach (var x in chunk)
 				{
-					var parameters = new[]
-					{
-						SQLiteUtil.CreateParameter(DbType.String, x.RaceId),
-						SQLiteUtil.CreateParameter(DbType.String, x.HorseName),
-						SQLiteUtil.CreateParameter(DbType.Object, x.Serialize())
-					};
-					await conn.ExecuteNonQueryAsync("REPLACE INTO t_model (ﾚｰｽID, 馬ID, Features) VALUES (?, ?, ?)", parameters);
+					var properties = x.GetPropertiesEX();
+					var parameters = properties
+						.Select(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Property.GetValue(x)))
+						.ToArray();
+					var items = properties.Select(p => p.Name).GetString(",");
+					var values = properties.Select(p => "?").GetString(",");
+					await conn.ExecuteNonQueryAsync($"REPLACE INTO t_model ({items}) VALUES ({values})", parameters);
 				}
 				conn.Commit();
 			}
@@ -708,6 +718,7 @@ namespace Netkeiba
 			var sql = @"
 SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数
 FROM   t_orig_h h
+WHERE  CAST(h.障害 AS INTEGER) = 0
 ORDER BY h.開催日, h.ﾚｰｽID
 ";
 
@@ -720,7 +731,7 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		public static async IAsyncEnumerable<RaceDetail> GetRaceDetailsAsync(this SQLiteControl conn, Race race)
 		{
 			var sql = @"
-SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性
+SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性, d.ﾀｲﾑ指数, d.着差
 FROM v_orig_d d, t_uma u
 WHERE d.ﾚｰｽID = ? AND d.馬ID = u.馬ID
 ";
@@ -738,16 +749,87 @@ WHERE d.ﾚｰｽID = ? AND d.馬ID = u.馬ID
 		public static async IAsyncEnumerable<string> GetAlreadyCreatedRacesAsync(this SQLiteControl conn)
 		{
 			var sql = @"
-SELECT DISTINCT ﾚｰｽID
+SELECT DISTINCT RaceId
 FROM   t_model h
 ";
 
 			foreach (var x in await conn.GetRows(sql))
 			{
-				yield return x["ﾚｰｽID"].Str();
+				yield return x["RaceId"].Str();
 			}
 		}
 
+		public static IEnumerable<CustomProperty> GetPropertiesEX(this object value)
+		{
+			return value.GetType().GetPropertiesEX();
+		}
+
+		public static IEnumerable<CustomProperty> GetPropertiesEX(this Type type)
+		{
+			return type.GetProperties()
+				.Select(p => new CustomProperty(
+					p,
+					p.Name,
+					p.PropertyType,
+					p.GetCustomAttribute<LoadColumnAttribute>()
+				));
+		}
+
+		public class CustomProperty
+		{
+			public CustomProperty(PropertyInfo property, string name, Type type, LoadColumnAttribute? attribute)
+			{
+				Property = property;
+				Name = name;
+				Type = type;
+				Attribute = attribute;
+			}
+
+			public PropertyInfo Property { get; set; }
+			public string Name { get; set; }
+			public Type Type { get; set; }
+			public LoadColumnAttribute? Attribute { get; set; }
+
+			public string GetTypeString() => Type.Name switch
+			{
+				"Single" => "REAL",
+				"UInt32" => "INTEGER",
+				"Int32" => "INTEGER",
+				"Boolean" => "INTEGER",
+				_ => "TEXT"
+			};
+
+			public DbType GetDBType() => Type.Name switch
+			{
+				"Single" => DbType.Single,
+				"UInt32" => DbType.Int32,
+				"Int32" => DbType.Int32,
+				"Boolean" => DbType.Int32,
+				_ => DbType.String
+			};
+
+			public void SetProperty(OptimizedHorseFeaturesModel instance, Dictionary<string, object> x)
+			{
+				switch (Type.Name)
+				{
+					case "Single":
+						Property.SetValue(instance, (float)x[Name]);
+						break;
+					case "UInt32":
+						Property.SetValue(instance, (uint)x[Name]);
+						break;
+					case "Int32":
+						Property.SetValue(instance, (int)x[Name]);
+						break;
+					case "Boolean":
+						Property.SetValue(instance, (int)x[Name] > 0);
+						break;
+					default:
+						Property.SetValue(instance, (string)x[Name]);
+						break;
+				}
+			}
+		}
 	}
 
 }
