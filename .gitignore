@@ -352,3 +352,6 @@ MigrationBackup/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Claude作業用フォルダ
+_Apps/Claude/
