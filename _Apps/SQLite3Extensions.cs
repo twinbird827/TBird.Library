@@ -15,7 +15,22 @@ namespace Netkeiba
 
 		private static async Task Create(this SQLiteControl conn, string tablename, string[] columns, string[] keys)
 		{
-			await conn.ExecuteNonQueryAsync($"CREATE TABLE IF NOT EXISTS {tablename} ({columns.GetString(",")}, PRIMARY KEY ({keys.GetString(",")}));");
+			var arr = columns.Select(x => new Column()
+			{
+				Name = x,
+				Type = "TEXT",
+				IsKey = keys.Contains(x)
+			}).ToArray();
+
+			await conn.Create(tablename, arr);
+		}
+
+		private static async Task Create(this SQLiteControl conn, string tablename, Column[] columns)
+		{
+			var columnString = columns.Select(x => x.GetColumn()).GetString(",");
+			var keyString = columns.Where(x => x.IsKey).Select(x => x.Name).GetString(",");
+
+			await conn.ExecuteNonQueryAsync($"CREATE TABLE IF NOT EXISTS {tablename} ({columnString}, PRIMARY KEY ({keyString}));");
 		}
 
 		private static async Task InsertAsync(this SQLiteControl conn, string tablename, Dictionary<string, string> x)
@@ -27,5 +42,15 @@ namespace Netkeiba
 			await conn.ExecuteNonQueryAsync(sql, prm);
 		}
 
+		public class Column
+		{
+			public string GetColumn() => $"{Name} {Type}";
+
+			public string Name { get; set; }
+
+			public string Type { get; set; }
+
+			public bool IsKey { get; set; }
+		}
 	}
 }
