@@ -55,4 +55,9 @@ namespace Netkeiba.Models
 		新馬ク = 1,
 
 	}
+
+	public static class GradeTypeExtensions
+	{
+		public static float GetGradeFeatures(this GradeType grade) => (float)(int)grade / 20F;
+	}
 }
