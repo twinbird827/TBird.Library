@@ -84,6 +84,8 @@ namespace Netkeiba.Models
 			nameof(Recent2to3Improvement),
 			nameof(Recent1to2ImprovementAmount),
 			nameof(Recent2to3ImprovementAmount),
+			nameof(Interval1to2Days),
+			nameof(Interval2to3Days),
 			nameof(JockeyTrainerDistanceAptitude_Robust),
 			nameof(JockeyTrainerTrackConditionAptitude_Robust),
 			nameof(JockeyTrainerPlaceAptitude_Robust),
@@ -362,6 +364,8 @@ namespace Netkeiba.Models
 			nameof(Recent2to3Improvement),
 			nameof(Recent1to2ImprovementAmount),
 			nameof(Recent2to3ImprovementAmount),
+			nameof(Interval1to2Days),
+			nameof(Interval2to3Days),
 		};
 
 		// トレンド特徴量
@@ -370,6 +374,8 @@ namespace Netkeiba.Models
 		[LoadColumn(104)] public float Recent2to3Improvement { get; set; } // 前々走→前前々走の改善フラグ
 		[LoadColumn(105)] public float Recent1to2ImprovementAmount { get; set; } // 前走→前々走の改善量
 		[LoadColumn(106)] public float Recent2to3ImprovementAmount { get; set; } // 前々走→前前々走の改善量
+		[LoadColumn(107)] public float Interval1to2Days { get; set; } // 前走→前々走の間隔（日数）
+		[LoadColumn(108)] public float Interval2to3Days { get; set; } // 前々走→前前々走の間隔（日数）
 
 		public static string[] GetRobustConnectionItemNames() => new[]
 		{

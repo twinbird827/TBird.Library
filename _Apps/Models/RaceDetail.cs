@@ -356,10 +356,29 @@ namespace Netkeiba.Models
 			// 2. レース内ランク特徴量（CalculateInRacesメソッドで計算）
 			// 初期値は不要（CalculateInRacesで上書きされる）
 
-			// 3. RecentUpwardTrend (着順が改善傾向か)
+			// 3. RecentUpwardTrend (着順が改善傾向か + 間隔考慮)
+			// 間隔に応じた重み計算（0-30日=1.0, 30-90日=線形減衰, 90日以上=0.3）
+			float CalculateIntervalWeight(int days)
+			{
+				if (days <= 30) return 1.0f;
+				if (days >= 90) return 0.3f;
+				return 1.0f - ((days - 30) / 60.0f) * 0.7f; // 30-90日で1.0→0.3に線形減衰
+			}
+
 			if (horses.Count >= 3)
 			{
-				var recent3Positions = horses.Take(3).Select(h => h.FinishPosition).ToList();
+				var recent3Races = horses.Take(3).ToList();
+				var recent3Positions = recent3Races.Select(h => h.FinishPosition).ToList();
+
+				// レース間隔（日数）
+				int interval1to2 = (recent3Races[0].Race.RaceDate - recent3Races[1].Race.RaceDate).Days;
+				int interval2to3 = (recent3Races[1].Race.RaceDate - recent3Races[2].Race.RaceDate).Days;
+				features.Interval1to2Days = Math.Min(interval1to2, 365); // 365日でキャップ
+				features.Interval2to3Days = Math.Min(interval2to3, 365);
+
+				// 間隔に応じた重み
+				float weight1to2 = CalculateIntervalWeight(interval1to2);
+				float weight2to3 = CalculateIntervalWeight(interval2to3);
 
 				// 3走連続改善（最も厳しい条件）
 				features.RecentUpwardTrend = (recent3Positions[0] < recent3Positions[1] && recent3Positions[1] < recent3Positions[2]) ? 1.0f : 0.0f;
@@ -370,18 +389,30 @@ namespace Netkeiba.Models
 				// 前々走→前前々走の改善
 				features.Recent2to3Improvement = recent3Positions[1] < recent3Positions[2] ? 1.0f : 0.0f;
 
-				// 改善量（正の値=改善、負の値=悪化）
-				features.Recent1to2ImprovementAmount = (int)recent3Positions[1] - (int)recent3Positions[0];
-				features.Recent2to3ImprovementAmount = (int)recent3Positions[2] - (int)recent3Positions[1];
+				// 改善量（正の値=改善、負の値=悪化）+ 間隔重み付け
+				float improvement1to2 = (int)recent3Positions[1] - (int)recent3Positions[0];
+				float improvement2to3 = (int)recent3Positions[2] - (int)recent3Positions[1];
+				features.Recent1to2ImprovementAmount = improvement1to2 * weight1to2;
+				features.Recent2to3ImprovementAmount = improvement2to3 * weight2to3;
 			}
 			else if (horses.Count >= 2)
 			{
 				// 2走しかない場合
-				var recent2Positions = horses.Take(2).Select(h => h.FinishPosition).ToList();
+				var recent2Races = horses.Take(2).ToList();
+				var recent2Positions = recent2Races.Select(h => h.FinishPosition).ToList();
+
+				int interval1to2 = (recent2Races[0].Race.RaceDate - recent2Races[1].Race.RaceDate).Days;
+				features.Interval1to2Days = Math.Min(interval1to2, 365);
+				features.Interval2to3Days = 0.0f;
+
+				float weight1to2 = CalculateIntervalWeight(interval1to2);
+
 				features.RecentUpwardTrend = 0.0f;
 				features.Recent1to2Improvement = recent2Positions[0] < recent2Positions[1] ? 1.0f : 0.0f;
 				features.Recent2to3Improvement = 0.0f;
-				features.Recent1to2ImprovementAmount = (int)recent2Positions[1] - (int)recent2Positions[0];
+
+				float improvement1to2 = (int)recent2Positions[1] - (int)recent2Positions[0];
+				features.Recent1to2ImprovementAmount = improvement1to2 * weight1to2;
 				features.Recent2to3ImprovementAmount = 0.0f;
 			}
 			else
@@ -392,6 +423,8 @@ namespace Netkeiba.Models
 				features.Recent2to3Improvement = 0.0f;
 				features.Recent1to2ImprovementAmount = 0.0f;
 				features.Recent2to3ImprovementAmount = 0.0f;
+				features.Interval1to2Days = 0.0f;
+				features.Interval2to3Days = 0.0f;
 			}
 
 			// 4. 騎手×調教師の強化（信頼度重み付け）
