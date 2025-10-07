@@ -115,7 +115,7 @@ namespace Netkeiba.Models
 		{
 			nameof(CurrentDistanceAptitude),
 			nameof(CurrentTrackTypeAptitude),
-			nameof(CurrentTrackConditionAptitude),
+			// nameof(CurrentTrackConditionAptitude),  // 重要度0.2414 削除（案8）
 		};
 
 		// 条件適性（今回のレース条件に対する適性）
@@ -154,8 +154,8 @@ namespace Netkeiba.Models
 			nameof(SireDamSirePlaceAptitude),
 			nameof(JockeyTrainerRecentInverseAvg),
 			nameof(JockeyTrainerCurrentConditionAvg),
-			nameof(JockeyTrainerDistanceAptitude),
-			nameof(JockeyTrainerTrackConditionAptitude),
+			// nameof(JockeyTrainerDistanceAptitude),  // 重要度0.2421 削除（案8）
+			// nameof(JockeyTrainerTrackConditionAptitude),  // 重要度0.2406 削除（案8）
 			nameof(JockeyTrainerPlaceAptitude),
 		};
 
@@ -225,7 +225,7 @@ namespace Netkeiba.Models
 			// nameof(Gender),  // 重要度0.0984 削除（案7）
 			nameof(Season),
 			nameof(RaceDistance),
-			nameof(PerformanceTrend),
+			// nameof(PerformanceTrend),  // 重要度0.2391 削除（案8）
 			// nameof(DistanceChangeAdaptation),  // 重要度0.1981 削除（案4）
 			nameof(ClassChangeAdaptation),
 			// nameof(JockeyWeightDiff),  // 重要度0.1582 削除（案4）
@@ -245,7 +245,7 @@ namespace Netkeiba.Models
 			// nameof(ClassUpChallenge),  // 重要度0.0260 削除
 			nameof(GradeChange),
 			// nameof(TrackConditionChangeFromLast),  // 重要度0.1266 削除（案4）
-			nameof(SameCourseExperience),
+			// nameof(SameCourseExperience),  // 重要度0.2431 削除（案8）
 			// nameof(SameDistanceCategoryExperience),  // 重要度0.1855 削除（案4）
 			nameof(SameTrackTypeExperience),
 		};
@@ -314,10 +314,10 @@ namespace Netkeiba.Models
 		[LoadColumn(62)] public int Umaban { get; set; }
 		[LoadColumn(67)] public float UmabanAdvantage { get; set; }
 
-		public static string[] GetMetadataNames() => new[]
+		public static string[] GetMetadataNames() => new string[]
 		{
 			// nameof(IsNewHorse),  // 重要度0.0558 削除
-			nameof(AptitudeReliability),  // 重要度0.0732 (低いが空配列回避のため残す)
+			// nameof(AptitudeReliability),  // 重要度0.0783 削除（案8）
 		};
 
 		// メタ情報
@@ -365,9 +365,9 @@ namespace Netkeiba.Models
 			// nameof(Recent1to2Improvement),
 			// nameof(Recent2to3Improvement),
 			nameof(Recent1to2ImprovementAmount),
-			nameof(Recent2to3ImprovementAmount),
+			// nameof(Recent2to3ImprovementAmount),  // 重要度0.2439 削除（案8）
 			nameof(Interval1to2Days),
-			nameof(Interval2to3Days),
+			// nameof(Interval2to3Days),  // 重要度0.2405 削除（案8）
 		};
 
 		// トレンド特徴量
@@ -404,7 +404,7 @@ namespace Netkeiba.Models
 
 		public static string[] GetEnsembleItemNames() => new[]
 		{
-			nameof(OverallHorseQuality),
+			// nameof(OverallHorseQuality),  // 重要度0.2462 削除（案8）
 			nameof(OverallConnectionQuality),
 		};
 
