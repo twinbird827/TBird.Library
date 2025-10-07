@@ -446,16 +446,19 @@ namespace Netkeiba
 				SireCurrentConditionAvg = CalculateConditionSpecific(sires, upcomingRace),
 				SireDistanceAptitude = CalculateDistanceSpecific(sires, upcomingRace),
 				SireTrackConditionAptitude = CalculateTrackConditionSpecific(sires, upcomingRace),
+				SirePlaceAptitude = CalculatePlaceSpecific(sires, upcomingRace),
 
 				DamSireRecentInverseAvg = damsires.Take(30).AdjustedInverseScoreAverage(),
 				DamSireCurrentConditionAvg = CalculateConditionSpecific(damsires, upcomingRace),
 				DamSireDistanceAptitude = CalculateDistanceSpecific(damsires, upcomingRace),
 				DamSireTrackConditionAptitude = CalculateTrackConditionSpecific(damsires, upcomingRace),
+				DamSirePlaceAptitude = CalculatePlaceSpecific(damsires, upcomingRace),
 
 				SireDamSireRecentInverseAvg = siredamsires.Take(30).AdjustedInverseScoreAverage(),
 				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(siredamsires, upcomingRace),
 				SireDamSireDistanceAptitude = CalculateDistanceSpecific(siredamsires, upcomingRace),
 				SireDamSireTrackConditionAptitude = CalculateTrackConditionSpecific(siredamsires, upcomingRace),
+				SireDamSirePlaceAptitude = CalculatePlaceSpecific(siredamsires, upcomingRace),
 
 				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(),
 				JockeyTrainerCurrentConditionAvg = CalculateConditionSpecific(jockeytrainers, upcomingRace),
@@ -482,6 +485,13 @@ namespace Netkeiba
 				.Where(r => r.Race.TrackConditionType == upcomingRace.TrackConditionType)
 				.AdjustedInverseScoreAverage();
 		}
+
+		private static float CalculatePlaceSpecific(IEnumerable<RaceDetail> races, Race upcomingRace)
+		{
+			return races
+				.Where(r => r.Race.Place == upcomingRace.Place)
+				.AdjustedInverseScoreAverage();
+		}
 	}
 
 	public class ConnectionMetrics
@@ -499,16 +509,19 @@ namespace Netkeiba
 		public float SireCurrentConditionAvg { get; set; }
 		public float SireDistanceAptitude { get; set; }
 		public float SireTrackConditionAptitude { get; set; }
+		public float SirePlaceAptitude { get; set; }
 
 		public float DamSireRecentInverseAvg { get; set; }
 		public float DamSireCurrentConditionAvg { get; set; }
 		public float DamSireDistanceAptitude { get; set; }
 		public float DamSireTrackConditionAptitude { get; set; }
+		public float DamSirePlaceAptitude { get; set; }
 
 		public float SireDamSireRecentInverseAvg { get; set; }
 		public float SireDamSireCurrentConditionAvg { get; set; }
 		public float SireDamSireDistanceAptitude { get; set; }
 		public float SireDamSireTrackConditionAptitude { get; set; }
+		public float SireDamSirePlaceAptitude { get; set; }
 
 		public float JockeyTrainerRecentInverseAvg { get; set; }
 		public float JockeyTrainerCurrentConditionAvg { get; set; }
