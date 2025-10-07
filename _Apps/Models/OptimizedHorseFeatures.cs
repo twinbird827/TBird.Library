@@ -80,6 +80,10 @@ namespace Netkeiba.Models
 			nameof(RestDaysRankInRace),
 			nameof(Recent3AvgRankInRace),
 			nameof(RecentUpwardTrend),
+			nameof(Recent1to2Improvement),
+			nameof(Recent2to3Improvement),
+			nameof(Recent1to2ImprovementAmount),
+			nameof(Recent2to3ImprovementAmount),
 			nameof(JockeyTrainerDistanceAptitude_Robust),
 			nameof(JockeyTrainerTrackConditionAptitude_Robust),
 			nameof(JockeyTrainerPlaceAptitude_Robust),
@@ -354,10 +358,18 @@ namespace Netkeiba.Models
 		public static string[] GetTrendItemNames() => new[]
 		{
 			nameof(RecentUpwardTrend),
+			nameof(Recent1to2Improvement),
+			nameof(Recent2to3Improvement),
+			nameof(Recent1to2ImprovementAmount),
+			nameof(Recent2to3ImprovementAmount),
 		};
 
 		// トレンド特徴量
-		[LoadColumn(99)] public float RecentUpwardTrend { get; set; }
+		[LoadColumn(99)] public float RecentUpwardTrend { get; set; } // 3走連続改善
+		[LoadColumn(103)] public float Recent1to2Improvement { get; set; } // 前走→前々走の改善フラグ
+		[LoadColumn(104)] public float Recent2to3Improvement { get; set; } // 前々走→前前々走の改善フラグ
+		[LoadColumn(105)] public float Recent1to2ImprovementAmount { get; set; } // 前走→前々走の改善量
+		[LoadColumn(106)] public float Recent2to3ImprovementAmount { get; set; } // 前々走→前前々走の改善量
 
 		public static string[] GetRobustConnectionItemNames() => new[]
 		{

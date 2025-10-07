@@ -360,12 +360,38 @@ namespace Netkeiba.Models
 			if (horses.Count >= 3)
 			{
 				var recent3Positions = horses.Take(3).Select(h => h.FinishPosition).ToList();
-				// 着順は小さい方が良いので、連続して小さくなっている場合に1.0
+
+				// 3走連続改善（最も厳しい条件）
 				features.RecentUpwardTrend = (recent3Positions[0] < recent3Positions[1] && recent3Positions[1] < recent3Positions[2]) ? 1.0f : 0.0f;
+
+				// 前走→前々走の改善
+				features.Recent1to2Improvement = recent3Positions[0] < recent3Positions[1] ? 1.0f : 0.0f;
+
+				// 前々走→前前々走の改善
+				features.Recent2to3Improvement = recent3Positions[1] < recent3Positions[2] ? 1.0f : 0.0f;
+
+				// 改善量（正の値=改善、負の値=悪化）
+				features.Recent1to2ImprovementAmount = (int)recent3Positions[1] - (int)recent3Positions[0];
+				features.Recent2to3ImprovementAmount = (int)recent3Positions[2] - (int)recent3Positions[1];
+			}
+			else if (horses.Count >= 2)
+			{
+				// 2走しかない場合
+				var recent2Positions = horses.Take(2).Select(h => h.FinishPosition).ToList();
+				features.RecentUpwardTrend = 0.0f;
+				features.Recent1to2Improvement = recent2Positions[0] < recent2Positions[1] ? 1.0f : 0.0f;
+				features.Recent2to3Improvement = 0.0f;
+				features.Recent1to2ImprovementAmount = (int)recent2Positions[1] - (int)recent2Positions[0];
+				features.Recent2to3ImprovementAmount = 0.0f;
 			}
 			else
 			{
+				// 1走以下の場合
 				features.RecentUpwardTrend = 0.0f;
+				features.Recent1to2Improvement = 0.0f;
+				features.Recent2to3Improvement = 0.0f;
+				features.Recent1to2ImprovementAmount = 0.0f;
+				features.Recent2to3ImprovementAmount = 0.0f;
 			}
 
 			// 4. 騎手×調教師の強化（信頼度重み付け）
