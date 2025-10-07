@@ -353,12 +353,8 @@ namespace Netkeiba.Models
 			features.LastRaceScore_X_JockeyPlace = features.LastRaceAdjustedScore * features.JockeyPlaceAptitude;
 			features.Recent3Avg_X_JockeyRecent = features.Recent3AdjustedAvg * features.JockeyRecentInverseAvg;
 
-			// 2. レース内ランク特徴量（簡易実装 - STEP2で計算）
-			features.JockeyRecentRankInRace = 0.5f; // STEP2で計算
-			features.LastRaceScoreRankInRace = 0.5f; // STEP2で計算
-			features.AgeRankInRace = 0.5f; // STEP2で計算
-			features.RestDaysRankInRace = 0.5f; // STEP2で計算
-			features.Recent3AvgRankInRace = 0.5f; // STEP2で計算
+			// 2. レース内ランク特徴量（CalculateInRacesメソッドで計算）
+			// 初期値は不要（CalculateInRacesで上書きされる）
 
 			// 3. RecentUpwardTrend (着順が改善傾向か)
 			if (horses.Count >= 3)
@@ -442,8 +438,43 @@ namespace Netkeiba.Models
 					// 先行・差し: 中間的な脚質は安定
 					: 0.7F;
 
-				// タイム指数のレース内ランク（降順、高いほど上位）
-				x.AverageTimeIndexRankInRace = inraceTimeIndexes.Count(t => t > x.AverageTimeIndex) + 1;
+				// タイム指数のレース内ランク（降順、高いほど上位）を正規化（1.0=最良、0.0=最悪）
+				var timeIndexRank = inraceTimeIndexes.Count(t => t > x.AverageTimeIndex) + 1;
+				var horseCount = features.Count();
+				x.AverageTimeIndexRankInRace = horseCount > 1 ? 1.0f - ((timeIndexRank - 1) / (float)(horseCount - 1)) : 0.5f;
+
+				// === 新規ランク特徴量の計算 ===
+				// レース内ランク計算ヘルパー（降順: 大きいほど良い）
+				float CalculateRankDesc(float value, float[] values)
+				{
+					if (horseCount <= 1) return 0.5f;
+					var rank = values.Count(v => v > value) + 1;
+					return 1.0f - ((rank - 1) / (float)(horseCount - 1));
+				}
+
+				// レース内ランク計算ヘルパー（昇順: 小さいほど良い）
+				float CalculateRankAsc(float value, float[] values)
+				{
+					if (horseCount <= 1) return 0.5f;
+					var rank = values.Count(v => v < value) + 1;
+					return 1.0f - ((rank - 1) / (float)(horseCount - 1));
+				}
+
+				// 各ランク特徴量を計算
+				var jockeyRecentValues = features.Select(f => f.JockeyRecentInverseAvg).ToArray();
+				x.JockeyRecentRankInRace = CalculateRankDesc(x.JockeyRecentInverseAvg, jockeyRecentValues);
+
+				var lastRaceScoreValues = features.Select(f => f.LastRaceAdjustedScore).ToArray();
+				x.LastRaceScoreRankInRace = CalculateRankDesc(x.LastRaceAdjustedScore, lastRaceScoreValues);
+
+				var ageValues = features.Select(f => f.Age).ToArray();
+				x.AgeRankInRace = CalculateRankAsc(x.Age, ageValues); // 若い方が良い
+
+				var restDaysValues = features.Select(f => f.RestDays).ToArray();
+				x.RestDaysRankInRace = CalculateRankAsc(x.RestDays, restDaysValues); // 短い方が良い（中間が最適だが簡略化）
+
+				var recent3AvgValues = features.Select(f => f.Recent3AdjustedAvg).ToArray();
+				x.Recent3AvgRankInRace = CalculateRankDesc(x.Recent3AdjustedAvg, recent3AvgValues);
 			});
 
 			return features;
