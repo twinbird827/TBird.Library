@@ -380,14 +380,14 @@ namespace Netkeiba.Models
 				float weight1to2 = CalculateIntervalWeight(interval1to2);
 				float weight2to3 = CalculateIntervalWeight(interval2to3);
 
-				// 3走連続改善（最も厳しい条件）
-				features.RecentUpwardTrend = (recent3Positions[0] < recent3Positions[1] && recent3Positions[1] < recent3Positions[2]) ? 1.0f : 0.0f;
+				// 3走連続改善または維持（改善 or 維持 = 調子が良い）
+				features.RecentUpwardTrend = (recent3Positions[0] <= recent3Positions[1] && recent3Positions[1] <= recent3Positions[2]) ? 1.0f : 0.0f;
 
-				// 前走→前々走の改善
-				features.Recent1to2Improvement = recent3Positions[0] < recent3Positions[1] ? 1.0f : 0.0f;
+				// 前走→前々走の改善または維持
+				features.Recent1to2Improvement = recent3Positions[0] <= recent3Positions[1] ? 1.0f : 0.0f;
 
-				// 前々走→前前々走の改善
-				features.Recent2to3Improvement = recent3Positions[1] < recent3Positions[2] ? 1.0f : 0.0f;
+				// 前々走→前前々走の改善または維持
+				features.Recent2to3Improvement = recent3Positions[1] <= recent3Positions[2] ? 1.0f : 0.0f;
 
 				// 改善量（正の値=改善、負の値=悪化）+ 間隔重み付け
 				float improvement1to2 = (int)recent3Positions[1] - (int)recent3Positions[0];
@@ -408,7 +408,7 @@ namespace Netkeiba.Models
 				float weight1to2 = CalculateIntervalWeight(interval1to2);
 
 				features.RecentUpwardTrend = 0.0f;
-				features.Recent1to2Improvement = recent2Positions[0] < recent2Positions[1] ? 1.0f : 0.0f;
+				features.Recent1to2Improvement = recent2Positions[0] <= recent2Positions[1] ? 1.0f : 0.0f;
 				features.Recent2to3Improvement = 0.0f;
 
 				float improvement1to2 = (int)recent2Positions[1] - (int)recent2Positions[0];
