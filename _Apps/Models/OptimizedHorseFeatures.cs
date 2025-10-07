@@ -59,7 +59,7 @@ namespace Netkeiba.Models
 			nameof(DamSirePlaceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
-			nameof(SireDamSireDistanceAptitude),
+			// nameof(SireDamSireDistanceAptitude),  // 重要度0.2787 削除（案10）
 			nameof(SireDamSireTrackConditionAptitude),
 			nameof(SireDamSirePlaceAptitude),
 			nameof(JockeyTrainerDistanceAptitude),
@@ -127,12 +127,12 @@ namespace Netkeiba.Models
 		{
 			// nameof(JockeyRecentInverseAvg),  // → JockeyRecentRankInRace で代替
 			nameof(JockeyCurrentConditionAvg),
-			nameof(JockeyDistanceAptitude),
+			// nameof(JockeyDistanceAptitude),  // 重要度0.2792 削除（案10）
 			nameof(JockeyTrackConditionAptitude),
 			// nameof(JockeyPlaceAptitude),  // → JockeyPlace_X_TrainerPlace, JockeyPlace_X_DistanceApt で代替
 			nameof(TrainerRecentInverseAvg),
 			nameof(TrainerCurrentConditionAvg),
-			nameof(TrainerDistanceAptitude),
+			// nameof(TrainerDistanceAptitude),  // 重要度0.2847 削除（案10）
 			nameof(TrainerTrackConditionAptitude),
 			nameof(TrainerPlaceAptitude),
 			// nameof(BreederRecentInverseAvg),  // 重要度0.2510 削除（案9）
@@ -149,7 +149,7 @@ namespace Netkeiba.Models
 			nameof(DamSirePlaceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
-			nameof(SireDamSireDistanceAptitude),
+			// nameof(SireDamSireDistanceAptitude),  // 重要度0.2787 削除（案10）
 			nameof(SireDamSireTrackConditionAptitude),
 			nameof(SireDamSirePlaceAptitude),
 			nameof(JockeyTrainerRecentInverseAvg),
@@ -232,7 +232,7 @@ namespace Netkeiba.Models
 			nameof(JockeyWeightDiffFromAvgInRace),
 			nameof(AverageTuka),
 			nameof(LastRaceTuka),
-			nameof(TukaConsistency),
+			// nameof(TukaConsistency),  // 重要度0.2870 削除（案10）
 			nameof(AverageTukaInRace),
 			nameof(TukaAdvantage),
 			// nameof(LastRaceFinishPosition),  // 重要度0.1931 削除（案4）
@@ -283,13 +283,13 @@ namespace Netkeiba.Models
 
 		public static string[] GetTimeItemNames() => new[]
 		{
-			nameof(SameDistanceTimeIndex),
+			// nameof(SameDistanceTimeIndex),  // 重要度0.2816 削除（案10）
 			nameof(LastRaceTimeDeviation),
-			nameof(TimeConsistencyScore),
-			nameof(AdjustedLastThreeFurlongsAvg),
+			// nameof(TimeConsistencyScore),  // 重要度0.2858 削除（案10）
+			// nameof(AdjustedLastThreeFurlongsAvg),  // 重要度0.2725 削除（案10）
 			nameof(LastRaceAdjustedLastThreeFurlongs),
 			nameof(AdjustedLastThreeFurlongsDiffFromAvgInRace),
-			nameof(AverageTimeIndex),
+			// nameof(AverageTimeIndex),  // 重要度0.2830 削除（案10）
 			// nameof(LastRaceTimeIndex),  // 重要度0.2523 削除（案9）
 			nameof(AverageTimeIndexRankInRace),
 		};
@@ -366,7 +366,7 @@ namespace Netkeiba.Models
 			// nameof(Recent2to3Improvement),
 			nameof(Recent1to2ImprovementAmount),
 			// nameof(Recent2to3ImprovementAmount),  // 重要度0.2439 削除（案8）
-			nameof(Interval1to2Days),
+			// nameof(Interval1to2Days),  // 重要度0.2773 削除（案10）
 			// nameof(Interval2to3Days),  // 重要度0.2405 削除（案8）
 		};
 
