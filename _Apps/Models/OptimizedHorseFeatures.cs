@@ -220,7 +220,7 @@ namespace Netkeiba.Models
 		public static string[] GetStatusItemNames() => new[]
 		{
 			nameof(RestDays),
-			nameof(IsRentoFlag),
+			// nameof(IsRentoFlag),  // 重要度0.0149 削除
 			nameof(Age),
 			nameof(Gender),
 			nameof(Season),
@@ -242,7 +242,7 @@ namespace Netkeiba.Models
 			nameof(CurrentTrackCondition),
 			nameof(PaceAdvantageScore),
 			nameof(PaceStyleCompatibility),
-			nameof(ClassUpChallenge),
+			// nameof(ClassUpChallenge),  // 重要度0.0260 削除
 			nameof(GradeChange),
 			nameof(TrackConditionChangeFromLast),
 			nameof(SameCourseExperience),
@@ -316,8 +316,8 @@ namespace Netkeiba.Models
 
 		public static string[] GetMetadataNames() => new[]
 		{
-			nameof(IsNewHorse),
-			nameof(AptitudeReliability),
+			// nameof(IsNewHorse),  // 重要度0.0558 削除
+			nameof(AptitudeReliability),  // 重要度0.0732 (低いが空配列回避のため残す)
 		};
 
 		// メタ情報
