@@ -47,6 +47,8 @@ namespace Netkeiba.Models
 			nameof(DamSireCurrentConditionAvg),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
+			nameof(GradeChange),
+			nameof(TukaAdvantage),
 		};
 
 		public static string[] GetAdjustedPerformanceItemNames() => new[]
@@ -150,6 +152,7 @@ namespace Netkeiba.Models
 			nameof(LastRaceTuka),
 			nameof(TukaConsistency),
 			nameof(AverageTukaInRace),
+			nameof(TukaAdvantage),
 			nameof(LastRaceFinishPosition),
 			nameof(Recent3AvgFinishPosition),
 			nameof(FinishPositionImprovement),
@@ -157,6 +160,7 @@ namespace Netkeiba.Models
 			nameof(CurrentTrackCondition),
 			nameof(PaceAdvantageScore),
 			nameof(ClassUpChallenge),
+			nameof(GradeChange),
 			nameof(TrackConditionChangeFromLast),
 			nameof(SameCourseExperience),
 			nameof(SameDistanceCategoryExperience),
@@ -179,12 +183,14 @@ namespace Netkeiba.Models
 		[LoadColumn(39)] public float LastRaceTuka { get; set; }
 		[LoadColumn(40)] public float TukaConsistency { get; set; }
 		[LoadColumn(41)] public float AverageTukaInRace { get; set; }
+		[LoadColumn(69)] public float TukaAdvantage { get; set; }
 		[LoadColumn(42)] public float LastRaceFinishPosition { get; set; }
 		[LoadColumn(43)] public float Recent3AvgFinishPosition { get; set; }
 		[LoadColumn(44)] public float FinishPositionImprovement { get; set; }
 		[LoadColumn(45)] public float PaceAdvantageScore { get; set; }
 		[LoadColumn(46)] public float CurrentGrade { get; set; }
 		[LoadColumn(47)] public float ClassUpChallenge { get; set; }
+		[LoadColumn(68)] public float GradeChange { get; set; }
 		[LoadColumn(48)] public float CurrentTrackCondition { get; set; }
 		[LoadColumn(49)] public float TrackConditionChangeFromLast { get; set; }
 		[LoadColumn(50)] public float SameCourseExperience { get; set; }
@@ -261,7 +267,11 @@ namespace Netkeiba.Models
 			.Concat(GetNewHorseItemNames())
 			.Concat(GetStatusItemNames())
 			.Concat(GetTimeItemNames())
+			.Concat(GetRacePositionItemNames())
 			.Concat(GetMetadataNames())
+			.ToArray();
+
+		public static string[] GetAllFeaturesNamesOneHot() => GetAllFeaturesNames()
 			.Select(name => GetCategoryNames().Contains(name) ? $"{name}OneHot" : name)
 			.ToArray();
 	}
@@ -328,12 +338,14 @@ namespace Netkeiba.Models
 			instance.LastRaceTuka = x["LastRaceTuka"].Single();
 			instance.TukaConsistency = x["TukaConsistency"].Single();
 			instance.AverageTukaInRace = x["AverageTukaInRace"].Single();
+			instance.TukaAdvantage = x["TukaAdvantage"].Single();
 			instance.LastRaceFinishPosition = x["LastRaceFinishPosition"].Single();
 			instance.Recent3AvgFinishPosition = x["Recent3AvgFinishPosition"].Single();
 			instance.FinishPositionImprovement = x["FinishPositionImprovement"].Single();
 			instance.PaceAdvantageScore = x["PaceAdvantageScore"].Single();
 			instance.CurrentGrade = x["CurrentGrade"].Single();
 			instance.ClassUpChallenge = x["ClassUpChallenge"].Single();
+			instance.GradeChange = x["GradeChange"].Single();
 			instance.CurrentTrackCondition = x["CurrentTrackCondition"].Single();
 			instance.TrackConditionChangeFromLast = x["TrackConditionChangeFromLast"].Single();
 			instance.SameCourseExperience = x["SameCourseExperience"].Single();

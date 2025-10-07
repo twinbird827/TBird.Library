@@ -198,6 +198,18 @@ namespace Netkeiba.Models
 				return (int)Race.Grade > (int)lastGrade ? 1f : 0f;
 			}
 
+			// 繧ｰ繝ｬ繝ｼ繝牙､牙喧・磯℃蜴ｻ3繝ｬ繝ｼ繧ｹ蟷ｳ蝮・- 迴ｾ蝨ｨ繧ｰ繝ｬ繝ｼ繝会ｼ・
+			float CalculateGradeChange(List<RaceDetail> horses)
+			{
+				if (!horses.Any()) return 0f;
+				var past3AvgGrade = horses.Take(3)
+					.Select(h => h.Race.Grade.GetGradeFeatures())
+					.DefaultIfEmpty(Race.Grade.GetGradeFeatures())
+					.Average();
+				var currentGrade = Race.Grade.GetGradeFeatures();
+				return past3AvgGrade - currentGrade;
+			}
+
 			// 馬場状態変化
 			float CalculateTrackConditionChangeFromLast()
 			{
@@ -265,12 +277,14 @@ namespace Netkeiba.Models
 				LastRaceTuka = tukaMetrics.LastRaceTuka,
 				TukaConsistency = tukaMetrics.TukaConsistency,
 				AverageTukaInRace = tukaMetrics.AverageTukaInRace,
+				TukaAdvantage = tukaMetrics.AverageTuka / Math.Max(tukaMetrics.AverageTukaInRace, 0.01f),
 				LastRaceFinishPosition = finishPositionMetrics.LastRaceFinishPosition,
 				Recent3AvgFinishPosition = finishPositionMetrics.Recent3AvgFinishPosition,
 				FinishPositionImprovement = finishPositionMetrics.FinishPositionImprovement,
 				PaceAdvantageScore = tukaMetrics.PaceAdvantageScore,
-				CurrentGrade = Race.Grade.GetGradeFeatures(),
+				CurrentGrade = horses.Select(x => x.Race.Grade.GetGradeFeatures()).DefaultIfEmpty(GradeType.未勝利ク.GetGradeFeatures()).Average(),
 				ClassUpChallenge = CalculateClassUpChallenge(),
+				GradeChange = CalculateGradeChange(horses),
 				CurrentTrackCondition = (int)Race.TrackConditionType,
 				TrackConditionChangeFromLast = CalculateTrackConditionChangeFromLast(),
 				SameCourseExperience = sameCourseExperience,
@@ -289,7 +303,7 @@ namespace Netkeiba.Models
 
 				// レース内位置情報
 				Umaban = Umaban,
-			UmabanAdvantage = 1f - ((float)Umaban / (float)Race.NumberOfHorses),
+				UmabanAdvantage = 1f - ((float)Umaban / (float)Race.NumberOfHorses),
 
 				// メタ情報
 				IsNewHorse = RaceCount == 0,
