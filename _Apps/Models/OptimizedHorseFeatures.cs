@@ -412,6 +412,18 @@ namespace Netkeiba.Models
 		[LoadColumn(106)] public float OverallHorseQuality { get; set; }
 		[LoadColumn(107)] public float OverallConnectionQuality { get; set; }
 
+		public static string[] GetAdvancedItemNames() => new[]
+		{
+			nameof(TopFeaturesEnsemble),
+			nameof(SpeedPowerScore),
+			nameof(ConnectionReliabilityScore),
+		};
+
+		// 案6: 高度な派生特徴量
+		[LoadColumn(109)] public float TopFeaturesEnsemble { get; set; }  // トップ6特徴量の加重平均
+		[LoadColumn(110)] public float SpeedPowerScore { get; set; }  // 速さ×力強さ
+		[LoadColumn(111)] public float ConnectionReliabilityScore { get; set; }  // 関係者信頼度
+
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
 		[LoadColumn(66)] public string RaceId { get; set; }
@@ -445,6 +457,7 @@ namespace Netkeiba.Models
 			.Concat(GetRobustConnectionItemNames())
 			// .Concat(GetTargetEncodingItemNames()) // 実装保留
 			.Concat(GetEnsembleItemNames())
+			.Concat(GetAdvancedItemNames())  // 案6: 高度な派生特徴量
 			// 重要度0.0の特徴量を除外
 			.Where(name => name != nameof(Season)
 				&& name != nameof(RaceDistance)
@@ -592,6 +605,11 @@ namespace Netkeiba.Models
 			instance.JockeyTrainerPlaceAptitude_Robust = x["JockeyTrainerPlaceAptitude_Robust"].Single();
 			instance.OverallHorseQuality = x["OverallHorseQuality"].Single();
 			instance.OverallConnectionQuality = x["OverallConnectionQuality"].Single();
+
+			// 案6: 高度な派生特徴量
+			instance.TopFeaturesEnsemble = x["TopFeaturesEnsemble"].Single();
+			instance.SpeedPowerScore = x["SpeedPowerScore"].Single();
+			instance.ConnectionReliabilityScore = x["ConnectionReliabilityScore"].Single();
 
 			return instance;
 		}

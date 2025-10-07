@@ -455,6 +455,28 @@ namespace Netkeiba.Models
 				(features.TrainerPlaceAptitude * 0.3f) +
 				(features.JockeyTrainerPlaceAptitude * 0.3f);
 
+			// 案6: 高度な派生特徴量
+			// 1. TopFeaturesEnsemble: トップ6特徴量の加重平均（案10の重要度ベース）
+			features.TopFeaturesEnsemble =
+				(features.LastRaceScore_X_JockeyPlace * 1.0f) +
+				(features.LastRaceScore_X_TimeRank * 0.997f) +
+				(features.Recent3AvgRankInRace * 0.708f) +
+				(features.AdjustedLastThreeFurlongsDiffFromAvgInRace * 0.613f) +
+				(features.AverageTimeIndexRankInRace * 0.585f) +
+				(features.Age * 0.573f);
+
+			// 2. SpeedPowerScore: タイム指標 × 上がりタイム
+			features.SpeedPowerScore =
+				features.AverageTimeIndexRankInRace *
+				features.AdjustedLastThreeFurlongsDiffFromAvgInRace;
+
+			// 3. ConnectionReliabilityScore: 関係者の総合信頼度
+			features.ConnectionReliabilityScore =
+				(features.SireCurrentConditionAvg * 0.35f) +
+				(features.TrainerCurrentConditionAvg * 0.3f) +
+				(features.DamSireCurrentConditionAvg * 0.2f) +
+				(features.BreederCurrentConditionAvg * 0.15f);
+
 			return features;
 		}
 	}
