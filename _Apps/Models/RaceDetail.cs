@@ -260,6 +260,7 @@ namespace Netkeiba.Models
 				DamSireDistanceAptitude = connectionMetrics.DamSireDistanceAptitude,
 				SireDamSireRecentInverseAvg = connectionMetrics.SireDamSireRecentInverseAvg,
 				SireDamSireCurrentConditionAvg = connectionMetrics.SireDamSireCurrentConditionAvg,
+				SireDamSireDistanceAptitude = connectionMetrics.SireDamSireDistanceAptitude,
 				JockeyTrainerRecentInverseAvg = connectionMetrics.JockeyTrainerRecentInverseAvg,
 				JockeyTrainerCurrentConditionAvg = connectionMetrics.JockeyTrainerCurrentConditionAvg,
 

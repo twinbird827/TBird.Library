@@ -49,6 +49,7 @@ namespace Netkeiba.Models
 			nameof(DamSireDistanceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
+			nameof(SireDamSireDistanceAptitude),
 			nameof(GradeChange),
 			nameof(TukaAdvantage),
 			nameof(PaceStyleCompatibility),
@@ -96,6 +97,7 @@ namespace Netkeiba.Models
 			nameof(DamSireDistanceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
+			nameof(SireDamSireDistanceAptitude),
 			nameof(JockeyTrainerRecentInverseAvg),
 			nameof(JockeyTrainerCurrentConditionAvg),
 		};
@@ -120,6 +122,7 @@ namespace Netkeiba.Models
 
 		[LoadColumn(17)] public float SireDamSireRecentInverseAvg { get; set; }
 		[LoadColumn(18)] public float SireDamSireCurrentConditionAvg { get; set; }
+		[LoadColumn(73)] public float SireDamSireDistanceAptitude { get; set; }
 
 		[LoadColumn(19)] public float JockeyTrainerRecentInverseAvg { get; set; }
 		[LoadColumn(20)] public float JockeyTrainerCurrentConditionAvg { get; set; }
@@ -326,6 +329,7 @@ namespace Netkeiba.Models
 			instance.DamSireDistanceAptitude = x["DamSireDistanceAptitude"].Single();
 			instance.SireDamSireRecentInverseAvg = x["SireDamSireRecentInverseAvg"].Single();
 			instance.SireDamSireCurrentConditionAvg = x["SireDamSireCurrentConditionAvg"].Single();
+			instance.SireDamSireDistanceAptitude = x["SireDamSireDistanceAptitude"].Single();
 			instance.JockeyTrainerRecentInverseAvg = x["JockeyTrainerRecentInverseAvg"].Single();
 			instance.JockeyTrainerCurrentConditionAvg = x["JockeyTrainerCurrentConditionAvg"].Single();
 			instance.TrainerNewHorseInverse = x["TrainerNewHorseInverse"].Single();

@@ -452,6 +452,7 @@ namespace Netkeiba
 
 				SireDamSireRecentInverseAvg = siredamsires.Take(30).AdjustedInverseScoreAverage(),
 				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(siredamsires, upcomingRace),
+				SireDamSireDistanceAptitude = CalculateDistanceSpecific(siredamsires, upcomingRace),
 
 				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(),
 				JockeyTrainerCurrentConditionAvg = CalculateConditionSpecific(jockeytrainers, upcomingRace),
@@ -494,6 +495,7 @@ namespace Netkeiba
 
 		public float SireDamSireRecentInverseAvg { get; set; }
 		public float SireDamSireCurrentConditionAvg { get; set; }
+		public float SireDamSireDistanceAptitude { get; set; }
 
 		public float JockeyTrainerRecentInverseAvg { get; set; }
 		public float JockeyTrainerCurrentConditionAvg { get; set; }
