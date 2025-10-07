@@ -83,9 +83,9 @@ namespace Netkeiba.Models
 			nameof(JockeyTrainerDistanceAptitude_Robust),
 			nameof(JockeyTrainerTrackConditionAptitude_Robust),
 			nameof(JockeyTrainerPlaceAptitude_Robust),
-			nameof(SeasonTargetEncoded),
-			nameof(CurrentGradeTargetEncoded),
-			nameof(CurrentTrackConditionTargetEncoded),
+			// nameof(SeasonTargetEncoded), // 実装保留
+			// nameof(CurrentGradeTargetEncoded), // 実装保留
+			// nameof(CurrentTrackConditionTargetEncoded), // 実装保留
 			nameof(OverallHorseQuality),
 			nameof(OverallConnectionQuality),
 		};
@@ -371,17 +371,16 @@ namespace Netkeiba.Models
 		[LoadColumn(101)] public float JockeyTrainerTrackConditionAptitude_Robust { get; set; }
 		[LoadColumn(102)] public float JockeyTrainerPlaceAptitude_Robust { get; set; }
 
-		public static string[] GetTargetEncodingItemNames() => new[]
-		{
-			nameof(SeasonTargetEncoded),
-			nameof(CurrentGradeTargetEncoded),
-			nameof(CurrentTrackConditionTargetEncoded),
-		};
-
-		// ターゲットエンコーディング
-		[LoadColumn(103)] public float SeasonTargetEncoded { get; set; }
-		[LoadColumn(104)] public float CurrentGradeTargetEncoded { get; set; }
-		[LoadColumn(105)] public float CurrentTrackConditionTargetEncoded { get; set; }
+		// ターゲットエンコーディング（実装が複雑なため保留）
+		// public static string[] GetTargetEncodingItemNames() => new[]
+		// {
+		// 	nameof(SeasonTargetEncoded),
+		// 	nameof(CurrentGradeTargetEncoded),
+		// 	nameof(CurrentTrackConditionTargetEncoded),
+		// };
+		// [LoadColumn(103)] public float SeasonTargetEncoded { get; set; }
+		// [LoadColumn(104)] public float CurrentGradeTargetEncoded { get; set; }
+		// [LoadColumn(105)] public float CurrentTrackConditionTargetEncoded { get; set; }
 
 		public static string[] GetEnsembleItemNames() => new[]
 		{
@@ -427,7 +426,7 @@ namespace Netkeiba.Models
 			.Concat(GetRankItemNames())
 			.Concat(GetTrendItemNames())
 			.Concat(GetRobustConnectionItemNames())
-			.Concat(GetTargetEncodingItemNames())
+			// .Concat(GetTargetEncodingItemNames()) // 実装保留
 			.Concat(GetEnsembleItemNames())
 			// 重要度0.0の特徴量を除外
 			.Where(name => name != nameof(Season)

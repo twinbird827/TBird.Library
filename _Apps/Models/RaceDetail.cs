@@ -381,10 +381,10 @@ namespace Netkeiba.Models
 				(features.JockeyTrainerPlaceAptitude * confidence) +
 				((features.JockeyPlaceAptitude + features.TrainerPlaceAptitude) / 2 * (1 - confidence));
 
-			// 5. ターゲットエンコーディング（STEP2で計算）
-			features.SeasonTargetEncoded = features.Season; // 初期値
-			features.CurrentGradeTargetEncoded = features.CurrentGrade; // 初期値
-			features.CurrentTrackConditionTargetEncoded = features.CurrentTrackCondition; // 初期値
+			// 5. ターゲットエンコーディング（実装保留）
+			// features.SeasonTargetEncoded = features.Season;
+			// features.CurrentGradeTargetEncoded = features.CurrentGrade;
+			// features.CurrentTrackConditionTargetEncoded = features.CurrentTrackCondition;
 
 			// 6. アンサンブル特徴量
 			features.OverallHorseQuality =
