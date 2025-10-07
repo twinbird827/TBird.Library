@@ -44,12 +44,15 @@ namespace Netkeiba.Models
 			nameof(SireRecentInverseAvg),
 			nameof(SireCurrentConditionAvg),
 			nameof(SireDistanceAptitude),
+			nameof(SireTrackConditionAptitude),
 			nameof(DamSireRecentInverseAvg),
 			nameof(DamSireCurrentConditionAvg),
 			nameof(DamSireDistanceAptitude),
+			nameof(DamSireTrackConditionAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
 			nameof(SireDamSireDistanceAptitude),
+			nameof(SireDamSireTrackConditionAptitude),
 			nameof(GradeChange),
 			nameof(TukaAdvantage),
 			nameof(PaceStyleCompatibility),
@@ -92,12 +95,15 @@ namespace Netkeiba.Models
 			nameof(SireRecentInverseAvg),
 			nameof(SireCurrentConditionAvg),
 			nameof(SireDistanceAptitude),
+			nameof(SireTrackConditionAptitude),
 			nameof(DamSireRecentInverseAvg),
 			nameof(DamSireCurrentConditionAvg),
 			nameof(DamSireDistanceAptitude),
+			nameof(DamSireTrackConditionAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
 			nameof(SireDamSireDistanceAptitude),
+			nameof(SireDamSireTrackConditionAptitude),
 			nameof(JockeyTrainerRecentInverseAvg),
 			nameof(JockeyTrainerCurrentConditionAvg),
 		};
@@ -115,14 +121,17 @@ namespace Netkeiba.Models
 		[LoadColumn(13)] public float SireRecentInverseAvg { get; set; }
 		[LoadColumn(14)] public float SireCurrentConditionAvg { get; set; }
 		[LoadColumn(70)] public float SireDistanceAptitude { get; set; }
+		[LoadColumn(74)] public float SireTrackConditionAptitude { get; set; }
 
 		[LoadColumn(15)] public float DamSireRecentInverseAvg { get; set; }
 		[LoadColumn(16)] public float DamSireCurrentConditionAvg { get; set; }
 		[LoadColumn(71)] public float DamSireDistanceAptitude { get; set; }
+		[LoadColumn(75)] public float DamSireTrackConditionAptitude { get; set; }
 
 		[LoadColumn(17)] public float SireDamSireRecentInverseAvg { get; set; }
 		[LoadColumn(18)] public float SireDamSireCurrentConditionAvg { get; set; }
 		[LoadColumn(73)] public float SireDamSireDistanceAptitude { get; set; }
+		[LoadColumn(76)] public float SireDamSireTrackConditionAptitude { get; set; }
 
 		[LoadColumn(19)] public float JockeyTrainerRecentInverseAvg { get; set; }
 		[LoadColumn(20)] public float JockeyTrainerCurrentConditionAvg { get; set; }
@@ -324,12 +333,15 @@ namespace Netkeiba.Models
 			instance.SireRecentInverseAvg = x["SireRecentInverseAvg"].Single();
 			instance.SireCurrentConditionAvg = x["SireCurrentConditionAvg"].Single();
 			instance.SireDistanceAptitude = x["SireDistanceAptitude"].Single();
+			instance.SireTrackConditionAptitude = x["SireTrackConditionAptitude"].Single();
 			instance.DamSireRecentInverseAvg = x["DamSireRecentInverseAvg"].Single();
 			instance.DamSireCurrentConditionAvg = x["DamSireCurrentConditionAvg"].Single();
 			instance.DamSireDistanceAptitude = x["DamSireDistanceAptitude"].Single();
+			instance.DamSireTrackConditionAptitude = x["DamSireTrackConditionAptitude"].Single();
 			instance.SireDamSireRecentInverseAvg = x["SireDamSireRecentInverseAvg"].Single();
 			instance.SireDamSireCurrentConditionAvg = x["SireDamSireCurrentConditionAvg"].Single();
 			instance.SireDamSireDistanceAptitude = x["SireDamSireDistanceAptitude"].Single();
+			instance.SireDamSireTrackConditionAptitude = x["SireDamSireTrackConditionAptitude"].Single();
 			instance.JockeyTrainerRecentInverseAvg = x["JockeyTrainerRecentInverseAvg"].Single();
 			instance.JockeyTrainerCurrentConditionAvg = x["JockeyTrainerCurrentConditionAvg"].Single();
 			instance.TrainerNewHorseInverse = x["TrainerNewHorseInverse"].Single();
