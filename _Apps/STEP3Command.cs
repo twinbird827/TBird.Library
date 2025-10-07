@@ -89,9 +89,9 @@ namespace Netkeiba
 					LabelColumnName = "LabelKey",
 					FeatureColumnName = "Features",
 					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = 1800,     // 特徴量増加に対応（103個 → 学習回数増）
+					NumberOfIterations = 1300,     // 元の設定に戻す（案1で悪化したため）
 					LearningRate = 0.023,          // 学習率（維持）
-					NumberOfLeaves = 85,           // モデル複雑度を上げる（103特徴量対応）
+					NumberOfLeaves = 63,           // 元の設定に戻す（案1で悪化したため）
 					MinimumExampleCountPerLeaf = 18, // 最小サンプル数（維持）
 					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
 					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）

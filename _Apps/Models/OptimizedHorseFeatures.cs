@@ -98,9 +98,10 @@ namespace Netkeiba.Models
 
 		public static string[] GetAdjustedPerformanceItemNames() => new[]
 		{
-			nameof(Recent3AdjustedAvg),
-			nameof(Recent5AdjustedAvg),
-			nameof(LastRaceAdjustedScore),
+			// Recent3AdjustedAvg, Recent5AdjustedAvg, LastRaceAdjustedScore は交互作用項/ランク特徴量で代替
+			// nameof(Recent3AdjustedAvg),  // → Recent3AvgRankInRace で代替
+			// nameof(Recent5AdjustedAvg),  // → 冗長性が高いため削除
+			// nameof(LastRaceAdjustedScore), // → LastRaceScore_X_TimeRank, LastRaceScore_X_JockeyPlace で代替
 			nameof(AdjustedConsistency),
 		};
 
@@ -124,11 +125,11 @@ namespace Netkeiba.Models
 
 		public static string[] GetConnectionItemNames() => new[]
 		{
-			nameof(JockeyRecentInverseAvg),
+			// nameof(JockeyRecentInverseAvg),  // → JockeyRecentRankInRace で代替
 			nameof(JockeyCurrentConditionAvg),
 			nameof(JockeyDistanceAptitude),
 			nameof(JockeyTrackConditionAptitude),
-			nameof(JockeyPlaceAptitude),
+			// nameof(JockeyPlaceAptitude),  // → JockeyPlace_X_TrainerPlace, JockeyPlace_X_DistanceApt で代替
 			nameof(TrainerRecentInverseAvg),
 			nameof(TrainerCurrentConditionAvg),
 			nameof(TrainerDistanceAptitude),
