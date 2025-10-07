@@ -567,6 +567,30 @@ namespace Netkeiba.Models
 			instance.RaceId = x["RaceId"].Str();
 			instance.Horse = x["Horse"].Str();
 
+			// 新規追加特徴量
+			instance.LastRaceScore_X_TimeRank = x["LastRaceScore_X_TimeRank"].Single();
+			instance.JockeyPlace_X_TrainerPlace = x["JockeyPlace_X_TrainerPlace"].Single();
+			instance.JockeyPlace_X_DistanceApt = x["JockeyPlace_X_DistanceApt"].Single();
+			instance.LastRaceScore_X_JockeyPlace = x["LastRaceScore_X_JockeyPlace"].Single();
+			instance.Recent3Avg_X_JockeyRecent = x["Recent3Avg_X_JockeyRecent"].Single();
+			instance.JockeyRecentRankInRace = x["JockeyRecentRankInRace"].Single();
+			instance.LastRaceScoreRankInRace = x["LastRaceScoreRankInRace"].Single();
+			instance.AgeRankInRace = x["AgeRankInRace"].Single();
+			instance.RestDaysRankInRace = x["RestDaysRankInRace"].Single();
+			instance.Recent3AvgRankInRace = x["Recent3AvgRankInRace"].Single();
+			instance.RecentUpwardTrend = x["RecentUpwardTrend"].Single();
+			instance.Recent1to2Improvement = x["Recent1to2Improvement"].Single();
+			instance.Recent2to3Improvement = x["Recent2to3Improvement"].Single();
+			instance.Recent1to2ImprovementAmount = x["Recent1to2ImprovementAmount"].Single();
+			instance.Recent2to3ImprovementAmount = x["Recent2to3ImprovementAmount"].Single();
+			instance.Interval1to2Days = x["Interval1to2Days"].Single();
+			instance.Interval2to3Days = x["Interval2to3Days"].Single();
+			instance.JockeyTrainerDistanceAptitude_Robust = x["JockeyTrainerDistanceAptitude_Robust"].Single();
+			instance.JockeyTrainerTrackConditionAptitude_Robust = x["JockeyTrainerTrackConditionAptitude_Robust"].Single();
+			instance.JockeyTrainerPlaceAptitude_Robust = x["JockeyTrainerPlaceAptitude_Robust"].Single();
+			instance.OverallHorseQuality = x["OverallHorseQuality"].Single();
+			instance.OverallConnectionQuality = x["OverallConnectionQuality"].Single();
+
 			return instance;
 		}
 	}
