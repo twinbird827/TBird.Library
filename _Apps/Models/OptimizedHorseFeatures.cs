@@ -359,9 +359,10 @@ namespace Netkeiba.Models
 
 		public static string[] GetTrendItemNames() => new[]
 		{
-			nameof(RecentUpwardTrend),
-			nameof(Recent1to2Improvement),
-			nameof(Recent2to3Improvement),
+			// バイナリトレンド特徴量は重要度0.0のため削除（連続値版のみ使用）
+			// nameof(RecentUpwardTrend),
+			// nameof(Recent1to2Improvement),
+			// nameof(Recent2to3Improvement),
 			nameof(Recent1to2ImprovementAmount),
 			nameof(Recent2to3ImprovementAmount),
 			nameof(Interval1to2Days),
