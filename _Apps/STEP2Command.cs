@@ -435,9 +435,15 @@ namespace Netkeiba
 			{
 				JockeyRecentInverseAvg = jockeys.Take(30).AdjustedInverseScoreAverage(),
 				JockeyCurrentConditionAvg = CalculateConditionSpecific(jockeys, upcomingRace),
+				JockeyDistanceAptitude = CalculateDistanceSpecific(jockeys, upcomingRace),
+				JockeyTrackConditionAptitude = CalculateTrackConditionSpecific(jockeys, upcomingRace),
+				JockeyPlaceAptitude = CalculatePlaceSpecific(jockeys, upcomingRace),
 
 				TrainerRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(),
 				TrainerCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
+				TrainerDistanceAptitude = CalculateDistanceSpecific(trainers, upcomingRace),
+				TrainerTrackConditionAptitude = CalculateTrackConditionSpecific(trainers, upcomingRace),
+				TrainerPlaceAptitude = CalculatePlaceSpecific(trainers, upcomingRace),
 
 				BreederRecentInverseAvg = breeders.Take(30).AdjustedInverseScoreAverage(),
 				BreederCurrentConditionAvg = CalculateConditionSpecific(breeders, upcomingRace),
@@ -462,6 +468,9 @@ namespace Netkeiba
 
 				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(),
 				JockeyTrainerCurrentConditionAvg = CalculateConditionSpecific(jockeytrainers, upcomingRace),
+				JockeyTrainerDistanceAptitude = CalculateDistanceSpecific(jockeytrainers, upcomingRace),
+				JockeyTrainerTrackConditionAptitude = CalculateTrackConditionSpecific(jockeytrainers, upcomingRace),
+				JockeyTrainerPlaceAptitude = CalculatePlaceSpecific(jockeytrainers, upcomingRace),
 			};
 		}
 
@@ -498,9 +507,15 @@ namespace Netkeiba
 	{
 		public float JockeyRecentInverseAvg { get; set; }
 		public float JockeyCurrentConditionAvg { get; set; }
+		public float JockeyDistanceAptitude { get; set; }
+		public float JockeyTrackConditionAptitude { get; set; }
+		public float JockeyPlaceAptitude { get; set; }
 
 		public float TrainerRecentInverseAvg { get; set; }
 		public float TrainerCurrentConditionAvg { get; set; }
+		public float TrainerDistanceAptitude { get; set; }
+		public float TrainerTrackConditionAptitude { get; set; }
+		public float TrainerPlaceAptitude { get; set; }
 
 		public float BreederRecentInverseAvg { get; set; }
 		public float BreederCurrentConditionAvg { get; set; }
@@ -525,6 +540,9 @@ namespace Netkeiba
 
 		public float JockeyTrainerRecentInverseAvg { get; set; }
 		public float JockeyTrainerCurrentConditionAvg { get; set; }
+		public float JockeyTrainerDistanceAptitude { get; set; }
+		public float JockeyTrainerTrackConditionAptitude { get; set; }
+		public float JockeyTrainerPlaceAptitude { get; set; }
 	}
 
 	// ===== 新馬・未勝利戦対応 =====

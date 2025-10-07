@@ -25,6 +25,12 @@ namespace Netkeiba.Models
 			//nameof(Gender),
 			nameof(UmabanAdvantage),
 			// Season, RaceDistance: カテゴリ値のため正規化から除外
+			nameof(JockeyDistanceAptitude),
+			nameof(JockeyTrackConditionAptitude),
+			nameof(JockeyPlaceAptitude),
+			nameof(TrainerDistanceAptitude),
+			nameof(TrainerTrackConditionAptitude),
+			nameof(TrainerPlaceAptitude),
 			nameof(SameDistanceTimeIndex),
 			nameof(LastRaceTimeDeviation),
 			nameof(AdjustedLastThreeFurlongsAvg),
@@ -56,6 +62,9 @@ namespace Netkeiba.Models
 			nameof(SireDamSireDistanceAptitude),
 			nameof(SireDamSireTrackConditionAptitude),
 			nameof(SireDamSirePlaceAptitude),
+			nameof(JockeyTrainerDistanceAptitude),
+			nameof(JockeyTrainerTrackConditionAptitude),
+			nameof(JockeyTrainerPlaceAptitude),
 			nameof(GradeChange),
 			nameof(TukaAdvantage),
 			nameof(PaceStyleCompatibility),
@@ -91,8 +100,14 @@ namespace Netkeiba.Models
 		{
 			nameof(JockeyRecentInverseAvg),
 			nameof(JockeyCurrentConditionAvg),
+			nameof(JockeyDistanceAptitude),
+			nameof(JockeyTrackConditionAptitude),
+			nameof(JockeyPlaceAptitude),
 			nameof(TrainerRecentInverseAvg),
 			nameof(TrainerCurrentConditionAvg),
+			nameof(TrainerDistanceAptitude),
+			nameof(TrainerTrackConditionAptitude),
+			nameof(TrainerPlaceAptitude),
 			nameof(BreederRecentInverseAvg),
 			nameof(BreederCurrentConditionAvg),
 			nameof(SireRecentInverseAvg),
@@ -112,14 +127,23 @@ namespace Netkeiba.Models
 			nameof(SireDamSirePlaceAptitude),
 			nameof(JockeyTrainerRecentInverseAvg),
 			nameof(JockeyTrainerCurrentConditionAvg),
+			nameof(JockeyTrainerDistanceAptitude),
+			nameof(JockeyTrainerTrackConditionAptitude),
+			nameof(JockeyTrainerPlaceAptitude),
 		};
 
 		// 関係者実績（条件特化）
 		[LoadColumn(7)] public float JockeyRecentInverseAvg { get; set; }
 		[LoadColumn(8)] public float JockeyCurrentConditionAvg { get; set; }
+		[LoadColumn(80)] public float JockeyDistanceAptitude { get; set; }
+		[LoadColumn(81)] public float JockeyTrackConditionAptitude { get; set; }
+		[LoadColumn(82)] public float JockeyPlaceAptitude { get; set; }
 
 		[LoadColumn(9)] public float TrainerRecentInverseAvg { get; set; }
 		[LoadColumn(10)] public float TrainerCurrentConditionAvg { get; set; }
+		[LoadColumn(83)] public float TrainerDistanceAptitude { get; set; }
+		[LoadColumn(84)] public float TrainerTrackConditionAptitude { get; set; }
+		[LoadColumn(85)] public float TrainerPlaceAptitude { get; set; }
 
 		[LoadColumn(11)] public float BreederRecentInverseAvg { get; set; }
 		[LoadColumn(12)] public float BreederCurrentConditionAvg { get; set; }
@@ -144,6 +168,9 @@ namespace Netkeiba.Models
 
 		[LoadColumn(19)] public float JockeyTrainerRecentInverseAvg { get; set; }
 		[LoadColumn(20)] public float JockeyTrainerCurrentConditionAvg { get; set; }
+		[LoadColumn(86)] public float JockeyTrainerDistanceAptitude { get; set; }
+		[LoadColumn(87)] public float JockeyTrainerTrackConditionAptitude { get; set; }
+		[LoadColumn(88)] public float JockeyTrainerPlaceAptitude { get; set; }
 
 		public static string[] GetNewHorseItemNames() => new[]
 		{
@@ -335,8 +362,14 @@ namespace Netkeiba.Models
 			instance.CurrentTrackConditionAptitude = x["CurrentTrackConditionAptitude"].Single();
 			instance.JockeyRecentInverseAvg = x["JockeyRecentInverseAvg"].Single();
 			instance.JockeyCurrentConditionAvg = x["JockeyCurrentConditionAvg"].Single();
+			instance.JockeyDistanceAptitude = x["JockeyDistanceAptitude"].Single();
+			instance.JockeyTrackConditionAptitude = x["JockeyTrackConditionAptitude"].Single();
+			instance.JockeyPlaceAptitude = x["JockeyPlaceAptitude"].Single();
 			instance.TrainerRecentInverseAvg = x["TrainerRecentInverseAvg"].Single();
 			instance.TrainerCurrentConditionAvg = x["TrainerCurrentConditionAvg"].Single();
+			instance.TrainerDistanceAptitude = x["TrainerDistanceAptitude"].Single();
+			instance.TrainerTrackConditionAptitude = x["TrainerTrackConditionAptitude"].Single();
+			instance.TrainerPlaceAptitude = x["TrainerPlaceAptitude"].Single();
 			instance.BreederRecentInverseAvg = x["BreederRecentInverseAvg"].Single();
 			instance.BreederCurrentConditionAvg = x["BreederCurrentConditionAvg"].Single();
 			instance.SireRecentInverseAvg = x["SireRecentInverseAvg"].Single();
@@ -356,6 +389,9 @@ namespace Netkeiba.Models
 			instance.SireDamSirePlaceAptitude = x["SireDamSirePlaceAptitude"].Single();
 			instance.JockeyTrainerRecentInverseAvg = x["JockeyTrainerRecentInverseAvg"].Single();
 			instance.JockeyTrainerCurrentConditionAvg = x["JockeyTrainerCurrentConditionAvg"].Single();
+			instance.JockeyTrainerDistanceAptitude = x["JockeyTrainerDistanceAptitude"].Single();
+			instance.JockeyTrainerTrackConditionAptitude = x["JockeyTrainerTrackConditionAptitude"].Single();
+			instance.JockeyTrainerPlaceAptitude = x["JockeyTrainerPlaceAptitude"].Single();
 			instance.TrainerNewHorseInverse = x["TrainerNewHorseInverse"].Single();
 			instance.JockeyNewHorseInverse = x["JockeyNewHorseInverse"].Single();
 			instance.SireNewHorseInverse = x["SireNewHorseInverse"].Single();

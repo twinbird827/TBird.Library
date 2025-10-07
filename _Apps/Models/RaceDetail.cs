@@ -248,8 +248,14 @@ namespace Netkeiba.Models
 				// 関係者実績
 				JockeyRecentInverseAvg = connectionMetrics.JockeyRecentInverseAvg,
 				JockeyCurrentConditionAvg = connectionMetrics.JockeyCurrentConditionAvg,
+				JockeyDistanceAptitude = connectionMetrics.JockeyDistanceAptitude,
+				JockeyTrackConditionAptitude = connectionMetrics.JockeyTrackConditionAptitude,
+				JockeyPlaceAptitude = connectionMetrics.JockeyPlaceAptitude,
 				TrainerRecentInverseAvg = connectionMetrics.TrainerRecentInverseAvg,
 				TrainerCurrentConditionAvg = connectionMetrics.TrainerCurrentConditionAvg,
+				TrainerDistanceAptitude = connectionMetrics.TrainerDistanceAptitude,
+				TrainerTrackConditionAptitude = connectionMetrics.TrainerTrackConditionAptitude,
+				TrainerPlaceAptitude = connectionMetrics.TrainerPlaceAptitude,
 				BreederRecentInverseAvg = connectionMetrics.BreederRecentInverseAvg,
 				BreederCurrentConditionAvg = connectionMetrics.BreederCurrentConditionAvg,
 				SireRecentInverseAvg = connectionMetrics.SireRecentInverseAvg,
@@ -269,6 +275,9 @@ namespace Netkeiba.Models
 				SireDamSirePlaceAptitude = connectionMetrics.SireDamSirePlaceAptitude,
 				JockeyTrainerRecentInverseAvg = connectionMetrics.JockeyTrainerRecentInverseAvg,
 				JockeyTrainerCurrentConditionAvg = connectionMetrics.JockeyTrainerCurrentConditionAvg,
+				JockeyTrainerDistanceAptitude = connectionMetrics.JockeyTrainerDistanceAptitude,
+				JockeyTrainerTrackConditionAptitude = connectionMetrics.JockeyTrainerTrackConditionAptitude,
+				JockeyTrainerPlaceAptitude = connectionMetrics.JockeyTrainerPlaceAptitude,
 
 				// 状態・変化
 				RestDays = Math.Min((Race.RaceDate - LastRaceDate).Days, 365F),
