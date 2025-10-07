@@ -113,7 +113,7 @@ namespace Netkeiba.Models
 
 		public static string[] GetCondition1ItemNames() => new[]
 		{
-			nameof(CurrentDistanceAptitude),
+			// nameof(CurrentDistanceAptitude),  // 重要度0.2478 削除（案9）
 			nameof(CurrentTrackTypeAptitude),
 			// nameof(CurrentTrackConditionAptitude),  // 重要度0.2414 削除（案8）
 		};
@@ -135,16 +135,16 @@ namespace Netkeiba.Models
 			nameof(TrainerDistanceAptitude),
 			nameof(TrainerTrackConditionAptitude),
 			nameof(TrainerPlaceAptitude),
-			nameof(BreederRecentInverseAvg),
+			// nameof(BreederRecentInverseAvg),  // 重要度0.2510 削除（案9）
 			nameof(BreederCurrentConditionAvg),
 			nameof(SireRecentInverseAvg),
 			nameof(SireCurrentConditionAvg),
-			nameof(SireDistanceAptitude),
+			// nameof(SireDistanceAptitude),  // 重要度0.2606 削除（案9）
 			nameof(SireTrackConditionAptitude),
 			nameof(SirePlaceAptitude),
 			nameof(DamSireRecentInverseAvg),
 			nameof(DamSireCurrentConditionAvg),
-			nameof(DamSireDistanceAptitude),
+			// nameof(DamSireDistanceAptitude),  // 重要度0.2591 削除（案9）
 			nameof(DamSireTrackConditionAptitude),
 			nameof(DamSirePlaceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
@@ -156,7 +156,7 @@ namespace Netkeiba.Models
 			nameof(JockeyTrainerCurrentConditionAvg),
 			// nameof(JockeyTrainerDistanceAptitude),  // 重要度0.2421 削除（案8）
 			// nameof(JockeyTrainerTrackConditionAptitude),  // 重要度0.2406 削除（案8）
-			nameof(JockeyTrainerPlaceAptitude),
+			// nameof(JockeyTrainerPlaceAptitude),  // 重要度0.2455 削除（案9）
 		};
 
 		// 関係者実績（条件特化）
@@ -290,7 +290,7 @@ namespace Netkeiba.Models
 			nameof(LastRaceAdjustedLastThreeFurlongs),
 			nameof(AdjustedLastThreeFurlongsDiffFromAvgInRace),
 			nameof(AverageTimeIndex),
-			nameof(LastRaceTimeIndex),
+			// nameof(LastRaceTimeIndex),  // 重要度0.2523 削除（案9）
 			nameof(AverageTimeIndexRankInRace),
 		};
 
@@ -347,7 +347,7 @@ namespace Netkeiba.Models
 			nameof(JockeyRecentRankInRace),
 			nameof(LastRaceScoreRankInRace),
 			nameof(AgeRankInRace),
-			nameof(RestDaysRankInRace),
+			// nameof(RestDaysRankInRace),  // 重要度0.2499 削除（案9）
 			nameof(Recent3AvgRankInRace),
 		};
 
@@ -383,7 +383,7 @@ namespace Netkeiba.Models
 		{
 			nameof(JockeyTrainerDistanceAptitude_Robust),
 			nameof(JockeyTrainerTrackConditionAptitude_Robust),
-			nameof(JockeyTrainerPlaceAptitude_Robust),
+			// nameof(JockeyTrainerPlaceAptitude_Robust),  // 重要度0.2584 削除（案9）
 		};
 
 		// 騎手×調教師強化（信頼度重み付け）
