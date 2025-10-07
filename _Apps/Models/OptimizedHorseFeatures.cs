@@ -23,7 +23,7 @@ namespace Netkeiba.Models
 			nameof(RestDays),
 			nameof(Age),
 			//nameof(Gender),
-			nameof(Umaban),
+			nameof(UmabanAdvantage),
 			// Season, RaceDistance: カテゴリ値のため正規化から除外
 			nameof(SameDistanceTimeIndex),
 			nameof(LastRaceTimeDeviation),
@@ -218,9 +218,11 @@ namespace Netkeiba.Models
 		public static string[] GetRacePositionItemNames() => new[]
 		{
 			nameof(Umaban),
+			nameof(UmabanAdvantage),
 		};
 
 		[LoadColumn(62)] public int Umaban { get; set; }
+		[LoadColumn(67)] public float UmabanAdvantage { get; set; }
 
 		public static string[] GetMetadataNames() => new[]
 		{
@@ -241,8 +243,27 @@ namespace Netkeiba.Models
 			nameof(IsNewHorse),
 			nameof(IsRentoFlag),
 			nameof(Umaban),
+			nameof(UmabanAdvantage),
 		};
 
+		public static string[] GetCategoryNames() => new[]
+		{
+			nameof(Season),
+			nameof(RaceDistance),
+			nameof(CurrentGrade),
+			nameof(CurrentTrackCondition),
+			nameof(Gender),
+		};
+
+		public static string[] GetAllFeaturesNames() => GetAdjustedPerformanceItemNames()
+			.Concat(GetCondition1ItemNames())
+			.Concat(GetConnectionItemNames())
+			.Concat(GetNewHorseItemNames())
+			.Concat(GetStatusItemNames())
+			.Concat(GetTimeItemNames())
+			.Concat(GetMetadataNames())
+			.Select(name => GetCategoryNames().Contains(name) ? $"{name}OneHot" : name)
+			.ToArray();
 	}
 
 	public class OptimizedHorseFeaturesModel : OptimizedHorseFeatures
@@ -328,6 +349,7 @@ namespace Netkeiba.Models
 			instance.LastRaceTimeIndex = x["LastRaceTimeIndex"].Single();
 			instance.AverageTimeIndexRankInRace = x["AverageTimeIndexRankInRace"].Single();
 			instance.Umaban = x["Umaban"].Int32();
+			instance.UmabanAdvantage = x["UmabanAdvantage"].Single();
 			instance.IsNewHorse = x["IsNewHorse"].Int32() > 0;
 			instance.AptitudeReliability = x["AptitudeReliability"].Single();
 			instance.Label = (uint)x["Label"].Int32();

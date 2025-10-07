@@ -289,6 +289,7 @@ namespace Netkeiba.Models
 
 				// レース内位置情報
 				Umaban = Umaban,
+			UmabanAdvantage = 1f - ((float)Umaban / (float)Race.NumberOfHorses),
 
 				// メタ情報
 				IsNewHorse = RaceCount == 0,
