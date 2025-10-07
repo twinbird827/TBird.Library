@@ -124,6 +124,10 @@ namespace Netkeiba
 								dic.Add(key, new List<RaceDetail>());
 							}
 							dic[key].Insert(0, tgt);
+							if (dic[key].Count > 1000)
+							{
+								dic[key].RemoveAt(1000 - 1);
+							}
 						}
 
 						AddHistory(_Horses, x, x.Horse);
@@ -433,40 +437,40 @@ namespace Netkeiba
 		{
 			return new ConnectionMetrics
 			{
-				JockeyRecentInverseAvg = jockeys.Take(30).AdjustedInverseScoreAverage(),
+				JockeyRecentInverseAvg = jockeys.Take(100).AdjustedInverseScoreAverage(),
 				JockeyCurrentConditionAvg = CalculateConditionSpecific(jockeys, upcomingRace),
 				JockeyDistanceAptitude = CalculateDistanceSpecific(jockeys, upcomingRace),
 				JockeyTrackConditionAptitude = CalculateTrackConditionSpecific(jockeys, upcomingRace),
 				JockeyPlaceAptitude = CalculatePlaceSpecific(jockeys, upcomingRace),
 
-				TrainerRecentInverseAvg = trainers.Take(30).AdjustedInverseScoreAverage(),
+				TrainerRecentInverseAvg = trainers.Take(100).AdjustedInverseScoreAverage(),
 				TrainerCurrentConditionAvg = CalculateConditionSpecific(trainers, upcomingRace),
 				TrainerDistanceAptitude = CalculateDistanceSpecific(trainers, upcomingRace),
 				TrainerTrackConditionAptitude = CalculateTrackConditionSpecific(trainers, upcomingRace),
 				TrainerPlaceAptitude = CalculatePlaceSpecific(trainers, upcomingRace),
 
-				BreederRecentInverseAvg = breeders.Take(30).AdjustedInverseScoreAverage(),
+				BreederRecentInverseAvg = breeders.Take(100).AdjustedInverseScoreAverage(),
 				BreederCurrentConditionAvg = CalculateConditionSpecific(breeders, upcomingRace),
 
-				SireRecentInverseAvg = sires.Take(30).AdjustedInverseScoreAverage(),
+				SireRecentInverseAvg = sires.Take(100).AdjustedInverseScoreAverage(),
 				SireCurrentConditionAvg = CalculateConditionSpecific(sires, upcomingRace),
 				SireDistanceAptitude = CalculateDistanceSpecific(sires, upcomingRace),
 				SireTrackConditionAptitude = CalculateTrackConditionSpecific(sires, upcomingRace),
 				SirePlaceAptitude = CalculatePlaceSpecific(sires, upcomingRace),
 
-				DamSireRecentInverseAvg = damsires.Take(30).AdjustedInverseScoreAverage(),
+				DamSireRecentInverseAvg = damsires.Take(100).AdjustedInverseScoreAverage(),
 				DamSireCurrentConditionAvg = CalculateConditionSpecific(damsires, upcomingRace),
 				DamSireDistanceAptitude = CalculateDistanceSpecific(damsires, upcomingRace),
 				DamSireTrackConditionAptitude = CalculateTrackConditionSpecific(damsires, upcomingRace),
 				DamSirePlaceAptitude = CalculatePlaceSpecific(damsires, upcomingRace),
 
-				SireDamSireRecentInverseAvg = siredamsires.Take(30).AdjustedInverseScoreAverage(),
+				SireDamSireRecentInverseAvg = siredamsires.Take(100).AdjustedInverseScoreAverage(),
 				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(siredamsires, upcomingRace),
 				SireDamSireDistanceAptitude = CalculateDistanceSpecific(siredamsires, upcomingRace),
 				SireDamSireTrackConditionAptitude = CalculateTrackConditionSpecific(siredamsires, upcomingRace),
 				SireDamSirePlaceAptitude = CalculatePlaceSpecific(siredamsires, upcomingRace),
 
-				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(30).AdjustedInverseScoreAverage(),
+				JockeyTrainerRecentInverseAvg = jockeytrainers.Take(100).AdjustedInverseScoreAverage(),
 				JockeyTrainerCurrentConditionAvg = CalculateConditionSpecific(jockeytrainers, upcomingRace),
 				JockeyTrainerDistanceAptitude = CalculateDistanceSpecific(jockeytrainers, upcomingRace),
 				JockeyTrainerTrackConditionAptitude = CalculateTrackConditionSpecific(jockeytrainers, upcomingRace),

@@ -68,6 +68,26 @@ namespace Netkeiba.Models
 			nameof(GradeChange),
 			nameof(TukaAdvantage),
 			nameof(PaceStyleCompatibility),
+			// 新規追加特徴量
+			nameof(LastRaceScore_X_TimeRank),
+			nameof(JockeyPlace_X_TrainerPlace),
+			nameof(JockeyPlace_X_DistanceApt),
+			nameof(LastRaceScore_X_JockeyPlace),
+			nameof(Recent3Avg_X_JockeyRecent),
+			nameof(JockeyRecentRankInRace),
+			nameof(LastRaceScoreRankInRace),
+			nameof(AgeRankInRace),
+			nameof(RestDaysRankInRace),
+			nameof(Recent3AvgRankInRace),
+			nameof(RecentUpwardTrend),
+			nameof(JockeyTrainerDistanceAptitude_Robust),
+			nameof(JockeyTrainerTrackConditionAptitude_Robust),
+			nameof(JockeyTrainerPlaceAptitude_Robust),
+			nameof(SeasonTargetEncoded),
+			nameof(CurrentGradeTargetEncoded),
+			nameof(CurrentTrackConditionTargetEncoded),
+			nameof(OverallHorseQuality),
+			nameof(OverallConnectionQuality),
 		};
 
 		public static string[] GetAdjustedPerformanceItemNames() => new[]
@@ -297,6 +317,82 @@ namespace Netkeiba.Models
 		[LoadColumn(63)] public bool IsNewHorse { get; set; }
 		[LoadColumn(64)] public float AptitudeReliability { get; set; }
 
+		// === 新規追加特徴量 ===
+
+		public static string[] GetInteractionItemNames() => new[]
+		{
+			nameof(LastRaceScore_X_TimeRank),
+			nameof(JockeyPlace_X_TrainerPlace),
+			nameof(JockeyPlace_X_DistanceApt),
+			nameof(LastRaceScore_X_JockeyPlace),
+			nameof(Recent3Avg_X_JockeyRecent),
+		};
+
+		// 交互作用項
+		[LoadColumn(89)] public float LastRaceScore_X_TimeRank { get; set; }
+		[LoadColumn(90)] public float JockeyPlace_X_TrainerPlace { get; set; }
+		[LoadColumn(91)] public float JockeyPlace_X_DistanceApt { get; set; }
+		[LoadColumn(92)] public float LastRaceScore_X_JockeyPlace { get; set; }
+		[LoadColumn(93)] public float Recent3Avg_X_JockeyRecent { get; set; }
+
+		public static string[] GetRankItemNames() => new[]
+		{
+			nameof(JockeyRecentRankInRace),
+			nameof(LastRaceScoreRankInRace),
+			nameof(AgeRankInRace),
+			nameof(RestDaysRankInRace),
+			nameof(Recent3AvgRankInRace),
+		};
+
+		// レース内ランク特徴量
+		[LoadColumn(94)] public float JockeyRecentRankInRace { get; set; }
+		[LoadColumn(95)] public float LastRaceScoreRankInRace { get; set; }
+		[LoadColumn(96)] public float AgeRankInRace { get; set; }
+		[LoadColumn(97)] public float RestDaysRankInRace { get; set; }
+		[LoadColumn(98)] public float Recent3AvgRankInRace { get; set; }
+
+		public static string[] GetTrendItemNames() => new[]
+		{
+			nameof(RecentUpwardTrend),
+		};
+
+		// トレンド特徴量
+		[LoadColumn(99)] public float RecentUpwardTrend { get; set; }
+
+		public static string[] GetRobustConnectionItemNames() => new[]
+		{
+			nameof(JockeyTrainerDistanceAptitude_Robust),
+			nameof(JockeyTrainerTrackConditionAptitude_Robust),
+			nameof(JockeyTrainerPlaceAptitude_Robust),
+		};
+
+		// 騎手×調教師強化（信頼度重み付け）
+		[LoadColumn(100)] public float JockeyTrainerDistanceAptitude_Robust { get; set; }
+		[LoadColumn(101)] public float JockeyTrainerTrackConditionAptitude_Robust { get; set; }
+		[LoadColumn(102)] public float JockeyTrainerPlaceAptitude_Robust { get; set; }
+
+		public static string[] GetTargetEncodingItemNames() => new[]
+		{
+			nameof(SeasonTargetEncoded),
+			nameof(CurrentGradeTargetEncoded),
+			nameof(CurrentTrackConditionTargetEncoded),
+		};
+
+		// ターゲットエンコーディング
+		[LoadColumn(103)] public float SeasonTargetEncoded { get; set; }
+		[LoadColumn(104)] public float CurrentGradeTargetEncoded { get; set; }
+		[LoadColumn(105)] public float CurrentTrackConditionTargetEncoded { get; set; }
+
+		public static string[] GetEnsembleItemNames() => new[]
+		{
+			nameof(OverallHorseQuality),
+			nameof(OverallConnectionQuality),
+		};
+
+		// アンサンブル特徴量
+		[LoadColumn(106)] public float OverallHorseQuality { get; set; }
+		[LoadColumn(107)] public float OverallConnectionQuality { get; set; }
+
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
 		[LoadColumn(66)] public string RaceId { get; set; }
@@ -326,6 +422,19 @@ namespace Netkeiba.Models
 			.Concat(GetTimeItemNames())
 			.Concat(GetRacePositionItemNames())
 			.Concat(GetMetadataNames())
+			// 新規追加特徴量
+			.Concat(GetInteractionItemNames())
+			.Concat(GetRankItemNames())
+			.Concat(GetTrendItemNames())
+			.Concat(GetRobustConnectionItemNames())
+			.Concat(GetTargetEncodingItemNames())
+			.Concat(GetEnsembleItemNames())
+			// 重要度0.0の特徴量を除外
+			.Where(name => name != nameof(Season)
+				&& name != nameof(RaceDistance)
+				&& name != nameof(AverageTukaInRace)
+				&& name != nameof(CurrentGrade)
+				&& name != nameof(CurrentTrackCondition))
 			.ToArray();
 
 		public static string[] GetAllFeaturesNamesOneHot() => GetAllFeaturesNames()

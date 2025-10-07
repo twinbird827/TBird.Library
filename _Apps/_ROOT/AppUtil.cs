@@ -1,6 +1,7 @@
 ﻿using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -311,5 +312,15 @@ namespace Netkeiba
 			var variance = values.Select(v => (v - mean) * (v - mean)).Average();
 			return (float)Math.Sqrt(variance);
 		}
+
+		public static void AddHistory(this Dictionary<string, List<RaceDetail>> dic, RaceDetail tgt, string key)
+		{
+			if (!dic.ContainsKey(key))
+			{
+				dic.Add(key, new List<RaceDetail>());
+			}
+			dic[key].Insert(0, tgt);
+		}
+
 	}
 }

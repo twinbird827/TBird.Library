@@ -344,6 +344,62 @@ namespace Netkeiba.Models
 			features.DamSireNewHorseInverse = GravityCalculate(newHorseMetrics.DamSireNewHorseInverse, connectionMetrics.DamSireRecentInverseAvg);
 			features.BreederNewHorseInverse = GravityCalculate(newHorseMetrics.BreederNewHorseInverse, connectionMetrics.BreederRecentInverseAvg);
 
+			// === 新規追加特徴量の計算 ===
+
+			// 1. 交互作用項
+			features.LastRaceScore_X_TimeRank = features.LastRaceAdjustedScore * features.AverageTimeIndexRankInRace;
+			features.JockeyPlace_X_TrainerPlace = features.JockeyPlaceAptitude * features.TrainerPlaceAptitude;
+			features.JockeyPlace_X_DistanceApt = features.JockeyPlaceAptitude * features.CurrentDistanceAptitude;
+			features.LastRaceScore_X_JockeyPlace = features.LastRaceAdjustedScore * features.JockeyPlaceAptitude;
+			features.Recent3Avg_X_JockeyRecent = features.Recent3AdjustedAvg * features.JockeyRecentInverseAvg;
+
+			// 2. レース内ランク特徴量（簡易実装 - STEP2で計算）
+			features.JockeyRecentRankInRace = 0.5f; // STEP2で計算
+			features.LastRaceScoreRankInRace = 0.5f; // STEP2で計算
+			features.AgeRankInRace = 0.5f; // STEP2で計算
+			features.RestDaysRankInRace = 0.5f; // STEP2で計算
+			features.Recent3AvgRankInRace = 0.5f; // STEP2で計算
+
+			// 3. RecentUpwardTrend (着順が改善傾向か)
+			if (horses.Count >= 3)
+			{
+				var recent3Positions = horses.Take(3).Select(h => h.FinishPosition).ToList();
+				// 着順は小さい方が良いので、連続して小さくなっている場合に1.0
+				features.RecentUpwardTrend = (recent3Positions[0] < recent3Positions[1] && recent3Positions[1] < recent3Positions[2]) ? 1.0f : 0.0f;
+			}
+			else
+			{
+				features.RecentUpwardTrend = 0.0f;
+			}
+
+			// 4. 騎手×調教師の強化（信頼度重み付け）
+			int jockeyTrainerSampleCount = jockeytrainers.Count();
+			float confidence = Math.Min(jockeyTrainerSampleCount / 30.0f, 1.0f); // 30レース以上で信頼度MAX
+			features.JockeyTrainerDistanceAptitude_Robust =
+				(features.JockeyTrainerDistanceAptitude * confidence) +
+				((features.JockeyDistanceAptitude + features.TrainerDistanceAptitude) / 2 * (1 - confidence));
+			features.JockeyTrainerTrackConditionAptitude_Robust =
+				(features.JockeyTrainerTrackConditionAptitude * confidence) +
+				((features.JockeyTrackConditionAptitude + features.TrainerTrackConditionAptitude) / 2 * (1 - confidence));
+			features.JockeyTrainerPlaceAptitude_Robust =
+				(features.JockeyTrainerPlaceAptitude * confidence) +
+				((features.JockeyPlaceAptitude + features.TrainerPlaceAptitude) / 2 * (1 - confidence));
+
+			// 5. ターゲットエンコーディング（STEP2で計算）
+			features.SeasonTargetEncoded = features.Season; // 初期値
+			features.CurrentGradeTargetEncoded = features.CurrentGrade; // 初期値
+			features.CurrentTrackConditionTargetEncoded = features.CurrentTrackCondition; // 初期値
+
+			// 6. アンサンブル特徴量
+			features.OverallHorseQuality =
+				(features.Recent3AdjustedAvg * 0.3f) +
+				(features.LastRaceAdjustedScore * 0.3f) +
+				(features.AverageTimeIndexRankInRace * 0.4f);
+			features.OverallConnectionQuality =
+				(features.JockeyPlaceAptitude * 0.4f) +
+				(features.TrainerPlaceAptitude * 0.3f) +
+				(features.JockeyTrainerPlaceAptitude * 0.3f);
+
 			return features;
 		}
 	}
