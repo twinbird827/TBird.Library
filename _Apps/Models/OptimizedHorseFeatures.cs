@@ -222,31 +222,31 @@ namespace Netkeiba.Models
 			nameof(RestDays),
 			// nameof(IsRentoFlag),  // 重要度0.0149 削除
 			nameof(Age),
-			nameof(Gender),
+			// nameof(Gender),  // 重要度0.0984 削除（案7）
 			nameof(Season),
 			nameof(RaceDistance),
 			nameof(PerformanceTrend),
-			nameof(DistanceChangeAdaptation),
+			// nameof(DistanceChangeAdaptation),  // 重要度0.1981 削除（案4）
 			nameof(ClassChangeAdaptation),
-			nameof(JockeyWeightDiff),
+			// nameof(JockeyWeightDiff),  // 重要度0.1582 削除（案4）
 			nameof(JockeyWeightDiffFromAvgInRace),
 			nameof(AverageTuka),
 			nameof(LastRaceTuka),
 			nameof(TukaConsistency),
 			nameof(AverageTukaInRace),
 			nameof(TukaAdvantage),
-			nameof(LastRaceFinishPosition),
+			// nameof(LastRaceFinishPosition),  // 重要度0.1931 削除（案4）
 			nameof(Recent3AvgFinishPosition),
-			nameof(FinishPositionImprovement),
+			// nameof(FinishPositionImprovement),  // 重要度0.1470 削除（案4）
 			nameof(CurrentGrade),
 			nameof(CurrentTrackCondition),
-			nameof(PaceAdvantageScore),
-			nameof(PaceStyleCompatibility),
+			// nameof(PaceAdvantageScore),  // 重要度0.1768 削除（案4）
+			// nameof(PaceStyleCompatibility),  // 重要度0.1900 削除（案4）
 			// nameof(ClassUpChallenge),  // 重要度0.0260 削除
 			nameof(GradeChange),
-			nameof(TrackConditionChangeFromLast),
+			// nameof(TrackConditionChangeFromLast),  // 重要度0.1266 削除（案4）
 			nameof(SameCourseExperience),
-			nameof(SameDistanceCategoryExperience),
+			// nameof(SameDistanceCategoryExperience),  // 重要度0.1855 削除（案4）
 			nameof(SameTrackTypeExperience),
 		};
 
@@ -307,7 +307,7 @@ namespace Netkeiba.Models
 
 		public static string[] GetRacePositionItemNames() => new[]
 		{
-			nameof(Umaban),
+			// nameof(Umaban),  // 重要度0.1866 削除（案4）
 			nameof(UmabanAdvantage),
 		};
 

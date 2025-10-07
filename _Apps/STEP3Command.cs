@@ -89,9 +89,9 @@ namespace Netkeiba
 					LabelColumnName = "LabelKey",
 					FeatureColumnName = "Features",
 					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = 1300,     // 元の設定に戻す（案1で悪化したため）
-					LearningRate = 0.023,          // 学習率（維持）
-					NumberOfLeaves = 63,           // 元の設定に戻す（案1で悪化したため）
+					NumberOfIterations = 1200,     // やや減（過学習防止、案5）
+					LearningRate = 0.025,          // やや増（学習速度向上、案5）
+					NumberOfLeaves = 60,           // やや減（シンプル化、案5）
 					MinimumExampleCountPerLeaf = 18, // 最小サンプル数（維持）
 					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
 					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）
@@ -103,7 +103,7 @@ namespace Netkeiba
 					L2CategoricalRegularization = 10.0, // L2カテゴリ正則化（デフォルト10.0）
 					Booster = new Microsoft.ML.Trainers.LightGbm.GradientBooster.Options
 					{
-						L2Regularization = 0.6,    // L2正則化（元の設定に戻す）
+						L2Regularization = 0.7,    // やや増（汎化性能向上、案5）
 						L1Regularization = 0.03,   // L1正則化を微減（0.05→0.03）
 						MinimumSplitGain = 0.005,  // 分割の最小ゲインを調整（0.01→0.005）
 						MaximumTreeDepth = -1,      // 最大木の深さ（-1=制限なし、0→-1に変更）
