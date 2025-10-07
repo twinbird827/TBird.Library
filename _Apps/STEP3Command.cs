@@ -82,16 +82,7 @@ namespace Netkeiba
 				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label"))
 				.NormalizeMeanVarianceMultiple(_ml, OptimizedHorseFeatures.GetNormalizationItemNames())
 				// 全特徴量結合
-				.Append(_ml.Transforms.Concatenate("Features",
-					OptimizedHorseFeatures.GetAdjustedPerformanceItemNames()
-					.Concat(OptimizedHorseFeatures.GetCondition1ItemNames())
-					.Concat(OptimizedHorseFeatures.GetConnectionItemNames())
-					.Concat(OptimizedHorseFeatures.GetNewHorseItemNames())
-					.Concat(OptimizedHorseFeatures.GetStatusItemNames())
-					.Concat(OptimizedHorseFeatures.GetTimeItemNames())
-					.Concat(OptimizedHorseFeatures.GetMetadataNames())
-					.ToArray()
-				))
+				.Append(_ml.Transforms.Concatenate("Features", OptimizedHorseFeatures.GetAllFeaturesNames()))
 				// LightGBMランキング学習（Optionsクラスで設定）
 				.Append(_ml.Ranking.Trainers.LightGbm(new Microsoft.ML.Trainers.LightGbm.LightGbmRankingTrainer.Options
 				{
@@ -165,15 +156,7 @@ namespace Netkeiba
 					if (lastTransformer is RankingPredictionTransformer<Microsoft.ML.Trainers.LightGbm.LightGbmRankingModelParameters> transformer)
 					{
 						MainViewModel.AddLog("========== 特徴量重要度（上位100） ==========");
-						var featureNames = OptimizedHorseFeatures.GetAdjustedPerformanceItemNames()
-							.Concat(OptimizedHorseFeatures.GetCondition1ItemNames())
-							.Concat(OptimizedHorseFeatures.GetConnectionItemNames())
-							.Concat(OptimizedHorseFeatures.GetNewHorseItemNames())
-							.Concat(OptimizedHorseFeatures.GetStatusItemNames())
-							.Concat(OptimizedHorseFeatures.GetTimeItemNames())
-							.Concat(OptimizedHorseFeatures.GetRacePositionItemNames())
-							.Concat(OptimizedHorseFeatures.GetMetadataNames())
-							.ToArray();
+						var featureNames = OptimizedHorseFeatures.GetAllFeaturesNames();
 
 						Microsoft.ML.Data.VBuffer<float> weights = default;
 						transformer.Model.GetFeatureWeights(ref weights);
@@ -391,7 +374,7 @@ AND    h.ﾚｰｽID          = m.RaceId
 ";
 			var parameters = new[]
 			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
+				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-1))),
 				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
 			};
 
@@ -422,7 +405,7 @@ AND    h.ﾚｰｽID          = m.RaceId
 ";
 			var parameters = new[]
 			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
+				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-1))),
 				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
 				SQLiteUtil.CreateParameter(DbType.String, grade.ToString()),
 			};
@@ -454,6 +437,17 @@ AND    h.ﾚｰｽID          = m.RaceId
 			foreach (var feature in featureNames)
 			{
 				pipeline = pipeline.Append(_ml.Transforms.NormalizeMeanVariance(feature));
+			}
+
+			return pipeline;
+		}
+		{
+			if (featureNames.Length == 0)
+				throw new ArgumentException("At least one feature name is required");
+
+			foreach (var feature in featureNames)
+			{
+				pipeline = pipeline.Append(_ml.Transforms.Categorical.OneHotEncoding($"{feature}OneHot", feature));
 			}
 
 			return pipeline;
