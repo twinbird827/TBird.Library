@@ -58,6 +58,24 @@ namespace Netkeiba.Models
 
 	public static class GradeTypeExtensions
 	{
-		public static float GetGradeFeatures(this GradeType grade) => (float)(int)grade / 20F;
+		public static float GetGradeFeatures(this GradeType grade) => grade.IsG1()
+			? 0
+			: grade.IsG2()
+			? 1
+			: grade.IsG3()
+			? 2
+			: grade.IsOPEN()
+			? 3
+			: grade switch
+			{
+				GradeType.勝3古 => 4,
+				GradeType.勝2古 => 5,
+				GradeType.勝2ク => 5,
+				GradeType.勝1古 => 6,
+				GradeType.勝1ク => 6,
+				GradeType.未勝利ク => 7,
+				GradeType.未勝利障 => 7,
+				_ => 8,
+			};
 	}
 }

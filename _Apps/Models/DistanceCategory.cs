@@ -8,9 +8,9 @@ namespace Netkeiba.Models
 {
 	public enum DistanceCategory
 	{
-		Sprint,
-		Mile,
-		Middle,
-		Long
+		Sprint = 0,
+		Mile = 1,
+		Middle = 2,
+		Long = 3,
 	}
 }

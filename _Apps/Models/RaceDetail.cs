@@ -185,7 +185,7 @@ namespace Netkeiba.Models
 			var lastThreeFurlongsMetrics = LastThreeFurlongsAnalyzer.AnalyzeLastThreeFurlongs(this, horses);
 			var jockeyWeightMetrics = JockeyWeightAnalyzer.AnalyzeJockeyWeight(this, horses, inRaces);
 			var finishPositionMetrics = FinishPositionAnalyzer.AnalyzeFinishPosition(horses, Race);
-			var tukaMetrics = TukaAnalyzer.AnalyzeTuka(horses);
+			var tukaMetrics = TukaAnalyzer.AnalyzeTuka(horses, sires, damsires, siredamsires);
 
 			// 購入価格ランク（全レースで有効）
 			var avgPurchasePriceInRace = inRaces.Select(r => r.PurchasePrice).DefaultIfEmpty(PurchasePrice).Average();
@@ -254,8 +254,8 @@ namespace Netkeiba.Models
 				IsRentoFlag = (Race.RaceDate - LastRaceDate).Days < 14,  // 中1週以下
 				Age = Age,
 				Gender = ConvertGenderToFloat(Gender),  // 牡=0, 牝=0.5, セン=1
-				Season = (float)(Race.RaceDate.Month - 1) / 3F,  // 0=1-3月, 1=4-6月, 2=7-9月, 3=10-12月
-				RaceDistance = Race.Distance,
+				Season = (float)((Race.RaceDate.Month - 1) / 3),  // 0=1-3月, 1=4-6月, 2=7-9月, 3=10-12月
+				RaceDistance = (float)Race.DistanceCategory,
 				PerformanceTrend = adjustedMetrics.Recent3AdjustedAvg / adjustedMetrics.OverallAdjustedAvg,
 				DistanceChangeAdaptation = CalculateDistanceChangeAdaptation(),
 				ClassChangeAdaptation = CalculateClassChangeAdaptation(),

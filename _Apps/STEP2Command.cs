@@ -615,9 +615,16 @@ namespace Netkeiba
 
 	public static class TukaAnalyzer
 	{
-		public static TukaMetrics AnalyzeTuka(List<RaceDetail> horses)
+		public static TukaMetrics AnalyzeTuka(List<RaceDetail> horses, List<RaceDetail> sires, List<RaceDetail> damsires, List<RaceDetail> siredamsires)
 		{
-			var tukas = horses.Select(x => x.Tuka).Take(5).ToArray();
+			var tmp = horses.Any()
+				? horses
+				: siredamsires.Any()
+				? siredamsires
+				: sires.Any()
+				? sires
+				: damsires;
+			var tukas = tmp.Select(x => x.Tuka).Take(5).ToArray();
 
 			return new TukaMetrics()
 			{

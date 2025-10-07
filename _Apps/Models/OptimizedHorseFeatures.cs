@@ -22,7 +22,7 @@ namespace Netkeiba.Models
 		{
 			nameof(RestDays),
 			nameof(Age),
-			nameof(Gender),
+			//nameof(Gender),
 			nameof(Umaban),
 			// Season, RaceDistance: カテゴリ値のため正規化から除外
 			nameof(SameDistanceTimeIndex),
@@ -240,6 +240,7 @@ namespace Netkeiba.Models
 		{
 			nameof(IsNewHorse),
 			nameof(IsRentoFlag),
+			nameof(Umaban),
 		};
 
 	}

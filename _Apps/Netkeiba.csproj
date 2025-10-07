@@ -34,8 +34,4 @@
     <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Claude\" />
-  </ItemGroup>
-
 </Project>
