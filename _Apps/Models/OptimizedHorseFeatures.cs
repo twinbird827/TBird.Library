@@ -424,10 +424,7 @@ namespace Netkeiba.Models
 
 		public static string[] GetCategoryNames() => new[]
 		{
-			nameof(Season),
-			nameof(RaceDistance),
-			nameof(CurrentGrade),
-			nameof(CurrentTrackCondition),
+			// Season, RaceDistance, CurrentGrade, CurrentTrackCondition は重要度0.0のため除外
 			nameof(Gender),
 		};
 

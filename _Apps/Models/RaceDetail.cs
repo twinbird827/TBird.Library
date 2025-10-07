@@ -346,8 +346,8 @@ namespace Netkeiba.Models
 
 			// === 新規追加特徴量の計算 ===
 
-			// 1. 交互作用項
-			features.LastRaceScore_X_TimeRank = features.LastRaceAdjustedScore * features.AverageTimeIndexRankInRace;
+			// 1. 交互作用項（AverageTimeIndexRankInRaceを使うものはCalculateInRaces後に計算）
+			// features.LastRaceScore_X_TimeRank は CalculateInRaces() で計算
 			features.JockeyPlace_X_TrainerPlace = features.JockeyPlaceAptitude * features.TrainerPlaceAptitude;
 			features.JockeyPlace_X_DistanceApt = features.JockeyPlaceAptitude * features.CurrentDistanceAptitude;
 			features.LastRaceScore_X_JockeyPlace = features.LastRaceAdjustedScore * features.JockeyPlaceAptitude;
@@ -534,6 +534,9 @@ namespace Netkeiba.Models
 
 				var recent3AvgValues = features.Select(f => f.Recent3AdjustedAvg).ToArray();
 				x.Recent3AvgRankInRace = CalculateRankDesc(x.Recent3AdjustedAvg, recent3AvgValues);
+
+				// === 交互作用項の計算（ランク特徴量を使用） ===
+				x.LastRaceScore_X_TimeRank = x.LastRaceAdjustedScore * x.AverageTimeIndexRankInRace;
 			});
 
 			return features;
