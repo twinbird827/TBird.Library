@@ -374,7 +374,7 @@ AND    h.ﾚｰｽID          = m.RaceId
 ";
 			var parameters = new[]
 			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-1))),
+				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
 				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
 			};
 
@@ -405,7 +405,7 @@ AND    h.ﾚｰｽID          = m.RaceId
 ";
 			var parameters = new[]
 			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-1))),
+				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
 				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
 				SQLiteUtil.CreateParameter(DbType.String, grade.ToString()),
 			};
@@ -441,17 +441,18 @@ AND    h.ﾚｰｽID          = m.RaceId
 
 			return pipeline;
 		}
-		{
-			if (featureNames.Length == 0)
-				throw new ArgumentException("At least one feature name is required");
 
-			foreach (var feature in featureNames)
-			{
-				pipeline = pipeline.Append(_ml.Transforms.Categorical.OneHotEncoding($"{feature}OneHot", feature));
-			}
+		//{
+		//	if (featureNames.Length == 0)
+		//		throw new ArgumentException("At least one feature name is required");
 
-			return pipeline;
-		}
+		//	foreach (var feature in featureNames)
+		//	{
+		//		pipeline = pipeline.Append(_ml.Transforms.Categorical.OneHotEncoding($"{feature}OneHot", feature));
+		//	}
+
+		//	return pipeline;
+		//}
 
 		public static TypeConvertingEstimator ConversionSingle(this MLContext _ml, params string[] featureNames)
 		{
