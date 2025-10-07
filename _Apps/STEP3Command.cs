@@ -103,7 +103,7 @@ namespace Netkeiba
 					NumberOfLeaves = 63,           // 葉の数を増やしてモデル表現力向上（31→63）
 					MinimumExampleCountPerLeaf = 18, // 最小サンプル数を微減（20→18）
 					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
-					UseCategoricalSplit = false,   // カテゴリ分割使用（デフォルトfalse）
+					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）
 					HandleMissingValue = true,     // 欠損値処理（デフォルトtrue）
 					UseZeroAsMissingValue = false, // 0を欠損値として扱う（デフォルトfalse）
 					MinimumExampleCountPerGroup = 100, // グループの最小サンプル数（デフォルト100）
