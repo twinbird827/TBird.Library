@@ -61,8 +61,8 @@ namespace Netkeiba
 
 				RankingAsync(
 					"ALL",
-					conn.GetModelAsync(DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-1)),
-					conn.GetModelAsync(DateTime.Now.AddMonths(-1).AddDays(1), DateTime.Now)
+					conn.GetModelAsync(DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-2)),
+					conn.GetModelAsync(DateTime.Now.AddMonths(-2).AddDays(1), DateTime.Now)
 				);
 
 			}
@@ -89,10 +89,10 @@ namespace Netkeiba
 					LabelColumnName = "LabelKey",
 					FeatureColumnName = "Features",
 					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = 1300,     // 学習回数（元の設定に戻す）
-					LearningRate = 0.023,          // 学習率（元の設定に戻す）
-					NumberOfLeaves = 63,           // 葉の数（元の設定に戻す）
-					MinimumExampleCountPerLeaf = 18, // 最小サンプル数（元の設定に戻す）
+					NumberOfIterations = 1800,     // 特徴量増加に対応（103個 → 学習回数増）
+					LearningRate = 0.023,          // 学習率（維持）
+					NumberOfLeaves = 85,           // モデル複雑度を上げる（103特徴量対応）
+					MinimumExampleCountPerLeaf = 18, // 最小サンプル数（維持）
 					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
 					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）
 					HandleMissingValue = true,     // 欠損値処理（デフォルトtrue）
@@ -155,7 +155,7 @@ namespace Netkeiba
 					var lastTransformer = model.LastTransformer;
 					if (lastTransformer is RankingPredictionTransformer<Microsoft.ML.Trainers.LightGbm.LightGbmRankingModelParameters> transformer)
 					{
-						MainViewModel.AddLog("========== 特徴量重要度（上位100） ==========");
+						MainViewModel.AddLog("========== 特徴量重要度 ==========");
 						var featureNames = OptimizedHorseFeatures.GetAllFeaturesNames();
 
 						Microsoft.ML.Data.VBuffer<float> weights = default;
@@ -164,8 +164,7 @@ namespace Netkeiba
 						var importance = weights.GetValues()
 							.ToArray()
 							.Select((weight, index) => new { Name = featureNames[index], Weight = weight })
-							.OrderByDescending(x => x.Weight)
-							.Take(100);
+							.OrderByDescending(x => x.Weight);
 
 						foreach (var item in importance)
 						{
@@ -370,7 +369,8 @@ namespace Netkeiba
 SELECT m.*
 FROM   t_orig_h h, t_model m
 WHERE  CAST(h.開催日数 AS INTEGER) BETWEEN ? AND ?
-AND    h.ﾚｰｽID          = m.RaceId
+AND    h.ﾚｰｽID                 = m.RaceId
+AND    CAST(h.障害 AS INTEGER) = 0
 ";
 			var parameters = new[]
 			{
@@ -400,8 +400,9 @@ AND    h.ﾚｰｽID          = m.RaceId
 SELECT m.*
 FROM   t_orig_h h, t_model m
 WHERE  CAST(h.開催日数 AS INTEGER) BETWEEN ? AND ?
-AND    h.ﾗﾝｸ2           = ?
-AND    h.ﾚｰｽID          = m.RaceId
+AND    h.ﾗﾝｸ2                  = ?
+AND    h.ﾚｰｽID                 = m.RaceId
+AND    CAST(h.障害 AS INTEGER) = 0
 ";
 			var parameters = new[]
 			{
