@@ -444,9 +444,11 @@ namespace Netkeiba
 
 				SireRecentInverseAvg = sires.Take(30).AdjustedInverseScoreAverage(),
 				SireCurrentConditionAvg = CalculateConditionSpecific(sires, upcomingRace),
+				SireDistanceAptitude = CalculateDistanceSpecific(sires, upcomingRace),
 
 				DamSireRecentInverseAvg = damsires.Take(30).AdjustedInverseScoreAverage(),
 				DamSireCurrentConditionAvg = CalculateConditionSpecific(damsires, upcomingRace),
+				DamSireDistanceAptitude = CalculateDistanceSpecific(damsires, upcomingRace),
 
 				SireDamSireRecentInverseAvg = siredamsires.Take(30).AdjustedInverseScoreAverage(),
 				SireDamSireCurrentConditionAvg = CalculateConditionSpecific(siredamsires, upcomingRace),
@@ -460,6 +462,13 @@ namespace Netkeiba
 		{
 			return races
 				.Where(r => r.Race.DistanceCategory == upcomingRace.DistanceCategory && r.Race.TrackType == upcomingRace.TrackType)
+				.AdjustedInverseScoreAverage();
+		}
+
+		private static float CalculateDistanceSpecific(IEnumerable<RaceDetail> races, Race upcomingRace)
+		{
+			return races
+				.Where(r => r.Race.DistanceCategory == upcomingRace.DistanceCategory)
 				.AdjustedInverseScoreAverage();
 		}
 	}
@@ -477,9 +486,11 @@ namespace Netkeiba
 
 		public float SireRecentInverseAvg { get; set; }
 		public float SireCurrentConditionAvg { get; set; }
+		public float SireDistanceAptitude { get; set; }
 
 		public float DamSireRecentInverseAvg { get; set; }
 		public float DamSireCurrentConditionAvg { get; set; }
+		public float DamSireDistanceAptitude { get; set; }
 
 		public float SireDamSireRecentInverseAvg { get; set; }
 		public float SireDamSireCurrentConditionAvg { get; set; }

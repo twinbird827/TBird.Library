@@ -254,8 +254,10 @@ namespace Netkeiba.Models
 				BreederCurrentConditionAvg = connectionMetrics.BreederCurrentConditionAvg,
 				SireRecentInverseAvg = connectionMetrics.SireRecentInverseAvg,
 				SireCurrentConditionAvg = connectionMetrics.SireCurrentConditionAvg,
+				SireDistanceAptitude = connectionMetrics.SireDistanceAptitude,
 				DamSireRecentInverseAvg = connectionMetrics.DamSireRecentInverseAvg,
 				DamSireCurrentConditionAvg = connectionMetrics.DamSireCurrentConditionAvg,
+				DamSireDistanceAptitude = connectionMetrics.DamSireDistanceAptitude,
 				SireDamSireRecentInverseAvg = connectionMetrics.SireDamSireRecentInverseAvg,
 				SireDamSireCurrentConditionAvg = connectionMetrics.SireDamSireCurrentConditionAvg,
 				JockeyTrainerRecentInverseAvg = connectionMetrics.JockeyTrainerRecentInverseAvg,
@@ -277,7 +279,6 @@ namespace Netkeiba.Models
 				LastRaceTuka = tukaMetrics.LastRaceTuka,
 				TukaConsistency = tukaMetrics.TukaConsistency,
 				AverageTukaInRace = tukaMetrics.AverageTukaInRace,
-				TukaAdvantage = tukaMetrics.AverageTuka / Math.Max(tukaMetrics.AverageTukaInRace, 0.01f),
 				LastRaceFinishPosition = finishPositionMetrics.LastRaceFinishPosition,
 				Recent3AvgFinishPosition = finishPositionMetrics.Recent3AvgFinishPosition,
 				FinishPositionImprovement = finishPositionMetrics.FinishPositionImprovement,
@@ -349,6 +350,7 @@ namespace Netkeiba.Models
 
 				// 通過順比較
 				x.AverageTukaInRace = inraceAverageTuka.Average();
+				x.TukaAdvantage = x.AverageTuka / Math.Max(x.AverageTukaInRace, 0.01f);
 				x.PaceAdvantageScore = x.AverageTuka < 0.3F
 					// 自分は逃げ→前に行く馬が少ないほど有利(数値が大きくなる)
 					? (float)(race.NumberOfHorses - frontRunnerCount) / (float)race.NumberOfHorses
@@ -356,6 +358,17 @@ namespace Netkeiba.Models
 					// 自分は追込→逃げ馬が多いほど有利(数値が大きくなる)
 					? (float)frontRunnerCount / (float)race.NumberOfHorses
 					: 0.5F;
+
+				// ペース×脚質の相性：逃げ馬が多い場合の逃げ馬デメリット、追込馬が多い場合の追込馬デメリットを考慮
+				var closerCount = inraceAverageTuka.Count(tuka => tuka > 0.6f);  // 追込馬の数
+				x.PaceStyleCompatibility = x.AverageTuka < 0.3F
+					// 逃げ: 逃げ馬が多いとペースが速くなりデメリット
+					? 1.0f - ((float)frontRunnerCount / (float)race.NumberOfHorses)
+					: 0.6F < x.AverageTuka
+					// 追込: 逃げ馬が少ないとペースが遅く追込不利、追込馬が多いと展開不利
+					? ((float)frontRunnerCount / (float)race.NumberOfHorses) * (1.0f - (float)closerCount / (float)race.NumberOfHorses)
+					// 先行・差し: 中間的な脚質は安定
+					: 0.7F;
 
 				// タイム指数のレース内ランク（降順、高いほど上位）
 				x.AverageTimeIndexRankInRace = inraceTimeIndexes.Count(t => t > x.AverageTimeIndex) + 1;

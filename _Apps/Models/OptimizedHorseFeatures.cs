@@ -43,12 +43,15 @@ namespace Netkeiba.Models
 			nameof(BreederCurrentConditionAvg),
 			nameof(SireRecentInverseAvg),
 			nameof(SireCurrentConditionAvg),
+			nameof(SireDistanceAptitude),
 			nameof(DamSireRecentInverseAvg),
 			nameof(DamSireCurrentConditionAvg),
+			nameof(DamSireDistanceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
 			nameof(GradeChange),
 			nameof(TukaAdvantage),
+			nameof(PaceStyleCompatibility),
 		};
 
 		public static string[] GetAdjustedPerformanceItemNames() => new[]
@@ -87,8 +90,10 @@ namespace Netkeiba.Models
 			nameof(BreederCurrentConditionAvg),
 			nameof(SireRecentInverseAvg),
 			nameof(SireCurrentConditionAvg),
+			nameof(SireDistanceAptitude),
 			nameof(DamSireRecentInverseAvg),
 			nameof(DamSireCurrentConditionAvg),
+			nameof(DamSireDistanceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
 			nameof(JockeyTrainerRecentInverseAvg),
@@ -107,9 +112,11 @@ namespace Netkeiba.Models
 
 		[LoadColumn(13)] public float SireRecentInverseAvg { get; set; }
 		[LoadColumn(14)] public float SireCurrentConditionAvg { get; set; }
+		[LoadColumn(70)] public float SireDistanceAptitude { get; set; }
 
 		[LoadColumn(15)] public float DamSireRecentInverseAvg { get; set; }
 		[LoadColumn(16)] public float DamSireCurrentConditionAvg { get; set; }
+		[LoadColumn(71)] public float DamSireDistanceAptitude { get; set; }
 
 		[LoadColumn(17)] public float SireDamSireRecentInverseAvg { get; set; }
 		[LoadColumn(18)] public float SireDamSireCurrentConditionAvg { get; set; }
@@ -159,6 +166,7 @@ namespace Netkeiba.Models
 			nameof(CurrentGrade),
 			nameof(CurrentTrackCondition),
 			nameof(PaceAdvantageScore),
+			nameof(PaceStyleCompatibility),
 			nameof(ClassUpChallenge),
 			nameof(GradeChange),
 			nameof(TrackConditionChangeFromLast),
@@ -188,6 +196,7 @@ namespace Netkeiba.Models
 		[LoadColumn(43)] public float Recent3AvgFinishPosition { get; set; }
 		[LoadColumn(44)] public float FinishPositionImprovement { get; set; }
 		[LoadColumn(45)] public float PaceAdvantageScore { get; set; }
+		[LoadColumn(72)] public float PaceStyleCompatibility { get; set; }
 		[LoadColumn(46)] public float CurrentGrade { get; set; }
 		[LoadColumn(47)] public float ClassUpChallenge { get; set; }
 		[LoadColumn(68)] public float GradeChange { get; set; }
@@ -311,8 +320,10 @@ namespace Netkeiba.Models
 			instance.BreederCurrentConditionAvg = x["BreederCurrentConditionAvg"].Single();
 			instance.SireRecentInverseAvg = x["SireRecentInverseAvg"].Single();
 			instance.SireCurrentConditionAvg = x["SireCurrentConditionAvg"].Single();
+			instance.SireDistanceAptitude = x["SireDistanceAptitude"].Single();
 			instance.DamSireRecentInverseAvg = x["DamSireRecentInverseAvg"].Single();
 			instance.DamSireCurrentConditionAvg = x["DamSireCurrentConditionAvg"].Single();
+			instance.DamSireDistanceAptitude = x["DamSireDistanceAptitude"].Single();
 			instance.SireDamSireRecentInverseAvg = x["SireDamSireRecentInverseAvg"].Single();
 			instance.SireDamSireCurrentConditionAvg = x["SireDamSireCurrentConditionAvg"].Single();
 			instance.JockeyTrainerRecentInverseAvg = x["JockeyTrainerRecentInverseAvg"].Single();
@@ -343,6 +354,7 @@ namespace Netkeiba.Models
 			instance.Recent3AvgFinishPosition = x["Recent3AvgFinishPosition"].Single();
 			instance.FinishPositionImprovement = x["FinishPositionImprovement"].Single();
 			instance.PaceAdvantageScore = x["PaceAdvantageScore"].Single();
+			instance.PaceStyleCompatibility = x["PaceStyleCompatibility"].Single();
 			instance.CurrentGrade = x["CurrentGrade"].Single();
 			instance.ClassUpChallenge = x["ClassUpChallenge"].Single();
 			instance.GradeChange = x["GradeChange"].Single();
