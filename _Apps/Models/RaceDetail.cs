@@ -456,21 +456,10 @@ namespace Netkeiba.Models
 				(features.JockeyTrainerPlaceAptitude * 0.3f);
 
 			// 案6: 高度な派生特徴量
-			// 1. TopFeaturesEnsemble: トップ6特徴量の加重平均（案10の重要度ベース）
-			features.TopFeaturesEnsemble =
-				(features.LastRaceScore_X_JockeyPlace * 1.0f) +
-				(features.LastRaceScore_X_TimeRank * 0.997f) +
-				(features.Recent3AvgRankInRace * 0.708f) +
-				(features.AdjustedLastThreeFurlongsDiffFromAvgInRace * 0.613f) +
-				(features.AverageTimeIndexRankInRace * 0.585f) +
-				(features.Age * 0.573f);
+			// 1. TopFeaturesEnsemble: InRace特徴量を使うのでCalculateInRacesで計算
+			// 2. SpeedPowerScore: InRace特徴量を使うのでCalculateInRacesで計算
 
-			// 2. SpeedPowerScore: タイム指標 × 上がりタイム
-			features.SpeedPowerScore =
-				features.AverageTimeIndexRankInRace *
-				features.AdjustedLastThreeFurlongsDiffFromAvgInRace;
-
-			// 3. ConnectionReliabilityScore: 関係者の総合信頼度
+			// 3. ConnectionReliabilityScore: 関係者の総合信頼度（InRace不要）
 			features.ConnectionReliabilityScore =
 				(features.SireCurrentConditionAvg * 0.35f) +
 				(features.TrainerCurrentConditionAvg * 0.3f) +
@@ -559,6 +548,21 @@ namespace Netkeiba.Models
 
 				// === 交互作用項の計算（ランク特徴量を使用） ===
 				x.LastRaceScore_X_TimeRank = x.LastRaceAdjustedScore * x.AverageTimeIndexRankInRace;
+
+				// === 案6: 高度な派生特徴量（InRace特徴量を使用） ===
+				// 1. TopFeaturesEnsemble: トップ6特徴量の加重平均（案10の重要度ベース）
+				x.TopFeaturesEnsemble =
+					(x.LastRaceScore_X_JockeyPlace * 1.0f) +
+					(x.LastRaceScore_X_TimeRank * 0.997f) +
+					(x.Recent3AvgRankInRace * 0.708f) +
+					(x.AdjustedLastThreeFurlongsDiffFromAvgInRace * 0.613f) +
+					(x.AverageTimeIndexRankInRace * 0.585f) +
+					(x.Age * 0.573f);
+
+				// 2. SpeedPowerScore: タイム指標 × 上がりタイム
+				x.SpeedPowerScore =
+					x.AverageTimeIndexRankInRace *
+					x.AdjustedLastThreeFurlongsDiffFromAvgInRace;
 			});
 
 			return features;

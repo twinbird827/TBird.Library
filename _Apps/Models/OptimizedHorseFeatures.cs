@@ -414,7 +414,7 @@ namespace Netkeiba.Models
 
 		public static string[] GetAdvancedItemNames() => new[]
 		{
-			nameof(TopFeaturesEnsemble),
+			// nameof(TopFeaturesEnsemble),  // 重要度0.2992 削除（案11: 他特徴量の単純加重和のため冗長）
 			nameof(SpeedPowerScore),
 			nameof(ConnectionReliabilityScore),
 		};
