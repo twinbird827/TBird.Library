@@ -133,26 +133,26 @@ namespace Netkeiba.Models
 			nameof(TrainerRecentInverseAvg),
 			nameof(TrainerCurrentConditionAvg),
 			// nameof(TrainerDistanceAptitude),  // 重要度0.2847 削除（案10）
-			nameof(TrainerTrackConditionAptitude),
-			nameof(TrainerPlaceAptitude),
+			// nameof(TrainerTrackConditionAptitude),  // 重要度0.2932 削除（案12）
+			// nameof(TrainerPlaceAptitude),  // 重要度0.2737 削除（案12）
 			// nameof(BreederRecentInverseAvg),  // 重要度0.2510 削除（案9）
 			nameof(BreederCurrentConditionAvg),
 			nameof(SireRecentInverseAvg),
-			nameof(SireCurrentConditionAvg),
+			// nameof(SireCurrentConditionAvg),  // 重要度0.2943 削除（案12）
 			// nameof(SireDistanceAptitude),  // 重要度0.2606 削除（案9）
-			nameof(SireTrackConditionAptitude),
+			// nameof(SireTrackConditionAptitude),  // 重要度0.2833 削除（案12）
 			nameof(SirePlaceAptitude),
-			nameof(DamSireRecentInverseAvg),
+			// nameof(DamSireRecentInverseAvg),  // 重要度0.2892 削除（案12）
 			nameof(DamSireCurrentConditionAvg),
 			// nameof(DamSireDistanceAptitude),  // 重要度0.2591 削除（案9）
-			nameof(DamSireTrackConditionAptitude),
+			// nameof(DamSireTrackConditionAptitude),  // 重要度0.2896 削除（案12）
 			nameof(DamSirePlaceAptitude),
 			nameof(SireDamSireRecentInverseAvg),
 			nameof(SireDamSireCurrentConditionAvg),
 			// nameof(SireDamSireDistanceAptitude),  // 重要度0.2787 削除（案10）
 			nameof(SireDamSireTrackConditionAptitude),
 			nameof(SireDamSirePlaceAptitude),
-			nameof(JockeyTrainerRecentInverseAvg),
+			// nameof(JockeyTrainerRecentInverseAvg),  // 重要度0.2988 削除（案12）
 			nameof(JockeyTrainerCurrentConditionAvg),
 			// nameof(JockeyTrainerDistanceAptitude),  // 重要度0.2421 削除（案8）
 			// nameof(JockeyTrainerTrackConditionAptitude),  // 重要度0.2406 削除（案8）
@@ -202,10 +202,10 @@ namespace Netkeiba.Models
 		public static string[] GetNewHorseItemNames() => new[]
 		{
 			nameof(TrainerNewHorseInverse),
-			nameof(JockeyNewHorseInverse),
+			// nameof(JockeyNewHorseInverse),  // 重要度0.2925 削除（案12）
 			nameof(SireNewHorseInverse),
 			nameof(DamSireNewHorseInverse),
-			nameof(BreederNewHorseInverse),
+			// nameof(BreederNewHorseInverse),  // 重要度0.2916 削除（案12）
 			nameof(PurchasePriceRank),
 		};
 
@@ -227,14 +227,14 @@ namespace Netkeiba.Models
 			nameof(RaceDistance),
 			// nameof(PerformanceTrend),  // 重要度0.2391 削除（案8）
 			// nameof(DistanceChangeAdaptation),  // 重要度0.1981 削除（案4）
-			nameof(ClassChangeAdaptation),
+			// nameof(ClassChangeAdaptation),  // 重要度0.2782 削除（案12）
 			// nameof(JockeyWeightDiff),  // 重要度0.1582 削除（案4）
 			nameof(JockeyWeightDiffFromAvgInRace),
 			nameof(AverageTuka),
-			nameof(LastRaceTuka),
+			// nameof(LastRaceTuka),  // 重要度0.2939 削除（案12）
 			// nameof(TukaConsistency),  // 重要度0.2870 削除（案10）
 			nameof(AverageTukaInRace),
-			nameof(TukaAdvantage),
+			// nameof(TukaAdvantage),  // 重要度0.2949 削除（案12）
 			// nameof(LastRaceFinishPosition),  // 重要度0.1931 削除（案4）
 			nameof(Recent3AvgFinishPosition),
 			// nameof(FinishPositionImprovement),  // 重要度0.1470 削除（案4）
@@ -247,7 +247,7 @@ namespace Netkeiba.Models
 			// nameof(TrackConditionChangeFromLast),  // 重要度0.1266 削除（案4）
 			// nameof(SameCourseExperience),  // 重要度0.2431 削除（案8）
 			// nameof(SameDistanceCategoryExperience),  // 重要度0.1855 削除（案4）
-			nameof(SameTrackTypeExperience),
+			// nameof(SameTrackTypeExperience),  // 重要度0.2960 削除（案12）
 		};
 
 		// 馬の状態・変化指標
@@ -305,10 +305,10 @@ namespace Netkeiba.Models
 		[LoadColumn(60)] public float LastRaceTimeIndex { get; set; }
 		[LoadColumn(61)] public float AverageTimeIndexRankInRace { get; set; }
 
-		public static string[] GetRacePositionItemNames() => new[]
+		public static string[] GetRacePositionItemNames() => new string[]
 		{
 			// nameof(Umaban),  // 重要度0.1866 削除（案4）
-			nameof(UmabanAdvantage),
+			// nameof(UmabanAdvantage),  // 重要度0.2987 削除（案12）
 		};
 
 		[LoadColumn(62)] public int Umaban { get; set; }
@@ -358,13 +358,13 @@ namespace Netkeiba.Models
 		[LoadColumn(97)] public float RestDaysRankInRace { get; set; }
 		[LoadColumn(98)] public float Recent3AvgRankInRace { get; set; }
 
-		public static string[] GetTrendItemNames() => new[]
+		public static string[] GetTrendItemNames() => new string[]
 		{
 			// バイナリトレンド特徴量は重要度0.0のため削除（連続値版のみ使用）
 			// nameof(RecentUpwardTrend),
 			// nameof(Recent1to2Improvement),
 			// nameof(Recent2to3Improvement),
-			nameof(Recent1to2ImprovementAmount),
+			// nameof(Recent1to2ImprovementAmount),  // 重要度0.2969 削除（案12）
 			// nameof(Recent2to3ImprovementAmount),  // 重要度0.2439 削除（案8）
 			// nameof(Interval1to2Days),  // 重要度0.2773 削除（案10）
 			// nameof(Interval2to3Days),  // 重要度0.2405 削除（案8）
