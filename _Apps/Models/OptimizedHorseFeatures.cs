@@ -417,12 +417,18 @@ namespace Netkeiba.Models
 			// nameof(TopFeaturesEnsemble),  // 重要度0.2992 削除（案11: 他特徴量の単純加重和のため冗長）
 			nameof(SpeedPowerScore),
 			nameof(ConnectionReliabilityScore),
+			nameof(ConditionPowerScore),  // 案13: 最近の調子 × 前走成績
+			nameof(JockeyHorseConditionScore),  // 案13: 騎手の調子 × 馬の調子
 		};
 
 		// 案6: 高度な派生特徴量
 		[LoadColumn(109)] public float TopFeaturesEnsemble { get; set; }  // トップ6特徴量の加重平均
 		[LoadColumn(110)] public float SpeedPowerScore { get; set; }  // 速さ×力強さ
 		[LoadColumn(111)] public float ConnectionReliabilityScore { get; set; }  // 関係者信頼度
+
+		// 案13: InRace交互作用項（第2弾）
+		[LoadColumn(112)] public float ConditionPowerScore { get; set; }  // 最近の調子 × 前走成績
+		[LoadColumn(113)] public float JockeyHorseConditionScore { get; set; }  // 騎手の調子 × 馬の調子
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -610,6 +616,10 @@ namespace Netkeiba.Models
 			instance.TopFeaturesEnsemble = x["TopFeaturesEnsemble"].Single();
 			instance.SpeedPowerScore = x["SpeedPowerScore"].Single();
 			instance.ConnectionReliabilityScore = x["ConnectionReliabilityScore"].Single();
+
+			// 案13: InRace交互作用項（第2弾）
+			instance.ConditionPowerScore = x["ConditionPowerScore"].Single();
+			instance.JockeyHorseConditionScore = x["JockeyHorseConditionScore"].Single();
 
 			return instance;
 		}

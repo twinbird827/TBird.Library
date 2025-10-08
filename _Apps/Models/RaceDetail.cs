@@ -563,6 +563,17 @@ namespace Netkeiba.Models
 				x.SpeedPowerScore =
 					x.AverageTimeIndexRankInRace *
 					x.AdjustedLastThreeFurlongsDiffFromAvgInRace;
+
+				// === 案13: InRace交互作用項（第2弾） ===
+				// 1. ConditionPowerScore: 最近の調子 × 前走成績
+				x.ConditionPowerScore =
+					x.Recent3AvgRankInRace *
+					x.LastRaceScoreRankInRace;
+
+				// 2. JockeyHorseConditionScore: 騎手の調子 × 馬の調子
+				x.JockeyHorseConditionScore =
+					x.JockeyRecentRankInRace *
+					x.Recent3AvgRankInRace;
 			});
 
 			return features;
