@@ -412,13 +412,25 @@ namespace Netkeiba.Models
 		[LoadColumn(106)] public float OverallHorseQuality { get; set; }
 		[LoadColumn(107)] public float OverallConnectionQuality { get; set; }
 
+		public static string[] GetOikiriItemNames() => new[]
+		{
+			// 優先度S: 調教特徴量（最終追い切りデータ）
+			nameof(OikiriLap5Time),  // 最終ラップタイム
+			nameof(OikiriLap3Time),  // 3Fタイム
+			nameof(OikiriEvaluationScore),  // 評価スコア（A=4, B=3, C=2, D=1）
+			nameof(TokeiColorTotalCount),  // TokeiColor総数（0-5）
+			nameof(OikiriQualityScore),  // 総合調教質スコア
+		};
+
 		public static string[] GetAdvancedItemNames() => new[]
 		{
 			// nameof(TopFeaturesEnsemble),  // 重要度0.2992 削除（案11: 他特徴量の単純加重和のため冗長）
 			nameof(SpeedPowerScore),
 			nameof(ConnectionReliabilityScore),
-			nameof(ConditionPowerScore),  // 案13: 最近の調子 × 前走成績
-			nameof(JockeyHorseConditionScore),  // 案13: 騎手の調子 × 馬の調子
+			// nameof(ConditionPowerScore),  // 案13: 重要度0.7056だがRecent3AvgRankInRaceを消費するため削除
+			// nameof(JockeyHorseConditionScore),  // 案13: 重要度0.9022だがRecent3AvgRankInRaceを消費するため削除
+			// nameof(SpeedAgeScore),  // 案14: 重要度0.2923で低いため削除（案14改）
+			nameof(BloodlineTrackScore),  // 案14: 血統信頼度×コース適性
 		};
 
 		// 案6: 高度な派生特徴量
@@ -426,9 +438,20 @@ namespace Netkeiba.Models
 		[LoadColumn(110)] public float SpeedPowerScore { get; set; }  // 速さ×力強さ
 		[LoadColumn(111)] public float ConnectionReliabilityScore { get; set; }  // 関係者信頼度
 
-		// 案13: InRace交互作用項（第2弾）
+		// 案13: InRace交互作用項（第2弾）- 削除
 		[LoadColumn(112)] public float ConditionPowerScore { get; set; }  // 最近の調子 × 前走成績
 		[LoadColumn(113)] public float JockeyHorseConditionScore { get; set; }  // 騎手の調子 × 馬の調子
+
+		// 案14: 新交互作用項（基本特徴量を消費しない）
+		[LoadColumn(114)] public float SpeedAgeScore { get; set; }  // 速さ×年齢
+		[LoadColumn(115)] public float BloodlineTrackScore { get; set; }  // 血統信頼度×コース適性
+
+		// 優先度S: 調教特徴量（最終追い切りデータ）
+		[LoadColumn(116)] public float OikiriLap5Time { get; set; }  // 最終ラップタイム（欠損=0）
+		[LoadColumn(117)] public float OikiriLap3Time { get; set; }  // 3Fタイム（欠損=0）
+		[LoadColumn(118)] public float OikiriEvaluationScore { get; set; }  // 評価スコア（A=4, B=3, C=2, D=1, 欠損=2）
+		[LoadColumn(119)] public float TokeiColorTotalCount { get; set; }  // TokeiColor総数（0-5）
+		[LoadColumn(120)] public float OikiriQualityScore { get; set; }  // 総合調教質スコア
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -464,6 +487,7 @@ namespace Netkeiba.Models
 			// .Concat(GetTargetEncodingItemNames()) // 実装保留
 			.Concat(GetEnsembleItemNames())
 			.Concat(GetAdvancedItemNames())  // 案6: 高度な派生特徴量
+			.Concat(GetOikiriItemNames())  // 調教特徴量
 			// 重要度0.0の特徴量を除外
 			.Where(name => name != nameof(Season)
 				&& name != nameof(RaceDistance)
@@ -617,9 +641,20 @@ namespace Netkeiba.Models
 			instance.SpeedPowerScore = x["SpeedPowerScore"].Single();
 			instance.ConnectionReliabilityScore = x["ConnectionReliabilityScore"].Single();
 
-			// 案13: InRace交互作用項（第2弾）
+			// 案13: InRace交互作用項（第2弾）- 削除
 			instance.ConditionPowerScore = x["ConditionPowerScore"].Single();
 			instance.JockeyHorseConditionScore = x["JockeyHorseConditionScore"].Single();
+
+			// 案14: 新交互作用項（基本特徴量を消費しない）
+			instance.SpeedAgeScore = x["SpeedAgeScore"].Single();
+			instance.BloodlineTrackScore = x["BloodlineTrackScore"].Single();
+
+			// 調教特徴量
+			instance.OikiriLap5Time = x["OikiriLap5Time"].Single();
+			instance.OikiriLap3Time = x["OikiriLap3Time"].Single();
+			instance.OikiriEvaluationScore = x["OikiriEvaluationScore"].Single();
+			instance.TokeiColorTotalCount = x["TokeiColorTotalCount"].Single();
+			instance.OikiriQualityScore = x["OikiriQualityScore"].Single();
 
 			return instance;
 		}

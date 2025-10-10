@@ -467,6 +467,13 @@ namespace Netkeiba.Models
 				(features.DamSireCurrentConditionAvg * 0.2f) +
 				(features.BreederCurrentConditionAvg * 0.15f);
 
+			// === 調教特徴量（優先度S） ===
+			features.OikiriLap5Time = Oikiri.Lap5Time;
+			features.OikiriLap3Time = Oikiri.Lap3Time;
+			features.OikiriEvaluationScore = Oikiri.EvaluationScore;
+			features.TokeiColorTotalCount = Oikiri.TokeiColorTotalCount;
+			features.OikiriQualityScore = Oikiri.QualityScore;
+
 			return features;
 		}
 	}
