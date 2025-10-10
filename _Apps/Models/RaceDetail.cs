@@ -15,6 +15,7 @@ namespace Netkeiba.Models
 			try
 			{
 				Race = race;
+				Oikiri = new Oikiri(x, this);
 				Umaban = x.Get("馬番").Int32();
 				Horse = x.Get("馬ID").Str();
 				Jockey = x.Get("騎手ID").Str();
@@ -49,7 +50,7 @@ namespace Netkeiba.Models
 		}
 
 		public Race Race { get; }
-
+		public Oikiri Oikiri { get; }
 		public string RaceId => Race.RaceId;
 		public int Umaban { get; }
 		public string Horse { get; }
@@ -564,7 +565,7 @@ namespace Netkeiba.Models
 					x.AverageTimeIndexRankInRace *
 					x.AdjustedLastThreeFurlongsDiffFromAvgInRace;
 
-				// === 案13: InRace交互作用項（第2弾） ===
+				// === 案13: InRace交互作用項（第2弾）- 削除 ===
 				// 1. ConditionPowerScore: 最近の調子 × 前走成績
 				x.ConditionPowerScore =
 					x.Recent3AvgRankInRace *
@@ -574,6 +575,17 @@ namespace Netkeiba.Models
 				x.JockeyHorseConditionScore =
 					x.JockeyRecentRankInRace *
 					x.Recent3AvgRankInRace;
+
+				// === 案14: 新交互作用項（基本特徴量を消費しない） ===
+				// 1. SpeedAgeScore: SpeedPowerScore × Age
+				x.SpeedAgeScore =
+					x.SpeedPowerScore *
+					x.Age;
+
+				// 2. BloodlineTrackScore: ConnectionReliabilityScore × CurrentTrackTypeAptitude
+				x.BloodlineTrackScore =
+					x.ConnectionReliabilityScore *
+					x.CurrentTrackTypeAptitude;
 			});
 
 			return features;
