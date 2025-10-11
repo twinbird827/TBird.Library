@@ -41,6 +41,8 @@ namespace Netkeiba.Models
 				Gender = x.Get("馬性").Str();
 				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
 				TimeIndex = x.Get("ﾀｲﾑ指数").Single();
+				Weight = x.Get("体重").Single();
+				WeightDiff = x.Get("増減").Single();
 			}
 			catch (Exception ex)
 			{
@@ -72,6 +74,8 @@ namespace Netkeiba.Models
 		public float LastThreeFurlongs { get; }
 		public string Gender { get; set; }
 		public float TimeIndex { get; }
+		public float Weight { get; }
+		public float WeightDiff { get; }
 
 		private float AverageTimeIndex(IEnumerable<RaceDetail> horses, int take) => horses
 				.Select(x => x.TimeIndex < 40 ? 60F : x.TimeIndex) // 40未満は異常値として除外（全体の5%）
