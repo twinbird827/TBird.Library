@@ -597,6 +597,22 @@ namespace Netkeiba.Models
 				x.BloodlineTrackScore =
 					x.ConnectionReliabilityScore *
 					x.CurrentTrackTypeAptitude;
+
+				// === 案16: 調教InRace特徴量 ===
+				// OikiriLap3TimeRankInRace: レース内3Fタイム順位（小さいほど良い→昇順ランク）
+				var oikiriLap3Times = features.Select(f => f.OikiriLap3Time).ToArray();
+				x.OikiriLap3TimeRankInRace = horseCount > 1 && x.OikiriLap3Time > 0
+					? CalculateRankAsc(x.OikiriLap3Time, oikiriLap3Times)
+					: 0.5f;
+
+				// OikiriLap5TimeRankInRace: レース内最終ラップ順位（小さいほど良い→昇順ランク）
+				var oikiriLap5Times = features.Select(f => f.OikiriLap5Time).ToArray();
+				x.OikiriLap5TimeRankInRace = horseCount > 1 && x.OikiriLap5Time > 0
+					? CalculateRankAsc(x.OikiriLap5Time, oikiriLap5Times)
+					: 0.5f;
+
+				// OikiriSpeedScore: 速さ×持続力（Lap3とLap5の両方が速いほど高スコア）
+				x.OikiriSpeedScore = x.OikiriLap3TimeRankInRace * x.OikiriLap5TimeRankInRace;
 			});
 
 			return features;

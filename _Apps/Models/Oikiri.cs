@@ -127,7 +127,7 @@ namespace Netkeiba.Models
 			}
 		}
 
-		/// <summary>総合調教質スコア（複合指標）</summary>
+		/// <summary>総合調教質スコア（複合指標・案16改: タイム重視版）</summary>
 		public float QualityScore
 		{
 			get
@@ -135,35 +135,37 @@ namespace Netkeiba.Models
 				double score = 0.0;
 				double weightSum = 0.0;
 
-				// 評価がある場合のみ加算
-				if (!string.IsNullOrEmpty(Rating))
+				// 案16改: タイムを最優先（客観的データ）
+				// Lap3Time: 3Fタイム（小さいほど良い、12.0秒を基準に正規化）
+				if (Time3 > 0)
 				{
-					score += EvaluationScore * 0.3;
+					float lap3Normalized = Math.Max(0, (15.0f - Time3) / 3.0f); // 12-15秒を0-1に
+					score += lap3Normalized * 0.4;
+					weightSum += 0.4;
+				}
+
+				// Lap5Time: 最終ラップ（小さいほど良い、40.0秒を基準に正規化）
+				if (Time5 > 0)
+				{
+					float lap5Normalized = Math.Max(0, (50.0f - Time5) / 10.0f); // 40-50秒を0-1に
+					score += lap5Normalized * 0.3;
 					weightSum += 0.3;
 				}
 
-				// 脚色がある場合のみ加算
+				// 脚色がある場合のみ加算（調教強度）
 				if (!string.IsNullOrEmpty(Adaptation))
 				{
-					score += IntensityScore * 0.2;
+					score += (IntensityScore / 5.0f) * 0.2; // 0-5を0-1に正規化
 					weightSum += 0.2;
 				}
 
-				// TokeiColorは常に計算可能
-				score += TokeiColorTotalCount * 0.25;
-				weightSum += 0.25;
-
-				// コメントがある場合のみ加算
+				// コメントがある場合のみ加算（主観的情報）
 				if (!string.IsNullOrEmpty(Comment))
 				{
-					score += CommentPositiveScore * 0.15;
-					weightSum += 0.15;
+					float commentNormalized = Math.Min(CommentPositiveScore / 3.0f, 1.0f); // 最大3ワードで1.0
+					score += commentNormalized * 0.1;
+					weightSum += 0.1;
 				}
-
-				// 騎手騎乗フラグ（助手でない=1）
-				float isJockeyRiding = string.IsNullOrEmpty(Rider) || Rider == "助手" ? 0f : 1f;
-				score += isJockeyRiding * 0.1;
-				weightSum += 0.1;
 
 				// 重みで正規化して0-10スケールに
 				return weightSum > 0 ? (float)(score / weightSum * 10) : 0f;
