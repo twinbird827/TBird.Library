@@ -479,11 +479,11 @@ namespace Netkeiba.Models
 			features.OikiriQualityScore = Oikiri.QualityScore;
 
 			// === 馬体重特徴量（優先度S） ===
-			// 1. OptimalWeightDiffScore: 最適増減スコア（±5kg以内=1.0、±10kg=0.5、±15kg以上=0.0）
-			features.OptimalWeightDiffScore = Math.Max(0, 1.0f - Math.Abs(WeightDiff) / 10.0f);
+			// 1. OptimalWeightDiffScore: 削除（案18: 重要度0.2314、線形スコアがノイズ化）
+			// features.OptimalWeightDiffScore = Math.Max(0, 1.0f - Math.Abs(WeightDiff) / 10.0f);
 
-			// 2. WeightDiff_X_OikiriQualityScore: 増減×調教質（仕上がり総合評価）
-			features.WeightDiff_X_OikiriQualityScore = features.OptimalWeightDiffScore * features.OikiriQualityScore;
+			// 2. WeightDiff_X_OikiriQualityScore: WeightDiff生値×調教質
+			features.WeightDiff_X_OikiriQualityScore = WeightDiff * features.OikiriQualityScore;
 
 			// 3. WeightDiffRankInRace は CalculateInRaces() で計算
 
@@ -623,13 +623,17 @@ namespace Netkeiba.Models
 				// OikiriSpeedScore: 速さ×持続力（Lap3とLap5の両方が速いほど高スコア）
 				x.OikiriSpeedScore = x.OikiriLap3TimeRankInRace * x.OikiriLap5TimeRankInRace;
 
-				// === 案17: 馬体重InRace特徴量 ===
-				// WeightDiffRankInRace: レース内馬体重増減順位（絶対値が小さいほど良い）
-				// 理想的な増減（±5kg以内）に近いほど高スコア
-				var weightDiffAbsValues = features.Select(f => Math.Abs(f.OptimalWeightDiffScore - 1.0f)).ToArray();
-				var currentAbsValue = Math.Abs(x.OptimalWeightDiffScore - 1.0f);
+				// === 案18: 馬体重InRace特徴量改善 ===
+				// WeightDiffRankInRace: レース内WeightDiff絶対値順位（小さいほど良い＝安定）
+				// OptimalWeightDiffScore削除に伴い、WeightDiff_X_OikiriQualityScoreからWeightDiffを復元
+				var weightDiffAbsValues = features
+					.Select(f => f.OikiriQualityScore > 0 ? Math.Abs(f.WeightDiff_X_OikiriQualityScore / f.OikiriQualityScore) : 0)
+					.ToArray();
+				var currentWeightDiffAbs = x.OikiriQualityScore > 0
+					? Math.Abs(x.WeightDiff_X_OikiriQualityScore / x.OikiriQualityScore)
+					: 0;
 				x.WeightDiffRankInRace = horseCount > 1
-					? CalculateRankAsc(currentAbsValue, weightDiffAbsValues)
+					? CalculateRankAsc(currentWeightDiffAbs, weightDiffAbsValues)
 					: 0.5f;
 			});
 

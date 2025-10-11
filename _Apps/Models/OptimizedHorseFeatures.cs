@@ -429,7 +429,7 @@ namespace Netkeiba.Models
 		public static string[] GetWeightItemNames() => new[]
 		{
 			// 優先度S: 馬体重特徴量（仕上がり評価）
-			nameof(OptimalWeightDiffScore),  // 最適増減スコア（±5kg以内=1.0）
+			// nameof(OptimalWeightDiffScore),  // 重要度0.2314 削除（案18: 線形スコアがノイズ化、最低重要度）
 			nameof(WeightDiffRankInRace),  // レース内馬体重増減順位
 			nameof(WeightDiff_X_OikiriQualityScore),  // 増減×調教質（仕上がり総合）
 		};
@@ -471,9 +471,9 @@ namespace Netkeiba.Models
 		[LoadColumn(123)] public float OikiriSpeedScore { get; set; }  // 速さ×持続力
 
 		// 優先度S: 馬体重特徴量（仕上がり評価）
-		[LoadColumn(124)] public float OptimalWeightDiffScore { get; set; }  // 最適増減スコア（±5kg以内=1.0）
-		[LoadColumn(125)] public float WeightDiffRankInRace { get; set; }  // レース内馬体重増減順位
-		[LoadColumn(126)] public float WeightDiff_X_OikiriQualityScore { get; set; }  // 増減×調教質（仕上がり総合）
+		// [LoadColumn(124)] public float OptimalWeightDiffScore { get; set; }  // 重要度0.2314 削除（案18）
+		[LoadColumn(124)] public float WeightDiffRankInRace { get; set; }  // レース内馬体重増減順位
+		[LoadColumn(125)] public float WeightDiff_X_OikiriQualityScore { get; set; }  // 増減×調教質（仕上がり総合）
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -683,7 +683,7 @@ namespace Netkeiba.Models
 			instance.OikiriSpeedScore = x["OikiriSpeedScore"].Single();
 
 			// 馬体重特徴量
-			instance.OptimalWeightDiffScore = x["OptimalWeightDiffScore"].Single();
+			// instance.OptimalWeightDiffScore = x["OptimalWeightDiffScore"].Single();  // 削除（案18）
 			instance.WeightDiffRankInRace = x["WeightDiffRankInRace"].Single();
 			instance.WeightDiff_X_OikiriQualityScore = x["WeightDiff_X_OikiriQualityScore"].Single();
 
