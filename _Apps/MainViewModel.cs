@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AngleSharp.Html.Dom;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using TBird.Core;
@@ -133,6 +134,23 @@ namespace Netkeiba
 		private ComboboxViewModel _S4Dates = new(Enumerable.Empty<ComboboxItemModel>());
 
 		public IRelayCommand S4UPDATELIST => new STEP4UpdateListCommand(this).CreateCommand();
+
+		public IRelayCommand S3EXECPREDICT => new STEP1OikiriCommad(this).CreateCommand();
+		//public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
+		//{
+		//	var raceparser = await AppUtil.GetDocument(false, "https://race.netkeiba.com/race/shutuba.html?race_id=202505040202");
+
+		//	var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as IHtmlTableElement;
+
+		//	if (racetable == null) return;
+
+		//	foreach (var row in racetable.Rows.Skip(2))
+		//	{
+		//		if (row == null) continue;
+
+		//		AddLog(row.ToString().NotNull());
+		//	}
+		//});
 
 	}
 }
