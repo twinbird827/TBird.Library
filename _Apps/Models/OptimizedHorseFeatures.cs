@@ -426,6 +426,14 @@ namespace Netkeiba.Models
 			nameof(OikiriSpeedScore),  // 速さ×持続力（Lap3×Lap5の複合）
 		};
 
+		public static string[] GetWeightItemNames() => new[]
+		{
+			// 優先度S: 馬体重特徴量（仕上がり評価）
+			nameof(OptimalWeightDiffScore),  // 最適増減スコア（±5kg以内=1.0）
+			nameof(WeightDiffRankInRace),  // レース内馬体重増減順位
+			nameof(WeightDiff_X_OikiriQualityScore),  // 増減×調教質（仕上がり総合）
+		};
+
 		public static string[] GetAdvancedItemNames() => new[]
 		{
 			// nameof(TopFeaturesEnsemble),  // 重要度0.2992 削除（案11: 他特徴量の単純加重和のため冗長）
@@ -462,6 +470,11 @@ namespace Netkeiba.Models
 		[LoadColumn(122)] public float OikiriLap5TimeRankInRace { get; set; }  // レース内最終ラップ順位
 		[LoadColumn(123)] public float OikiriSpeedScore { get; set; }  // 速さ×持続力
 
+		// 優先度S: 馬体重特徴量（仕上がり評価）
+		[LoadColumn(124)] public float OptimalWeightDiffScore { get; set; }  // 最適増減スコア（±5kg以内=1.0）
+		[LoadColumn(125)] public float WeightDiffRankInRace { get; set; }  // レース内馬体重増減順位
+		[LoadColumn(126)] public float WeightDiff_X_OikiriQualityScore { get; set; }  // 増減×調教質（仕上がり総合）
+
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
 		[LoadColumn(66)] public string RaceId { get; set; }
@@ -497,6 +510,7 @@ namespace Netkeiba.Models
 			.Concat(GetEnsembleItemNames())
 			.Concat(GetAdvancedItemNames())  // 案6: 高度な派生特徴量
 			.Concat(GetOikiriItemNames())  // 調教特徴量
+			.Concat(GetWeightItemNames())  // 馬体重特徴量
 			// 重要度0.0の特徴量を除外
 			.Where(name => name != nameof(Season)
 				&& name != nameof(RaceDistance)
@@ -667,6 +681,11 @@ namespace Netkeiba.Models
 			instance.OikiriLap3TimeRankInRace = x["OikiriLap3TimeRankInRace"].Single();
 			instance.OikiriLap5TimeRankInRace = x["OikiriLap5TimeRankInRace"].Single();
 			instance.OikiriSpeedScore = x["OikiriSpeedScore"].Single();
+
+			// 馬体重特徴量
+			instance.OptimalWeightDiffScore = x["OptimalWeightDiffScore"].Single();
+			instance.WeightDiffRankInRace = x["WeightDiffRankInRace"].Single();
+			instance.WeightDiff_X_OikiriQualityScore = x["WeightDiff_X_OikiriQualityScore"].Single();
 
 			return instance;
 		}

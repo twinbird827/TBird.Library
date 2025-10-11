@@ -478,6 +478,15 @@ namespace Netkeiba.Models
 			features.TokeiColorTotalCount = Oikiri.TokeiColorTotalCount;
 			features.OikiriQualityScore = Oikiri.QualityScore;
 
+			// === 馬体重特徴量（優先度S） ===
+			// 1. OptimalWeightDiffScore: 最適増減スコア（±5kg以内=1.0、±10kg=0.5、±15kg以上=0.0）
+			features.OptimalWeightDiffScore = Math.Max(0, 1.0f - Math.Abs(WeightDiff) / 10.0f);
+
+			// 2. WeightDiff_X_OikiriQualityScore: 増減×調教質（仕上がり総合評価）
+			features.WeightDiff_X_OikiriQualityScore = features.OptimalWeightDiffScore * features.OikiriQualityScore;
+
+			// 3. WeightDiffRankInRace は CalculateInRaces() で計算
+
 			return features;
 		}
 	}
@@ -613,6 +622,15 @@ namespace Netkeiba.Models
 
 				// OikiriSpeedScore: 速さ×持続力（Lap3とLap5の両方が速いほど高スコア）
 				x.OikiriSpeedScore = x.OikiriLap3TimeRankInRace * x.OikiriLap5TimeRankInRace;
+
+				// === 案17: 馬体重InRace特徴量 ===
+				// WeightDiffRankInRace: レース内馬体重増減順位（絶対値が小さいほど良い）
+				// 理想的な増減（±5kg以内）に近いほど高スコア
+				var weightDiffAbsValues = features.Select(f => Math.Abs(f.OptimalWeightDiffScore - 1.0f)).ToArray();
+				var currentAbsValue = Math.Abs(x.OptimalWeightDiffScore - 1.0f);
+				x.WeightDiffRankInRace = horseCount > 1
+					? CalculateRankAsc(currentAbsValue, weightDiffAbsValues)
+					: 0.5f;
 			});
 
 			return features;
