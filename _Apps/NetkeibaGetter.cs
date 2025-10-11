@@ -148,9 +148,6 @@ namespace Netkeiba
 					// 賞金
 					dic["賞金"] = $"{row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle()}";
 
-					// 追切情報の枠だけ用意する
-					SetOikirisEmpty(dic);
-
 					arr.Add(dic);
 				}
 
@@ -179,7 +176,6 @@ namespace Netkeiba
 		{
 			var arr = new List<Dictionary<string, string>>();
 
-			//			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}";
 			var url = $"https://race.netkeiba.com/race/oikiri.html?race_id={raceid}&type=2&rf=shutuba_submenu";
 
 			using (var raceparser = await AppUtil.GetDocument(true, url))
@@ -190,35 +186,38 @@ namespace Netkeiba
 					{
 						var dic = new Dictionary<string, string>();
 
+						dic["ﾚｰｽID"] = raceid;
 						// 枠番
 						dic["枠番"] = row.Cells[0].GetInnerHtml();
 						// 馬番
 						dic["馬番"] = row.Cells[1].GetInnerHtml();
+						// 馬ID
+						dic["馬ID"] = row.Cells[3].GetHrefAttribute("href").Split('/').Last();
 						// 追切場所
-						dic["追切場所"] = row.Cells[5].GetInnerHtml();
+						dic["コース"] = row.Cells[5].GetInnerHtml();
 						// 追切馬場
-						dic["追切馬場"] = row.Cells[6].GetInnerHtml();
+						dic["馬場"] = row.Cells[6].GetInnerHtml();
 						// 追切騎手
-						dic["追切騎手"] = row.Cells[7].GetInnerHtml();
+						dic["乗り役"] = row.Cells[7].GetInnerHtml();
 						var li = row.Cells[8].GetElementsByTagName("li").Select(x => x.InnerHtml.Split('<')[0]).ToArray();
 						// 追切時間
-						dic["追切時間1"] = li[0];
-						dic["追切時間2"] = li[1];
-						dic["追切時間3"] = li[2];
-						dic["追切時間4"] = li[3];
-						dic["追切時間5"] = li[4];
+						dic["時間1"] = li[0];
+						dic["時間2"] = li[1];
+						dic["時間3"] = li[2];
+						dic["時間4"] = li[3];
+						dic["時間5"] = li[4];
 						var cl = row.Cells[8].GetElementsByTagName("li").Select(x => x.GetAttribute("class") ?? "").ToArray();
-						dic["追切基準1"] = cl[0];
-						dic["追切基準2"] = cl[1];
-						dic["追切基準3"] = cl[2];
-						dic["追切基準4"] = cl[3];
-						dic["追切基準5"] = cl[4];
+						dic["時間評価1"] = cl[0];
+						dic["時間評価2"] = cl[1];
+						dic["時間評価3"] = cl[2];
+						dic["時間評価4"] = cl[3];
+						dic["時間評価5"] = cl[4];
 						// 追切強さ
-						dic["追切強さ"] = row.Cells[10].GetInnerHtml();
+						dic["脚色"] = row.Cells[10].GetInnerHtml();
 						// 追切一言
-						dic["追切一言"] = row.Cells[11].GetInnerHtml();
+						dic["一言"] = row.Cells[11].GetInnerHtml();
 						// 追切評価
-						dic["追切評価"] = row.Cells[12].GetInnerHtml();
+						dic["評価"] = row.Cells[12].GetInnerHtml();
 
 						arr.Add(dic);
 					}
@@ -226,47 +225,6 @@ namespace Netkeiba
 			}
 
 			return arr;
-		}
-
-		public static void SetOikirisEmpty(Dictionary<string, string> dic)
-		{
-			dic["追切場所"] = string.Empty;
-			dic["追切馬場"] = string.Empty;
-			dic["追切騎手"] = string.Empty;
-			dic["追切時間1"] = string.Empty;
-			dic["追切時間2"] = string.Empty;
-			dic["追切時間3"] = string.Empty;
-			dic["追切時間4"] = string.Empty;
-			dic["追切時間5"] = string.Empty;
-			dic["追切基準1"] = string.Empty;
-			dic["追切基準2"] = string.Empty;
-			dic["追切基準3"] = string.Empty;
-			dic["追切基準4"] = string.Empty;
-			dic["追切基準5"] = string.Empty;
-			dic["追切強さ"] = string.Empty;
-			dic["追切一言"] = string.Empty;
-			dic["追切評価"] = string.Empty;
-		}
-
-		public static void SetOikiris(List<Dictionary<string, string>> oikiri, Dictionary<string, string> row)
-		{
-			var oik = oikiri.FirstOrDefault(x => x["枠番"] == row["枠番"] && x["馬番"] == row["馬番"]);
-			row["追切場所"] = oik != null ? oik["追切場所"] : string.Empty;
-			row["追切馬場"] = oik != null ? oik["追切馬場"] : string.Empty;
-			row["追切騎手"] = oik != null ? oik["追切騎手"] : string.Empty;
-			row["追切時間1"] = oik != null ? oik["追切時間1"] : string.Empty;
-			row["追切時間2"] = oik != null ? oik["追切時間2"] : string.Empty;
-			row["追切時間3"] = oik != null ? oik["追切時間3"] : string.Empty;
-			row["追切時間4"] = oik != null ? oik["追切時間4"] : string.Empty;
-			row["追切時間5"] = oik != null ? oik["追切時間5"] : string.Empty;
-			row["追切基準1"] = oik != null ? oik["追切基準1"] : string.Empty;
-			row["追切基準2"] = oik != null ? oik["追切基準2"] : string.Empty;
-			row["追切基準3"] = oik != null ? oik["追切基準3"] : string.Empty;
-			row["追切基準4"] = oik != null ? oik["追切基準4"] : string.Empty;
-			row["追切基準5"] = oik != null ? oik["追切基準5"] : string.Empty;
-			row["追切強さ"] = oik != null ? oik["追切強さ"] : string.Empty;
-			row["追切一言"] = oik != null ? oik["追切一言"] : string.Empty;
-			row["追切評価"] = oik != null ? oik["追切評価"] : string.Empty;
 		}
 
 		public static async Task<List<Dictionary<string, string>>> GetRaceShutubas(string raceid)

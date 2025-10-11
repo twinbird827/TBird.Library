@@ -799,9 +799,9 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		public static async IAsyncEnumerable<RaceDetail> GetRaceDetailsAsync(this SQLiteControl conn, Race race)
 		{
 			var sql = @"
-SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性, d.ﾀｲﾑ指数, d.着差
-FROM v_orig_d d, t_uma u
-WHERE d.ﾚｰｽID = ? AND d.馬ID = u.馬ID
+SELECT d.ﾚｰｽID, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性, d.ﾀｲﾑ指数, d.着差, o.コース, o.馬場, o.乗り役, CAST(o.時間1 AS REAL) 時間1, CAST(o.時間2 AS REAL) 時間2, CAST(o.時間3 AS REAL) 時間3, CAST(o.時間4 AS REAL) 時間4, CAST(o.時間5 AS REAL) 時間5, o.時間評価1, o.時間評価2, o.時間評価3, o.時間評価4, o.時間評価5, o.脚色, o.一言, o.評価, d.体重, d.増減
+FROM v_orig_d d, t_uma u, t_oikiri o
+WHERE d.ﾚｰｽID = ? AND d.馬ID = u.馬ID AND d.ﾚｰｽID = o.ﾚｰｽID AND d.馬ID = o.馬ID
 ";
 			var parameters = new[]
 			{

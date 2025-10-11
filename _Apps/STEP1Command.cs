@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Netkeiba.Models;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -64,6 +65,8 @@ namespace Netkeiba
 							await foreach (var racearr in GetSTEP1Racearrs(conn, racebase))
 							{
 								await conn.InsertOrigAsync(racearr);
+								await conn.InsertOikiriAsync(await NetkeibaGetter.GetOikiris(racebase));
+
 							}
 							conn.Commit();
 							AddLog($"completed racebase:{racebase}");
@@ -136,7 +139,7 @@ namespace Netkeiba
 		}
 
 		/// <summary>ﾚｰｽﾍｯﾀﾞ</summary>
-		private static readonly string[] col_orig_h = Arr("ﾚｰｽID", "ﾚｰｽ名", "開催日", "開催日数", "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "距離", "天候", "馬場", "馬場状態", "優勝賞金", "頭数, 障害");
+		private static readonly string[] col_orig_h = Arr("ﾚｰｽID", "ﾚｰｽ名", "開催日", "開催日数", "開催場所", "ﾗﾝｸ1", "ﾗﾝｸ2", "回り", "距離", "天候", "馬場", "馬場状態", "優勝賞金", "頭数", "障害");
 
 		/// <summary>ﾚｰｽ明細</summary>
 		private static readonly string[] col_orig_d = Arr("ﾚｰｽID", "着順", "枠番", "馬番", "馬ID", "馬性", "馬齢", "斤量", "騎手名", "騎手ID", "ﾀｲﾑ", "ﾀｲﾑ変換", "着差", "ﾀｲﾑ指数", "通過", "上り", "単勝", "人気", "体重", "増減", "備考", "調教場所", "調教師名", "調教師ID", "馬主名", "馬主ID", "賞金");
