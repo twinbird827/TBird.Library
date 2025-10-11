@@ -426,14 +426,6 @@ namespace Netkeiba.Models
 			nameof(OikiriSpeedScore),  // 速さ×持続力（Lap3×Lap5の複合）
 		};
 
-		public static string[] GetWeightItemNames() => new string[]
-		{
-			// 優先度S: 馬体重特徴量（仕上がり評価）
-			// nameof(OptimalWeightDiffScore),  // 重要度0.2314 削除（案18: 線形スコアがノイズ化、最低重要度）
-			// nameof(WeightDiffRankInRace),  // 重要度0.6907 削除（案19: 52位/56、効果薄い）
-			// nameof(WeightDiff_X_OikiriQualityScore),  // 重要度0.7923 削除（案19: スケール問題で他特徴量圧迫）
-		};
-
 		public static string[] GetAdvancedItemNames() => new[]
 		{
 			// nameof(TopFeaturesEnsemble),  // 重要度0.2992 削除（案11: 他特徴量の単純加重和のため冗長）
@@ -470,11 +462,6 @@ namespace Netkeiba.Models
 		[LoadColumn(122)] public float OikiriLap5TimeRankInRace { get; set; }  // レース内最終ラップ順位
 		[LoadColumn(123)] public float OikiriSpeedScore { get; set; }  // 速さ×持続力
 
-		// 優先度S: 馬体重特徴量（仕上がり評価）
-		// [LoadColumn(124)] public float OptimalWeightDiffScore { get; set; }  // 重要度0.2314 削除（案18）
-		// [LoadColumn(124)] public float WeightDiffRankInRace { get; set; }  // 重要度0.6907 削除（案19）
-		// [LoadColumn(125)] public float WeightDiff_X_OikiriQualityScore { get; set; }  // 重要度0.7923 削除（案19）
-
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
 		[LoadColumn(66)] public string RaceId { get; set; }
@@ -510,7 +497,6 @@ namespace Netkeiba.Models
 			.Concat(GetEnsembleItemNames())
 			.Concat(GetAdvancedItemNames())  // 案6: 高度な派生特徴量
 			.Concat(GetOikiriItemNames())  // 調教特徴量
-			.Concat(GetWeightItemNames())  // 馬体重特徴量
 			// 重要度0.0の特徴量を除外
 			.Where(name => name != nameof(Season)
 				&& name != nameof(RaceDistance)
@@ -681,11 +667,6 @@ namespace Netkeiba.Models
 			instance.OikiriLap3TimeRankInRace = x["OikiriLap3TimeRankInRace"].Single();
 			instance.OikiriLap5TimeRankInRace = x["OikiriLap5TimeRankInRace"].Single();
 			instance.OikiriSpeedScore = x["OikiriSpeedScore"].Single();
-
-			// 馬体重特徴量
-			// instance.OptimalWeightDiffScore = x["OptimalWeightDiffScore"].Single();  // 削除（案18）
-			// instance.WeightDiffRankInRace = x["WeightDiffRankInRace"].Single();  // 削除（案19）
-			// instance.WeightDiff_X_OikiriQualityScore = x["WeightDiff_X_OikiriQualityScore"].Single();  // 削除（案19）
 
 			return instance;
 		}

@@ -478,14 +478,6 @@ namespace Netkeiba.Models
 			features.TokeiColorTotalCount = Oikiri.TokeiColorTotalCount;
 			features.OikiriQualityScore = Oikiri.QualityScore;
 
-			// === 馬体重特徴量（優先度S） ===
-			// 案19: 馬体重特徴量3個すべて削除
-			// 1. OptimalWeightDiffScore: 削除（案18: 重要度0.2314、最低重要度）
-			// 2. WeightDiffRankInRace: 削除（案19: 重要度0.6907、52位/56）
-			// 3. WeightDiff_X_OikiriQualityScore: 削除（案19: 重要度0.7923、スケール問題）
-			// features.OptimalWeightDiffScore = Math.Max(0, 1.0f - Math.Abs(WeightDiff) / 10.0f);
-			// features.WeightDiff_X_OikiriQualityScore = WeightDiff * features.OikiriQualityScore;
-
 			return features;
 		}
 	}
@@ -621,18 +613,6 @@ namespace Netkeiba.Models
 
 				// OikiriSpeedScore: 速さ×持続力（Lap3とLap5の両方が速いほど高スコア）
 				x.OikiriSpeedScore = x.OikiriLap3TimeRankInRace * x.OikiriLap5TimeRankInRace;
-
-				// === 案19: 馬体重InRace特徴量削除 ===
-				// WeightDiffRankInRace: 削除（重要度0.6907、効果薄い）
-				// var weightDiffAbsValues = features
-				// 	.Select(f => f.OikiriQualityScore > 0 ? Math.Abs(f.WeightDiff_X_OikiriQualityScore / f.OikiriQualityScore) : 0)
-				// 	.ToArray();
-				// var currentWeightDiffAbs = x.OikiriQualityScore > 0
-				// 	? Math.Abs(x.WeightDiff_X_OikiriQualityScore / x.OikiriQualityScore)
-				// 	: 0;
-				// x.WeightDiffRankInRace = horseCount > 1
-				// 	? CalculateRankAsc(currentWeightDiffAbs, weightDiffAbsValues)
-				// 	: 0.5f;
 			});
 
 			return features;
