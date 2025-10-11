@@ -426,12 +426,12 @@ namespace Netkeiba.Models
 			nameof(OikiriSpeedScore),  // 速さ×持続力（Lap3×Lap5の複合）
 		};
 
-		public static string[] GetWeightItemNames() => new[]
+		public static string[] GetWeightItemNames() => new string[]
 		{
 			// 優先度S: 馬体重特徴量（仕上がり評価）
 			// nameof(OptimalWeightDiffScore),  // 重要度0.2314 削除（案18: 線形スコアがノイズ化、最低重要度）
-			nameof(WeightDiffRankInRace),  // レース内馬体重増減順位
-			nameof(WeightDiff_X_OikiriQualityScore),  // 増減×調教質（仕上がり総合）
+			// nameof(WeightDiffRankInRace),  // 重要度0.6907 削除（案19: 52位/56、効果薄い）
+			// nameof(WeightDiff_X_OikiriQualityScore),  // 重要度0.7923 削除（案19: スケール問題で他特徴量圧迫）
 		};
 
 		public static string[] GetAdvancedItemNames() => new[]
@@ -472,8 +472,8 @@ namespace Netkeiba.Models
 
 		// 優先度S: 馬体重特徴量（仕上がり評価）
 		// [LoadColumn(124)] public float OptimalWeightDiffScore { get; set; }  // 重要度0.2314 削除（案18）
-		[LoadColumn(124)] public float WeightDiffRankInRace { get; set; }  // レース内馬体重増減順位
-		[LoadColumn(125)] public float WeightDiff_X_OikiriQualityScore { get; set; }  // 増減×調教質（仕上がり総合）
+		// [LoadColumn(124)] public float WeightDiffRankInRace { get; set; }  // 重要度0.6907 削除（案19）
+		// [LoadColumn(125)] public float WeightDiff_X_OikiriQualityScore { get; set; }  // 重要度0.7923 削除（案19）
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -684,8 +684,8 @@ namespace Netkeiba.Models
 
 			// 馬体重特徴量
 			// instance.OptimalWeightDiffScore = x["OptimalWeightDiffScore"].Single();  // 削除（案18）
-			instance.WeightDiffRankInRace = x["WeightDiffRankInRace"].Single();
-			instance.WeightDiff_X_OikiriQualityScore = x["WeightDiff_X_OikiriQualityScore"].Single();
+			// instance.WeightDiffRankInRace = x["WeightDiffRankInRace"].Single();  // 削除（案19）
+			// instance.WeightDiff_X_OikiriQualityScore = x["WeightDiff_X_OikiriQualityScore"].Single();  // 削除（案19）
 
 			return instance;
 		}
