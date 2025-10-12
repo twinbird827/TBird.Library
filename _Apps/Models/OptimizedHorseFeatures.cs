@@ -415,15 +415,11 @@ namespace Netkeiba.Models
 		public static string[] GetOikiriItemNames() => new[]
 		{
 			// 優先度S: 調教特徴量（最終追い切りデータ）
-			nameof(OikiriLap5Time),  // 最終ラップタイム（重要度0.7526）
-			nameof(OikiriLap3Time),  // 3Fタイム（重要度0.8742、19位）
-			// nameof(OikiriEvaluationScore),  // 重要度0.3513 削除（案16: 主観的評価は効果薄い）
-			// nameof(TokeiColorTotalCount),  // 重要度0.3708 削除（案16: ノイズ除去）
-			nameof(OikiriQualityScore),  // 総合調教質スコア（重要度0.7770）
-			// 優先度A: InRace調教タイム特徴量
-			nameof(OikiriLap3TimeRankInRace),  // レース内3Fタイム順位
-			nameof(OikiriLap5TimeRankInRace),  // レース内最終ラップ順位
-			nameof(OikiriSpeedScore),  // 速さ×持続力（Lap3×Lap5の複合）
+			nameof(OikiriLap5Time),  // 最終ラップタイム
+			nameof(OikiriLap3Time),  // 3Fタイム
+			nameof(OikiriEvaluationScore),  // 評価スコア（A=4, B=3, C=2, D=1）
+			nameof(TokeiColorTotalCount),  // TokeiColor総数（0-5）
+			nameof(OikiriQualityScore),  // 総合調教質スコア
 		};
 
 		public static string[] GetAdvancedItemNames() => new[]
@@ -453,14 +449,9 @@ namespace Netkeiba.Models
 		// 優先度S: 調教特徴量（最終追い切りデータ）
 		[LoadColumn(116)] public float OikiriLap5Time { get; set; }  // 最終ラップタイム（欠損=0）
 		[LoadColumn(117)] public float OikiriLap3Time { get; set; }  // 3Fタイム（欠損=0）
-		[LoadColumn(118)] public float OikiriEvaluationScore { get; set; }  // 評価スコア（削除予定）
-		[LoadColumn(119)] public float TokeiColorTotalCount { get; set; }  // TokeiColor総数（削除予定）
+		[LoadColumn(118)] public float OikiriEvaluationScore { get; set; }  // 評価スコア（A=4, B=3, C=2, D=1, 欠損=2）
+		[LoadColumn(119)] public float TokeiColorTotalCount { get; set; }  // TokeiColor総数（0-5）
 		[LoadColumn(120)] public float OikiriQualityScore { get; set; }  // 総合調教質スコア
-
-		// 優先度A: InRace調教タイム特徴量
-		[LoadColumn(121)] public float OikiriLap3TimeRankInRace { get; set; }  // レース内3Fタイム順位
-		[LoadColumn(122)] public float OikiriLap5TimeRankInRace { get; set; }  // レース内最終ラップ順位
-		[LoadColumn(123)] public float OikiriSpeedScore { get; set; }  // 速さ×持続力
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -664,9 +655,6 @@ namespace Netkeiba.Models
 			instance.OikiriEvaluationScore = x["OikiriEvaluationScore"].Single();
 			instance.TokeiColorTotalCount = x["TokeiColorTotalCount"].Single();
 			instance.OikiriQualityScore = x["OikiriQualityScore"].Single();
-			instance.OikiriLap3TimeRankInRace = x["OikiriLap3TimeRankInRace"].Single();
-			instance.OikiriLap5TimeRankInRace = x["OikiriLap5TimeRankInRace"].Single();
-			instance.OikiriSpeedScore = x["OikiriSpeedScore"].Single();
 
 			return instance;
 		}
