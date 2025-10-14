@@ -243,7 +243,7 @@ namespace Netkeiba.Models
 			// nameof(PaceAdvantageScore),  // 重要度0.1768 削除（案4）
 			// nameof(PaceStyleCompatibility),  // 重要度0.1900 削除（案4）
 			// nameof(ClassUpChallenge),  // 重要度0.0260 削除
-			nameof(GradeChange),
+			// nameof(GradeChange),  // 重要度0.3593で削除（案21）
 			// nameof(TrackConditionChangeFromLast),  // 重要度0.1266 削除（案4）
 			// nameof(SameCourseExperience),  // 重要度0.2431 削除（案8）
 			// nameof(SameDistanceCategoryExperience),  // 重要度0.1855 削除（案4）
@@ -291,7 +291,7 @@ namespace Netkeiba.Models
 			nameof(AdjustedLastThreeFurlongsDiffFromAvgInRace),
 			// nameof(AverageTimeIndex),  // 重要度0.2830 削除（案10）
 			// nameof(LastRaceTimeIndex),  // 重要度0.2523 削除（案9）
-			nameof(AverageTimeIndexRankInRace),
+			// nameof(AverageTimeIndexRankInRace),  // 重要度0.4076で削除（案21）
 		};
 
 		// タイム関連（正規化済み）
@@ -417,8 +417,8 @@ namespace Netkeiba.Models
 			// 優先度S: 調教特徴量（最終追い切りデータ）
 			nameof(OikiriLap5Time),  // 最終ラップタイム
 			// nameof(OikiriLap3Time),  // 相関0.0174で削除（案20）
-			nameof(OikiriEvaluationScore),  // 評価スコア（A=4, B=3, C=2, D=1）
-			nameof(TokeiColorTotalCount),  // TokeiColor総数（0-5）
+			// nameof(OikiriEvaluationScore),  // 重要度0.1444で削除（案21、最下位）
+			// nameof(TokeiColorTotalCount),  // 重要度0.2908で削除（案21）
 			nameof(OikiriQualityScore),  // 総合調教質スコア
 			nameof(OikiriLap5Time_X_EvaluationScore),  // 案20: Lap5Time × 評価（相関-0.2319）
 		};
@@ -654,8 +654,8 @@ namespace Netkeiba.Models
 			// 調教特徴量
 			instance.OikiriLap5Time = x["OikiriLap5Time"].Single();
 			instance.OikiriLap3Time = x.ContainsKey("OikiriLap3Time") ? x["OikiriLap3Time"].Single() : 0f;  // 案20で削除
-			instance.OikiriEvaluationScore = x["OikiriEvaluationScore"].Single();
-			instance.TokeiColorTotalCount = x["TokeiColorTotalCount"].Single();
+			instance.OikiriEvaluationScore = x.ContainsKey("OikiriEvaluationScore") ? x["OikiriEvaluationScore"].Single() : 0f;  // 案21で削除
+			instance.TokeiColorTotalCount = x.ContainsKey("TokeiColorTotalCount") ? x["TokeiColorTotalCount"].Single() : 0f;  // 案21で削除
 			instance.OikiriQualityScore = x["OikiriQualityScore"].Single();
 			instance.OikiriLap5Time_X_EvaluationScore = x["OikiriLap5Time_X_EvaluationScore"].Single();
 
