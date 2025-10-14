@@ -600,6 +600,19 @@ namespace Netkeiba.Models
 				x.BloodlineTrackScore =
 					x.ConnectionReliabilityScore *
 					x.CurrentTrackTypeAptitude;
+
+				// === 案25: InRace系特徴量（フェーズ1） ===
+				// 1. Recent3Avg_X_JockeyRecent のレース内ランク（降順: 大きいほど良い）
+				var recent3AvgJockeyValues = features.Select(f => f.Recent3Avg_X_JockeyRecent).ToArray();
+				x.Recent3Avg_X_JockeyRecent_RankInRace = CalculateRankDesc(x.Recent3Avg_X_JockeyRecent, recent3AvgJockeyValues);
+
+				// 2. OikiriLap5Time_X_EvaluationScore のレース内ランク（降順: 大きいほど良い）
+				var oikiriEvalValues = features.Select(f => f.OikiriLap5Time_X_EvaluationScore).ToArray();
+				x.OikiriLap5Time_X_EvaluationScore_RankInRace = CalculateRankDesc(x.OikiriLap5Time_X_EvaluationScore, oikiriEvalValues);
+
+				// 3. SpeedPowerScore のレース内ランク（降順: 大きいほど良い）
+				var speedPowerValues = features.Select(f => f.SpeedPowerScore).ToArray();
+				x.SpeedPowerScore_RankInRace = CalculateRankDesc(x.SpeedPowerScore, speedPowerValues);
 			});
 
 			return features;

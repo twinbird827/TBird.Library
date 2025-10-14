@@ -349,6 +349,10 @@ namespace Netkeiba.Models
 			nameof(AgeRankInRace),
 			// nameof(RestDaysRankInRace),  // 重要度0.2499 削除（案9）
 			nameof(Recent3AvgRankInRace),
+			// 案25: InRace系特徴量追加（フェーズ1）
+			nameof(Recent3Avg_X_JockeyRecent_RankInRace),  // 馬の調子×騎手の調子の相対順位
+			nameof(OikiriLap5Time_X_EvaluationScore_RankInRace),  // 調教仕上がりの相対順位
+			nameof(SpeedPowerScore_RankInRace),  // 速さ×力強さの相対順位
 		};
 
 		// レース内ランク特徴量
@@ -357,6 +361,11 @@ namespace Netkeiba.Models
 		[LoadColumn(96)] public float AgeRankInRace { get; set; }
 		[LoadColumn(97)] public float RestDaysRankInRace { get; set; }
 		[LoadColumn(98)] public float Recent3AvgRankInRace { get; set; }
+
+		// 案25: InRace系特徴量（フェーズ1）
+		[LoadColumn(124)] public float Recent3Avg_X_JockeyRecent_RankInRace { get; set; }
+		[LoadColumn(125)] public float OikiriLap5Time_X_EvaluationScore_RankInRace { get; set; }
+		[LoadColumn(126)] public float SpeedPowerScore_RankInRace { get; set; }
 
 		public static string[] GetTrendItemNames() => new string[]
 		{
@@ -665,9 +674,14 @@ namespace Netkeiba.Models
 			instance.OikiriQualityScore = x["OikiriQualityScore"].Single();
 			instance.OikiriLap5Time_X_EvaluationScore = x["OikiriLap5Time_X_EvaluationScore"].Single();
 
-			// 案23B: 血統×調教の交互作用項
-			instance.PurchasePriceRank_X_OikiriQualityScore = x["PurchasePriceRank_X_OikiriQualityScore"].Single();
-			instance.DamSireCondition_X_OikiriEvaluation = x["DamSireCondition_X_OikiriEvaluation"].Single();
+			// 案23B: 血統×調教の交互作用項（案24Aで削除）
+			instance.PurchasePriceRank_X_OikiriQualityScore = x.ContainsKey("PurchasePriceRank_X_OikiriQualityScore") ? x["PurchasePriceRank_X_OikiriQualityScore"].Single() : 0f;
+			instance.DamSireCondition_X_OikiriEvaluation = x.ContainsKey("DamSireCondition_X_OikiriEvaluation") ? x["DamSireCondition_X_OikiriEvaluation"].Single() : 0f;
+
+			// 案25: InRace系特徴量（フェーズ1）
+			instance.Recent3Avg_X_JockeyRecent_RankInRace = x["Recent3Avg_X_JockeyRecent_RankInRace"].Single();
+			instance.OikiriLap5Time_X_EvaluationScore_RankInRace = x["OikiriLap5Time_X_EvaluationScore_RankInRace"].Single();
+			instance.SpeedPowerScore_RankInRace = x["SpeedPowerScore_RankInRace"].Single();
 
 			return instance;
 		}
