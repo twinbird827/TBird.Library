@@ -111,10 +111,10 @@ namespace Netkeiba.Models
 		[LoadColumn(2)] public float LastRaceAdjustedScore { get; set; }
 		[LoadColumn(3)] public float AdjustedConsistency { get; set; }
 
-		public static string[] GetCondition1ItemNames() => new[]
+		public static string[] GetCondition1ItemNames() => new string[]
 		{
 			// nameof(CurrentDistanceAptitude),  // 重要度0.2478 削除（案9）
-			nameof(CurrentTrackTypeAptitude),
+			// nameof(CurrentTrackTypeAptitude),  // 重要度0.5716で削除（案22）
 			// nameof(CurrentTrackConditionAptitude),  // 重要度0.2414 削除（案8）
 		};
 
@@ -236,7 +236,7 @@ namespace Netkeiba.Models
 			nameof(AverageTukaInRace),
 			// nameof(TukaAdvantage),  // 重要度0.2949 削除（案12）
 			// nameof(LastRaceFinishPosition),  // 重要度0.1931 削除（案4）
-			nameof(Recent3AvgFinishPosition),
+			// nameof(Recent3AvgFinishPosition),  // 重要度0.5749で削除（案22）
 			// nameof(FinishPositionImprovement),  // 重要度0.1470 削除（案4）
 			nameof(CurrentGrade),
 			nameof(CurrentTrackCondition),
@@ -415,7 +415,7 @@ namespace Netkeiba.Models
 		public static string[] GetOikiriItemNames() => new[]
 		{
 			// 優先度S: 調教特徴量（最終追い切りデータ）
-			nameof(OikiriLap5Time),  // 最終ラップタイム
+			// nameof(OikiriLap5Time),  // 重要度0.5831で削除（案22、交互作用項で代替）
 			// nameof(OikiriLap3Time),  // 相関0.0174で削除（案20）
 			// nameof(OikiriEvaluationScore),  // 重要度0.1444で削除（案21、最下位）
 			// nameof(TokeiColorTotalCount),  // 重要度0.2908で削除（案21）
