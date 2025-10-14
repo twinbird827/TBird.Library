@@ -432,8 +432,8 @@ namespace Netkeiba.Models
 			// nameof(JockeyHorseConditionScore),  // 案13: 重要度0.9022だがRecent3AvgRankInRaceを消費するため削除
 			// nameof(SpeedAgeScore),  // 案14: 重要度0.2923で低いため削除（案14改）
 			nameof(BloodlineTrackScore),  // 案14: 血統信頼度×コース適性
-			nameof(PurchasePriceRank_X_OikiriQualityScore),  // 案23B: 血統価値×調教質
-			nameof(DamSireCondition_X_OikiriEvaluation),  // 案23B: 母父信頼度×調教結果
+			// nameof(PurchasePriceRank_X_OikiriQualityScore),  // 案23B→案24Aで削除（重要度0.6479、効果なし）
+			// nameof(DamSireCondition_X_OikiriEvaluation),  // 案23B→案24Aで削除（重要度0.6418、効果なし）
 		};
 
 		// 案6: 高度な派生特徴量
