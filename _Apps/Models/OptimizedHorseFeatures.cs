@@ -432,6 +432,8 @@ namespace Netkeiba.Models
 			// nameof(JockeyHorseConditionScore),  // 案13: 重要度0.9022だがRecent3AvgRankInRaceを消費するため削除
 			// nameof(SpeedAgeScore),  // 案14: 重要度0.2923で低いため削除（案14改）
 			nameof(BloodlineTrackScore),  // 案14: 血統信頼度×コース適性
+			nameof(PurchasePriceRank_X_OikiriQualityScore),  // 案23B: 血統価値×調教質
+			nameof(DamSireCondition_X_OikiriEvaluation),  // 案23B: 母父信頼度×調教結果
 		};
 
 		// 案6: 高度な派生特徴量
@@ -454,6 +456,10 @@ namespace Netkeiba.Models
 		[LoadColumn(119)] public float TokeiColorTotalCount { get; set; }  // TokeiColor総数（0-5）
 		[LoadColumn(120)] public float OikiriQualityScore { get; set; }  // 総合調教質スコア
 		[LoadColumn(121)] public float OikiriLap5Time_X_EvaluationScore { get; set; }  // 案20: Lap5Time × 評価
+
+		// 案23B: 血統×調教の交互作用項
+		[LoadColumn(122)] public float PurchasePriceRank_X_OikiriQualityScore { get; set; }  // 血統価値×調教質
+		[LoadColumn(123)] public float DamSireCondition_X_OikiriEvaluation { get; set; }  // 母父信頼度×調教結果
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -658,6 +664,10 @@ namespace Netkeiba.Models
 			instance.TokeiColorTotalCount = x.ContainsKey("TokeiColorTotalCount") ? x["TokeiColorTotalCount"].Single() : 0f;  // 案21で削除
 			instance.OikiriQualityScore = x["OikiriQualityScore"].Single();
 			instance.OikiriLap5Time_X_EvaluationScore = x["OikiriLap5Time_X_EvaluationScore"].Single();
+
+			// 案23B: 血統×調教の交互作用項
+			instance.PurchasePriceRank_X_OikiriQualityScore = x["PurchasePriceRank_X_OikiriQualityScore"].Single();
+			instance.DamSireCondition_X_OikiriEvaluation = x["DamSireCondition_X_OikiriEvaluation"].Single();
 
 			return instance;
 		}

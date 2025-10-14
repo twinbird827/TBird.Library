@@ -477,6 +477,10 @@ namespace Netkeiba.Models
 			// 案20: Lap5Time × EvaluationScore交互作用項（相関-0.2319）
 			features.OikiriLap5Time_X_EvaluationScore = Oikiri.Lap5Time * Oikiri.EvaluationScore;
 
+			// 案23B: 血統×調教の交互作用項
+			features.PurchasePriceRank_X_OikiriQualityScore = features.PurchasePriceRank * Oikiri.QualityScore;
+			features.DamSireCondition_X_OikiriEvaluation = features.DamSireCurrentConditionAvg * features.OikiriLap5Time_X_EvaluationScore;
+
 			return features;
 		}
 	}
