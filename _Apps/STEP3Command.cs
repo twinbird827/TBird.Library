@@ -61,8 +61,8 @@ namespace Netkeiba
 
 				RankingAsync(
 					"ALL",
-					conn.GetModelAsync(DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-6)),
-					conn.GetModelAsync(DateTime.Now.AddMonths(-6).AddDays(1), DateTime.Now)
+					conn.GetModelAsync(DateTime.Now.AddYears(-3), DateTime.Now.AddMonths(-2)),
+					conn.GetModelAsync(DateTime.Now.AddMonths(-2).AddDays(1), DateTime.Now)
 				);
 
 			}
