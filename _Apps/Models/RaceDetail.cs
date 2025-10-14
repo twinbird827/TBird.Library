@@ -469,10 +469,13 @@ namespace Netkeiba.Models
 
 			// === 調教特徴量（優先度S） ===
 			features.OikiriLap5Time = Oikiri.Lap5Time;
-			features.OikiriLap3Time = Oikiri.Lap3Time;
+			features.OikiriLap3Time = Oikiri.Lap3Time;  // 案20で削除（相関0.0174）
 			features.OikiriEvaluationScore = Oikiri.EvaluationScore;
 			features.TokeiColorTotalCount = Oikiri.TokeiColorTotalCount;
 			features.OikiriQualityScore = Oikiri.QualityScore;
+
+			// 案20: Lap5Time × EvaluationScore交互作用項（相関-0.2319）
+			features.OikiriLap5Time_X_EvaluationScore = Oikiri.Lap5Time * Oikiri.EvaluationScore;
 
 			return features;
 		}

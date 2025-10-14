@@ -416,10 +416,11 @@ namespace Netkeiba.Models
 		{
 			// 優先度S: 調教特徴量（最終追い切りデータ）
 			nameof(OikiriLap5Time),  // 最終ラップタイム
-			nameof(OikiriLap3Time),  // 3Fタイム
+			// nameof(OikiriLap3Time),  // 相関0.0174で削除（案20）
 			nameof(OikiriEvaluationScore),  // 評価スコア（A=4, B=3, C=2, D=1）
 			nameof(TokeiColorTotalCount),  // TokeiColor総数（0-5）
 			nameof(OikiriQualityScore),  // 総合調教質スコア
+			nameof(OikiriLap5Time_X_EvaluationScore),  // 案20: Lap5Time × 評価（相関-0.2319）
 		};
 
 		public static string[] GetAdvancedItemNames() => new[]
@@ -448,10 +449,11 @@ namespace Netkeiba.Models
 
 		// 優先度S: 調教特徴量（最終追い切りデータ）
 		[LoadColumn(116)] public float OikiriLap5Time { get; set; }  // 最終ラップタイム（欠損=0）
-		[LoadColumn(117)] public float OikiriLap3Time { get; set; }  // 3Fタイム（欠損=0）
+		[LoadColumn(117)] public float OikiriLap3Time { get; set; }  // 3Fタイム（欠損=0）- 案20で削除
 		[LoadColumn(118)] public float OikiriEvaluationScore { get; set; }  // 評価スコア（A=4, B=3, C=2, D=1, 欠損=2）
 		[LoadColumn(119)] public float TokeiColorTotalCount { get; set; }  // TokeiColor総数（0-5）
 		[LoadColumn(120)] public float OikiriQualityScore { get; set; }  // 総合調教質スコア
+		[LoadColumn(121)] public float OikiriLap5Time_X_EvaluationScore { get; set; }  // 案20: Lap5Time × 評価
 
 		// ラベル・グループ情報
 		[LoadColumn(65)] public uint Label { get; set; }
@@ -651,10 +653,11 @@ namespace Netkeiba.Models
 
 			// 調教特徴量
 			instance.OikiriLap5Time = x["OikiriLap5Time"].Single();
-			instance.OikiriLap3Time = x["OikiriLap3Time"].Single();
+			instance.OikiriLap3Time = x.ContainsKey("OikiriLap3Time") ? x["OikiriLap3Time"].Single() : 0f;  // 案20で削除
 			instance.OikiriEvaluationScore = x["OikiriEvaluationScore"].Single();
 			instance.TokeiColorTotalCount = x["TokeiColorTotalCount"].Single();
 			instance.OikiriQualityScore = x["OikiriQualityScore"].Single();
+			instance.OikiriLap5Time_X_EvaluationScore = x["OikiriLap5Time_X_EvaluationScore"].Single();
 
 			return instance;
 		}
