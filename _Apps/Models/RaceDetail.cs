@@ -601,7 +601,7 @@ namespace Netkeiba.Models
 					x.ConnectionReliabilityScore *
 					x.CurrentTrackTypeAptitude;
 
-				// === 案25: InRace系特徴量（フェーズ1） ===
+				// === 案25: InRace系特徴量（優先度S） ===
 				// 1. Recent3Avg_X_JockeyRecent のレース内ランク（降順: 大きいほど良い）
 				var recent3AvgJockeyValues = features.Select(f => f.Recent3Avg_X_JockeyRecent).ToArray();
 				x.Recent3Avg_X_JockeyRecent_RankInRace = CalculateRankDesc(x.Recent3Avg_X_JockeyRecent, recent3AvgJockeyValues);
@@ -613,6 +613,24 @@ namespace Netkeiba.Models
 				// 3. SpeedPowerScore のレース内ランク（降順: 大きいほど良い）
 				var speedPowerValues = features.Select(f => f.SpeedPowerScore).ToArray();
 				x.SpeedPowerScore_RankInRace = CalculateRankDesc(x.SpeedPowerScore, speedPowerValues);
+
+				// === 案25: InRace系特徴量（優先度A） ===
+				// 4. PurchasePriceRank のレース内ランク（降順: 大きいほど良い）
+				var purchasePriceValues = features.Select(f => f.PurchasePriceRank).ToArray();
+				x.PurchasePriceRank_RankInRace = CalculateRankDesc(x.PurchasePriceRank, purchasePriceValues);
+
+				// 5. AdjustedConsistency のレース内ランク（降順: 大きいほど良い）
+				var consistencyValues = features.Select(f => f.AdjustedConsistency).ToArray();
+				x.AdjustedConsistency_RankInRace = CalculateRankDesc(x.AdjustedConsistency, consistencyValues);
+
+				// === 案25: InRace系特徴量（優先度B） ===
+				// 6. BloodlineTrackScore のレース内ランク（降順: 大きいほど良い）
+				var bloodlineTrackValues = features.Select(f => f.BloodlineTrackScore).ToArray();
+				x.BloodlineTrackScore_RankInRace = CalculateRankDesc(x.BloodlineTrackScore, bloodlineTrackValues);
+
+				// 7. OverallConnectionQuality のレース内ランク（降順: 大きいほど良い）
+				var connectionQualityValues = features.Select(f => f.OverallConnectionQuality).ToArray();
+				x.OverallConnectionQuality_RankInRace = CalculateRankDesc(x.OverallConnectionQuality, connectionQualityValues);
 			});
 
 			return features;

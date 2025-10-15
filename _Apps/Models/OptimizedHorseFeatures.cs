@@ -349,10 +349,14 @@ namespace Netkeiba.Models
 			nameof(AgeRankInRace),
 			// nameof(RestDaysRankInRace),  // 重要度0.2499 削除（案9）
 			nameof(Recent3AvgRankInRace),
-			// 案25: InRace系特徴量追加（フェーズ1）
-			nameof(Recent3Avg_X_JockeyRecent_RankInRace),  // 馬の調子×騎手の調子の相対順位
-			nameof(OikiriLap5Time_X_EvaluationScore_RankInRace),  // 調教仕上がりの相対順位
-			nameof(SpeedPowerScore_RankInRace),  // 速さ×力強さの相対順位
+			// 案25で検証した結果、7個のInRace特徴量中1個のみ有効だったが、NDCG@1改善せず不採用
+			// nameof(Recent3Avg_X_JockeyRecent_RankInRace),  // 重要度0.8390（2位）だがNDCG@1=0.3086
+			// nameof(OikiriLap5Time_X_EvaluationScore_RankInRace),  // 重要度0.5461、生値0.6453より-15.4%
+			// nameof(SpeedPowerScore_RankInRace),  // 重要度0.4424、生値0.6726より-34.2%
+			// nameof(PurchasePriceRank_RankInRace),  // 重要度0.4537、生値0.5893より-23.0%
+			// nameof(AdjustedConsistency_RankInRace),  // 重要度0.5014、生値0.5697より-12.0%
+			// nameof(BloodlineTrackScore_RankInRace),  // 重要度0.4574、生値0.6008より-23.9%
+			// nameof(OverallConnectionQuality_RankInRace),  // 重要度0.4963、生値0.5451より-9.0%
 		};
 
 		// レース内ランク特徴量
@@ -362,10 +366,18 @@ namespace Netkeiba.Models
 		[LoadColumn(97)] public float RestDaysRankInRace { get; set; }
 		[LoadColumn(98)] public float Recent3AvgRankInRace { get; set; }
 
-		// 案25: InRace系特徴量（フェーズ1）
+		// 案25: InRace系特徴量（優先度S）
 		[LoadColumn(124)] public float Recent3Avg_X_JockeyRecent_RankInRace { get; set; }
 		[LoadColumn(125)] public float OikiriLap5Time_X_EvaluationScore_RankInRace { get; set; }
 		[LoadColumn(126)] public float SpeedPowerScore_RankInRace { get; set; }
+
+		// 案25: InRace系特徴量（優先度A）
+		[LoadColumn(127)] public float PurchasePriceRank_RankInRace { get; set; }
+		[LoadColumn(128)] public float AdjustedConsistency_RankInRace { get; set; }
+
+		// 案25: InRace系特徴量（優先度B）
+		[LoadColumn(129)] public float BloodlineTrackScore_RankInRace { get; set; }
+		[LoadColumn(130)] public float OverallConnectionQuality_RankInRace { get; set; }
 
 		public static string[] GetTrendItemNames() => new string[]
 		{
@@ -678,10 +690,18 @@ namespace Netkeiba.Models
 			instance.PurchasePriceRank_X_OikiriQualityScore = x.ContainsKey("PurchasePriceRank_X_OikiriQualityScore") ? x["PurchasePriceRank_X_OikiriQualityScore"].Single() : 0f;
 			instance.DamSireCondition_X_OikiriEvaluation = x.ContainsKey("DamSireCondition_X_OikiriEvaluation") ? x["DamSireCondition_X_OikiriEvaluation"].Single() : 0f;
 
-			// 案25: InRace系特徴量（フェーズ1）
+			// 案25: InRace系特徴量（優先度S）
 			instance.Recent3Avg_X_JockeyRecent_RankInRace = x["Recent3Avg_X_JockeyRecent_RankInRace"].Single();
 			instance.OikiriLap5Time_X_EvaluationScore_RankInRace = x["OikiriLap5Time_X_EvaluationScore_RankInRace"].Single();
 			instance.SpeedPowerScore_RankInRace = x["SpeedPowerScore_RankInRace"].Single();
+
+			// 案25: InRace系特徴量（優先度A）
+			instance.PurchasePriceRank_RankInRace = x["PurchasePriceRank_RankInRace"].Single();
+			instance.AdjustedConsistency_RankInRace = x["AdjustedConsistency_RankInRace"].Single();
+
+			// 案25: InRace系特徴量（優先度B）
+			instance.BloodlineTrackScore_RankInRace = x["BloodlineTrackScore_RankInRace"].Single();
+			instance.OverallConnectionQuality_RankInRace = x["OverallConnectionQuality_RankInRace"].Single();
 
 			return instance;
 		}
