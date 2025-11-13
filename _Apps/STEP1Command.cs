@@ -53,6 +53,7 @@ namespace Netkeiba
 				for (var i = 0; i < (int)Progress.Maximum; i++)
 				{
 					var dates = await sdate
+						.AddDays(sdate.Day * -1 + 1)
 						.AddMonths(i)
 						.Run(target => NetkeibaGetter.GetKaisaiDate(target.Year, target.Month));
 					foreach (var date in dates)

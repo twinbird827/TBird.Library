@@ -75,101 +75,7 @@
 					   Text="{Binding Progress.Ratio, StringFormat={}{0:P2}}" />
 		</StatusBar>
 
-		<GroupBox Header="STEP1: データ収集" DockPanel.Dock="Top">
-			<DockPanel>
-
-				<Button DockPanel.Dock="Right" Width="200" Content="実行" Command="{Binding S1EXEC}" />
-
-				<UniformGrid DockPanel.Dock="Left" Width="200" Rows="3">
-
-					<TextBlock Text="日時" />
-
-					<!--<TextBlock Text="開催場所" />-->
-
-					<TextBlock Text="上書き" />
-				</UniformGrid>
-
-				<UniformGrid Rows="3">
-
-					<StackPanel Orientation="Horizontal">
-
-						<TextBlock Text="開始" />
-
-						<TextBox Text="{Binding SYear, Converter={StaticResource Int2StringConverter}}" />
-
-						<TextBlock Text="終了" />
-
-						<TextBox Text="{Binding EYear, Converter={StaticResource Int2StringConverter}}" />
-					</StackPanel>
-
-					<!--<ItemsControl ItemsSource="{Binding Basyos}">
-						<ItemsControl.ItemsPanel>
-							<ItemsPanelTemplate>
-								<StackPanel Orientation="Horizontal" />
-							</ItemsPanelTemplate>
-						</ItemsControl.ItemsPanel>
-						<ItemsControl.ItemTemplate>
-							<DataTemplate>
-								<CheckBox Margin="3" Width="60" IsChecked="{Binding IsChecked}" Content="{Binding Display}" />
-							</DataTemplate>
-						</ItemsControl.ItemTemplate>
-					</ItemsControl>-->
-
-					<CheckBox IsChecked="{Binding S1Overwrite.IsChecked}" Content="上書きする" />
-				</UniformGrid>
-			</DockPanel>
-		</GroupBox>
-
-		<Grid DockPanel.Dock="Top">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="auto" />
-				<ColumnDefinition Width="auto" />
-				<ColumnDefinition Width="*" />
-			</Grid.ColumnDefinitions>
-
-			<GroupBox Grid.Column="0" Header="STEP2: 学習用データ作成">
-				<DockPanel>
-					<CheckBox DockPanel.Dock="Top" IsChecked="{Binding S2Overwrite.IsChecked}" Content="上書きする" />
-					<Button Width="200" Content="実行" Command="{Binding S2EXEC}" />
-				</DockPanel>
-			</GroupBox>
-
-			<GroupBox Grid.Column="1" Header="STEP3: 学習実行">
-				<DockPanel>
-					<TreeView ItemsSource="{Binding CreateModels}" DockPanel.Dock="Left" MaxHeight="150" Width="150" ScrollViewer.VerticalScrollBarVisibility="Visible">
-						<TreeView.ItemTemplate>
-							<HierarchicalDataTemplate ItemsSource="{Binding Children}">
-								<CheckBox IsChecked="{Binding Value.IsChecked}" Content="{Binding Value.Display}" />
-							</HierarchicalDataTemplate>
-						</TreeView.ItemTemplate>
-					</TreeView>
-
-					<DockPanel Width="200">
-						<Button DockPanel.Dock="Top" Content="全選択／解除" Command="{Binding S3EXECCHECK}" />
-						<Button DockPanel.Dock="Top" Content="モデル検証" Command="{Binding S3EXECPREDICT}" />
-						<Button Content="モデル作成" Command="{Binding S3EXEC}" />
-					</DockPanel>
-				</DockPanel>
-			</GroupBox>
-
-			<GroupBox Grid.Column="2" Header="STEP4: データ予測">
-				<DockPanel>
-					<DockPanel Width="200" DockPanel.Dock="Right">
-						<Button DockPanel.Dock="Top" Content="リスト更新" Command="{Binding S4UPDATELIST}" />
-						<ComboBox DockPanel.Dock="Top" ItemsSource="{Binding S4Dates.Items}" SelectedItem="{Binding S4Dates.SelectedItem}" />
-						<Button Content="実行" Command="{Binding S4EXEC}" />
-					</DockPanel>
-					<TextBox AcceptsReturn="True"
-							 TextWrapping="Wrap"
-							 VerticalAlignment="Stretch"
-							 ScrollViewer.VerticalScrollBarVisibility="Visible"
-                             MaxHeight="150"
-							 Text="{Binding S4Text}" />
-				</DockPanel>
-			</GroupBox>
-		</Grid>
-
-		<GroupBox Header="実行ログ">
+		<GroupBox Header="実行ログ" DockPanel.Dock="Bottom" Height="150">
 			<ListBox ItemsSource="{Binding Logs}"
 					 behavior:ListBoxBehavior.CopyToClipboard="True">
 				<ItemsControl.ItemsPanel>
@@ -186,6 +92,136 @@
 					</DataTemplate>
 				</ItemsControl.ItemTemplate>
 			</ListBox>
+		</GroupBox>
+
+		<Grid DockPanel.Dock="Left">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="200" />
+			</Grid.ColumnDefinitions>
+			<Grid.RowDefinitions>
+				<RowDefinition Height="auto" />
+				<RowDefinition Height="auto" />
+				<RowDefinition Height="auto" />
+			</Grid.RowDefinitions>
+
+			<GroupBox Header="STEP1: データ収集" Grid.Row="0">
+				<StackPanel Orientation="Vertical">
+
+					<TextBlock Text="開始" />
+
+					<TextBox Text="{Binding SYear, Converter={StaticResource Int2StringConverter}}" />
+
+					<TextBlock Text="終了" />
+
+					<TextBox Text="{Binding EYear, Converter={StaticResource Int2StringConverter}}" />
+
+					<CheckBox IsChecked="{Binding S1Overwrite.IsChecked}" Content="上書きする" />
+
+					<Button Content="実行" Command="{Binding S1EXEC}" />
+
+					<Button Content="データ補完" Command="{Binding S3EXECPREDICT}" />
+				</StackPanel>
+			</GroupBox>
+
+			<GroupBox Header="STEP2: 学習用データ作成" Grid.Row="1">
+				<StackPanel Orientation="Vertical">
+
+					<CheckBox IsChecked="{Binding S2Overwrite.IsChecked}" Content="上書きする" />
+
+					<Button Content="実行" Command="{Binding S2EXEC}" />
+				</StackPanel>
+			</GroupBox>
+
+			<GroupBox Header="STEP3: 学習実行" Grid.Row="2">
+				<StackPanel Orientation="Vertical">
+
+					<Button Content="モデル作成" Command="{Binding S3EXEC}" />
+				</StackPanel>
+			</GroupBox>
+		</Grid>
+
+		<GroupBox Header="STEP4: データ予測" DockPanel.Dock="Left">
+			<Grid DockPanel.Dock="Left">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="auto" />
+					<ColumnDefinition Width="200" />
+				</Grid.ColumnDefinitions>
+				<Grid.RowDefinitions>
+					<RowDefinition Height="auto" />
+					<RowDefinition Height="auto" />
+					<RowDefinition Height="*" />
+				</Grid.RowDefinitions>
+
+				<Button Grid.Row="0" Grid.Column="0"
+                    Content="{iconPacks:Material Kind=Update}"
+					Command="{Binding S4UPDATELIST}" />
+
+				<ComboBox Grid.Row="0" Grid.Column="1"
+					  ItemsSource="{Binding S4Dates.Items}"
+					  SelectedItem="{Binding S4Dates.SelectedItem}" />
+
+				<ItemsControl Grid.Row="1" Grid.ColumnSpan="2"
+						  ItemsSource="{Binding S4RoundHeader.Columns}">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<UniformGrid Columns="{Binding S4RoundHeader.ColumnCount}" />
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<Label Content="{Binding Display}" />
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+
+				<ItemsControl Grid.Row="2" Grid.ColumnSpan="2"
+							  ItemsSource="{Binding S4RoundItems}">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<StackPanel Orientation="Vertical" />
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<ItemsControl ItemsSource="{Binding Columns}">
+								<ItemsControl.ItemsPanel>
+									<ItemsPanelTemplate>
+										<UniformGrid Columns="{Binding ColumnCount}" />
+									</ItemsPanelTemplate>
+								</ItemsControl.ItemsPanel>
+								<ItemsControl.ItemTemplate>
+									<DataTemplate>
+										<RadioButton Content="{Binding Display}" IsChecked="{Binding IsChecked}" GroupName="S4Items" />
+									</DataTemplate>
+								</ItemsControl.ItemTemplate>
+							</ItemsControl>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</Grid>
+		</GroupBox>
+
+		<GroupBox Header="{Binding S4ResultHeader}">
+			<ListView ItemsSource="{Binding S4ResultItems}">
+				<ListView.View>
+					<GridView>
+						<GridViewColumn Header="枠番"
+										DisplayMemberBinding="{Binding Wakuban}" />
+						<GridViewColumn Header="馬番"
+										DisplayMemberBinding="{Binding Umaban}" />
+						<GridViewColumn Header="馬名"
+										DisplayMemberBinding="{Binding Name}" />
+						<GridViewColumn Header="着順"
+										DisplayMemberBinding="{Binding Result}" />
+						<GridViewColumn Header="予想"
+										DisplayMemberBinding="{Binding Rank}" />
+						<GridViewColumn Header="スコア"
+										DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
+						<GridViewColumn Header="自信"
+										DisplayMemberBinding="{Binding Confidence, StringFormat={}{0:N4}}" />
+					</GridView>
+				</ListView.View>
+			</ListView>
 		</GroupBox>
 	</DockPanel>
 </Controls:MetroWindow>

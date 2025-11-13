@@ -1,16 +1,20 @@
 ﻿using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using AngleSharp.Html.Parser;
 using Netkeiba.Models;
+using OpenQA.Selenium;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
+using TBird.Web;
 using TBird.Wpf;
 
 namespace Netkeiba
@@ -119,10 +123,10 @@ namespace Netkeiba
 				return await context.OpenAsync(url).RunAsync(x => ((x.DocumentElement as IHtmlDocument) ?? x as IHtmlDocument).NotNull());
 			}
 
+			//var selenium = await TBirdSeleniumFactory.CreateSelenium(1);
+
 			//if (login)
 			//{
-			//	var selenium = await TBirdSeleniumFactory.CreateSelenium(10);
-
 			//	selenium.SetInitialize(driver =>
 			//	{
 			//		selenium.GoToUrl(@"https://regist.netkeiba.com/account/?pid=login");
@@ -132,29 +136,30 @@ namespace Netkeiba
 			//		driver.FindElement(By.XPath(@"//input[@alt='ログイン']")).Click();
 			//	});
 
-			//	MainViewModel.AddLog($"req: {url}");
-			//	return await selenium.Execute(async driver =>
-			//	{
-			//		selenium.GoToUrl(url);
-
-			//		var res = driver.PageSource;
-
-			//		return await _parser.ParseDocumentAsync(res);
-			//	}).RunAsync(async x => await x);
 			//}
 			//else
 			//{
-			//	using (await Locker.LockAsync(_guid, _pararell))
-			//	{
-			//		MainViewModel.AddLog($"req: {url}");
+			//	//using (await Locker.LockAsync(_guid, _pararell))
+			//	//{
+			//	//	MainViewModel.AddLog($"req: {url}");
 
-			//		var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
+			//	//	var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
 
-			//		var doc = await _parser.ParseDocumentAsync(res);
+			//	//	var doc = await _parser.ParseDocumentAsync(res);
 
-			//		return doc;
-			//	}
+			//	//	return doc;
+			//	//}
 			//}
+
+			//MainViewModel.AddLog($"req: {url}");
+			//return await selenium.Execute(async driver =>
+			//{
+			//	selenium.GoToUrl(url);
+
+			//	var res = driver.PageSource;
+
+			//	return await _parser.ParseDocumentAsync(res);
+			//}).RunAsync(async x => await x);
 		}
 
 		private static string _guid = Guid.NewGuid().ToString();
@@ -165,9 +170,9 @@ namespace Netkeiba
 		private static IBrowsingContext? _guestcontext;
 		//      private static DateTime _guestsession = DateTime.Now.AddDays(-1);
 
-		//      private static HtmlParser _parser = new HtmlParser();
-		//private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
-		//private static Encoding _dstenc = Encoding.UTF8;
+		private static HtmlParser _parser = new HtmlParser();
+		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
+		private static Encoding _dstenc = Encoding.UTF8;
 
 		public static async Task<IEnumerable<string>> GetFileHeaders(string path, string sepa)
 		{

@@ -1,11 +1,14 @@
 ﻿using AngleSharp.Html.Dom;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
+using Tensorflow;
 
 namespace Netkeiba
 {
@@ -38,20 +41,43 @@ namespace Netkeiba
 			EYear = DateTime.Now.Year;
 			SYear = EYear;
 
+			S4RoundItems = S4RoundItemSources.ToBindableContextCollection();
+
+			S4ResultItems = S4ResultItemSources.ToBindableContextCollection();
+
 			S4Dates.AddOnPropertyChanged(this, async (sender, e) =>
 			{
 				if (string.IsNullOrWhiteSpace(S4Dates.SelectedItem.Value)) return;
 
-				S4Text = await NetkeibaGetter.GetCurrentRaceIds(DateTime.ParseExact(S4Dates.SelectedItem.Value, "yyyyMMdd", null)).RunAsync(arr =>
+				var basyos = new Dictionary<string, string>()
 				{
-					return arr
-						.Select(x => x.Left(10))
-						.Distinct()
-						.Select(x => $"https://race.netkeiba.com/race/shutuba.html?race_id={x}01");
-				}).RunAsync(arr =>
+					{ "01", "札幌" },
+					{ "02", "函館" },
+					{ "03", "福島" },
+					{ "04", "新潟" },
+					{ "05", "東京" },
+					{ "06", "中山" },
+					{ "07", "中京" },
+					{ "08", "京都" },
+					{ "09", "阪神" },
+					{ "10", "小倉" },
+				};
+
+				var arr = await NetkeibaGetter.GetCurrentRaceIds(DateTime.ParseExact(S4Dates.SelectedItem.Value, "yyyyMMdd", null));
+
+				S4RoundHeader.TryDispose();
+				S4RoundHeader = new UniformViewModel(arr.Select(x => x.Mid(4, 2)).Distinct().Select(x => new ComboboxItemModel(x, basyos[x])));
+
+				string GetBasyoRound(string basyo, int i) => arr.First(x => x.Mid(4, 2) == basyo && x.EndsWith(i.ToString(2)));
+
+				S4RoundItemSources.Clear();
+				foreach (var i in Enumerable.Range(1, 12))
 				{
-					return string.Join("\r\n", arr);
-				});
+					S4RoundItemSources.Add(new UniformViewModel<STEP4RoundItem>(S4RoundHeader.ColumnsSource
+						.Select(x => GetBasyoRound(x.Value, i))
+						.Select(x => new STEP4RoundItem(x))
+					));
+				}
 			});
 
 			AppSetting.Instance.Save();
@@ -136,6 +162,44 @@ namespace Netkeiba
 		public IRelayCommand S4UPDATELIST => new STEP4UpdateListCommand(this).CreateCommand();
 
 		public IRelayCommand S3EXECPREDICT => new STEP1OikiriCommad(this).CreateCommand();
+
+		public UniformViewModel S4RoundHeader
+		{
+			get => _S4RoundHeader;
+			set => SetProperty(ref _S4RoundHeader, value);
+		}
+		private UniformViewModel _S4RoundHeader;
+
+		public BindableCollection<UniformViewModel<STEP4RoundItem>> S4RoundItemSources { get; } = new BindableCollection<UniformViewModel<STEP4RoundItem>>();
+
+		public BindableContextCollection<UniformViewModel<STEP4RoundItem>> S4RoundItems { get; }
+
+		public string S4ResultHeader
+		{
+			get => _S4ResultHeader;
+			set => SetProperty(ref _S4ResultHeader, value);
+		}
+		private string _S4ResultHeader;
+
+		public static void SetS4ResultHeader(string message)
+		{
+			if (_this == null) return;
+
+			_this.S4ResultHeader = message;
+		}
+
+		public BindableCollection<STEP4ResultItem> S4ResultItemSources { get; } = new BindableCollection<STEP4ResultItem>();
+
+		public BindableContextCollection<STEP4ResultItem> S4ResultItems { get; }
+
+		public static void SetS4ResultItems(IEnumerable<STEP4ResultItem> items)
+		{
+			if (_this == null) return;
+
+			_this.S4ResultItemSources.Clear();
+			_this.S4ResultItemSources.AddRange(items);
+		}
+
 		//public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		//{
 		//	var raceparser = await AppUtil.GetDocument(false, "https://race.netkeiba.com/race/shutuba.html?race_id=202505040202");

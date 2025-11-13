@@ -16,6 +16,7 @@ namespace Netkeiba.Models
 			{
 				Race = race;
 				Oikiri = new Oikiri(x, this);
+				Wakuban = x.Get("枠番").Int32();
 				Umaban = x.Get("馬番").Int32();
 				Horse = x.Get("馬ID").Str();
 				Jockey = x.Get("騎手ID").Str();
@@ -37,10 +38,13 @@ namespace Netkeiba.Models
 					.Run(y => (object)y)
 					.Single() / (float)Race.NumberOfHorses;
 				Tuka = Math.Min(Tuka, 1.0F);
-				LastThreeFurlongs = x.Get("上り").Single();
+				LastThreeFurlongs = GetLastThreeFurlongs(x.Get("上り").Single());
 				Gender = x.Get("馬性").Str();
 				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
 				TimeIndex = x.Get("ﾀｲﾑ指数").Single();
+				RaceCount = x.Get("出走数").Int32();
+				AverageRating = x.Get("レーティング").Single();
+				LastRaceDate = x.Get("前回出走日").Date();
 			}
 			catch (Exception ex)
 			{
@@ -52,6 +56,7 @@ namespace Netkeiba.Models
 		public Race Race { get; }
 		public Oikiri Oikiri { get; }
 		public string RaceId => Race.RaceId;
+		public int Wakuban { get; }
 		public int Umaban { get; }
 		public string Horse { get; }
 		public string Jockey { get; }
@@ -70,6 +75,16 @@ namespace Netkeiba.Models
 		public float JockeyWeight { get; }
 		public float Tuka { get; }
 		public float LastThreeFurlongs { get; }
+
+		private float GetLastThreeFurlongs(float basevalue)
+		{
+			return Race.TrackType == TrackType.Grass
+				? basevalue * (0.94F + Race.Distance / 20000F)
+				: Race.TrackType == TrackType.Dirt
+				? basevalue * (1.01F + Race.Distance / 20000F)
+				: basevalue * (0.36F + Race.Distance * 1.5F / 100000F);
+		}
+
 		public string Gender { get; set; }
 		public float TimeIndex { get; }
 
@@ -89,23 +104,6 @@ namespace Netkeiba.Models
 		public DateTime LastRaceDate { get; private set; }
 
 		public float CalculateAdjustedInverseScore() => AdjustedPerformanceCalculator.CalculateAdjustedInverseScore(FinishPosition, Race);
-
-		public void Initialize(List<RaceDetail> horses)
-		{
-			RaceCount = horses.Count;
-
-			// タイム指数でAverageRatingを計算（より正確な能力評価）
-			AverageRating = AverageTimeIndex(horses, 5);
-
-			if (horses.Count == 0)
-			{
-				LastRaceDate = Race.RaceDate.AddMonths(-2);
-			}
-			else
-			{
-				LastRaceDate = horses.First().Race.RaceDate;
-			}
-		}
 
 		public OptimizedHorseFeaturesModel ExtractFeatures(
 				List<RaceDetail> horses, RaceDetail[] inRaces, List<RaceDetail> jockeys, List<RaceDetail> trainers, List<RaceDetail> sires, List<RaceDetail> damsires, List<RaceDetail> siredamsires, List<RaceDetail> breeders, List<RaceDetail> jockeytrainers
