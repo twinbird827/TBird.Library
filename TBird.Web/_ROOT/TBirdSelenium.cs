@@ -55,7 +55,7 @@ namespace TBird.Web
 				options.AddArgument("--headless");
 				options.AddArgument("--no-sandbox");
 				options.AddArgument("--window-position=-32000,-32000");
-				options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+				options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36");
 			}
 
 			return new ChromeDriver(service, options);
