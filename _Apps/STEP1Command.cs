@@ -8,8 +8,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
+using TBird.DB;
 using TBird.DB.SQLite;
 using Tensorflow.Keras.Layers;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Netkeiba
 {
@@ -39,12 +41,12 @@ namespace Netkeiba
 				await conn.CreateOrig();
 
 				// 欠落ﾃﾞｰﾀを除外
-				await conn.RemoveShortageMissingDatasAsync();
+				//await conn.RemoveShortageMissingDatasAsync();
 
 				await Task.Delay(1000);
 
 				var sdate = create ? new DateTime(VM.SYear, 1, 1) : await conn.GetLastMonth();
-				var edate = DateTime.Now.AddDays(-1);
+				var edate = DateTime.Now.AddDays(-4);
 
 				Progress.Value = 0;
 				Progress.Minimum = 0;
@@ -55,29 +57,48 @@ namespace Netkeiba
 					var dates = await sdate
 						.AddDays(sdate.Day * -1 + 1)
 						.AddMonths(i)
-						.Run(target => NetkeibaGetter.GetKaisaiDate(target.Year, target.Month));
+						.Run(target => NetkeibaGetter.GetKaisaiDate(target.Year, target.Month))
+						.RunAsync(dates => dates
+							.Select(x => DateTime.ParseExact(x, "yyyyMMdd", null))
+							.Where(x => x < edate)
+							.ToArray()
+						);
+
 					foreach (var date in dates)
 					{
-						var racebases = await NetkeibaGetter.GetRaceIds(DateTime.ParseExact(date, "yyyyMMdd", null));
+						var racebases = await NetkeibaGetter.GetRaceIds(date).RunAsync(x => x.ToArray());
 						var existsrace = false;
 						foreach (var racebase in racebases)
 						{
 							await conn.BeginTransaction();
-							await foreach (var racearr in GetSTEP1Racearrs(conn, racebase))
+							foreach (var racearr in await GetSTEP1Racearrs(conn, racebase).ToArrayAsync())
 							{
 								await conn.InsertOrigAsync(racearr);
-								await conn.InsertOikiriAsync(await NetkeibaGetter.GetOikiris(racebase));
+								await conn.InsertOikiriAsync(racebase);
 
 							}
 							conn.Commit();
 							AddLog($"completed racebase:{racebase}");
 
-							Progress.Value += 1D / racebases.Count();
+							Progress.Value += 1D / dates.Length / racebases.Length;
 							existsrace = true;
 						}
-						if (!existsrace) Progress.Value += 1;
+						if (!existsrace) Progress.Value += 1D / dates.Length;
 					}
 
+				}
+
+				foreach (var racebase in conn.GetRemoveShortageMissingDatas().ToBlockingEnumerable().ToArray())
+				{
+					await conn.BeginTransaction();
+					foreach (var racearr in await GetSTEP1Racearrs(conn, racebase).ToArrayAsync())
+					{
+						await conn.InsertOrigAsync(racearr);
+						await conn.InsertOikiriAsync(racebase);
+
+					}
+					conn.Commit();
+					AddLog($"completed racebase:{racebase}");
 				}
 			}
 		}
@@ -123,6 +144,18 @@ namespace Netkeiba
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE 着順 = ''");
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE 着順 = 0");
 				conn.Commit();
+			}
+		}
+
+		public static async IAsyncEnumerable<string> GetRemoveShortageMissingDatas(this SQLiteControl conn)
+		{
+			var sql = @$"
+SELECT DISTINCT ﾚｰｽID FROM t_orig_d WHERE 着順 IS NULL OR 着順 = '' OR 着順 = 0 OR 着順 = '0'
+";
+
+			foreach (var x in await conn.GetRows(sql))
+			{
+				yield return x["ﾚｰｽID"].Str();
 			}
 		}
 
@@ -230,24 +263,22 @@ namespace Netkeiba
 			}
 		}
 
-		public static async Task<bool> ExistsOrigAsync(this SQLiteControl conn, string raceid)
+		public static async Task InsertUmaInfoAsync(this SQLiteControl conn, string uma, string name)
 		{
-			var cnt = await conn.ExecuteScalarAsync(
-				"SELECT COUNT(*) FROM t_orig_h WHERE ﾚｰｽID = ?",
-				SQLiteUtil.CreateParameter(DbType.String, raceid)
-			).RunAsync(x => x.GetInt32());
-			return 0 < cnt;
-		}
-
-		private static async Task InsertUmaInfoAsync(this SQLiteControl conn, string uma, string name)
-		{
-			if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
+			try
 			{
-				var info = await NetkeibaGetter.GetUmaInfo(uma, name);
+				if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
+				{
+					var info = await NetkeibaGetter.GetUmaInfo(uma, name);
 
-				info["評価額"] = await conn.GetUmaValuation(info);
+					info["評価額"] = await conn.GetUmaValuation(info);
 
-				await conn.InsertAsync("t_uma", info);
+					await conn.InsertAsync("t_uma", info);
+				}
+			}
+			catch (Exception ex)
+			{
+				throw;
 			}
 		}
 

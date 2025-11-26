@@ -42,13 +42,25 @@ namespace Netkeiba
 			await conn.ExecuteNonQueryAsync(sql, prm);
 		}
 
+		private static async Task<bool> Exists(this SQLiteControl conn, string tablename, string columnname, object value)
+		{
+			var sql = $@"SELECT COUNT(*) FROM {tablename} WHERE {columnname} = ?";
+			var cnt = await conn.ExecuteScalarAsync(sql, SQLiteUtil.CreateParameter(DbType.Object, value));
+			return cnt.Int32() > 0;
+		}
+
+		public static Task<bool> ExistsOrigAsync(this SQLiteControl conn, string raceid)
+		{
+			return conn.Exists("t_orig_h", "ﾚｰｽID", raceid);
+		}
+
 		public class Column
 		{
 			public string GetColumn() => $"{Name} {Type}";
 
-			public string Name { get; set; }
+			public required string Name { get; set; }
 
-			public string Type { get; set; }
+			public required string Type { get; set; }
 
 			public bool IsKey { get; set; }
 		}

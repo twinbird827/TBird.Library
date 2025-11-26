@@ -15,8 +15,6 @@ namespace Netkeiba
 			if (!Load())
 			{
 				TrainingTimeSecond = [1800, 2000, 2200];
-				BinaryClassificationResults = [];
-				RegressionResults = [];
 				RankingTrains = [];
 				NetkeibaResult = "result";
 
@@ -119,19 +117,6 @@ namespace Netkeiba
 		}
 		private uint _TrainingCount = 3;
 
-		public BinaryClassificationResult[] BinaryClassificationResults
-		{
-			get => GetProperty(_BinaryClassificationResults);
-			set => SetProperty(ref _BinaryClassificationResults, value);
-		}
-		public BinaryClassificationResult[] _BinaryClassificationResults = [];
-
-		public void UpdateBinaryClassificationResults(BinaryClassificationResult now)
-		{
-			BinaryClassificationResults = BinaryClassificationResults.Concat(Arr(now)).ToArray();
-			Save();
-		}
-
 		//public BinaryClassificationResult GetBinaryClassificationResult(int skip, bool left, string rank)
 		//{
 		//    return BinaryClassificationResults
@@ -143,71 +128,6 @@ namespace Netkeiba
 		//    //	return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? BinaryClassificationResult.Default;
 		//    //});
 		//}
-
-		public IEnumerable<BinaryClassificationResult> GetBinaryClassificationResults(string index, string rank)
-		{
-			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank);
-		}
-
-		public BinaryClassificationResult GetBinaryClassificationResult(string index, string rank)
-		{
-			return BinaryClassificationResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
-			{
-				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? BinaryClassificationResult.Default;
-			});
-		}
-
-		public RankingResult[] RankingResults
-		{
-			get => GetProperty(_RankingResults);
-			set => SetProperty(ref _RankingResults, value);
-		}
-		public RankingResult[] _RankingResults = new RankingResult[] { };
-
-		public void UpdateRankingResults(RankingResult now)
-		{
-			RankingResults = RankingResults.Concat(Arr(now)).ToArray();
-			Save();
-		}
-
-		public IEnumerable<RankingResult> GetRankingResults(string index, string rank)
-		{
-			return RankingResults.Where(x => x.Index == index && x.Rank == rank);
-		}
-
-		public RankingResult GetRankingResult(string index, string rank)
-		{
-			return GetRankingResults(index, rank).Run(arr =>
-			{
-				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? RankingResult.Default;
-			});
-		}
-
-		public RegressionResult[] RegressionResults
-		{
-			get => GetProperty(_RegressionResults);
-			set => SetProperty(ref _RegressionResults, value);
-		}
-		public RegressionResult[] _RegressionResults = [];
-
-		public void UpdateRegressionResults(RegressionResult now)
-		{
-			RegressionResults = RegressionResults.Concat(Arr(now)).ToArray();
-			Save();
-		}
-
-		public IEnumerable<RegressionResult> GetRegressionResults(string index, string rank)
-		{
-			return RegressionResults.Where(x => x.Index == index && x.Rank == rank);
-		}
-
-		public RegressionResult GetRegressionResult(string index, string rank)
-		{
-			return RegressionResults.Where(x => x.Index == index && x.Rank == rank).Run(arr =>
-			{
-				return arr.FirstOrDefault(x => x.GetScore() == arr.Max(y => y.GetScore())) ?? RegressionResult.Default;
-			});
-		}
 
 		public string[] Correls
 		{

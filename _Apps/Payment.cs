@@ -20,20 +20,6 @@ namespace Netkeiba
 
 		public const int OrderByDescendingScoreIndex = 7;
 
-		public static List<object> GetPredictionBase<TSrc, TDst>(Dictionary<string, object> m, PredictionFactory<TSrc, TDst>[] facs) where TSrc : PredictionSource, new() where TDst : ModelPrediction, new()
-		{
-			return new List<object>()
-			{
-				facs.Select(fac => fac.Predict((byte[])m["Features"], m["ﾚｰｽID"].GetInt64())).Average(),
-				m["着順"],
-				m["単勝"],
-				string.Empty,
-				string.Empty,
-				string.Empty,
-				m["馬番"],
-			};
-		}
-
 		public static void AddOrderByDescendingScoreIndex(List<List<object>> racs)
 		{
 			var n = 1;

@@ -28,14 +28,14 @@ namespace Netkeiba
 			get => _Name;
 			set => SetProperty(ref _Name, value);
 		}
-		private string _Name;
+		private string _Name = string.Empty;
 
 		public string Result
 		{
 			get => _Result;
 			set => SetProperty(ref _Result, value);
 		}
-		private string _Result;
+		private string _Result = string.Empty;
 
 		public int Rank
 		{

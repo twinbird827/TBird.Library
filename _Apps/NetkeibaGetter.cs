@@ -579,6 +579,11 @@ namespace Netkeiba
 					dic["セリ取引価格"] = string.Empty;
 					dic["募集情報"] = string.Empty;
 
+					if (string.IsNullOrEmpty(name))
+					{
+						dic["馬名"] = ped.GetElementsByClassName("horse_title").First().GetElementsByTagName("h1").First().GetInnerHtml();
+					}
+
 					var classnames = Arr("db_prof_table ", "db_prof_table no_OwnerUnit");
 					var isget = false;
 					foreach (var classname in classnames)
@@ -597,7 +602,7 @@ namespace Netkeiba
 								switch (r.Cells[0].GetInnerHtml())
 								{
 									case "生年月日":
-										dic["生年月日"] = r.Cells[1].GetInnerHtml().Date().ToString("yyyy/MM/dd");
+										dic["生年月日"] = r.Cells[1].GetInnerHtml().Run(x => x.Contains("月") ? x : $"{x}06月15日").Date().ToString("yyyy/MM/dd");
 										break;
 									case "調教師":
 										dic["調教師ID"] = GetId(r);

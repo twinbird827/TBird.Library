@@ -18,25 +18,7 @@ namespace Netkeiba
 		{
 			_this = this;
 
-			Basyos = BasyoSources.ToBindableContextCollection();
-
 			Logs = LogSource.ToBindableContextCollection();
-
-			BasyoSources.Add(new CheckboxItemModel("01", "札幌"));
-			BasyoSources.Add(new CheckboxItemModel("02", "函館"));
-			BasyoSources.Add(new CheckboxItemModel("03", "福島"));
-			BasyoSources.Add(new CheckboxItemModel("04", "新潟"));
-			BasyoSources.Add(new CheckboxItemModel("05", "東京"));
-			BasyoSources.Add(new CheckboxItemModel("06", "中山"));
-			BasyoSources.Add(new CheckboxItemModel("07", "中京"));
-			BasyoSources.Add(new CheckboxItemModel("08", "京都"));
-			BasyoSources.Add(new CheckboxItemModel("09", "阪神"));
-			BasyoSources.Add(new CheckboxItemModel("10", "小倉"));
-			BasyoSources.ForEach(x => x.IsChecked = true);
-
-			CreateModels = CreateModelSources.ToBindableContextCollection();
-
-			CreateModelSources.AddRange(AppUtil.ﾗﾝｸ2Arr.Select(rank => new TreeCheckboxViewModel(new CheckboxItemModel(rank, rank))));
 
 			EYear = DateTime.Now.Year;
 			SYear = EYear;
@@ -111,13 +93,9 @@ namespace Netkeiba
 			}
 		});
 
-		public BindableCollection<ComboboxItemModel> LogSource { get; } = new BindableCollection<ComboboxItemModel>();
+		public BindableCollection<ComboboxItemModel> LogSource { get; } = [];
 
 		public BindableContextCollection<ComboboxItemModel> Logs { get; }
-
-		public BindableCollection<CheckboxItemModel> BasyoSources { get; } = new BindableCollection<CheckboxItemModel>();
-
-		public BindableContextCollection<CheckboxItemModel> Basyos { get; }
 
 		public int SYear
 		{
@@ -168,7 +146,7 @@ namespace Netkeiba
 			get => _S4RoundHeader;
 			set => SetProperty(ref _S4RoundHeader, value);
 		}
-		private UniformViewModel _S4RoundHeader;
+		private UniformViewModel _S4RoundHeader = new UniformViewModel(Enumerable.Empty<ComboboxItemModel>());
 
 		public BindableCollection<UniformViewModel<STEP4RoundItem>> S4RoundItemSources { get; } = new BindableCollection<UniformViewModel<STEP4RoundItem>>();
 
@@ -179,7 +157,7 @@ namespace Netkeiba
 			get => _S4ResultHeader;
 			set => SetProperty(ref _S4ResultHeader, value);
 		}
-		private string _S4ResultHeader;
+		private string _S4ResultHeader = string.Empty;
 
 		public static void SetS4ResultHeader(string message)
 		{
@@ -188,7 +166,7 @@ namespace Netkeiba
 			_this.S4ResultHeader = message;
 		}
 
-		public BindableCollection<STEP4ResultItem> S4ResultItemSources { get; } = new BindableCollection<STEP4ResultItem>();
+		public BindableCollection<STEP4ResultItem> S4ResultItemSources { get; } = [];
 
 		public BindableContextCollection<STEP4ResultItem> S4ResultItems { get; }
 

@@ -55,10 +55,10 @@ namespace Netkeiba
 				// 該当ﾚｰｽの出馬表を取得する
 				AddLog($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
 				await conn.BeginTransaction();
-				await foreach (var racearr in GetSTEP4Racearrs(conn, raceid))
+				foreach (var racearr in await GetSTEP4Racearrs(conn, raceid).ToArrayAsync())
 				{
 					await conn.InsertShutsubaAsync(racearr);
-					await conn.InsertOikiriAsync(await NetkeibaGetter.GetOikiris(raceid));
+					await conn.InsertOikiriAsync(raceid);
 					getShutsuba = true;
 					AddLog($"ﾚｰｽID：{raceid} の出馬表データが取得できました。");
 				}
@@ -69,7 +69,7 @@ namespace Netkeiba
 
 				// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
 				AddLog($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
-				await foreach (var race in conn.GetShutsubaRaceAsync(raceid))
+				foreach (var race in await conn.GetShutsubaRaceAsync(raceid).ToArrayAsync())
 				{
 					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
@@ -98,6 +98,9 @@ namespace Netkeiba
 
 						await tasks.WhenAll();
 					}
+
+					// 過去ﾃﾞｰﾀ設定
+					details.ForEach(x => x.SetHistoricalData(_Horses.Get(x.Horse, new List<RaceDetail>())));
 
 					AddLog($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 

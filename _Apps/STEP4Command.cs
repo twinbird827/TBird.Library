@@ -49,10 +49,10 @@ namespace Netkeiba
 				foreach (var raceid in racebases)
 				{
 					await conn.BeginTransaction();
-					await foreach (var racearr in GetSTEP4Racearrs(conn, raceid))
+					foreach (var racearr in await GetSTEP4Racearrs(conn, raceid).ToArrayAsync())
 					{
 						await conn.InsertShutsubaAsync(racearr);
-						await conn.InsertOikiriAsync(await NetkeibaGetter.GetOikiris(raceid));
+						await conn.InsertOikiriAsync(raceid);
 						getShutsuba = true;
 					}
 					conn.Commit();
@@ -62,7 +62,7 @@ namespace Netkeiba
 				var mo = LoadModel(ml);
 
 				// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
-				await foreach (var race in conn.GetShutsubaRaceAsync(racebases))
+				foreach (var race in await conn.GetShutsubaRaceAsync(racebases).ToArrayAsync())
 				{
 					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
@@ -79,6 +79,9 @@ namespace Netkeiba
 						if (!_SireDamSires.ContainsKey(x.SireDamSire)) _SireDamSires[x.SireDamSire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.父ID", x.Sire), ("u.母父ID", x.DamSire));
 						if (!_JockeyTrainers.ContainsKey(x.JockeyTrainer)) _JockeyTrainers[x.JockeyTrainer] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("d.騎手ID", x.Jockey), ("d.調教師ID", x.Trainer));
 					}
+
+					// 過去ﾃﾞｰﾀ設定
+					details.ForEach(x => x.SetHistoricalData(_Horses.Get(x.Horse, new List<RaceDetail>())));
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MathNet.Numerics.Statistics;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -42,9 +43,9 @@ namespace Netkeiba.Models
 				Gender = x.Get("馬性").Str();
 				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
 				TimeIndex = x.Get("ﾀｲﾑ指数").Single();
-				RaceCount = x.Get("出走数").Int32();
-				AverageRating = x.Get("レーティング").Single();
-				LastRaceDate = x.Get("前回出走日").Date();
+				//RaceCount = x.Get("出走数").Int32();
+				//AverageRating = x.Get("レーティング").Single();
+				//LastRaceDate = x.Get("前回出走日").Date();
 			}
 			catch (Exception ex)
 			{
@@ -104,6 +105,13 @@ namespace Netkeiba.Models
 		public DateTime LastRaceDate { get; private set; }
 
 		public float CalculateAdjustedInverseScore() => AdjustedPerformanceCalculator.CalculateAdjustedInverseScore(FinishPosition, Race);
+
+		public void SetHistoricalData(List<RaceDetail> horses)
+		{
+			RaceCount = horses.Count;
+			AverageRating = horses.Median(x => x.TimeIndex, 60F);
+			LastRaceDate = horses.MaxOrDefault(x => x.Race.RaceDate, Race.RaceDate.AddDays(60));
+		}
 
 		public OptimizedHorseFeaturesModel ExtractFeatures(
 				List<RaceDetail> horses, RaceDetail[] inRaces, List<RaceDetail> jockeys, List<RaceDetail> trainers, List<RaceDetail> sires, List<RaceDetail> damsires, List<RaceDetail> siredamsires, List<RaceDetail> breeders, List<RaceDetail> jockeytrainers

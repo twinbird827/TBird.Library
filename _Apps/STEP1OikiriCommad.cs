@@ -24,10 +24,17 @@ namespace Netkeiba
 			{
 				await conn.CreateOikiri();
 
-				await foreach (var raceid in conn.GetOikiriTargets())
+				foreach (var raceid in await conn.GetOikiriTargets().ToArrayAsync())
 				{
 					await conn.BeginTransaction();
-					await conn.InsertOikiriAsync(await NetkeibaGetter.GetOikiris(raceid));
+					await conn.InsertOikiriAsync(raceid);
+					conn.Commit();
+				}
+
+				foreach (var uma in await conn.GetUmaTargets().ToArrayAsync())
+				{
+					await conn.BeginTransaction();
+					await conn.InsertUmaInfoAsync(uma, string.Empty);
 					conn.Commit();
 				}
 			}
@@ -55,7 +62,7 @@ namespace Netkeiba
 		public static async IAsyncEnumerable<string> GetOikiriTargets(this SQLiteControl conn)
 		{
 			var sql = @$"
-SELECT ﾚｰｽID FROM t_orig_h WHERE 開催日 > IFNULL((SELECT 開催日 FROM t_orig_h WHERE ﾚｰｽID = (SELECT MAX(ﾚｰｽID) FROM t_oikiri)), '1900/01/01') ORDER BY 開催日 ASC, ﾚｰｽID ASC
+SELECT ﾚｰｽID FROM t_orig_h WHERE ﾚｰｽID NOT IN (SELECT ﾚｰｽID FROM t_oikiri)
 ";
 
 			foreach (var x in await conn.GetRows(sql))
@@ -64,11 +71,27 @@ SELECT ﾚｰｽID FROM t_orig_h WHERE 開催日 > IFNULL((SELECT 開催日 FROM
 			}
 		}
 
-		public static async Task InsertOikiriAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
+		public static async Task InsertOikiriAsync(this SQLiteControl conn, string raceid)
 		{
-			foreach (var x in racearr)
+			if (!await conn.Exists("t_oikiri", "ﾚｰｽID", raceid))
 			{
-				await conn.InsertAsync("t_oikiri", x);
+				var racearr = await NetkeibaGetter.GetOikiris(raceid);
+				foreach (var x in racearr)
+				{
+					await conn.InsertAsync("t_oikiri", x);
+				}
+			}
+		}
+
+		public static async IAsyncEnumerable<string> GetUmaTargets(this SQLiteControl conn)
+		{
+			var sql = @$"
+SELECT DISTINCT 馬ID FROM (SELECT 父ID 馬ID FROM t_uma UNION ALL SELECT 母父ID 馬ID FROM t_uma) WHERE 馬ID NOT IN (SELECT 馬ID FROM t_uma) AND 馬ID <> '' AND 馬ID IS NOT NULL ORDER BY 馬ID
+";
+
+			foreach (var x in await conn.GetRows(sql))
+			{
+				yield return x["馬ID"].Str();
 			}
 		}
 
