@@ -9,6 +9,11 @@ namespace Netkeiba
 {
 	public static class NumericExtensions
 	{
+		public static float Median(this IEnumerable<float> arr, float def)
+		{
+			return arr.Any() ? arr.Median() : def;
+		}
+
 		public static float Median<T>(this IEnumerable<T> arr, Func<T, float> func, float def)
 		{
 			return arr.Any() ? arr.Select(func).Median() : def;

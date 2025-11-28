@@ -19,14 +19,7 @@ namespace Netkeiba
 {
 	public class STEP4Command : STEPBase
 	{
-		private Dictionary<string, List<RaceDetail>> _Horses = new();
-		private Dictionary<string, List<RaceDetail>> _Jockeys = new();
-		private Dictionary<string, List<RaceDetail>> _Trainers = new();
-		private Dictionary<string, List<RaceDetail>> _Sires = new();
-		private Dictionary<string, List<RaceDetail>> _DamSires = new();
-		private Dictionary<string, List<RaceDetail>> _SireDamSires = new();
-		private Dictionary<string, List<RaceDetail>> _Breeders = new();
-		private Dictionary<string, List<RaceDetail>> _JockeyTrainers = new();
+		private PreviousDataSets _PDS = new();
 
 		public STEP4Command(MainViewModel vm) : base(vm)
 		{
@@ -70,18 +63,11 @@ namespace Netkeiba
 					// 関連情報を取得する
 					foreach (var x in details)
 					{
-						if (!_Horses.ContainsKey(x.Horse)) _Horses[x.Horse] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("d.馬ID", x.Horse));
-						if (!_Jockeys.ContainsKey(x.Jockey)) _Jockeys[x.Jockey] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("d.騎手ID", x.Jockey));
-						if (!_Trainers.ContainsKey(x.Trainer)) _Trainers[x.Trainer] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("d.調教師ID", x.Trainer));
-						if (!_Breeders.ContainsKey(x.Breeder)) _Breeders[x.Breeder] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.生産者ID", x.Breeder));
-						if (!_Sires.ContainsKey(x.Sire)) _Sires[x.Sire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.父ID", x.Sire));
-						if (!_DamSires.ContainsKey(x.DamSire)) _DamSires[x.DamSire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.母父ID", x.DamSire));
-						if (!_SireDamSires.ContainsKey(x.SireDamSire)) _SireDamSires[x.SireDamSire] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("u.父ID", x.Sire), ("u.母父ID", x.DamSire));
-						if (!_JockeyTrainers.ContainsKey(x.JockeyTrainer)) _JockeyTrainers[x.JockeyTrainer] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, ("d.騎手ID", x.Jockey), ("d.調教師ID", x.Trainer));
+						await _PDS.AddConnection(conn, x);
 					}
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(_Horses.Get(x.Horse, new List<RaceDetail>())));
+					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x)));
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
@@ -89,17 +75,7 @@ namespace Netkeiba
 					// 特徴量を生成
 					var features = details.Select(x =>
 					{
-						var value = x.ExtractFeatures(
-							_Horses.Get(x.Horse, new List<RaceDetail>()),
-							details,
-							_Jockeys.Get(x.Jockey, new List<RaceDetail>()),
-							_Trainers.Get(x.Trainer, new List<RaceDetail>()),
-							_Breeders.Get(x.Breeder, new List<RaceDetail>()),
-							_Sires.Get(x.Sire, new List<RaceDetail>()),
-							_DamSires.Get(x.DamSire, new List<RaceDetail>()),
-							_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>()),
-							_JockeyTrainers.Get(x.JockeyTrainer, new List<RaceDetail>())
-						);
+						var value = x.ExtractFeatures(_PDS, details);
 
 						// ラベル生成（難易度調整済み着順スコア）
 						value.Label = 0;

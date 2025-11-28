@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
 using Tensorflow;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ListView;
 
 namespace Netkeiba.Models
 {
@@ -79,6 +80,7 @@ namespace Netkeiba.Models
 
 		private float GetLastThreeFurlongs(float basevalue)
 		{
+			//return basevalue;
 			return Race.TrackType == TrackType.Grass
 				? basevalue * (0.94F + Race.Distance / 20000F)
 				: Race.TrackType == TrackType.Dirt
@@ -90,10 +92,10 @@ namespace Netkeiba.Models
 		public float TimeIndex { get; }
 
 		private float AverageTimeIndex(IEnumerable<RaceDetail> horses, int take) => horses
-				.Select(x => x.TimeIndex < 40 ? 60F : x.TimeIndex) // 40未満は異常値として除外（全体の5%）
 				.Take(take)
-				.DefaultIfEmpty(60f) // デフォルトは新馬・未勝利平均の60
-				.Average();
+				// 40未満は異常値として除外（全体の5%）
+				// デフォルトは新馬・未勝利平均の60
+				.Median(x => x.TimeIndex < 40 ? 60F : x.TimeIndex, 60F);
 
 		/// <summary>
 		/// 斤量で補正したタイム（基準斤量55kg、1kgあたり0.2秒）
@@ -113,23 +115,32 @@ namespace Netkeiba.Models
 			LastRaceDate = horses.MaxOrDefault(x => x.Race.RaceDate, Race.RaceDate.AddDays(60));
 		}
 
-		public OptimizedHorseFeaturesModel ExtractFeatures(
-				List<RaceDetail> horses, RaceDetail[] inRaces, List<RaceDetail> jockeys, List<RaceDetail> trainers, List<RaceDetail> sires, List<RaceDetail> damsires, List<RaceDetail> siredamsires, List<RaceDetail> breeders, List<RaceDetail> jockeytrainers
-			)
+		public OptimizedHorseFeaturesModel ExtractFeatures(PreviousDataSets pds, RaceDetail[] inraces)
 		{
-			float GetStandardTime(int distance)
+			var horses = pds.GetHorses(this);
+			var jockeys = pds.GetJockeys(this);
+			var trainers = pds.GetTrainers(this);
+			var breeders = pds.GetBreeders(this);
+			var sires = pds.GetSires(this);
+			var damsires = pds.GetDamSires(this);
+			var siredamsires = pds.GetSireDamSires(this);
+			var jockeytrainers = pds.GetJockeyTrainers(this);
+			var trackdistances = pds.GetTrackDistances(this);
+
+			float GetStandardTime(RaceDetail detail)
 			{
-				return distance switch
-				{
-					1000 => 58.5f,
-					1200 => 70.5f,
-					1400 => 83.2f,
-					1600 => 95.1f,
-					1800 => 109.8f,
-					2000 => 123.2f,
-					2400 => 148.5f,
-					_ => distance * 0.061f // 概算
-				};
+				return pds.GetTrackDistances(this).Median(x => x.AdjustedTime, detail.Race.Distance * 0.061F);
+				//return distance switch
+				//{
+				//	1000 => 58.5f,
+				//	1200 => 70.5f,
+				//	1400 => 83.2f,
+				//	1600 => 95.1f,
+				//	1800 => 109.8f,
+				//	2000 => 123.2f,
+				//	2400 => 148.5f,
+				//	_ => distance * 0.061f // 概算
+				//};
 			}
 
 			float CalculateDistanceChangeAdaptation()
@@ -155,8 +166,8 @@ namespace Netkeiba.Models
 
 				// 簡易タイム偏差値計算（斤量補正済み）
 				var times = sameDistanceRaces.Select(r => r.AdjustedTime);
-				var avgTime = times.Average();
-				var standardTime = GetStandardTime(distance);
+				var avgTime = times.Median();
+				var standardTime = GetStandardTime(this);
 				return (standardTime - avgTime) / 2.0f + 50.0f; // 偏差値化
 			}
 
@@ -164,14 +175,14 @@ namespace Netkeiba.Models
 			{
 				if (!horses.Any()) return 0;
 				var lastRace = horses.First();
-				var standardTime = GetStandardTime(lastRace.Race.Distance);
+				var standardTime = GetStandardTime(lastRace);
 				return standardTime - lastRace.AdjustedTime;
 			}
 
 			float CalculateTimeConsistency()
 			{
 				if (horses.Count < 2) return 1.0f;
-				var timeDeviations = horses.Take(5).Select(r => GetStandardTime(r.Race.Distance) - r.AdjustedTime);
+				var timeDeviations = horses.Take(5).Select(r => GetStandardTime(r) - r.AdjustedTime);
 				var stdDev = AppUtil.CalculateStandardDeviation(timeDeviations.ToArray());
 				return 1.0f / (stdDev + 1.0f);
 			}
@@ -189,13 +200,13 @@ namespace Netkeiba.Models
 			var adjustedMetrics = AdjustedPerformanceCalculator.CalculateAdjustedPerformance(Race, this, horses);
 			var connectionMetrics = ConnectionAnalyzer.AnalyzeConnections(Race, jockeys, trainers, breeders, sires, damsires, siredamsires, jockeytrainers);
 			var conditionMetrics = ConditionAptitudeCalculator.CalculateConditionMetrics(horses, Race);
-			var lastThreeFurlongsMetrics = LastThreeFurlongsAnalyzer.AnalyzeLastThreeFurlongs(this, horses);
-			var jockeyWeightMetrics = JockeyWeightAnalyzer.AnalyzeJockeyWeight(this, horses, inRaces);
+			var lastThreeFurlongsMetrics = LastThreeFurlongsAnalyzer.AnalyzeLastThreeFurlongs(horses, pds);
+			var jockeyWeightMetrics = JockeyWeightAnalyzer.AnalyzeJockeyWeight(this, horses, inraces);
 			var finishPositionMetrics = FinishPositionAnalyzer.AnalyzeFinishPosition(horses, Race);
 			var tukaMetrics = TukaAnalyzer.AnalyzeTuka(horses, sires, damsires, siredamsires);
 
 			// 購入価格ランク（全レースで有効）
-			var avgPurchasePriceInRace = inRaces.Select(r => r.PurchasePrice).DefaultIfEmpty(PurchasePrice).Average();
+			var avgPurchasePriceInRace = inraces.Median(r => r.PurchasePrice, PurchasePrice);
 
 			// クラス昇級判定
 			float CalculateClassUpChallenge()
@@ -210,9 +221,7 @@ namespace Netkeiba.Models
 			{
 				if (!horses.Any()) return 0f;
 				var past3AvgGrade = horses.Take(3)
-					.Select(h => h.Race.Grade.GetGradeFeatures())
-					.DefaultIfEmpty(Race.Grade.GetGradeFeatures())
-					.Average();
+					.Median(h => h.Race.Grade.GetGradeFeatures(), Race.Grade.GetGradeFeatures());
 				var currentGrade = Race.Grade.GetGradeFeatures();
 				return past3AvgGrade - currentGrade;
 			}
@@ -343,7 +352,7 @@ namespace Netkeiba.Models
 			// 新馬専用成績と通常成績を加重平均で組み合わせ (新馬専用70% + 通常30%)
 			float GravityCalculate(float newhorse, float regular) => newhorse * 0.7F + regular * 0.3F;
 
-			var newHorseMetrics = MaidenRaceAnalyzer.AnalyzeNewHorse(this, inRaces, horses, jockeys, trainers, breeders, sires, damsires);
+			var newHorseMetrics = MaidenRaceAnalyzer.AnalyzeNewHorse(this, inraces, horses, jockeys, trainers, breeders, sires, damsires);
 
 			features.TrainerNewHorseInverse = GravityCalculate(newHorseMetrics.TrainerNewHorseInverse, connectionMetrics.TrainerRecentInverseAvg);
 			features.JockeyNewHorseInverse = GravityCalculate(newHorseMetrics.JockeyNewHorseInverse, connectionMetrics.JockeyRecentInverseAvg);
@@ -505,10 +514,10 @@ namespace Netkeiba.Models
 			features.ForEach(x =>
 			{
 				// 同レース他馬との補正済み上がり比較
-				x.AdjustedLastThreeFurlongsDiffFromAvgInRace = inraceAdjustedLastThreeFurlongsAvgs.Average() / x.AdjustedLastThreeFurlongsAvg;
+				x.AdjustedLastThreeFurlongsDiffFromAvgInRace = inraceAdjustedLastThreeFurlongsAvgs.Median() / x.AdjustedLastThreeFurlongsAvg;
 
 				// 通過順比較
-				x.AverageTukaInRace = inraceAverageTuka.Average();
+				x.AverageTukaInRace = inraceAverageTuka.Median();
 				x.TukaAdvantage = x.AverageTuka / Math.Max(x.AverageTukaInRace, 0.01f);
 				x.PaceAdvantageScore = x.AverageTuka < 0.3F
 					// 自分は逃げ→前に行く馬が少ないほど有利(数値が大きくなる)

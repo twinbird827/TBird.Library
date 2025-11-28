@@ -52,5 +52,6 @@ namespace Netkeiba.Models
 		public float AverageRating { get; set; }
 		public bool IsInternational { get; }
 		public bool IsAgedHorseRace { get; }
+		public string TrackDistance => $"{Track}-{Distance}";
 	}
 }

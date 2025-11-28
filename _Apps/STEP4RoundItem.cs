@@ -18,14 +18,7 @@ namespace Netkeiba
 {
 	public class STEP4RoundItem : CheckboxItemModel
 	{
-		private static Dictionary<string, List<RaceDetail>> _Horses = new();
-		private static Dictionary<string, List<RaceDetail>> _Jockeys = new();
-		private static Dictionary<string, List<RaceDetail>> _Trainers = new();
-		private static Dictionary<string, List<RaceDetail>> _Sires = new();
-		private static Dictionary<string, List<RaceDetail>> _DamSires = new();
-		private static Dictionary<string, List<RaceDetail>> _SireDamSires = new();
-		private static Dictionary<string, List<RaceDetail>> _Breeders = new();
-		private static Dictionary<string, List<RaceDetail>> _JockeyTrainers = new();
+		private static PreviousDataSets _PDS = new();
 
 		public STEP4RoundItem(string raceid) : base(raceid, $"R{raceid.Right(2)}")
 		{
@@ -79,28 +72,11 @@ namespace Netkeiba
 					// 関連情報を取得する
 					foreach (var x in details)
 					{
-						async Task SetConnection(Dictionary<string, List<RaceDetail>> dic, string key, params (string Key, string Value)[] kvp)
-						{
-							if (!dic.ContainsKey(key)) dic[key] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, kvp);
-						}
-
-						var tasks = new[]
-						{
-							SetConnection(_Horses, x.Horse, ("d.馬ID", x.Horse)),
-							SetConnection(_Jockeys, x.Jockey, ("d.騎手ID", x.Jockey)),
-							SetConnection(_Trainers, x.Trainer, ("d.調教師ID", x.Trainer)),
-							SetConnection(_Breeders, x.Breeder, ("u.生産者ID", x.Breeder)),
-							SetConnection(_Sires, x.Sire, ("u.父ID", x.Sire)),
-							SetConnection(_DamSires, x.DamSire, ("u.母父ID", x.DamSire)),
-							SetConnection(_SireDamSires, x.SireDamSire, ("u.父ID", x.Sire), ("u.母父ID", x.DamSire)),
-							SetConnection(_JockeyTrainers, x.JockeyTrainer, ("d.騎手ID", x.Jockey), ("d.調教師ID", x.Trainer)),
-						};
-
-						await tasks.WhenAll();
+						await _PDS.AddConnection(conn, x);
 					}
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(_Horses.Get(x.Horse, new List<RaceDetail>())));
+					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x)));
 
 					AddLog($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
@@ -110,17 +86,7 @@ namespace Netkeiba
 					// 特徴量を生成
 					var features = details.Select(x =>
 					{
-						var value = x.ExtractFeatures(
-							_Horses.Get(x.Horse, new List<RaceDetail>()),
-							details,
-							_Jockeys.Get(x.Jockey, new List<RaceDetail>()),
-							_Trainers.Get(x.Trainer, new List<RaceDetail>()),
-							_Breeders.Get(x.Breeder, new List<RaceDetail>()),
-							_Sires.Get(x.Sire, new List<RaceDetail>()),
-							_DamSires.Get(x.DamSire, new List<RaceDetail>()),
-							_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>()),
-							_JockeyTrainers.Get(x.JockeyTrainer, new List<RaceDetail>())
-						);
+						var value = x.ExtractFeatures(_PDS, details);
 
 						// ラベル生成（難易度調整済み着順スコア）
 						value.Label = 0;

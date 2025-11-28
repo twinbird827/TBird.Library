@@ -19,14 +19,7 @@ namespace Netkeiba
 {
 	public class STEP2Command : STEPBase
 	{
-		private Dictionary<string, List<RaceDetail>> _Horses = new();
-		private Dictionary<string, List<RaceDetail>> _Jockeys = new();
-		private Dictionary<string, List<RaceDetail>> _Trainers = new();
-		private Dictionary<string, List<RaceDetail>> _Sires = new();
-		private Dictionary<string, List<RaceDetail>> _DamSires = new();
-		private Dictionary<string, List<RaceDetail>> _SireDamSires = new();
-		private Dictionary<string, List<RaceDetail>> _Breeders = new();
-		private Dictionary<string, List<RaceDetail>> _JockeyTrainers = new();
+		private PreviousDataSets _PDS = new();
 
 		public STEP2Command(MainViewModel vm) : base(vm)
 		{
@@ -54,14 +47,7 @@ namespace Netkeiba
 				// バッチ処理で訓練データを生成・保存
 				await GenerateAndSaveTrainingDataAsync(conn);
 
-				_Horses.Clear();
-				_Jockeys.Clear();
-				_Trainers.Clear();
-				_Sires.Clear();
-				_DamSires.Clear();
-				_SireDamSires.Clear();
-				_Breeders.Clear();
-				_JockeyTrainers.Clear();
+				_PDS.Clear();
 			}
 		}
 
@@ -85,24 +71,14 @@ namespace Netkeiba
 					race.AverageRating = details.Average(x => x.AverageRating);
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(_Horses.Get(x.Horse, new List<RaceDetail>())));
+					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x)));
 
 					if (!already.Contains(race.RaceId))
 					{
 						// 特徴量を生成
 						var results = details.Select(x =>
 						{
-							var features = x.ExtractFeatures(
-								_Horses.Get(x.Horse, new List<RaceDetail>()),
-								details,
-								_Jockeys.Get(x.Jockey, new List<RaceDetail>()),
-								_Trainers.Get(x.Trainer, new List<RaceDetail>()),
-								_Breeders.Get(x.Breeder, new List<RaceDetail>()),
-								_Sires.Get(x.Sire, new List<RaceDetail>()),
-								_DamSires.Get(x.DamSire, new List<RaceDetail>()),
-								_SireDamSires.Get(x.SireDamSire, new List<RaceDetail>()),
-								_JockeyTrainers.Get(x.JockeyTrainer, new List<RaceDetail>())
-							);
+							var features = x.ExtractFeatures(_PDS, details);
 
 							// ラベル生成（難易度調整済み着順スコア）
 							features.Label = (x.FinishPosition - 1).Run(x => x < 12 ? x : 11);
@@ -117,27 +93,7 @@ namespace Netkeiba
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
 					details.ForEach(x =>
 					{
-						void AddHistory(Dictionary<string, List<RaceDetail>> dic, RaceDetail tgt, string key)
-						{
-							if (!dic.ContainsKey(key))
-							{
-								dic.Add(key, new List<RaceDetail>());
-							}
-							dic[key].Insert(0, tgt);
-							if (dic[key].Count > 1000)
-							{
-								dic[key].RemoveAt(1000 - 1);
-							}
-						}
-
-						AddHistory(_Horses, x, x.Horse);
-						AddHistory(_Jockeys, x, x.Jockey);
-						AddHistory(_Trainers, x, x.Trainer);
-						AddHistory(_Sires, x, x.Sire);
-						AddHistory(_DamSires, x, x.DamSire);
-						AddHistory(_SireDamSires, x, x.SireDamSire);
-						AddHistory(_Breeders, x, x.Breeder);
-						AddHistory(_JockeyTrainers, x, x.JockeyTrainer);
+						_PDS.AddHistory(x);
 					});
 
 					MainViewModel.AddLog($"訓練データ生成完了：{race.RaceId} {race.RaceDate}");
@@ -189,9 +145,9 @@ namespace Netkeiba
 
 			return new AdjustedPerformanceMetrics
 			{
-				Recent3AdjustedAvg = adjustedScores.Take(3).DefaultIfEmpty(0.1f).Average(),
-				Recent5AdjustedAvg = adjustedScores.Take(5).DefaultIfEmpty(0.1f).Average(),
-				OverallAdjustedAvg = adjustedScores.DefaultIfEmpty(0.1f).Average(),
+				Recent3AdjustedAvg = adjustedScores.Take(3).Median(0.1f),
+				Recent5AdjustedAvg = adjustedScores.Take(5).Median(0.1f),
+				OverallAdjustedAvg = adjustedScores.Median(0.1f),
 				//BestAdjustedScore = adjustedScores.DefaultIfEmpty(0.1f).Max(),
 				LastRaceAdjustedScore = adjustedScores.FirstOrDefault(0.1f),
 				AdjustedConsistency = CalculateConsistency(adjustedScores),
@@ -207,9 +163,7 @@ namespace Netkeiba
 
 			var mean = scores.Average();
 			if (mean < 0.01f) return 0.1f; // ゼロ除算回避（極端に低い成績）
-
-			var variance = scores.Select(s => (s - mean) * (s - mean)).Average();
-			var stdDev = (float)Math.Sqrt(variance);
+			var stdDev = AppUtil.CalculateStandardDeviation(scores);
 
 			// 変動係数(CV)の逆数を0-1範囲に正規化
 			// CV = stdDev / mean（相対的なばらつき）
@@ -582,9 +536,9 @@ namespace Netkeiba
 
 	public static class LastThreeFurlongsAnalyzer
 	{
-		public static LastThreeFurlongsMetrics AnalyzeLastThreeFurlongs(RaceDetail detail, List<RaceDetail> horses)
+		public static LastThreeFurlongsMetrics AnalyzeLastThreeFurlongs(List<RaceDetail> horses, PreviousDataSets pds)
 		{
-			float GetAverage(int take) => horses.Take(take).Select(CalculateAdjustedLastThreeFurlongs).DefaultIfEmpty(35F).Average();
+			float GetAverage(int take) => horses.Take(take).Median(CalculateAdjustedLastThreeFurlongs, 5.0F);
 
 			var result = new LastThreeFurlongsMetrics()
 			{
@@ -633,7 +587,7 @@ namespace Netkeiba
 			{
 				JockeyWeightDiff = horses.Any() ? detail.JockeyWeight - horses[0].JockeyWeight : 0f,
 				JockeyWeightRankInRace = inraceweights.DefaultIfEmpty(detail.Race.NumberOfHorses / 2).Count(w => w < detail.JockeyWeight) + 1f,
-				JockeyWeightDiffFromAvgInRace = detail.JockeyWeight / inraceweights.DefaultIfEmpty(detail.JockeyWeight).Average()
+				JockeyWeightDiffFromAvgInRace = detail.JockeyWeight / inraceweights.Median(detail.JockeyWeight)
 			};
 		}
 	}
@@ -655,7 +609,7 @@ namespace Netkeiba
 			return new FinishPositionMetrics()
 			{
 				LastRaceFinishPosition = horses.Any() ? positions[0] : def,
-				Recent3AvgFinishPosition = positions.Take(3).DefaultIfEmpty(def).Average(),
+				Recent3AvgFinishPosition = positions.Take(3).Median(def),
 				FinishPositionImprovement = positions.Length >= 2
 					? positions[1] - positions[0]
 					: 0f,
@@ -689,8 +643,8 @@ namespace Netkeiba
 
 			return new TukaMetrics()
 			{
-				AverageTuka = tukas.DefaultIfEmpty(0.5F).Average(),
-				LastRaceTuka = tukas.Take(1).DefaultIfEmpty(0.5F).Average(),
+				AverageTuka = tukas.Median(0.5F),
+				LastRaceTuka = tukas.Take(1).Median(0.5F),
 				TukaConsistency = CalculateTukaConsistency(tukas),
 				// 以下2項目は後で設定する
 				AverageTukaInRace = 0F,
