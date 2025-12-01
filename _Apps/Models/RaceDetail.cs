@@ -80,12 +80,12 @@ namespace Netkeiba.Models
 
 		private float GetLastThreeFurlongs(float basevalue)
 		{
-			//return basevalue;
-			return Race.TrackType == TrackType.Grass
-				? basevalue * (0.94F + Race.Distance / 20000F)
-				: Race.TrackType == TrackType.Dirt
-				? basevalue * (1.01F + Race.Distance / 20000F)
-				: basevalue * (0.36F + Race.Distance * 1.5F / 100000F);
+			return basevalue;
+			//return Race.TrackType == TrackType.Grass
+			//	? basevalue * (0.94F + Race.Distance / 20000F)
+			//	: Race.TrackType == TrackType.Dirt
+			//	? basevalue * (1.01F + Race.Distance / 20000F)
+			//	: basevalue * (0.36F + Race.Distance * 1.5F / 100000F);
 		}
 
 		public string Gender { get; set; }
