@@ -13,12 +13,13 @@ using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Wpf;
+using Tensorflow;
 
 namespace Netkeiba
 {
 	public class STEP4RoundItem : CheckboxItemModel
 	{
-		private static PreviousDataSets _PDS = new();
+		private static PreviousDataSets? _PDS;
 
 		public STEP4RoundItem(string raceid) : base(raceid, $"R{raceid.Right(2)}")
 		{
@@ -26,6 +27,17 @@ namespace Netkeiba
 			{
 				(_command = _command ?? RelayCommand.Create(ActionAsync, _ => true)).Execute(null);
 			}, nameof(IsChecked), false);
+		}
+
+		private async Task InitializePreviousDataSets(SQLiteControl conn)
+		{
+			if (_PDS != null) return;
+
+			_PDS = new();
+
+			_PDS.SetTrackConditionDistances(await conn.GetTrackDistanceAsync().ToArrayAsync());
+
+			await _PDS.InitializeHistory(conn);
 		}
 
 		private IRelayCommand? _command;
@@ -45,6 +57,8 @@ namespace Netkeiba
 				var getShutsuba = false;
 				var raceid = Value;
 
+				var ini = InitializePreviousDataSets(conn);
+
 				// 該当ﾚｰｽの出馬表を取得する
 				AddLog($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
 				await conn.BeginTransaction();
@@ -57,8 +71,11 @@ namespace Netkeiba
 				}
 				conn.Commit();
 
+				await ini;
+
 				var ml = new MLContext(seed: 1);
-				var mo = LoadModel(ml);
+
+				RacePrediction.Initialize(ml);
 
 				// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
 				AddLog($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
@@ -69,14 +86,8 @@ namespace Netkeiba
 
 					AddLog($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
 
-					// 関連情報を取得する
-					foreach (var x in details)
-					{
-						await _PDS.AddConnection(conn, x);
-					}
-
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x)));
+					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x), details, _PDS.GetTrackConditionDistances(x)));
 
 					AddLog($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
@@ -86,18 +97,18 @@ namespace Netkeiba
 					// 特徴量を生成
 					var features = details.Select(x =>
 					{
-						var value = x.ExtractFeatures(_PDS, details);
+						var value = x.ExtractFeatures(details, _PDS);
 
 						// ラベル生成（難易度調整済み着順スコア）
 						value.Label = 0;
 
 						return value;
-					}).ToArray().CalculateInRaces(race).ToArray();
+					}).CalculateInRaces();
 
 					AddLog($"ﾚｰｽID：{raceid} の特徴量を作成しました。");
 
 					// ｽｺｱ計算
-					var predictions = RacePrediction.CalculatePrediction(ml, mo, details, features);
+					var predictions = RacePrediction.CalculatePrediction(ml, details, features);
 
 					AddLog($"ﾚｰｽID：{raceid} のスコアを計算しました。");
 
@@ -128,9 +139,12 @@ namespace Netkeiba
 							Umaban = x.Detail.Umaban,
 							Name = name.Str(),
 							Result = x.Result.Str(),
-							Rank = x.Rank,
-							Score = x.Score,
-							Confidence = x.Confidence
+							All = x.All,
+							Horse = x.Horse,
+							Jockey = x.Jockey,
+							Blood = x.Blood,
+							Connection = x.Connection,
+							Total = x.Total,
 						};
 					}).WhenAll();
 					SetItems(arr);
@@ -167,56 +181,4 @@ namespace Netkeiba
 		}
 
 	}
-
-	public static partial class SQLite3Extensions
-	{
-		public static async IAsyncEnumerable<Race> GetShutsubaRaceAsync(this SQLiteControl conn, string raceid)
-		{
-			var sql = $@"
-SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数
-FROM   t_orig_h h
-WHERE  h.ﾚｰｽID = ?
-ORDER BY h.開催日, h.ﾚｰｽID
-";
-
-			foreach (var x in await conn.GetRows(sql, SQLiteUtil.CreateParameter(DbType.String, raceid)))
-			{
-				yield return new Race(x);
-			}
-		}
-
-		public static async Task<List<RaceDetail>> GetShutsubaRaceDetailAsync(this SQLiteControl conn, DateTime date, params (string Key, string Value)[] kvp)
-		{
-			var sql = $@"{GetRaceDetailSql()}
-AND h.開催日 < ? AND {kvp.Select(x => $"{x.Key} = ?").GetString(" AND ")}
-ORDER BY h.開催日 DESC, h.ﾚｰｽID ASC
-LIMIT  1000
-";
-			var parameters = new[]
-			{
-				SQLiteUtil.CreateParameter(DbType.String, date.ToString("yyyy/MM/dd")),
-			}.Concat(
-				kvp.Select(x => SQLiteUtil.CreateParameter(DbType.String, x.Value))
-			).ToArray();
-
-			var results = new List<RaceDetail>();
-			foreach (var row in await conn.GetRows(sql, parameters).RunAsync(arr => arr.Select(x => new RaceDetail(x, new Race(x))).ToList()))
-			{
-				results.Add(row);
-			}
-			return results;
-		}
-
-		public static async Task DeleteOrigAsync(this SQLiteControl conn, string raceid)
-		{
-			var parameters = new[]
-			{
-				SQLiteUtil.CreateParameter(DbType.String, raceid)
-			};
-
-			await conn.ExecuteNonQueryAsync($"DELETE FROM t_orig_d WHERE ﾚｰｽID = ?", parameters);
-			await conn.ExecuteNonQueryAsync($"DELETE FROM t_orig_h WHERE ﾚｰｽID = ?", parameters);
-		}
-	}
-
 }

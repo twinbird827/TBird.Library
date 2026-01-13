@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.ML.TorchSharp.Roberta;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,33 +12,83 @@ namespace Netkeiba.Models
 {
 	public class PreviousDataSets
 	{
-		private Dictionary<string, List<RaceDetail>> _Horses = new();
-		private Dictionary<string, List<RaceDetail>> _Jockeys = new();
-		private Dictionary<string, List<RaceDetail>> _Trainers = new();
-		private Dictionary<string, List<RaceDetail>> _Sires = new();
-		private Dictionary<string, List<RaceDetail>> _DamSires = new();
-		private Dictionary<string, List<RaceDetail>> _SireDamSires = new();
-		private Dictionary<string, List<RaceDetail>> _Breeders = new();
-		private Dictionary<string, List<RaceDetail>> _JockeyTrainers = new();
-		private Dictionary<string, List<RaceDetail>> _TrackDistances = new();
+		private Dictionary<string, List<RaceDetail>>[] _master = Enumerable
+			.Range(0, 15)
+			.Select(i => new Dictionary<string, List<RaceDetail>>())
+			.ToArray();
 
-		public List<RaceDetail> GetHorses(RaceDetail x) => _Horses.Get(x.Horse, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetHorse(string horse) => new KeyValuePair<int, string>(0, $"H{horse}");
 
-		public List<RaceDetail> GetJockeys(RaceDetail x) => _Jockeys.Get(x.Jockey, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetJockey(RaceDetail x) => new KeyValuePair<int, string>(1, $"J{x.Jockey}");
 
-		public List<RaceDetail> GetTrainers(RaceDetail x) => _Trainers.Get(x.Trainer, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetJockeyPlace(RaceDetail x) => new KeyValuePair<int, string>(2, $"J{x.Jockey}-JP{x.Race.Place}");
 
-		public List<RaceDetail> GetSires(RaceDetail x) => _Sires.Get(x.Sire, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetJockeyTrack(RaceDetail x) => new KeyValuePair<int, string>(3, $"J{x.Jockey}-JT{x.Race.Track}");
 
-		public List<RaceDetail> GetDamSires(RaceDetail x) => _DamSires.Get(x.DamSire, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetTrainer(RaceDetail x) => new KeyValuePair<int, string>(4, $"T{x.Trainer}");
 
-		public List<RaceDetail> GetSireDamSires(RaceDetail x) => _SireDamSires.Get(x.SireDamSire, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetJockeyTrainer(RaceDetail x) => new KeyValuePair<int, string>(5, $"J{x.Jockey}-T{x.Trainer}");
 
-		public List<RaceDetail> GetBreeders(RaceDetail x) => _Breeders.Get(x.Breeder, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetTrainerBreeder(RaceDetail x) => new KeyValuePair<int, string>(6, $"T{x.Trainer}-B{x.Breeder}");
 
-		public List<RaceDetail> GetJockeyTrainers(RaceDetail x) => _JockeyTrainers.Get(x.JockeyTrainer, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetBreeder(RaceDetail x) => new KeyValuePair<int, string>(7, $"B{x.Breeder}");
 
-		public List<RaceDetail> GetTrackDistances(RaceDetail x) => _TrackDistances.Get(x.Race.TrackDistance, new List<RaceDetail>());
+		private KeyValuePair<int, string> GetSire(RaceDetail x) => new KeyValuePair<int, string>(8, $"S{x.Sire}");
+
+		private KeyValuePair<int, string> GetDamSire(RaceDetail x) => new KeyValuePair<int, string>(9, $"D{x.DamSire}");
+
+		private KeyValuePair<int, string> GetSireDamSire(RaceDetail x) => new KeyValuePair<int, string>(10, $"S{x.Sire}-D{x.DamSire}");
+
+		private KeyValuePair<int, string>[] GetKeyArray(RaceDetail x) => new[]
+		{
+			GetHorse(x.Horse),
+			GetJockey(x),
+			GetJockeyPlace(x),
+			GetJockeyTrack(x),
+			GetTrainer(x),
+			GetJockeyTrainer(x),
+			GetBreeder(x),
+			GetTrainerBreeder(x),
+			GetSire(x),
+			GetDamSire(x),
+			GetSireDamSire(x),
+		};
+
+		private Dictionary<string, TrackConditionDistance> _TrackConditionDistances = new();
+
+		private List<RaceDetail> GetMaster(KeyValuePair<int, string> kvp) => _master[kvp.Key].Get(kvp.Value, new List<RaceDetail>());
+
+		public List<RaceDetail> GetHorses(RaceDetail x) => GetHorses(x.Horse);
+
+		public List<RaceDetail> GetHorses(string x) => GetMaster(GetHorse(x));
+
+		public List<RaceDetail> GetJockeys(RaceDetail x) => GetMaster(GetJockey(x));
+
+		public List<RaceDetail> GetJockeyPlaces(RaceDetail x) => GetMaster(GetJockeyPlace(x));
+
+		public List<RaceDetail> GetJockeyTracks(RaceDetail x) => GetMaster(GetJockeyTrack(x));
+
+		public List<RaceDetail> GetTrainers(RaceDetail x) => GetMaster(GetTrainer(x));
+
+		public List<RaceDetail> GetJockeyTrainers(RaceDetail x) => GetMaster(GetJockeyTrainer(x));
+
+		public List<RaceDetail> GetBreeders(RaceDetail x) => GetMaster(GetBreeder(x));
+
+		public List<RaceDetail> GetTrainerBreeders(RaceDetail x) => GetMaster(GetTrainerBreeder(x));
+
+		public List<RaceDetail> GetSires(RaceDetail x) => GetMaster(GetSire(x));
+
+		public List<RaceDetail> GetDamSires(RaceDetail x) => GetMaster(GetDamSire(x));
+
+		public List<RaceDetail> GetSireDamSires(RaceDetail x) => GetMaster(GetSireDamSire(x));
+
+		private string GetTrackConditionDistance(Race x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
+
+		private string GetTrackConditionDistance(TrackConditionDistance x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
+
+		public TrackConditionDistance GetTrackConditionDistances(RaceDetail x) => _TrackConditionDistances.Get(GetTrackConditionDistance(x.Race), TrackConditionDistance.Default);
+
+		public void SetTrackConditionDistances(TrackConditionDistance[] tracks) => tracks.ForEach(x => _TrackConditionDistances.Add(GetTrackConditionDistance(x), x));
 
 		public void AddHistory(RaceDetail x)
 		{
@@ -48,56 +99,42 @@ namespace Netkeiba.Models
 					dic.Add(key, new List<RaceDetail>());
 				}
 				dic[key].Insert(0, tgt);
-				if (dic[key].Count > 1000)
+				if (dic[key].Count > 500)
 				{
-					dic[key].RemoveAt(1000 - 1);
+					dic[key].RemoveAt(500 - 1);
 				}
 			}
 
-			AddHistory(_Horses, x, x.Horse);
-			AddHistory(_Jockeys, x, x.Jockey);
-			AddHistory(_Trainers, x, x.Trainer);
-			AddHistory(_Sires, x, x.Sire);
-			AddHistory(_DamSires, x, x.DamSire);
-			AddHistory(_SireDamSires, x, x.SireDamSire);
-			AddHistory(_Breeders, x, x.Breeder);
-			AddHistory(_JockeyTrainers, x, x.JockeyTrainer);
-			AddHistory(_TrackDistances, x, x.Race.TrackDistance);
+			GetKeyArray(x).ForEach(key =>
+			{
+				AddHistory(_master[key.Key], x, key.Value);
+			});
 		}
 
-		public async Task AddConnection(SQLiteControl conn, RaceDetail x)
+		public Task InitializeHistory(SQLiteControl conn) => InitializeHistory(conn, DateTime.Now.AddDays(-4));
+
+		public async Task InitializeHistory(SQLiteControl conn, DateTime date)
 		{
-			async Task SetConnection(Dictionary<string, List<RaceDetail>> dic, string key, params (string Key, string Value)[] kvp)
+			foreach (var race in await conn.GetRaceAsync(date).ToArrayAsync())
 			{
-				if (!dic.ContainsKey(key)) dic[key] = await conn.GetShutsubaRaceDetailAsync(x.Race.RaceDate, kvp);
+				// 今ﾚｰｽの情報を取得する
+				var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
+
+				// 過去ﾃﾞｰﾀ設定
+				details.ForEach(x => x.SetHistoricalData(GetHorses(x), details, GetTrackConditionDistances(x)));
+
+				// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
+				race.AverageRating = details.Average(x => x.AverageRating);
+
+				// 今ﾚｰｽの情報をﾒﾓﾘに格納
+				details.ForEach(AddHistory);
 			}
-
-			var tasks = new[]
-			{
-				SetConnection(_Horses, x.Horse, ("d.馬ID", x.Horse)),
-				SetConnection(_Jockeys, x.Jockey, ("d.騎手ID", x.Jockey)),
-				SetConnection(_Trainers, x.Trainer, ("d.調教師ID", x.Trainer)),
-				SetConnection(_Breeders, x.Breeder, ("u.生産者ID", x.Breeder)),
-				SetConnection(_Sires, x.Sire, ("u.父ID", x.Sire)),
-				SetConnection(_DamSires, x.DamSire, ("u.母父ID", x.DamSire)),
-				SetConnection(_SireDamSires, x.SireDamSire, ("u.父ID", x.Sire), ("u.母父ID", x.DamSire)),
-				SetConnection(_JockeyTrainers, x.JockeyTrainer, ("d.騎手ID", x.Jockey), ("d.調教師ID", x.Trainer)),
-				SetConnection(_TrackDistances, x.JockeyTrainer, ("h.馬場", x.Race.Track), ("h.距離", x.Race.Distance.Str())),
-			};
-
-			await tasks.WhenAll();
 		}
 
 		public void Clear()
 		{
-			_Horses.Clear();
-			_Jockeys.Clear();
-			_Trainers.Clear();
-			_Sires.Clear();
-			_DamSires.Clear();
-			_SireDamSires.Clear();
-			_Breeders.Clear();
-			_JockeyTrainers.Clear();
+			_master.ForEach(x => x.Clear());
+			_TrackConditionDistances.Clear();
 		}
 	}
 }

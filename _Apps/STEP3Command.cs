@@ -1,5 +1,6 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers.LightGbm;
 using Microsoft.ML.Transforms;
 using Netkeiba.Models;
 using System;
@@ -11,8 +12,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using TBird.Core;
-using TBird.DB;
-using TBird.DB.SQLite;
 
 namespace Netkeiba
 {
@@ -57,41 +56,50 @@ namespace Netkeiba
 				//		conn.GetModelAsync(grade, DateTime.Now.AddMonths(-1).AddDays(1), DateTime.Now)
 				//	);
 				//}
-
+				var basedate = DateTime.Parse("2026/01/05");
 				RankingAsync(
-					"ALL",
-					conn.GetModelAsync(DateTime.Now.AddYears(-6), DateTime.Now.AddMonths(-12)),
-					conn.GetModelAsync(DateTime.Now.AddMonths(-12).AddDays(1), DateTime.Now)
+					await conn.GetModelAsync(basedate.AddYears(-6), basedate.AddMonths(-12)),
+					await conn.GetModelAsync(basedate.AddMonths(-12).AddDays(1), DateTime.Now)
 				);
 
 			}
 		}
 
-		private void RankingAsync(string grade, IAsyncEnumerable<OptimizedHorseFeaturesModel> arr1, IAsyncEnumerable<OptimizedHorseFeaturesModel> arr2)
+		private void RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2)
+		{
+			// これまで作成した教育ﾃﾞｰﾀの削除
+			AppSetting.Instance.RemoveAllRankingTrain();
+
+			RankingAsync(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames());
+
+			foreach (var type in FeaturesAttribute.GetTargetTypes())
+			{
+				RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type));
+			}
+		}
+
+		private void RankingAsync(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features)
 		{
 			var _ml = new MLContext(seed: 1);
-			var data = arr1.ToBlockingEnumerable().ToArray();
-			var test = arr2.ToBlockingEnumerable().ToArray();
+			var data = arr1;
+			var test = arr2;
 
 			var viewdata = _ml.Data.LoadFromEnumerable(data);
 			var testdata = _ml.Data.LoadFromEnumerable(test);
 
-			var pipeline = _ml.ConversionSingle(OptimizedHorseFeatures.GetFlagItemNames())
-				.Append(_ml.Transforms.Conversion.MapValueToKey("RaceIdKey", "RaceId"))
+			var pipeline = _ml.Transforms.Conversion.MapValueToKey("RaceIdKey", "RaceId")
 				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label"))
-				.NormalizeMeanVarianceMultiple(_ml, OptimizedHorseFeatures.GetNormalizationItemNames())
-				// 全特徴量結合
-				.Append(_ml.Transforms.Concatenate("Features", OptimizedHorseFeatures.GetAllFeaturesNames()))
-				// LightGBMランキング学習（Optionsクラスで設定）
-				.Append(_ml.Ranking.Trainers.LightGbm(new Microsoft.ML.Trainers.LightGbm.LightGbmRankingTrainer.Options
+				.NormalizeMeanVarianceMultiple(_ml, normalizations)
+				.Append(_ml.Transforms.Concatenate("Features", features))
+				.Append(_ml.Ranking.Trainers.LightGbm(new LightGbmRankingTrainer.Options
 				{
 					LabelColumnName = "LabelKey",
 					FeatureColumnName = "Features",
 					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = 1200,     // やや減（過学習防止、案5）
-					LearningRate = 0.025,          // やや増（学習速度向上、案5）
-					NumberOfLeaves = 60,           // やや減（シンプル化、案5）
-					MinimumExampleCountPerLeaf = 18, // 最小サンプル数（維持）
+					NumberOfIterations = 200,     // やや減（過学習防止、案5）
+					LearningRate = 0.5,          // やや増（学習速度向上、案5）
+					NumberOfLeaves = 20,           // やや減（シンプル化、案5）
+					MinimumExampleCountPerLeaf = 100, // 最小サンプル数（維持）
 					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
 					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）
 					HandleMissingValue = true,     // 欠損値処理（デフォルトtrue）
@@ -100,18 +108,26 @@ namespace Netkeiba
 					MaximumCategoricalSplitPointCount = 32, // カテゴリ分割点の最大数（デフォルト32）
 					CategoricalSmoothing = 10.0,   // カテゴリスムージング（デフォルト10.0）
 					L2CategoricalRegularization = 10.0, // L2カテゴリ正則化（デフォルト10.0）
-					Booster = new Microsoft.ML.Trainers.LightGbm.GradientBooster.Options
+
+					Booster = new GradientBooster.Options
 					{
-						L2Regularization = 0.7,    // やや増（汎化性能向上、案5）
-						L1Regularization = 0.03,   // L1正則化を微減（0.05→0.03）
+						L2Regularization = 0.5,    // やや増（汎化性能向上、案5）
+						L1Regularization = 0.1,   // L1正則化を微減（0.05→0.03）
 						MinimumSplitGain = 0.005,  // 分割の最小ゲインを調整（0.01→0.005）
 						MaximumTreeDepth = -1,      // 最大木の深さ（-1=制限なし、0→-1に変更）
-					}
+					},
+
+					// NDCG@1を重視
+					EvaluationMetric = LightGbmRankingTrainer.Options.EvaluateMetricType.NormalizedDiscountedCumulativeGain,
+					// 1着に最大の重みを付ける
+					//CustomGains = new int[] { 0, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095 }.Reverse().ToArray()
 				}));
 
 			try
 			{
 				var model = pipeline.Fit(viewdata);
+
+				MainViewModel.AddLog($"========== 予測スコア統計: {grade} ==========");
 
 				// 予測を実行
 				var predictions = model.Transform(testdata);
@@ -131,16 +147,34 @@ namespace Netkeiba
 				}
 				var allScores = predictions.GetColumn<float>("Score").ToArray();
 				var mathScores = GetScores(allScores);
-
 				MainViewModel.AddLog($"========== 予測スコア統計 ==========");
 				MainViewModel.AddLog($"スコア数: {mathScores.Length} / 最小スコア: {mathScores.Min:F4} / 最大スコア: {mathScores.Max:F4} / 平均スコア: {mathScores.Average:F4} / 標準偏差: {mathScores.Standard:F4}");
+
+				var featuresPredictions = allScores.SelectInParallel((score, i) => new FeaturesPrediction
+				{
+					RaceId = test[i].RaceId,
+					ActualRank = test[i].Label + 1,
+					Score = score
+				}).ToArray();
 
 				// 手動でNDCGを計算
 				MainViewModel.AddLog("========== 手動NDCG計算 ==========");
 
-				var ndcg = GetNDCG(test, allScores);
+				var ndcg = GetNDCG(featuresPredictions);
 
 				MainViewModel.AddLog($"手動NDCG@1: {ndcg.NDCG1:F4} / 手動NDCG@3: {ndcg.NDCG3:F4} / 手動NDCG@5: {ndcg.NDCG5:F4} / 評価レース数: {ndcg.Count}");
+
+				// 手動でNDCGを計算
+				MainViewModel.AddLog("========== 手動RATE計算 ==========");
+
+				MainViewModel.AddLog(Enumerable.Range(0, 7).Select(i => $"手動RATE1@{i + 1}: {ndcg.RATE1[i]:F4}").GetString(" / "));
+				MainViewModel.AddLog(Enumerable.Range(0, 7).Select(i => $"手動RATE2@{i + 1}: {ndcg.RATE2[i]:F4}").GetString(" / "));
+				MainViewModel.AddLog(Enumerable.Range(0, 7).Select(i => $"手動RATE3@{i + 1}: {ndcg.RATE3[i]:F4}").GetString(" / "));
+
+				//foreach (var x in GetRATE(featuresPredictions))
+				//{
+				//	MainViewModel.AddLog($"TARGET: {x.Target} / 手動RATE@1: {x.RATE1:F4} / 手動RATE@3: {x.RATE3:F4} / 手動RATE@5: {x.RATE5:F4} / 評価レース数: {x.Count}");
+				//}
 
 				MainViewModel.AddLog("==============================");
 				MainViewModel.AddLog("評価完了（簡易版 + 手動NDCG）");
@@ -155,14 +189,13 @@ namespace Netkeiba
 					if (lastTransformer is RankingPredictionTransformer<Microsoft.ML.Trainers.LightGbm.LightGbmRankingModelParameters> transformer)
 					{
 						MainViewModel.AddLog("========== 特徴量重要度 ==========");
-						var featureNames = OptimizedHorseFeatures.GetAllFeaturesNames();
 
 						Microsoft.ML.Data.VBuffer<float> weights = default;
 						transformer.Model.GetFeatureWeights(ref weights);
 
 						var importance = weights.GetValues()
 							.ToArray()
-							.Select((weight, index) => new { Name = featureNames[index], Weight = weight })
+							.Select((weight, index) => new { Name = features[index], Weight = weight })
 							.OrderByDescending(x => x.Weight);
 
 						foreach (var item in importance)
@@ -198,34 +231,19 @@ namespace Netkeiba
 
 		}
 
-		private (int Count, double NDCG1, double NDCG3, double NDCG5) GetNDCG(OptimizedHorseFeatures[] test, float[] allScores)
+		private AggregateNDCG GetNDCG(FeaturesPrediction[] tests)
 		{
-			// 最適化: インデックスの辞書を事前作成（O(n) → O(1)に改善）
-			var indexMap = new Dictionary<OptimizedHorseFeatures, int>(test.Length);
-			for (int i = 0; i < test.Length; i++)
-			{
-				indexMap[test[i]] = i;
-			}
-
-			var raceGroups = test.GroupBy(x => x.RaceId).ToArray();
+			var raceGroups = tests.GroupBy(x => x.RaceId).ToArray();
 
 			// 最適化: Parallel.ForEachで並列処理
-			var results = new System.Collections.Concurrent.ConcurrentBag<(double ndcg1, double ndcg3, double ndcg5)>();
+			var results = new System.Collections.Concurrent.ConcurrentBag<AggregateNDCG>();
 
 			Parallel.ForEach(raceGroups, raceGroup =>
 			{
-				var raceData = raceGroup.ToArray();
-				if (raceData.Length < 3) return; // 3頭未満のレースは除外
-
-				// 実際の着順（0ベース）と予測スコアを取得
-				var raceResults = raceData.Select(horse => new
-				{
-					ActualRank = (int)horse.Label,
-					PredictedScore = allScores[indexMap[horse]], // O(1)で取得
-				}).ToArray();
+				if (raceGroup.Count() < 3) return; // 3頭未満のレースは除外
 
 				// 予測スコア順にソート（高いスコア = 良い予測順位）
-				var sortedByPrediction = raceResults.OrderByDescending(x => x.PredictedScore).ToArray();
+				var sortedByPrediction = raceGroup.OrderByDescending(x => x.Score).ToArray();
 
 				// DCG@kを計算
 				double CalculateDCG(int k)
@@ -234,7 +252,7 @@ namespace Netkeiba
 					for (int i = 0; i < Math.Min(k, sortedByPrediction.Length); i++)
 					{
 						var actualRank = sortedByPrediction[i].ActualRank;
-						var relevance = 1.0 / (actualRank + 1);
+						var relevance = 1.0 / actualRank;
 						var discount = Math.Log2(i + 2);
 						dcg += relevance / discount;
 					}
@@ -244,12 +262,12 @@ namespace Netkeiba
 				// Ideal DCG@k（完璧な順位予想）
 				double CalculateIDCG(int k)
 				{
-					var idealOrder = raceResults.OrderBy(x => x.ActualRank).ToArray();
+					var idealOrder = raceGroup.OrderBy(x => x.ActualRank).ToArray();
 					double idcg = 0;
 					for (int i = 0; i < Math.Min(k, idealOrder.Length); i++)
 					{
 						var actualRank = idealOrder[i].ActualRank;
-						var relevance = 1.0 / (actualRank + 1);
+						var relevance = 1.0 / actualRank;
 						var discount = Math.Log2(i + 2);
 						idcg += relevance / discount;
 					}
@@ -268,40 +286,101 @@ namespace Netkeiba
 				double ndcg3 = idcg3 > 0 ? dcg3 / idcg3 : 0;
 				double ndcg5 = idcg5 > 0 ? dcg5 / idcg5 : 0;
 
-				results.Add((ndcg1, ndcg3, ndcg5));
+				results.Add(new AggregateNDCG()
+				{
+					NDCG1 = idcg1 > 0 ? dcg1 / idcg1 : 0,
+					NDCG3 = idcg3 > 0 ? dcg3 / idcg3 : 0,
+					NDCG5 = idcg5 > 0 ? dcg5 / idcg5 : 0,
+					RATE1 = Enumerable.Range(0, 7).Select(i => i < sortedByPrediction.Length && sortedByPrediction[i].ActualRank <= 1 ? 1D : 0D).ToArray(),
+					RATE2 = Enumerable.Range(0, 7).Select(i => i < sortedByPrediction.Length && sortedByPrediction[i].ActualRank <= 2 ? 1D : 0D).ToArray(),
+					RATE3 = Enumerable.Range(0, 7).Select(i => i < sortedByPrediction.Length && sortedByPrediction[i].ActualRank <= 3 ? 1D : 0D).ToArray(),
+				});
 			});
 
 			// 集計
 			var validRaces = results.Count;
-			var ndcg1Sum = results.Sum(x => x.ndcg1);
-			var ndcg3Sum = results.Sum(x => x.ndcg3);
-			var ndcg5Sum = results.Sum(x => x.ndcg5);
+			var ndcg1Sum = results.Sum(x => x.NDCG1);
+			var ndcg3Sum = results.Sum(x => x.NDCG3);
+			var ndcg5Sum = results.Sum(x => x.NDCG5);
 
-			return (
-				Count: validRaces,
-				NDCG1: validRaces > 0 ? ndcg1Sum / validRaces : 0,
-				NDCG3: validRaces > 0 ? ndcg3Sum / validRaces : 0,
-				NDCG5: validRaces > 0 ? ndcg5Sum / validRaces : 0
-			);
+			return new AggregateNDCG()
+			{
+				Count = validRaces,
+				NDCG1 = validRaces > 0 ? ndcg1Sum / validRaces : 0,
+				NDCG3 = validRaces > 0 ? ndcg3Sum / validRaces : 0,
+				NDCG5 = validRaces > 0 ? ndcg5Sum / validRaces : 0,
+				RATE1 = Enumerable.Range(0, 7).Select(i => results.Sum(x => validRaces > 0 ? x.RATE1[i] / validRaces : 0)).ToArray(),
+				RATE2 = Enumerable.Range(0, 7).Select(i => results.Sum(x => validRaces > 0 ? x.RATE2[i] / validRaces : 0)).ToArray(),
+				RATE3 = Enumerable.Range(0, 7).Select(i => results.Sum(x => validRaces > 0 ? x.RATE3[i] / validRaces : 0)).ToArray(),
+			};
 		}
 
-		//private (int Count, double NDCG1, double NDCG3, double NDCG5) GetNDCG(OptimizedHorseFeatures[] test, float[] allScores)
-		//{
-		//	var raceGroups = test.GroupBy(x => x.RaceId).ToArray();
-		//	double ndcg1Sum = 0, ndcg3Sum = 0, ndcg5Sum = 0;
-		//	int validRaces = 0;
+		private AggregateRATE[] GetRATE(FeaturesPrediction[] tests)
+		{
+			var min = -4;
+			var max = 5;
 
-		//	foreach (var raceGroup in raceGroups)
+			var rets = Enumerable.Range(min, max - min).Select(i => new AggregateRATE()
+			{
+				Target = i,
+				Count = tests.Count(x => i <= x.Score && x.Score < i + 1),
+				RATE1 = tests.Count(x => i <= x.Score && x.Score < i + 1 && x.ActualRank == 1),
+				RATE3 = tests.Count(x => i <= x.Score && x.Score < i + 1 && x.ActualRank <= 3),
+				RATE5 = tests.Count(x => i <= x.Score && x.Score < i + 1 && x.ActualRank <= 5),
+			}).Concat(
+			[
+				new AggregateRATE()
+				{
+					Target = min - 1,
+					Count = tests.Count(x => min > x.Score),
+					RATE1 = tests.Count(x => min > x.Score && x.ActualRank == 1),
+					RATE3 = tests.Count(x => min > x.Score && x.ActualRank <= 3),
+					RATE5 = tests.Count(x => min > x.Score && x.ActualRank <= 5),
+				},
+				new AggregateRATE()
+				{
+					Target = max,
+					Count = tests.Count(x => max <= x.Score),
+					RATE1 = tests.Count(x => max <= x.Score && x.ActualRank == 1),
+					RATE3 = tests.Count(x => max <= x.Score && x.ActualRank <= 3),
+					RATE5 = tests.Count(x => max <= x.Score && x.ActualRank <= 5),
+				}
+			]);
+
+			return rets.Select(x => new AggregateRATE()
+			{
+				Target = x.Target,
+				Count = x.Count,
+				RATE1 = x.RATE1 / x.Count,
+				RATE3 = x.RATE3 / x.Count,
+				RATE5 = x.RATE5 / x.Count,
+			}).OrderBy(x => x.Target).ToArray();
+		}
+
+		//private AggregateNDCG GetNDCG(OptimizedHorseFeatures[] test, float[] allScores)
+		//{
+		//	// 最適化: インデックスの辞書を事前作成（O(n) → O(1)に改善）
+		//	var indexMap = new Dictionary<OptimizedHorseFeatures, int>(test.Length);
+		//	for (int i = 0; i < test.Length; i++)
+		//	{
+		//		indexMap[test[i]] = i;
+		//	}
+
+		//	var raceGroups = test.GroupBy(x => x.RaceId).ToArray();
+
+		//	// 最適化: Parallel.ForEachで並列処理
+		//	var results = new System.Collections.Concurrent.ConcurrentBag<AggregateNDCG>();
+
+		//	Parallel.ForEach(raceGroups, raceGroup =>
 		//	{
 		//		var raceData = raceGroup.ToArray();
-		//		if (raceData.Length < 3) continue; // 3頭未満のレースは除外
+		//		if (raceData.Length < 3) return; // 3頭未満のレースは除外
 
 		//		// 実際の着順（0ベース）と予測スコアを取得
-		//		var raceResults = raceData.Select((horse, index) => new
+		//		var raceResults = raceData.Select(horse => new
 		//		{
-		//			ActualRank = (int)horse.Label, // 0ベースの着順
-		//			PredictedScore = allScores[Array.IndexOf(test, horse)],
-		//			Index = index
+		//			ActualRank = (int)horse.Label,
+		//			PredictedScore = allScores[indexMap[horse]], // O(1)で取得
 		//		}).ToArray();
 
 		//		// 予測スコア順にソート（高いスコア = 良い予測順位）
@@ -314,8 +393,8 @@ namespace Netkeiba
 		//			for (int i = 0; i < Math.Min(k, sortedByPrediction.Length); i++)
 		//			{
 		//				var actualRank = sortedByPrediction[i].ActualRank;
-		//				var relevance = 1.0 / (actualRank + 1); // 着順の逆数が関連度
-		//				var discount = Math.Log2(i + 2); // 位置による割引
+		//				var relevance = 1.0 / (actualRank + 1);
+		//				var discount = Math.Log2(i + 2);
 		//				dcg += relevance / discount;
 		//			}
 		//			return dcg;
@@ -344,87 +423,63 @@ namespace Netkeiba
 		//		var idcg3 = CalculateIDCG(3);
 		//		var idcg5 = CalculateIDCG(5);
 
-		//		if (idcg1 > 0) ndcg1Sum += dcg1 / idcg1;
-		//		if (idcg3 > 0) ndcg3Sum += dcg3 / idcg3;
-		//		if (idcg5 > 0) ndcg5Sum += dcg5 / idcg5;
+		//		double ndcg1 = idcg1 > 0 ? dcg1 / idcg1 : 0;
+		//		double ndcg3 = idcg3 > 0 ? dcg3 / idcg3 : 0;
+		//		double ndcg5 = idcg5 > 0 ? dcg5 / idcg5 : 0;
 
-		//		validRaces++;
-		//	}
+		//		results.Add(new AggregateNDCG()
+		//		{
+		//			NDCG1 = idcg1 > 0 ? dcg1 / idcg1 : 0,
+		//			NDCG3 = idcg3 > 0 ? dcg3 / idcg3 : 0,
+		//			NDCG5 = idcg5 > 0 ? dcg5 / idcg5 : 0
+		//		});
+		//	});
 
-		//	return (
-		//		Count: validRaces,
-		//		NDCG1: validRaces > 0 ? ndcg1Sum / validRaces : 0,
-		//		NDCG3: validRaces > 0 ? ndcg3Sum / validRaces : 0,
-		//		NDCG5: validRaces > 0 ? ndcg5Sum / validRaces : 0
-		//	);
+		//	// 集計
+		//	var validRaces = results.Count;
+		//	var ndcg1Sum = results.Sum(x => x.NDCG1);
+		//	var ndcg3Sum = results.Sum(x => x.NDCG3);
+		//	var ndcg5Sum = results.Sum(x => x.NDCG5);
+
+		//	return new AggregateNDCG()
+		//	{
+		//		Count = validRaces,
+		//		NDCG1 = validRaces > 0 ? ndcg1Sum / validRaces : 0,
+		//		NDCG3 = validRaces > 0 ? ndcg3Sum / validRaces : 0,
+		//		NDCG5 = validRaces > 0 ? ndcg5Sum / validRaces : 0
+		//	};
 		//}
-	}
 
-	public static partial class SQLite3Extensions
-	{
-		public static async IAsyncEnumerable<OptimizedHorseFeaturesModel> GetModelAsync(this SQLiteControl conn, DateTime start, DateTime end)
+		private class FeaturesPrediction
 		{
-			var sql = @"
-SELECT m.*
-FROM   t_orig_h h, t_model m
-WHERE  CAST(h.開催日数 AS INTEGER) BETWEEN ? AND ?
-AND    h.ﾚｰｽID                 = m.RaceId
-AND    CAST(h.障害 AS INTEGER) = 0
-";
-			var parameters = new[]
-			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
-			};
+			public string RaceId { get; set; }
 
-			foreach (var x in await conn.GetRows(sql, parameters))
-			{
-				OptimizedHorseFeaturesModel model;
-				try
-				{
-					model = OptimizedHorseFeaturesModel.Deserialize(x).NotNull();
-				}
-				catch (Exception ex)
-				{
-					MainViewModel.AddLog(ex.ToString());
-					throw;
-				}
-				yield return model;
-			}
+			public uint ActualRank { get; set; }
+
+			public float Score { get; set; }
 		}
 
-		public static async IAsyncEnumerable<OptimizedHorseFeaturesModel> GetModelAsync(this SQLiteControl conn, string grade, DateTime start, DateTime end)
+		private class AggregateNDCG
 		{
-			var sql = @"
-SELECT m.*
-FROM   t_orig_h h, t_model m
-WHERE  CAST(h.開催日数 AS INTEGER) BETWEEN ? AND ?
-AND    h.ﾗﾝｸ2                  = ?
-AND    h.ﾚｰｽID                 = m.RaceId
-AND    CAST(h.障害 AS INTEGER) = 0
-";
-			var parameters = new[]
-			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
-				SQLiteUtil.CreateParameter(DbType.String, grade.ToString()),
-			};
+			public int Count { get; set; }
+			public double NDCG1 { get; set; }
+			public double NDCG3 { get; set; }
+			public double NDCG5 { get; set; }
+			public double[] RATE1 { get; set; } = new double[7];
+			public double[] RATE2 { get; set; } = new double[7];
+			public double[] RATE3 { get; set; } = new double[7];
 
-			foreach (var x in await conn.GetRows(sql, parameters))
-			{
-				OptimizedHorseFeaturesModel model;
-				try
-				{
-					model = OptimizedHorseFeaturesModel.Deserialize(x).NotNull();
-				}
-				catch (Exception ex)
-				{
-					MainViewModel.AddLog(ex.ToString());
-					throw;
-				}
-				yield return model;
-			}
 		}
+
+		private class AggregateRATE
+		{
+			public int Target { get; set; }
+			public int Count { get; set; }
+			public double RATE1 { get; set; }
+			public double RATE3 { get; set; }
+			public double RATE5 { get; set; }
+		}
+
 	}
 
 	public static partial class MLContextExtensions

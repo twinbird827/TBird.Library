@@ -21,21 +21,9 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		public const float RankRateBase = 7F;
-
 		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
-
-		public static float[] ToSingles(byte[] bytes) => Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4)).ToArray();
-
-		public static float[] ToSingles(byte[] bytes, string rank) => FilterFeatures(ToSingles(bytes), rank);
-
-		public static float[] FilterFeatures(float[] features, string rank)
-		{
-			var filters = AppSetting.Instance.DicCor.First(x => x.Key == rank).Value.Split(',').Select(x => x.GetInt32()).ToArray();
-			return features.Where((x, i) => !filters.Contains(i)).ToArray();
-		}
 
 		public static string GetInnerHtml(this AngleSharp.Dom.IElement x)
 		{
@@ -191,101 +179,6 @@ namespace Netkeiba
 			return await GetFileHeaders(path, sepa).ContinueWith(x => x.Result.Select(func));
 		}
 
-		private static Task<List<string>> GetDistinct(SQLiteControl conn, string x)
-		{
-			return conn.GetRows(r => r.Get<string>(0), $"SELECT DISTINCT {x} FROM t_orig ORDER BY {x}");
-		}
-
-		public static Task<List<string>> Get馬性(SQLiteControl conn)
-		{
-			return GetDistinct(conn, "馬性");
-		}
-
-		public static Task<List<string>> Get調教場所(SQLiteControl conn)
-		{
-			return GetDistinct(conn, "調教場所");
-		}
-
-		public static Task<List<string>> Get追切(SQLiteControl conn)
-		{
-			return Task.Run(() => new List<string>(new[] { "", "E", "D", "C", "B", "A" }));
-		}
-
-		private static readonly string[] ﾗﾝｸ = new[]
-		{
-			"GIII", "GII", "GI", "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "3勝クラス", "(3勝)", "1600万下", "２勝クラス", "2勝クラス", "1000万下", "１勝クラス", "1勝クラス", "500万下", "未勝利", "新馬", "OP"
-		};
-
-		private static readonly Dictionary<string, string> ﾗﾝｸ1 = new()
-		{
-			{ "GIII", "G3" },
-			{ "GII", "G2" },
-			{ "GI", "G1" },
-			{ "G1)", "G1" },
-			{ "G2)", "G2" },
-			{ "G3)", "G3" },
-			{ "(G)", "オープン" },
-			{ "(L)", "オープン" },
-			{ "オープン", "オープン" },
-			{ "３勝クラス", "勝3" },
-			{ "3勝クラス", "勝3" },
-			{ "(3勝)", "勝3" },
-			{ "1600万下", "勝3" },
-			{ "２勝クラス", "勝2" },
-			{ "2勝クラス", "勝2" },
-			{ "1000万下", "勝2" },
-			{ "１勝クラス", "勝1" },
-			{ "1勝クラス", "勝1" },
-			{ "500万下", "勝1" },
-			{ "未勝利", "未勝利" },
-			{ "新馬", "新馬" },
-			{ "OP", "オープン" },
-		};
-
-		public static string Getﾗﾝｸ1(string ﾚｰｽ名, string ｸﾗｽ)
-		{
-			try
-			{
-				return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
-			}
-			catch
-			{
-				throw;
-			}
-		}
-
-		public static readonly Dictionary<string, string> ﾗﾝｸ2 = new()
-		{
-			{ "勝1ク", "勝ク" },
-			{ "勝1古", "勝古" },
-			{ "勝2ク", "勝ク" },
-			{ "勝2古", "勝古" },
-			{ "勝3古", "勝古" },
-			{ "G1ク", "オク" },
-			{ "G1古", "オ古" },
-			{ "G1障", "オ障" },
-			{ "G2ク", "オク" },
-			{ "G2古", "オ古" },
-			{ "G2障", "オ障" },
-			{ "G3ク", "オク" },
-			{ "G3古", "オ古" },
-			{ "G3障", "オ障" },
-			{ "オープンク", "オク" },
-			{ "オープン古", "オ古" },
-			{ "オープン障", "オ障" },
-			{ "新馬ク", "新馬" },
-			{ "未勝利ク", "未勝利ク" },
-			{ "未勝利障", "未勝利障" },
-		};
-
-		public static string[] ﾗﾝｸ2Arr
-		{
-			get => _ﾗﾝｸ2 = _ﾗﾝｸ2 ?? ﾗﾝｸ2.Values.Distinct().ToArray();
-		}
-		private static string[]? _ﾗﾝｸ2;
-
-		public static int Getﾗﾝｸ2(object rank) => ﾗﾝｸ2Arr.IndexOf(rank.Str());
-
 		public static void DeleteEndress(string path)
 		{
 			_ = WpfUtil.ExecuteOnBACK(async () =>
@@ -299,15 +192,6 @@ namespace Netkeiba
 			}).ConfigureAwait(false);
 		}
 
-		public static IEnumerable<int> OrderBys => AppSetting.Instance.OrderBys.Split(',').Select(x => x.GetInt32());
-
-		public static string[] DropKeys => ["ﾚｰｽID", "開催日数", "着順", "単勝", "人気", "距離", "ﾗﾝｸ1", "ﾗﾝｸ2", "馬ID", "調教場所", "枠番", "馬番"];
-
-		public static byte[] CreateFeatures(Dictionary<string, object> ins)
-		{
-			return ins.Keys.Where(x => !DropKeys.Contains(x)).ToArray().SelectMany(x => BitConverter.GetBytes(ins.SINGLE(x))).ToArray();
-		}
-
 		public static int ToTotalDays(this DateTime date) => (date - DateTime.Parse("1990/01/01")).TotalDays.Int32();
 
 		public static float CalculateStandardDeviation(float[] values)
@@ -317,5 +201,19 @@ namespace Netkeiba
 			var variance = values.Select(v => (v - mean) * (v - mean)).Average();
 			return (float)Math.Sqrt(variance);
 		}
+
+		public static float GetRank(this float val, float[] arr, bool higherIsBetter)
+		{
+			var same = arr.Count(x => Math.Abs(x - val) < 0.01f);
+			var wrse = higherIsBetter ? arr.Count(x => x < val) : arr.Count(x => x > val);
+
+			return (wrse + same / 2.0f) / arr.Length; ;
+		}
+
+		public static float GetRank<T>(this T detail, IEnumerable<T> src, Func<T, float> func, bool higherIsBetter)
+		{
+			return func(detail).GetRank(src.Select(func).ToArray(), higherIsBetter);
+		}
+
 	}
 }

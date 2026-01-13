@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Netkeiba.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -44,19 +45,47 @@ namespace Netkeiba
 		}
 		private int _Rank;
 
-		public float Score
+		public RaceScore All
 		{
-			get => _Score;
-			set => SetProperty(ref _Score, value);
+			get => _All;
+			set => SetProperty(ref _All, value);
 		}
-		private float _Score;
+		private RaceScore _All;
 
-		public float Confidence
+		public RaceScore Horse
 		{
-			get => _Confidence;
-			set => SetProperty(ref _Confidence, value);
+			get => _Horse;
+			set => SetProperty(ref _Horse, value);
 		}
-		private float _Confidence;
+		private RaceScore _Horse;
+
+		public RaceScore Jockey
+		{
+			get => _Jockey;
+			set => SetProperty(ref _Jockey, value);
+		}
+		private RaceScore _Jockey;
+
+		public RaceScore Blood
+		{
+			get => _Blood;
+			set => SetProperty(ref _Blood, value);
+		}
+		private RaceScore _Blood;
+
+		public RaceScore Connection
+		{
+			get => _Connection;
+			set => SetProperty(ref _Connection, value);
+		}
+		private RaceScore _Connection;
+
+		public RaceScore Total
+		{
+			get => _Total;
+			set => SetProperty(ref _Total, value);
+		}
+		private RaceScore _Total;
 
 	}
 }

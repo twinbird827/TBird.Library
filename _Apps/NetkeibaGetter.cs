@@ -79,7 +79,7 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = AppUtil.ToTotalDays(date).Str();
 					dic["開催場所"] = basyo.Replace("1", "");
-					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
+					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
@@ -154,7 +154,7 @@ namespace Netkeiba
 				if (arr.Any()) arr.ForEach(x =>
 				{
 					x["ﾗﾝｸ1"] += x["回り"] == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古";
-					x["ﾗﾝｸ2"] = AppUtil.ﾗﾝｸ2[x["ﾗﾝｸ1"]];
+					x["ﾗﾝｸ2"] = Getﾗﾝｸ2(x["ﾗﾝｸ1"]);
 				});
 			}
 
@@ -182,8 +182,10 @@ namespace Netkeiba
 			{
 				if (raceparser.GetElementById("All_Oikiri_Table") is IHtmlTableElement table)
 				{
-					foreach (var row in table.Rows.Skip(1))
+					for (var i = 1; i < table.Rows.Length; i++)
 					{
+						var baseIndex = 5;
+						var row = table.Rows[i];
 						var dic = new Dictionary<string, string>();
 
 						dic["ﾚｰｽID"] = raceid;
@@ -193,31 +195,39 @@ namespace Netkeiba
 						dic["馬番"] = row.Cells[1].GetInnerHtml();
 						// 馬ID
 						dic["馬ID"] = row.Cells[3].GetHrefAttribute("href").Split('/').Last();
+
+						if (row.Cells.Length < 6)
+						{
+							i += 1;
+							row = table.Rows[i];
+							baseIndex = 1;
+						}
+
 						// 追切場所
-						dic["コース"] = row.Cells[5].GetInnerHtml();
+						dic["コース"] = row.Cells[baseIndex + 0].GetInnerHtml();
 						// 追切馬場
-						dic["馬場"] = row.Cells[6].GetInnerHtml();
+						dic["馬場"] = row.Cells[baseIndex + 1].GetInnerHtml();
 						// 追切騎手
-						dic["乗り役"] = row.Cells[7].GetInnerHtml();
-						var li = row.Cells[8].GetElementsByTagName("li").Select(x => x.InnerHtml.Split('<')[0]).ToArray();
+						dic["乗り役"] = row.Cells[baseIndex + 2].GetInnerHtml();
+						var li = row.Cells[baseIndex + 3].GetElementsByTagName("li").Select(x => x.InnerHtml.Split('<')[0]).ToArray();
 						// 追切時間
 						dic["時間1"] = li[0];
 						dic["時間2"] = li[1];
 						dic["時間3"] = li[2];
 						dic["時間4"] = li[3];
 						dic["時間5"] = li[4];
-						var cl = row.Cells[8].GetElementsByTagName("li").Select(x => x.GetAttribute("class") ?? "").ToArray();
+						var cl = row.Cells[baseIndex + 3].GetElementsByTagName("li").Select(x => x.GetAttribute("class") ?? "").ToArray();
 						dic["時間評価1"] = cl[0];
 						dic["時間評価2"] = cl[1];
 						dic["時間評価3"] = cl[2];
 						dic["時間評価4"] = cl[3];
 						dic["時間評価5"] = cl[4];
 						// 追切強さ
-						dic["脚色"] = row.Cells[10].GetInnerHtml();
+						dic["脚色"] = row.Cells[baseIndex + 5].GetInnerHtml();
 						// 追切一言
-						dic["一言"] = row.Cells[11].GetInnerHtml();
+						dic["一言"] = row.Cells[baseIndex + 6].GetInnerHtml();
 						// 追切評価
-						dic["評価"] = row.Cells[12].GetInnerHtml();
+						dic["評価"] = row.Cells[baseIndex + 7].GetInnerHtml();
 
 						arr.Add(dic);
 					}
@@ -293,7 +303,7 @@ namespace Netkeiba
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = AppUtil.ToTotalDays(date).Str();
 					dic["開催場所"] = basyo.Replace("1", "");
-					dic["ﾗﾝｸ1"] = AppUtil.Getﾗﾝｸ1(dic["ﾚｰｽ名"].Str(), clas);
+					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = title.Contains("障害") ? "障" : mawari;
 					dic["距離"] = kyori;
@@ -368,11 +378,82 @@ namespace Netkeiba
 				if (arr.Any()) arr.ForEach(x =>
 				{
 					x["ﾗﾝｸ1"] += x["回り"].Str() == "障" ? "障" : arr.Average(y => y["馬齢"].GetSingle()) <= 3 ? "ク" : "古";
-					x["ﾗﾝｸ2"] = AppUtil.ﾗﾝｸ2[x["ﾗﾝｸ1"].Str()];
+					x["ﾗﾝｸ2"] = Getﾗﾝｸ2(x["ﾗﾝｸ1"]);
 				});
 			}
 
 			return arr;
+		}
+
+		private static string Getﾗﾝｸ1(string ﾚｰｽ名, string ｸﾗｽ)
+		{
+			Dictionary<string, string> ﾗﾝｸ1 = new()
+			{
+				{ "GIII", "G3" },
+				{ "GII", "G2" },
+				{ "GI", "G1" },
+				{ "G1)", "G1" },
+				{ "G2)", "G2" },
+				{ "G3)", "G3" },
+				{ "(G)", "オープン" },
+				{ "(L)", "オープン" },
+				{ "オープン", "オープン" },
+				{ "３勝クラス", "勝3" },
+				{ "3勝クラス", "勝3" },
+				{ "(3勝)", "勝3" },
+				{ "1600万下", "勝3" },
+				{ "２勝クラス", "勝2" },
+				{ "2勝クラス", "勝2" },
+				{ "1000万下", "勝2" },
+				{ "１勝クラス", "勝1" },
+				{ "1勝クラス", "勝1" },
+				{ "500万下", "勝1" },
+				{ "未勝利", "未勝利" },
+				{ "新馬", "新馬" },
+				{ "OP", "オープン" },
+			};
+
+			string[] ﾗﾝｸ = new[]
+			{
+				"GIII", "GII", "GI", "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "3勝クラス", "(3勝)", "1600万下", "２勝クラス", "2勝クラス", "1000万下", "１勝クラス", "1勝クラス", "500万下", "未勝利", "新馬", "OP"
+			};
+
+			try
+			{
+				return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
+			}
+			catch
+			{
+				throw;
+			}
+		}
+
+		private static string Getﾗﾝｸ2(string ﾗﾝｸ1)
+		{
+			Dictionary<string, string> ﾗﾝｸ2 = new()
+			{
+				{ "勝1ク", "勝ク" },
+				{ "勝1古", "勝古" },
+				{ "勝2ク", "勝ク" },
+				{ "勝2古", "勝古" },
+				{ "勝3古", "勝古" },
+				{ "G1ク", "オク" },
+				{ "G1古", "オ古" },
+				{ "G1障", "オ障" },
+				{ "G2ク", "オク" },
+				{ "G2古", "オ古" },
+				{ "G2障", "オ障" },
+				{ "G3ク", "オク" },
+				{ "G3古", "オ古" },
+				{ "G3障", "オ障" },
+				{ "オープンク", "オク" },
+				{ "オープン古", "オ古" },
+				{ "オープン障", "オ障" },
+				{ "新馬ク", "新馬" },
+				{ "未勝利ク", "未勝利ク" },
+				{ "未勝利障", "未勝利障" },
+			};
+			return ﾗﾝｸ2[ﾗﾝｸ1];
 		}
 
 		public static async Task<Dictionary<string, string>> GetBanushi(string umaid)

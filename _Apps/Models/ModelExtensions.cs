@@ -79,7 +79,5 @@ namespace Netkeiba.Models
 			"不良" => TrackConditionType.Poor,
 			_ => TrackConditionType.Unknown
 		};
-
-		public static float AdjustedInverseScoreAverage(this IEnumerable<RaceDetail> arr, float def = 0.1F) => arr.Aggregate(tmp => tmp.Average(x => x.CalculateAdjustedInverseScore()), def);
 	}
 }

@@ -9,6 +9,7 @@
 					  xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf"
 					  behavior:WindowBehavior.ContentRendered="{Binding OnLoaded}"
 					  behavior:WindowBehavior.Closing="{Binding OnClosing}"
+					  xmlns:models="clr-namespace:Netkeiba.Models"
 					  mc:Ignorable="d"
                       Title="Netkeiba">
 	<Controls:MetroWindow.DataContext>
@@ -53,6 +54,48 @@
 		<Style TargetType="ListBox">
 			<Setter Property="Margin" Value="5" />
 		</Style>
+
+		<DataTemplate x:Key="S4CellItem" DataType="{x:Type models:RaceScore}">
+			<Label Content="{Binding Score}" ContentStringFormat="{}{0:F2}">
+				<Label.Resources>
+					<Style TargetType="Label">
+						<Style.Triggers>
+							<DataTrigger Binding="{Binding Rank}" Value="1">
+								<Setter Property="Background" Value="Red" />
+								<Setter Property="Foreground" Value="White" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Rank}" Value="2">
+								<Setter Property="Background" Value="Blue" />
+								<Setter Property="Foreground" Value="White" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Rank}" Value="3">
+								<Setter Property="Background" Value="Green" />
+								<Setter Property="Foreground" Value="White" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Rank}" Value="4">
+								<Setter Property="Background" Value="Yellow" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Rank}" Value="5">
+								<Setter Property="Background" Value="Yellow" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Rank}" Value="6">
+								<Setter Property="Background" Value="Yellow" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Rank}" Value="7">
+								<Setter Property="Background" Value="Yellow" />
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+						</Style.Triggers>
+					</Style>
+				</Label.Resources>
+			</Label>
+		</DataTemplate>
 	</Controls:MetroWindow.Resources>
 
 	<DockPanel>
@@ -203,6 +246,21 @@
 
 		<GroupBox Header="{Binding S4ResultHeader}">
 			<ListView ItemsSource="{Binding S4ResultItems}">
+				<ListView.ItemContainerStyle>
+					<Style TargetType="ListViewItem">
+						<Style.Triggers>
+							<DataTrigger Binding="{Binding Result}" Value="1">
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Result}" Value="2">
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+							<DataTrigger Binding="{Binding Result}" Value="3">
+								<Setter Property="FontWeight" Value="Bold" />
+							</DataTrigger>
+						</Style.Triggers>
+					</Style>
+				</ListView.ItemContainerStyle>
 				<ListView.View>
 					<GridView>
 						<GridViewColumn Header="枠番"
@@ -213,12 +271,48 @@
 										DisplayMemberBinding="{Binding Name}" />
 						<GridViewColumn Header="着順"
 										DisplayMemberBinding="{Binding Result}" />
-						<GridViewColumn Header="予想"
-										DisplayMemberBinding="{Binding Rank}" />
-						<GridViewColumn Header="スコア"
-										DisplayMemberBinding="{Binding Score, StringFormat={}{0:N4}}" />
-						<GridViewColumn Header="自信"
-										DisplayMemberBinding="{Binding Confidence, StringFormat={}{0:N4}}" />
+						<GridViewColumn Header="Total">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Total}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="All">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding All}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="Horse">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Horse}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="Jockey">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Jockey}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="Blood">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Blood}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="Conn">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Connection}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
 					</GridView>
 				</ListView.View>
 			</ListView>

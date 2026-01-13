@@ -53,5 +53,6 @@ namespace Netkeiba.Models
 		public bool IsInternational { get; }
 		public bool IsAgedHorseRace { get; }
 		public string TrackDistance => $"{Track}-{Distance}";
+		public string TrackConditionDistance => $"{Track}-{TrackCondition}-{Distance}";
 	}
 }
