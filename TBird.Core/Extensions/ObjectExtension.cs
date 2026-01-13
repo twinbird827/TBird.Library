@@ -82,6 +82,14 @@ namespace TBird.Core
 		public static long Int64(this object? value, long def = 0L) => GetInt64(value, def);
 
 		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="uint"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
+		public static uint UInt32(this object? value, uint def = 0) => GetUInt32(value, def);
+
+		/// <summary>
 		/// 指定したｵﾌﾞｼﾞｪｸﾄがIDisposableを実装しているなら破棄します。
 		/// </summary>
 		/// <param name="value">ｵﾌﾞｼﾞｪｸﾄ</param>
@@ -164,6 +172,11 @@ namespace TBird.Core
 		public static long GetInt64(this object? value, long def = 0L)
 		{
 			return value.Get(def, x => (long)x);
+		}
+
+		public static uint GetUInt32(this object? value, uint def = 0)
+		{
+			return value.Get(def, x => (uint)x);
 		}
 
 		public static T Run<T>(this T target, Action<T> action)

@@ -266,5 +266,32 @@ namespace TBird.Core
 		{
 			return arr.Any() ? func(arr) : def;
 		}
+
+		public static TResult[] SelectInParallel<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult> processor)
+		{
+			var sourceArray = source.ToArray();
+			var results = new TResult[sourceArray.Length];
+
+			Parallel.For(0, sourceArray.Length, i =>
+			{
+				results[i] = processor(sourceArray[i]);
+			});
+
+			return results;
+		}
+
+		public static TResult[] SelectInParallel<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, int, TResult> processor)
+		{
+			var sourceArray = source.ToArray();
+			var results = new TResult[sourceArray.Length];
+
+			Parallel.For(0, sourceArray.Length, i =>
+			{
+				results[i] = processor(sourceArray[i], i);
+			});
+
+			return results;
+		}
+
 	}
 }

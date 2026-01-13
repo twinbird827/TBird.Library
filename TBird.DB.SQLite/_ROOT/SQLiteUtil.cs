@@ -39,6 +39,22 @@ namespace TBird.DB.SQLite
 		}
 
 		/// <summary>
+		/// Sqlite3用ﾊﾟﾗﾒｰﾀを作成します。
+		/// </summary>
+		/// <param name="type">ﾊﾟﾗﾒｰﾀの型</param>
+		/// <param name="value">ﾊﾟﾗﾒｰﾀに設定する値</param>
+		/// <returns></returns>
+		public static SQLiteParameter CreateParameter(DbType type, string name, object value)
+		{
+			return new SQLiteParameter()
+			{
+				DbType = type,
+				ParameterName = name,
+				Value = value
+			};
+		}
+
+		/// <summary>
 		/// LIKE句のｴｽｹｰﾌﾟが必要な文字をｴｽｹｰﾌﾟします。
 		/// </summary>
 		/// <param name="value">元の文字列</param>
