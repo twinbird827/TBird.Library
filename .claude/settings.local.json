@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(iconv:*)",
+      "Bash(dotnet build:*)",
+      "Bash(cat:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebSearch",
+      "WebFetch",
+      "Read",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
