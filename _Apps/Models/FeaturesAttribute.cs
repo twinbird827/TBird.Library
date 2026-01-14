@@ -30,38 +30,25 @@ namespace Netkeiba.Models
 	[Flags]
 	public enum FeaturesType
 	{
-		All = 65536,
+		All = 1,
 
-		Horse = 1,
+		Horse = 2,
 
-		Oikiri = 2,
+		Jockey = 4,
 
-		Sire = 4,
+		Blood = 8,
 
-		DamSire = 8,
+		Connection = 16,
 
-		SireBros = 16,
+		AllOther = 32,
 
-		DamSireBros = 32,
+		HorseOther = 64,
 
-		SireDamSireBros = 64,
+		JockeyOther = 128,
 
-		Jockey = 128,
+		BloodOther = 256,
 
-		JockeyPlace = 256,
+		ConnectionOther = 512,
 
-		JockeyTrack = 512,
-
-		Trainer = 1024,
-
-		Breeder = 2048,
-
-		TrainerBreeder = 4096,
-
-		Blood = 8192,
-
-		Connection = 16384,
-
-		Bros = 32768,
 	}
 }
