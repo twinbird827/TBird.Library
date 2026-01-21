@@ -13,7 +13,7 @@ using Tensorflow;
 
 namespace Netkeiba.Models
 {
-	public class RacePrediction
+	public class RacePrediction : TBirdObject
 	{
 		private RacePrediction(RaceDetail detail, float all, float horse, float jockey, float blood, float connection, OptimizedHorseFeatures features)
 		{
@@ -23,7 +23,13 @@ namespace Netkeiba.Models
 			Jockey.Score = jockey;
 			Blood.Score = blood;
 			Connection.Score = connection;
-			Total.Score = GetScore(All.Score, _key[0]) + GetScore(Horse.Score, _key[1]) + GetScore(Jockey.Score, _key[2]) + GetScore(Blood.Score, _key[3]) + GetScore(Connection.Score, _key[4]);
+			Total.Score = Arr(
+				GetScore(All.Score, _key[0]),
+				GetScore(Horse.Score, _key[1]),
+				GetScore(Jockey.Score, _key[2]),
+				GetScore(Blood.Score, _key[3]),
+				GetScore(Connection.Score, _key[4])
+			).Average();
 		}
 
 		public RaceDetail Detail { get; }

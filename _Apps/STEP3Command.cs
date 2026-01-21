@@ -56,10 +56,10 @@ namespace Netkeiba
 				//		conn.GetModelAsync(grade, DateTime.Now.AddMonths(-1).AddDays(1), DateTime.Now)
 				//	);
 				//}
-				var basedate = DateTime.Parse("2026/01/06");
+				var basedate = DateTime.Parse("2025/12/02");
 				RankingAsync(
 					await conn.GetModelAsync(basedate.AddYears(-6), basedate.AddMonths(-12)),
-					await conn.GetModelAsync(basedate.AddMonths(-12).AddDays(1), DateTime.Now)
+					await conn.GetModelAsync(basedate.AddMonths(-12).AddDays(1), basedate)
 				);
 
 			}
@@ -111,8 +111,8 @@ namespace Netkeiba
 
 					Booster = new GradientBooster.Options
 					{
-						L2Regularization = 0.1,    // やや増（汎化性能向上、案5）
-						L1Regularization = 0.1,   // L1正則化を微減（0.05→0.03）
+						L2Regularization = 0.75,    // やや増（汎化性能向上、案5）
+						L1Regularization = 0.25,   // L1正則化を微減（0.05→0.03）
 						MinimumSplitGain = 0.005,  // 分割の最小ゲインを調整（0.01→0.005）
 						MaximumTreeDepth = -1,      // 最大木の深さ（-1=制限なし、0→-1に変更）
 					},

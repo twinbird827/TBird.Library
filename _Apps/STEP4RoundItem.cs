@@ -125,8 +125,10 @@ namespace Netkeiba
 						});
 					}
 
+					var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
+
 					// ﾀｲﾄﾙの設定
-					SetHeader($"[R{race.RaceId.Right(2)}] [{race.Grade}] [{race.Place}] [{race.RaceId}]: {race.CourseName}");
+					SetHeader(header);
 
 					// 明細の設定
 					var arr = await predictions.Select(async x =>
@@ -151,6 +153,10 @@ namespace Netkeiba
 
 					AddLog($"ﾚｰｽID：{raceid} の処理が完了しました。");
 
+					using (var vm = new ReportItemViewModel(header, arr))
+					{
+						await vm.PrintAsync();
+					}
 				}
 
 				if (getShutsuba)

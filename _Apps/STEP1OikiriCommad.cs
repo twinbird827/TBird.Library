@@ -27,6 +27,8 @@ namespace Netkeiba
 				var retry = false;
 				do
 				{
+					retry = false;
+
 					foreach (var raceid in await conn.GetOikiriTargets().ToArrayAsync())
 					{
 						await conn.BeginTransaction();
