@@ -153,5 +153,23 @@ namespace TBird.Wpf
 				.DefaultValue;
 		}
 
+		/// <summary>
+		/// 画面ｲﾍﾞﾝﾄをすべて実行します。
+		/// </summary>
+		public static void DoEvents()
+		{
+			ExecuteOnUI(() =>
+			{
+				DispatcherFrame frame = new DispatcherFrame();
+				var callback = new DispatcherOperationCallback(obj =>
+				{
+					((DispatcherFrame)obj).Continue = false;
+					return null;
+				});
+				Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, callback, frame);
+				Dispatcher.PushFrame(frame);
+			});
+		}
+
 	}
 }
