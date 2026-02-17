@@ -8,15 +8,21 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using TBird.Core;
+using TBird.Wpf;
 
 namespace Netkeiba
 {
 	internal class STEP3Command : STEPBase
 	{
+		// ログ出力の並列数を制限するためのSemaphore（最大4並列）
+		private static readonly SemaphoreSlim LogSemaphore = new(10, 10);
+
 		public STEP3Command(MainViewModel vm) : base(vm)
 		{
 
@@ -57,7 +63,7 @@ namespace Netkeiba
 				//	);
 				//}
 				var basedate = DateTime.Parse("2025/12/02");
-				RankingAsync(
+				await RankingAsync(
 					await conn.GetModelAsync(basedate.AddYears(-6), basedate.AddMonths(-12)),
 					await conn.GetModelAsync(basedate.AddMonths(-12).AddDays(1), basedate)
 				);
@@ -65,20 +71,140 @@ namespace Netkeiba
 			}
 		}
 
-		private void RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2)
+		private async Task RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2)
 		{
 			// これまで作成した教育ﾃﾞｰﾀの削除
 			AppSetting.Instance.RemoveAllRankingTrain();
 
-			RankingAsync(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All));
+			var task = new List<Task>();
+
+			task.Add(RankingAsync(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
 
 			foreach (var type in FeaturesAttribute.GetTargetTypes())
 			{
-				RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type));
+				task.Add(RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
+			}
+
+			await task.WhenAll();
+		}
+
+		private IEnumerable<Task> RankingAsync2(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features)
+		{
+			yield return RankingAsync2(grade, arr1, arr2, "all", normalizations, features);
+
+			foreach (var target in features)
+			{
+				yield return RankingAsync2(grade, arr1, arr2, target, normalizations, features);
 			}
 		}
 
-		private void RankingAsync(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features)
+		private Task RankingAsync2(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2, string target, string[] normalizations, string[] features)
+		{
+			var _ml = new MLContext(seed: 1);
+			var data = arr1;
+			var test = arr2;
+
+			var viewdata = _ml.Data.LoadFromEnumerable(data);
+			var testdata = _ml.Data.LoadFromEnumerable(test);
+
+			normalizations = normalizations.Where(x => x != target).ToArray();
+			features = features.Where(x => x != target).ToArray();
+
+			var pipeline = _ml.Transforms.Conversion.MapValueToKey("RaceIdKey", "RaceId")
+				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label"))
+				.NormalizeMeanVarianceMultiple(_ml, normalizations)
+				.Append(_ml.Transforms.Concatenate("Features", features))
+				.Append(_ml.Ranking.Trainers.LightGbm(new LightGbmRankingTrainer.Options
+				{
+					LabelColumnName = "LabelKey",
+					FeatureColumnName = "Features",
+					RowGroupColumnName = "RaceIdKey",
+					NumberOfIterations = 200,     // やや減（過学習防止、案5）
+					LearningRate = 0.5,          // やや増（学習速度向上、案5）
+					NumberOfLeaves = 20,           // やや減（シンプル化、案5）
+					MinimumExampleCountPerLeaf = 100, // 最小サンプル数（維持）
+					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
+					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）
+					HandleMissingValue = true,     // 欠損値処理（デフォルトtrue）
+					UseZeroAsMissingValue = false, // 0を欠損値として扱う（デフォルトfalse）
+					MinimumExampleCountPerGroup = 100, // グループの最小サンプル数（デフォルト100）
+					MaximumCategoricalSplitPointCount = 32, // カテゴリ分割点の最大数（デフォルト32）
+					CategoricalSmoothing = 10.0,   // カテゴリスムージング（デフォルト10.0）
+					L2CategoricalRegularization = 10.0, // L2カテゴリ正則化（デフォルト10.0）
+
+					Booster = new GradientBooster.Options
+					{
+						L2Regularization = 0.75,    // やや増（汎化性能向上、案5）
+						L1Regularization = 0.25,   // L1正則化を微減（0.05→0.03）
+						MinimumSplitGain = 0.005,  // 分割の最小ゲインを調整（0.01→0.005）
+						MaximumTreeDepth = -1,      // 最大木の深さ（-1=制限なし、0→-1に変更）
+					},
+
+					// NDCG@1を重視
+					EvaluationMetric = LightGbmRankingTrainer.Options.EvaluateMetricType.NormalizedDiscountedCumulativeGain,
+					// 1着に最大の重みを付ける
+					//CustomGains = new int[] { 0, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095 }.Reverse().ToArray()
+				}));
+
+			var model = pipeline.Fit(viewdata);
+
+			// 並列数を制限してバックグラウンドで実行
+			return Task.Run(async () =>
+			{
+				await LogSemaphore.WaitAsync();
+				try
+				{
+					var message = new List<string>();
+
+					message.Add($"{grade}\t{target}");
+
+					// 予測を実行
+					var predictions = model.Transform(testdata);
+
+					// スコアの統計情報を表示
+					(float Length, float Min, float Max, float Average, double Standard) GetScores(float[] allScores)
+					{
+						return (
+							Length: allScores.Length,
+							Min: allScores.Min(),
+							Max: allScores.Max(),
+							Average: allScores.Average(),
+							Standard: Math.Sqrt(allScores.Select(s => Math.Pow(s - allScores.Average(), 2)).Average())
+						);
+					}
+					var allScores = predictions.GetColumn<float>("Score").ToArray();
+					var mathScores = GetScores(allScores);
+					message.Add($"スコア数\t{mathScores.Length}\t最小スコア\t{mathScores.Min:F4}\t最大スコア\t{mathScores.Max:F4}\t平均スコア\t{mathScores.Average:F4}\t標準偏差\t{mathScores.Standard:F4}");
+
+					var featuresPredictions = allScores.SelectInParallel((score, i) => new FeaturesPrediction
+					{
+						RaceId = test[i].RaceId,
+						ActualRank = test[i].Label + 1,
+						Score = score
+					}).ToArray();
+
+					var ndcg = GetNDCG(featuresPredictions);
+
+					message.Add($"手動NDCG@1\t{ndcg.NDCG1:F4}\t手動NDCG@3\t{ndcg.NDCG3:F4}\t手動NDCG@5\t{ndcg.NDCG5:F4}\t評価レース数\t{ndcg.Count}");
+					message.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE1@{i + 1}\t{ndcg.RATE1[i]:F4}").GetString("\t"));
+					message.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE2@{i + 1}\t{ndcg.RATE2[i]:F4}").GetString("\t"));
+					message.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE3@{i + 1}\t{ndcg.RATE3[i]:F4}").GetString("\t"));
+
+					//foreach (var x in GetRATE(featuresPredictions))
+					//{
+					//	MainViewModel.AddLog($"TARGET: {x.Target} / 手動RATE@1: {x.RATE1:F4} / 手動RATE@3: {x.RATE3:F4} / 手動RATE@5: {x.RATE5:F4} / 評価レース数: {x.Count}");
+					//}
+
+					WpfUtil.ExecuteOnUI(() => MainViewModel.AddLog(message.GetString("\t")));
+				}
+				finally
+				{
+					LogSemaphore.Release();
+				}
+			});
+		}
+
+		private Task RankingAsync(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features)
 		{
 			var _ml = new MLContext(seed: 1);
 			var data = arr1;
@@ -123,112 +249,120 @@ namespace Netkeiba
 					//CustomGains = new int[] { 0, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095 }.Reverse().ToArray()
 				}));
 
-			try
+			var model = pipeline.Fit(viewdata);
+
+			// 並列数を制限してバックグラウンドで実行
+			return Task.Run(async () =>
 			{
-				var model = pipeline.Fit(viewdata);
-
-				MainViewModel.AddLog($"========== 予測スコア統計: {grade} ==========");
-
-				// 予測を実行
-				var predictions = model.Transform(testdata);
-				// 訓練データをそのまま使用して評価（本来は分割すべきだが、動作確認のため）
-				MainViewModel.AddLog($"評価データ件数: {predictions.GetRowCount() ?? 0}");
-
-				// スコアの統計情報を表示
-				(float Length, float Min, float Max, float Average, double Standard) GetScores(float[] allScores)
-				{
-					return (
-						Length: allScores.Length,
-						Min: allScores.Min(),
-						Max: allScores.Max(),
-						Average: allScores.Average(),
-						Standard: Math.Sqrt(allScores.Select(s => Math.Pow(s - allScores.Average(), 2)).Average())
-					);
-				}
-				var allScores = predictions.GetColumn<float>("Score").ToArray();
-				var mathScores = GetScores(allScores);
-				MainViewModel.AddLog($"========== 予測スコア統計 ==========");
-				MainViewModel.AddLog($"スコア数: {mathScores.Length} / 最小スコア: {mathScores.Min:F4} / 最大スコア: {mathScores.Max:F4} / 平均スコア: {mathScores.Average:F4} / 標準偏差: {mathScores.Standard:F4}");
-
-				var featuresPredictions = allScores.SelectInParallel((score, i) => new FeaturesPrediction
-				{
-					RaceId = test[i].RaceId,
-					ActualRank = test[i].Label + 1,
-					Score = score
-				}).ToArray();
-
-				// 手動でNDCGを計算
-				MainViewModel.AddLog("========== 手動NDCG計算 ==========");
-
-				var ndcg = GetNDCG(featuresPredictions);
-
-				MainViewModel.AddLog($"手動NDCG@1: {ndcg.NDCG1:F4} / 手動NDCG@3: {ndcg.NDCG3:F4} / 手動NDCG@5: {ndcg.NDCG5:F4} / 評価レース数: {ndcg.Count}");
-
-				// 手動でNDCGを計算
-				MainViewModel.AddLog("========== 手動RATE計算 ==========");
-
-				MainViewModel.AddLog(Enumerable.Range(0, 7).Select(i => $"手動RATE1@{i + 1}: {ndcg.RATE1[i]:F4}").GetString(" / "));
-				MainViewModel.AddLog(Enumerable.Range(0, 7).Select(i => $"手動RATE2@{i + 1}: {ndcg.RATE2[i]:F4}").GetString(" / "));
-				MainViewModel.AddLog(Enumerable.Range(0, 7).Select(i => $"手動RATE3@{i + 1}: {ndcg.RATE3[i]:F4}").GetString(" / "));
-
-				//foreach (var x in GetRATE(featuresPredictions))
-				//{
-				//	MainViewModel.AddLog($"TARGET: {x.Target} / 手動RATE@1: {x.RATE1:F4} / 手動RATE@3: {x.RATE3:F4} / 手動RATE@5: {x.RATE5:F4} / 評価レース数: {x.Count}");
-				//}
-
-				MainViewModel.AddLog("==============================");
-				MainViewModel.AddLog("評価完了（簡易版 + 手動NDCG）");
-
-				// データ件数も出力
-				MainViewModel.AddLog($"学習グレード: {grade} / 学習データ件数: {data.Count()}件 / レース数: {data.Select(x => x.RaceId).Distinct().Count()}件");
-
-				// 特徴量重要度を出力
+				await LogSemaphore.WaitAsync();
 				try
 				{
-					var lastTransformer = model.LastTransformer;
-					if (lastTransformer is RankingPredictionTransformer<Microsoft.ML.Trainers.LightGbm.LightGbmRankingModelParameters> transformer)
+					var message = new List<string>();
+
+					message.Add($"========== 予測スコア統計: {grade} ==========");
+
+					// 予測を実行
+					var predictions = model.Transform(testdata);
+					// 訓練データをそのまま使用して評価（本来は分割すべきだが、動作確認のため）
+					message.Add($"評価データ件数: {predictions.GetRowCount() ?? 0}");
+
+					// スコアの統計情報を表示
+					(float Length, float Min, float Max, float Average, double Standard) GetScores(float[] allScores)
 					{
-						MainViewModel.AddLog("========== 特徴量重要度 ==========");
-
-						Microsoft.ML.Data.VBuffer<float> weights = default;
-						transformer.Model.GetFeatureWeights(ref weights);
-
-						var importance = weights.GetValues()
-							.ToArray()
-							.Select((weight, index) => new { Name = features[index], Weight = weight })
-							.OrderByDescending(x => x.Weight);
-
-						foreach (var item in importance)
-						{
-							MainViewModel.AddLog($"  {item.Name}: {item.Weight:F4}");
-						}
-						MainViewModel.AddLog("==========================================");
+						return (
+							Length: allScores.Length,
+							Min: allScores.Min(),
+							Max: allScores.Max(),
+							Average: allScores.Average(),
+							Standard: Math.Sqrt(allScores.Select(s => Math.Pow(s - allScores.Average(), 2)).Average())
+						);
 					}
+					var allScores = predictions.GetColumn<float>("Score").ToArray();
+					var mathScores = GetScores(allScores);
+					message.Add($"========== 予測スコア統計 ==========");
+					message.Add($"スコア数: {mathScores.Length} / 最小スコア: {mathScores.Min:F4} / 最大スコア: {mathScores.Max:F4} / 平均スコア: {mathScores.Average:F4} / 標準偏差: {mathScores.Standard:F4}");
+
+					var featuresPredictions = allScores.SelectInParallel((score, i) => new FeaturesPrediction
+					{
+						RaceId = test[i].RaceId,
+						ActualRank = test[i].Label + 1,
+						Score = score
+					}).ToArray();
+
+					// 手動でNDCGを計算
+					message.Add("========== 手動NDCG計算 ==========");
+
+					var ndcg = GetNDCG(featuresPredictions);
+
+					message.Add($"手動NDCG@1: {ndcg.NDCG1:F4} / 手動NDCG@3: {ndcg.NDCG3:F4} / 手動NDCG@5: {ndcg.NDCG5:F4} / 評価レース数: {ndcg.Count}");
+
+					// 手動でNDCGを計算
+					message.Add("========== 手動RATE計算 ==========");
+
+					message.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE1@{i + 1}: {ndcg.RATE1[i]:F4}").GetString(" / "));
+					message.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE2@{i + 1}: {ndcg.RATE2[i]:F4}").GetString(" / "));
+					message.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE3@{i + 1}: {ndcg.RATE3[i]:F4}").GetString(" / "));
+
+					//foreach (var x in GetRATE(featuresPredictions))
+					//{
+					//	MainViewModel.AddLog($"TARGET: {x.Target} / 手動RATE@1: {x.RATE1:F4} / 手動RATE@3: {x.RATE3:F4} / 手動RATE@5: {x.RATE5:F4} / 評価レース数: {x.Count}");
+					//}
+
+					message.Add("==============================");
+					message.Add("評価完了（簡易版 + 手動NDCG）");
+
+					// データ件数も出力
+					message.Add($"学習グレード: {grade} / 学習データ件数: {data.Count()}件 / レース数: {data.Select(x => x.RaceId).Distinct().Count()}件");
+
+					// 特徴量重要度を出力
+					try
+					{
+						var lastTransformer = model.LastTransformer;
+						if (lastTransformer is RankingPredictionTransformer<Microsoft.ML.Trainers.LightGbm.LightGbmRankingModelParameters> transformer)
+						{
+							message.Add("========== 特徴量重要度 ==========");
+
+							Microsoft.ML.Data.VBuffer<float> weights = default;
+							transformer.Model.GetFeatureWeights(ref weights);
+
+							var importance = weights.GetValues()
+								.ToArray()
+								.Select((weight, index) => new { Name = features[index], Weight = weight })
+								.OrderByDescending(x => x.Weight);
+
+							foreach (var item in importance)
+							{
+								message.Add($"  {item.Name}: {item.Weight:F4}");
+							}
+							message.Add("==========================================");
+						}
+					}
+					catch (Exception ex)
+					{
+						message.Add($"特徴量重要度の取得に失敗: {ex.Message}");
+					}
+
+					var result = new RankingTrain(
+						DateTime.Now,
+						grade,
+						ndcg.NDCG1,
+						ndcg.NDCG3,
+						ndcg.NDCG5
+					);
+					AppSetting.Instance.UpdateRankingTrains(result);
+
+					// ML.NET 4.0.2でのモデル保存方法
+					using var fileStream = new FileStream(result.Path, FileMode.Create, FileAccess.Write, FileShare.Write);
+					_ml.Model.Save(model, null, fileStream);
+					message.Add($"モデルを保存しました: {result.Path}");
+
+					WpfUtil.ExecuteOnUI(() => message.ForEach(s => MainViewModel.AddLog(s)));
 				}
-				catch (Exception ex)
+				finally
 				{
-					MainViewModel.AddLog($"特徴量重要度の取得に失敗: {ex.Message}");
+					LogSemaphore.Release();
 				}
-
-				var result = new RankingTrain(
-					DateTime.Now,
-					grade,
-					ndcg.NDCG1,
-					ndcg.NDCG3,
-					ndcg.NDCG5
-				);
-				AppSetting.Instance.UpdateRankingTrains(result);
-
-				// ML.NET 4.0.2でのモデル保存方法
-				using var fileStream = new FileStream(result.Path, FileMode.Create, FileAccess.Write, FileShare.Write);
-				_ml.Model.Save(model, null, fileStream);
-				MainViewModel.AddLog($"モデルを保存しました: {result.Path}");
-			}
-			catch (Exception ex)
-			{
-				MessageService.Debug(ex.ToString());
-			}
-
+			});
 		}
 
 		private AggregateNDCG GetNDCG(FeaturesPrediction[] tests)

@@ -50,7 +50,7 @@ namespace Netkeiba
 				S4RoundHeader.TryDispose();
 				S4RoundHeader = new UniformViewModel(arr.Select(x => x.Mid(4, 2)).Distinct().Select(x => new ComboboxItemModel(x, basyos[x])));
 
-				string GetBasyoRound(string basyo, int i) => arr.First(x => x.Mid(4, 2) == basyo && x.EndsWith(i.ToString(2)));
+				string GetBasyoRound(string basyo, int i) => arr.FirstOrDefault(x => x.Mid(4, 2) == basyo && x.EndsWith(i.ToString(2))) ?? string.Empty;
 
 				S4RoundItemSources.Clear();
 				foreach (var i in Enumerable.Range(1, 12))

@@ -157,6 +157,13 @@ namespace Netkeiba
 					{
 						await vm.PrintAsync();
 					}
+
+					File.WriteAllText(
+						Path.Combine(Directories.DocumentsDirectory, $"{header}_{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv"),
+						OptimizedHorseFeatures.GetProperties().Select(x => x.Name).GetString(",") + "\n" +
+						features.SelectInParallel(x => OptimizedHorseFeatures.GetProperties().SelectInParallel(p => p.Property.GetValue(x)).GetString(",")).GetString("\n")
+					);
+
 				}
 
 				if (getShutsuba)
