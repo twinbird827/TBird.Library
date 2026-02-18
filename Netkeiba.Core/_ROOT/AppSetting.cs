@@ -1,5 +1,4 @@
-﻿using Microsoft.ML.AutoML;
-using Netkeiba.Models;
+﻿using Netkeiba.Models;
 using System.Collections.Generic;
 using System.Linq;
 using TBird.Core;
@@ -16,11 +15,10 @@ namespace Netkeiba
 			{
 				RankingTrains = [];
 				NetkeibaResult = "result";
-
 			}
 		}
 
-		public AppSetting() : this(@"lib\app-setting.json")
+		public AppSetting() : this(Path.Combine(PathSetting.Instance.RootDirectory, @"lib\app-setting.json"))
 		{
 
 		}

@@ -13,7 +13,9 @@
       "WebFetch",
       "Read",
       "Glob",
-      "Grep"
+      "Grep",
+      "Bash(dir:*)",
+      "Bash(dotnet new:*)"
     ],
     "deny": [],
     "ask": []

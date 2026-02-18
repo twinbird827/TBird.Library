@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:Netkeiba"
-			 xmlns:models="clr-namespace:Netkeiba.Models"
+			 xmlns:models="clr-namespace:Netkeiba.Models;assembly=Netkeiba.Core"
              mc:Ignorable="d">
 	<UserControl.DataContext>
 		<local:ReportItemViewModel />

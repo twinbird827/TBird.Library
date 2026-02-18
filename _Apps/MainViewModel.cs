@@ -45,7 +45,7 @@ namespace Netkeiba
 					{ "10", "小倉" },
 				};
 
-				var arr = await NetkeibaGetter.GetCurrentRaceIds(DateTime.ParseExact(S4Dates.SelectedItem.Value, "yyyyMMdd", null));
+				var arr = await NetkeibaGetter.GetCurrentRaceIds(MainViewModel.GetS4SelectedDate());
 
 				S4RoundHeader.TryDispose();
 				S4RoundHeader = new UniformViewModel(arr.Select(x => x.Mid(4, 2)).Distinct().Select(x => new ComboboxItemModel(x, basyos[x])));
@@ -177,6 +177,8 @@ namespace Netkeiba
 			_this.S4ResultItemSources.Clear();
 			_this.S4ResultItemSources.AddRange(items);
 		}
+
+		public static DateTime GetS4SelectedDate() => _this != null ? DateTime.ParseExact(_this.S4Dates.SelectedItem.Value, "yyyyMMdd", null) : DateTime.Now;
 
 		//public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
 		//{

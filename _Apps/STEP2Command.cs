@@ -14,15 +14,11 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ListView;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace Netkeiba
 {
 	public class STEP2Command : STEPBase
 	{
-		private PreviousDataSets _PDS = new();
-
 		public STEP2Command(MainViewModel vm) : base(vm)
 		{
 
@@ -48,8 +44,6 @@ namespace Netkeiba
 
 				// バッチ処理で訓練データを生成・保存
 				await GenerateAndSaveTrainingDataAsync(conn);
-
-				_PDS.Clear();
 			}
 		}
 
@@ -60,7 +54,7 @@ namespace Netkeiba
 		{
 			MainViewModel.AddLog($"訓練データ生成開始");
 
-			_PDS.SetTrackConditionDistances(await conn.GetTrackDistanceAsync().ToArrayAsync());
+			await PreviousDataSets.Initialize(conn);
 
 			var already = conn.GetAlreadyCreatedRacesAsync().ToBlockingEnumerable().ToArray();
 
@@ -72,7 +66,7 @@ namespace Netkeiba
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x), details, _PDS.GetTrackConditionDistances(x)));
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
@@ -82,7 +76,7 @@ namespace Netkeiba
 						// 特徴量を生成
 						var results = details.Select(x =>
 						{
-							var features = x.ExtractFeatures(details, _PDS);
+							var features = x.ExtractFeatures(details);
 
 							// ラベル生成（難易度調整済み着順スコア）
 							features.Label = (x.FinishPosition - 1).Run(x => x < 12 ? x : 11);
@@ -102,7 +96,7 @@ namespace Netkeiba
 					}
 
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
-					details.ForEach(_PDS.AddHistory);
+					details.ForEach(PreviousDataSets.AddHistory);
 
 					MainViewModel.AddLog($"訓練データ生成完了：{race.RaceId} {race.RaceDate}");
 				}

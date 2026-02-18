@@ -526,7 +526,8 @@ AND    CAST(h.障害 AS INTEGER) = 0
 				}
 				catch (Exception ex)
 				{
-					MainViewModel.AddLog(ex.ToString());
+					// MainViewModel.AddLog(ex.ToString());
+					Console.WriteLine(ex.ToString());
 					throw;
 				}
 				return model;

@@ -1,27 +1,119 @@
-﻿@page
-@model IndexModel
+@page
+@model Browser.Pages.IndexModel
+@{
+    ViewData["Title"] = "競馬予想 - トップページ";
+}
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Netkeiba Results</title>
+    <title>@ViewData["Title"]</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .race-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .race-table th, .race-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .race-table th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .race-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .race-table tr:hover {
+            background-color: #ddd;
+        }
+        .race-link {
+            color: #0066cc;
+            text-decoration: none;
+            padding: 5px 10px;
+            display: inline-block;
+        }
+        .race-link:hover {
+            background-color: #e6f2ff;
+            text-decoration: underline;
+        }
+        .place-header {
+            background-color: #2196F3 !important;
+        }
+    </style>
 </head>
 <body>
-    <table class="sticky_table">
-        <thead>
-            <tr>
-                <th width="20%">@Html.DisplayNameFor(m => m.Results[0].Date)</th>
-                <th width="80%" class="textleft">@Html.DisplayNameFor(m => m.Results[0].Title)</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var row in Model.Results)
-            {
-                <tr class="tr_bottom">
-                    <td width="20%">@Html.DisplayFor(m => row.Date)</td>
-                    <td width="80%" class="textleft"><a asp-route="Route01" asp-route-title="@row.Title" asp-route-place="0" asp-route-race="1">@Html.DisplayFor(m => row.Title)</a></td>
+    <h1>競馬予想 - 直近の過去のレース</h1>
+    <p>開催日: @Model.RaceDate.ToString("yyyy年MM月dd日 (ddd)")</p>
+
+    @if (Model.RaceGroups.Any())
+    {
+        <table class="race-table">
+            <thead>
+                <tr>
+                    <th>R</th>
+                    @foreach (var group in Model.RaceGroups)
+                    {
+                        <th class="place-header">@GetPlaceName(group.Key)</th>
+                    }
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @for (int raceNum = 1; raceNum <= 12; raceNum++)
+                {
+                    <tr>
+                        <td><strong>@raceNum</strong></td>
+                        @foreach (var group in Model.RaceGroups)
+                        {
+                            var race = group.FirstOrDefault(r => r.RaceNum == raceNum);
+                            <td>
+                                @if (race != null)
+                                {
+                                    <a href="/race/@race.RaceId" class="race-link">予想</a>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>本日のレース情報がありません。</p>
+    }
 </body>
 </html>
+
+@functions {
+    string GetPlaceName(string placeCode)
+    {
+        return placeCode switch
+        {
+            "01" => "札幌",
+            "02" => "函館",
+            "03" => "福島",
+            "04" => "新潟",
+            "05" => "東京",
+            "06" => "中山",
+            "07" => "中京",
+            "08" => "京都",
+            "09" => "阪神",
+            "10" => "小倉",
+            _ => $"場所{placeCode}"
+        };
+    }
+}

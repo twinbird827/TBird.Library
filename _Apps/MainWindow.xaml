@@ -9,7 +9,7 @@
 					  xmlns:behavior="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf"
 					  behavior:WindowBehavior.ContentRendered="{Binding OnLoaded}"
 					  behavior:WindowBehavior.Closing="{Binding OnClosing}"
-					  xmlns:models="clr-namespace:Netkeiba.Models"
+					  xmlns:models="clr-namespace:Netkeiba.Models;assembly=Netkeiba.Core"
 					  mc:Ignorable="d"
                       Title="Netkeiba">
 	<Controls:MetroWindow.DataContext>

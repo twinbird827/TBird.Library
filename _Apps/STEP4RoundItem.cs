@@ -19,8 +19,6 @@ namespace Netkeiba
 {
 	public class STEP4RoundItem : CheckboxItemModel
 	{
-		private static PreviousDataSets? _PDS;
-
 		public STEP4RoundItem(string raceid) : base(raceid, $"R{raceid.Right(2)}")
 		{
 			AddOnPropertyChanged(this, (sender, e) =>
@@ -31,13 +29,7 @@ namespace Netkeiba
 
 		private async Task InitializePreviousDataSets(SQLiteControl conn)
 		{
-			if (_PDS != null) return;
-
-			_PDS = new();
-
-			_PDS.SetTrackConditionDistances(await conn.GetTrackDistanceAsync().ToArrayAsync());
-
-			await _PDS.InitializeHistory(conn);
+			await PreviousDataSets.Initialize(conn, MainViewModel.GetS4SelectedDate().AddDays(-3));
 		}
 
 		private IRelayCommand? _command;
@@ -87,7 +79,7 @@ namespace Netkeiba
 					AddLog($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(_PDS.GetHorses(x), details, _PDS.GetTrackConditionDistances(x)));
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
 
 					AddLog($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
@@ -97,7 +89,7 @@ namespace Netkeiba
 					// 特徴量を生成
 					var features = details.Select(x =>
 					{
-						var value = x.ExtractFeatures(details, _PDS);
+						var value = x.ExtractFeatures(details);
 
 						// ラベル生成（難易度調整済み着順スコア）
 						value.Label = 0;

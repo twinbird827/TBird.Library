@@ -1,9 +1,9 @@
-﻿using Browser.Models;
+﻿using Netkeiba;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-AppSetting.Instance.Save();
+// AppSetting.Instance.Save();
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -26,8 +26,6 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
-
-app.MapControllerRoute("Route01", "/detail/{title}/{place}/{race}");
 
 app.MapRazorPages();
 

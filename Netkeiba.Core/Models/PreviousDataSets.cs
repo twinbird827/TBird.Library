@@ -1,16 +1,88 @@
-﻿using Microsoft.ML.TorchSharp.Roberta;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB.SQLite;
-using Tensorflow.Keras.Layers;
 
 namespace Netkeiba.Models
 {
-	public class PreviousDataSets
+	public partial class PreviousDataSets
+	{
+		private static PreviousDataSets _PDS = new();
+
+		private PreviousDataSets()
+		{
+
+		}
+
+		public static async Task Initialize(SQLiteControl conn)
+		{
+			void SetTrackConditionDistances(TrackConditionDistance[] tracks) => tracks.ForEach(x => _PDS._TrackConditionDistances.Add(_PDS.GetTrackConditionDistance(x), x));
+
+			_PDS.Clear();
+
+			SetTrackConditionDistances(await conn.GetTrackDistanceAsync().ToArrayAsync());
+		}
+
+		public static async Task Initialize(SQLiteControl conn, DateTime date)
+		{
+			await Initialize(conn);
+
+			await _PDS.InitializeHistory(conn, date);
+		}
+
+		public static List<RaceDetail> GetHorses(RaceDetail x) => GetHorses(x.Horse, x);
+
+		public static List<RaceDetail> GetHorses(string x, RaceDetail detail) => _PDS.GetMaster(detail, _PDS.GetHorse(x));
+
+		public static List<RaceDetail> GetJockeys(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetJockey(x));
+
+		public static List<RaceDetail> GetJockeyPlaces(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetJockeyPlace(x));
+
+		public static List<RaceDetail> GetJockeyTracks(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetJockeyTrack(x));
+
+		public static List<RaceDetail> GetTrainers(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetTrainer(x));
+
+		public static List<RaceDetail> GetJockeyTrainers(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetJockeyTrainer(x));
+
+		public static List<RaceDetail> GetBreeders(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetBreeder(x));
+
+		public static List<RaceDetail> GetTrainerBreeders(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetTrainerBreeder(x));
+
+		public static List<RaceDetail> GetSires(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetSire(x));
+
+		public static List<RaceDetail> GetDamSires(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetDamSire(x));
+
+		public static List<RaceDetail> GetSireDamSires(RaceDetail x) => _PDS.GetMaster(x, _PDS.GetSireDamSire(x));
+
+		public static TrackConditionDistance GetTrackConditionDistances(RaceDetail x) => _PDS._TrackConditionDistances.Get(_PDS.GetTrackConditionDistance(x.Race), TrackConditionDistance.Default);
+
+		public static void AddHistory(RaceDetail x)
+		{
+			void AddHistory(Dictionary<string, List<RaceDetail>> dic, RaceDetail tgt, string key)
+			{
+				if (!dic.ContainsKey(key))
+				{
+					dic.Add(key, new List<RaceDetail>());
+				}
+				dic[key].Insert(0, tgt);
+				if (dic[key].Count > 500)
+				{
+					dic[key].RemoveAt(500 - 1);
+				}
+			}
+
+			_PDS.GetKeyArray(x).ForEach(key =>
+			{
+				AddHistory(_PDS._master[key.Key], x, key.Value);
+			});
+		}
+
+	}
+
+	public partial class PreviousDataSets
 	{
 		private Dictionary<string, List<RaceDetail>>[] _master = Enumerable
 			.Range(0, 15)
@@ -56,64 +128,13 @@ namespace Netkeiba.Models
 
 		private Dictionary<string, TrackConditionDistance> _TrackConditionDistances = new();
 
-		private List<RaceDetail> GetMaster(KeyValuePair<int, string> kvp) => _master[kvp.Key].Get(kvp.Value, new List<RaceDetail>());
-
-		public List<RaceDetail> GetHorses(RaceDetail x) => GetHorses(x.Horse);
-
-		public List<RaceDetail> GetHorses(string x) => GetMaster(GetHorse(x));
-
-		public List<RaceDetail> GetJockeys(RaceDetail x) => GetMaster(GetJockey(x));
-
-		public List<RaceDetail> GetJockeyPlaces(RaceDetail x) => GetMaster(GetJockeyPlace(x));
-
-		public List<RaceDetail> GetJockeyTracks(RaceDetail x) => GetMaster(GetJockeyTrack(x));
-
-		public List<RaceDetail> GetTrainers(RaceDetail x) => GetMaster(GetTrainer(x));
-
-		public List<RaceDetail> GetJockeyTrainers(RaceDetail x) => GetMaster(GetJockeyTrainer(x));
-
-		public List<RaceDetail> GetBreeders(RaceDetail x) => GetMaster(GetBreeder(x));
-
-		public List<RaceDetail> GetTrainerBreeders(RaceDetail x) => GetMaster(GetTrainerBreeder(x));
-
-		public List<RaceDetail> GetSires(RaceDetail x) => GetMaster(GetSire(x));
-
-		public List<RaceDetail> GetDamSires(RaceDetail x) => GetMaster(GetDamSire(x));
-
-		public List<RaceDetail> GetSireDamSires(RaceDetail x) => GetMaster(GetSireDamSire(x));
+		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp) => _master[kvp.Key].Get(kvp.Value, new List<RaceDetail>()).Where(y => y.Race.RaceDate < x.Race.RaceDate.AddDays(-3)).ToList();
 
 		private string GetTrackConditionDistance(Race x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
 
 		private string GetTrackConditionDistance(TrackConditionDistance x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
 
-		public TrackConditionDistance GetTrackConditionDistances(RaceDetail x) => _TrackConditionDistances.Get(GetTrackConditionDistance(x.Race), TrackConditionDistance.Default);
-
-		public void SetTrackConditionDistances(TrackConditionDistance[] tracks) => tracks.ForEach(x => _TrackConditionDistances.Add(GetTrackConditionDistance(x), x));
-
-		public void AddHistory(RaceDetail x)
-		{
-			void AddHistory(Dictionary<string, List<RaceDetail>> dic, RaceDetail tgt, string key)
-			{
-				if (!dic.ContainsKey(key))
-				{
-					dic.Add(key, new List<RaceDetail>());
-				}
-				dic[key].Insert(0, tgt);
-				if (dic[key].Count > 500)
-				{
-					dic[key].RemoveAt(500 - 1);
-				}
-			}
-
-			GetKeyArray(x).ForEach(key =>
-			{
-				AddHistory(_master[key.Key], x, key.Value);
-			});
-		}
-
-		public Task InitializeHistory(SQLiteControl conn) => InitializeHistory(conn, DateTime.Now.AddDays(-4));
-
-		public async Task InitializeHistory(SQLiteControl conn, DateTime date)
+		private async Task InitializeHistory(SQLiteControl conn, DateTime date)
 		{
 			foreach (var race in await conn.GetRaceAsync(date).ToArrayAsync())
 			{
@@ -131,7 +152,7 @@ namespace Netkeiba.Models
 			}
 		}
 
-		public void Clear()
+		private void Clear()
 		{
 			_master.ForEach(x => x.Clear());
 			_TrackConditionDistances.Clear();

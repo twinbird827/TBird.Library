@@ -5,8 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
-using Tensorflow;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ListView;
 
 namespace Netkeiba.Models
 {
@@ -152,28 +150,28 @@ namespace Netkeiba.Models
 		private static float DefaultTime2Top = 1.5F;
 		private static float DefaultLastThreeFurlongs2Top = 2.5F;
 
-		public static OptimizedHorseFeatures ExtractFeatures(this RaceDetail detail, RaceDetail[] inraces, PreviousDataSets _PDS)
+		public static OptimizedHorseFeatures ExtractFeatures(this RaceDetail detail, RaceDetail[] inraces)
 		{
 
-			var horses = _PDS.GetHorses(detail);
+			var horses = PreviousDataSets.GetHorses(detail);
 			// 対象馬の情報
-			var horses1 = GetHorseScoreMetrics(detail, horses.Take(1).ToList(), _PDS);
-			var horses3 = GetHorseScoreMetrics(detail, horses.Take(3).ToList(), _PDS);
-			var horses5 = GetHorseScoreMetrics(detail, horses.Take(5).ToList(), _PDS);
+			var horses1 = GetHorseScoreMetrics(detail, horses.Take(1).ToList());
+			var horses3 = GetHorseScoreMetrics(detail, horses.Take(3).ToList());
+			var horses5 = GetHorseScoreMetrics(detail, horses.Take(5).ToList());
 			// 血統情報
-			var sires = GetHorseScoreMetrics(detail, _PDS.GetHorses(detail.Sire), _PDS);
-			var damsires = GetHorseScoreMetrics(detail, _PDS.GetHorses(detail.DamSire), _PDS);
+			var sires = GetHorseScoreMetrics(detail, PreviousDataSets.GetHorses(detail.Sire, detail));
+			var damsires = GetHorseScoreMetrics(detail, PreviousDataSets.GetHorses(detail.DamSire, detail));
 			// 兄弟馬
-			var sirebros = GetHorseScoreMetrics(detail, _PDS.GetSires(detail), _PDS);
-			var damsirebros = GetHorseScoreMetrics(detail, _PDS.GetDamSires(detail), _PDS);
-			var siredamsirebros = GetHorseScoreMetrics(detail, _PDS.GetSireDamSires(detail), _PDS);
+			var sirebros = GetHorseScoreMetrics(detail, PreviousDataSets.GetSires(detail));
+			var damsirebros = GetHorseScoreMetrics(detail, PreviousDataSets.GetDamSires(detail));
+			var siredamsirebros = GetHorseScoreMetrics(detail, PreviousDataSets.GetSireDamSires(detail));
 			// 関係者情報
-			var jockeys = GetConnectionScoreMetrics(detail, _PDS.GetJockeys(detail), _PDS);
-			var jockeyplaces = GetConnectionScoreMetrics(detail, _PDS.GetJockeyPlaces(detail), _PDS);
-			var jockeytracks = GetConnectionScoreMetrics(detail, _PDS.GetJockeyTracks(detail), _PDS);
-			var trainers = GetConnectionScoreMetrics(detail, _PDS.GetTrainers(detail), _PDS);
-			var breeders = GetConnectionScoreMetrics(detail, _PDS.GetBreeders(detail), _PDS);
-			var trainerbreeders = GetConnectionScoreMetrics(detail, _PDS.GetTrainerBreeders(detail), _PDS);
+			var jockeys = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeys(detail));
+			var jockeyplaces = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyPlaces(detail));
+			var jockeytracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyTracks(detail));
+			var trainers = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainers(detail));
+			var breeders = GetConnectionScoreMetrics(detail, PreviousDataSets.GetBreeders(detail));
+			var trainerbreeders = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainerBreeders(detail));
 			var restDays = Math.Min((detail.Race.RaceDate - detail.LastRaceDate).Days, 365F);
 			var nearestRaces = horses.Count(x => x.Race.RaceDate > detail.Race.RaceDate.AddDays(-90));
 
@@ -830,7 +828,7 @@ namespace Netkeiba.Models
 			return score;
 		}
 
-		private static HorseScoreMetrics GetHorseScoreMetrics(this RaceDetail detail, List<RaceDetail> horses, PreviousDataSets _PDS)
+		private static HorseScoreMetrics GetHorseScoreMetrics(this RaceDetail detail, List<RaceDetail> horses)
 		{
 			return new HorseScoreMetrics()
 			{
@@ -878,7 +876,7 @@ namespace Netkeiba.Models
 			};
 		}
 
-		private static ConnectionScoreMetrics GetConnectionScoreMetrics(this RaceDetail detail, List<RaceDetail> horses, PreviousDataSets _PDS)
+		private static ConnectionScoreMetrics GetConnectionScoreMetrics(this RaceDetail detail, List<RaceDetail> horses)
 		{
 			return new ConnectionScoreMetrics()
 			{

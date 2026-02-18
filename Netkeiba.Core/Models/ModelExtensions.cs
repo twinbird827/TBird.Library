@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
@@ -9,6 +10,22 @@ namespace Netkeiba.Models
 {
 	public static class ModelExtensions
 	{
+		public static IEnumerable<CustomProperty> GetPropertiesEX(this object value)
+		{
+			return value.GetType().GetPropertiesEX();
+		}
+
+		public static IEnumerable<CustomProperty> GetPropertiesEX(this Type type)
+		{
+			return type.GetProperties()
+				.Select(p => new CustomProperty(
+					p,
+					p.Name,
+					p.PropertyType,
+					p.GetCustomAttribute<FeaturesAttribute>()
+				));
+		}
+
 		public static GradeType ToGrade(this string grade) => EnumUtil.ToEnum<GradeType>(grade);
 
 		public static bool IsG1(this GradeType grade) => grade switch

@@ -1,0 +1,162 @@
+@page "/race/{id}"
+@model Browser.Pages.RaceModel
+@{
+    ViewData["Title"] = "レース予想結果";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>@ViewData["Title"]</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .race-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .result-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .result-table th, .result-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .result-table th {
+            background-color: #2196F3;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        .result-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .result-table tr:hover {
+            background-color: #ddd;
+        }
+        .rank-1 { background-color: #FFD700 !important; }
+        .rank-2 { background-color: #C0C0C0 !important; }
+        .rank-3 { background-color: #CD7F32 !important; }
+        .rank-4 { background-color: #E6E6FA !important; }
+        .rank-5 { background-color: #FFF0F5 !important; }
+        .error {
+            color: red;
+            padding: 20px;
+            background-color: #ffe6e6;
+            border: 1px solid red;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .back-link:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← トップページに戻る</a>
+
+    <h1>レース予想結果</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="error">
+            <strong>エラー:</strong> @Model.ErrorMessage
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(Model.RaceHeader))
+    {
+        <div class="race-header">
+            <h2>@Model.RaceHeader</h2>
+        </div>
+
+        <table class="result-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">枠番</th>
+                    <th rowspan="2">馬番</th>
+                    <th rowspan="2">馬名</th>
+                    <th rowspan="2">結果</th>
+                    <th colspan="2">総合</th>
+                    <th colspan="2">馬</th>
+                    <th colspan="2">騎手</th>
+                    <th colspan="2">血統</th>
+                    <th colspan="2">関係</th>
+                    <th colspan="2">合計</th>
+                </tr>
+                <tr>
+                    <th>スコア</th>
+                    <th>順位</th>
+                    <th>スコア</th>
+                    <th>順位</th>
+                    <th>スコア</th>
+                    <th>順位</th>
+                    <th>スコア</th>
+                    <th>順位</th>
+                    <th>スコア</th>
+                    <th>順位</th>
+                    <th>スコア</th>
+                    <th>順位</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Results)
+                {
+                    <tr>
+                        <td>@item.Wakuban</td>
+                        <td>@item.Umaban</td>
+                        <td style="text-align: left;">@item.Name</td>
+                        <td>@item.Result</td>
+                        <td>@item.AllScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.AllRank)">@item.AllRank</td>
+                        <td>@item.HorseScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.HorseRank)">@item.HorseRank</td>
+                        <td>@item.JockeyScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.JockeyRank)">@item.JockeyRank</td>
+                        <td>@item.BloodScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.BloodRank)">@item.BloodRank</td>
+                        <td>@item.ConnectionScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.ConnectionRank)">@item.ConnectionRank</td>
+                        <td>@item.TotalScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.TotalRank)">@item.TotalRank</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>読み込み中...</p>
+    }
+</body>
+</html>
+
+@functions {
+    string GetRankClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "rank-1",
+            2 => "rank-2",
+            3 => "rank-3",
+            4 => "rank-4",
+            5 => "rank-5",
+            _ => ""
+        };
+    }
+}

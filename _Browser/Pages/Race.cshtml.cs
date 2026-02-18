@@ -1,0 +1,199 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.ML;
+using Netkeiba;
+using Netkeiba.Models;
+using TBird.Core;
+using TBird.DB.SQLite;
+
+namespace Browser.Pages
+{
+	public class RaceModel : PageModel
+	{
+		private readonly ILogger<RaceModel> _logger;
+
+		public RaceModel(ILogger<RaceModel> logger)
+		{
+			_logger = logger;
+		}
+
+		public async Task<IActionResult> OnGetAsync(string id)
+		{
+			if (string.IsNullOrEmpty(id))
+			{
+				return NotFound();
+			}
+
+			RaceId = id;
+
+			try
+			{
+				// STEP4処理を実行
+				await ExecuteSTEP4(id);
+				return Page();
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "レース予想処理でエラーが発生しました");
+				ErrorMessage = $"エラーが発生しました: {ex.Message}";
+				return Page();
+			}
+		}
+
+		private async Task ExecuteSTEP4(string raceid)
+		{
+			using (var conn = AppUtil.CreateSQLiteControl())
+			{
+				var getShutsuba = false;
+
+				var ini = InitializePreviousDataSets(conn);
+
+				// 該当レースの出馬表を取得する
+				_logger.LogInformation($"レースID：{raceid} の出馬表データを取得します。");
+				await conn.BeginTransaction();
+				await foreach (var racearr in GetSTEP4Racearrs(conn, raceid))
+				{
+					await conn.InsertShutsubaAsync(racearr);
+					await conn.InsertOikiriAsync(raceid);
+					getShutsuba = true;
+					_logger.LogInformation($"レースID：{raceid} の出馬表データが取得できました。");
+				}
+				conn.Commit();
+
+				await ini;
+
+				var ml = new MLContext(seed: 1);
+
+				RacePrediction.Initialize(ml);
+
+				// 出馬表からレースデータを作成する
+				_logger.LogInformation($"レースID：{raceid} の出馬表データをデータベースから取得します。");
+				await foreach (var race in conn.GetShutsubaRaceAsync(raceid))
+				{
+					// 今レースの情報を取得する
+					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
+
+					_logger.LogInformation($"レースID：{raceid} の出馬表データがデータベースから取得できました。");
+
+					// 過去データ設定
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
+
+					_logger.LogInformation($"レースID：{raceid} の関連情報を取得しました。");
+
+					// 今レースのレーティング情報をセットする
+					race.AverageRating = details.Average(x => x.AverageRating);
+
+					// 特徴量を生成
+					var features = details.Select(x =>
+					{
+						var value = x.ExtractFeatures(details);
+
+						// ラベル生成（難易度調整済み着順スコア）
+						value.Label = 0;
+
+						return value;
+					}).CalculateInRaces();
+
+					_logger.LogInformation($"レースID：{raceid} の特徴量を作成しました。");
+
+					// スコア計算
+					var predictions = RacePrediction.CalculatePrediction(ml, details, features);
+
+					_logger.LogInformation($"レースID：{raceid} のスコアを計算しました。");
+
+					if (race.RaceDate < DateTime.Now)
+					{
+						var tya = await NetkeibaGetter.GetTyakujun(race.RaceId);
+
+						predictions.ForEach(p =>
+						{
+							p.Result = tya
+								.Where(x => x["馬番"].Int32() == p.Detail.Umaban)
+								.Select(x => x["着順"].Int32())
+								.FirstOrDefault();
+						});
+					}
+
+					RaceHeader = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
+
+					// 結果を設定
+					Results = await predictions.Select(async x =>
+					{
+						var name = await conn.ExecuteScalarAsync($"SELECT 馬名 FROM t_uma WHERE 馬ID = ?", TBird.DB.SQLite.SQLiteUtil.CreateParameter(System.Data.DbType.String, x.Detail.Horse));
+
+						return new RaceResultItem
+						{
+							Wakuban = x.Detail.Wakuban,
+							Umaban = x.Detail.Umaban,
+							Name = name.Str(),
+							Result = x.Result.Str(),
+							AllScore = x.All.Score,
+							AllRank = x.All.Rank,
+							HorseScore = x.Horse.Score,
+							HorseRank = x.Horse.Rank,
+							JockeyScore = x.Jockey.Score,
+							JockeyRank = x.Jockey.Rank,
+							BloodScore = x.Blood.Score,
+							BloodRank = x.Blood.Rank,
+							ConnectionScore = x.Connection.Score,
+							ConnectionRank = x.Connection.Rank,
+							TotalScore = x.Total.Score,
+							TotalRank = x.Total.Rank
+						};
+					}).WhenAll();
+
+					_logger.LogInformation($"レースID：{raceid} の処理が完了しました。");
+				}
+
+				if (getShutsuba)
+				{
+					await conn.BeginTransaction();
+					await conn.DeleteOrigAsync(raceid);
+					conn.Commit();
+				}
+			}
+		}
+
+		private async Task InitializePreviousDataSets(SQLiteControl conn)
+		{
+			await PreviousDataSets.Initialize(conn, DateTime.Now.AddDays(-4));
+		}
+
+		private async IAsyncEnumerable<List<Dictionary<string, string>>> GetSTEP4Racearrs(SQLiteControl conn, string raceid)
+		{
+			if (!await conn.ExistsOrigAsync(raceid))
+			{
+				var arr = await NetkeibaGetter.GetRaceShutubas(raceid);
+
+				if (arr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) yield break;
+
+				yield return arr;
+			}
+		}
+
+		public string RaceId { get; set; } = string.Empty;
+		public string RaceHeader { get; set; } = string.Empty;
+		public IEnumerable<RaceResultItem> Results { get; set; } = new List<RaceResultItem>();
+		public string? ErrorMessage { get; set; }
+	}
+
+	public class RaceResultItem
+	{
+		public int Wakuban { get; set; }
+		public int Umaban { get; set; }
+		public string Name { get; set; } = string.Empty;
+		public string Result { get; set; } = string.Empty;
+		public float AllScore { get; set; }
+		public int AllRank { get; set; }
+		public float HorseScore { get; set; }
+		public int HorseRank { get; set; }
+		public float JockeyScore { get; set; }
+		public int JockeyRank { get; set; }
+		public float BloodScore { get; set; }
+		public int BloodRank { get; set; }
+		public float ConnectionScore { get; set; }
+		public int ConnectionRank { get; set; }
+		public float TotalScore { get; set; }
+		public int TotalRank { get; set; }
+	}
+}

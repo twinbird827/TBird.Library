@@ -15,13 +15,12 @@ using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Web;
-using TBird.Wpf;
 
 namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		public static string Sqlitepath { get; } = Path.Combine(@"database", "database.sqlite3");
+		public static string Sqlitepath { get; } = Path.Combine(Path.Combine(PathSetting.Instance.RootDirectory, @"database"), "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
 
@@ -106,7 +105,8 @@ namespace Netkeiba
 			{
 				await Task.Delay(1250);
 
-				MainViewModel.AddLog($"req: {url}");
+				// TODO MainViewModel.AddLog($"req: {url}");
+				Console.WriteLine($"req: {url}");
 
 				return await context.OpenAsync(url).RunAsync(x => ((x.DocumentElement as IHtmlDocument) ?? x as IHtmlDocument).NotNull());
 			}
@@ -181,7 +181,7 @@ namespace Netkeiba
 
 		public static void DeleteEndress(string path)
 		{
-			_ = WpfUtil.ExecuteOnBACK(async () =>
+			_ = Task.Run(async () =>
 			{
 				while (File.Exists(path))
 				{

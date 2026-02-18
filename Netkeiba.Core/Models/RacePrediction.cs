@@ -8,8 +8,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
-using TBird.Wpf;
-using Tensorflow;
 
 namespace Netkeiba.Models
 {
@@ -104,7 +102,7 @@ namespace Netkeiba.Models
 
 		private static ITransformer LoadModel(MLContext ml, RankingTrain train)
 		{
-			using var stream = new FileStream(train.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+			using var stream = new FileStream(Path.Combine(PathSetting.Instance.RootDirectory, train.Path), FileMode.Open, FileAccess.Read, FileShare.Read);
 			return ml.Model.Load(stream, out var schema);
 		}
 
@@ -118,21 +116,10 @@ namespace Netkeiba.Models
 		private static float GetScore(float score, RankingTrain train) => score * (float)(train.NDCG1 + train.NDCG3 / 2 + train.NDCG5 / 3);
 	}
 
-	public class RaceScore : BindableBase
+	public class RaceScore
 	{
-		public float Score
-		{
-			get => _Score;
-			set => SetProperty(ref _Score, value);
-		}
-		private float _Score;
+		public float Score { get; set; }
 
-		public int Rank
-		{
-			get => _Rank;
-			set => SetProperty(ref _Rank, value);
-		}
-		private int _Rank;
-
+		public int Rank { get; set; }
 	}
 }
