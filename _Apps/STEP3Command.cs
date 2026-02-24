@@ -34,7 +34,7 @@ namespace Netkeiba
 			{
 				if (!await conn.ExistsModelTableAsync())
 				{
-					AddLog("教育用データが作成されていません。処理を中断します。");
+					MessageService.Debug("教育用データが作成されていません。処理を中断します。");
 					return;
 				}
 
@@ -84,6 +84,13 @@ namespace Netkeiba
 			{
 				task.Add(RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
 			}
+
+			//task.AddRange(RankingAsync2(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
+
+			//foreach (var type in FeaturesAttribute.GetTargetTypes())
+			//{
+			//	task.AddRange(RankingAsync2(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
+			//}
 
 			await task.WhenAll();
 		}
@@ -192,10 +199,10 @@ namespace Netkeiba
 
 					//foreach (var x in GetRATE(featuresPredictions))
 					//{
-					//	MainViewModel.AddLog($"TARGET: {x.Target} / 手動RATE@1: {x.RATE1:F4} / 手動RATE@3: {x.RATE3:F4} / 手動RATE@5: {x.RATE5:F4} / 評価レース数: {x.Count}");
+					//	MessageService.Debug($"TARGET: {x.Target} / 手動RATE@1: {x.RATE1:F4} / 手動RATE@3: {x.RATE3:F4} / 手動RATE@5: {x.RATE5:F4} / 評価レース数: {x.Count}");
 					//}
 
-					WpfUtil.ExecuteOnUI(() => MainViewModel.AddLog(message.GetString("\t")));
+					WpfUtil.ExecuteOnUI(() => MessageService.Debug(message.GetString("\t")));
 				}
 				finally
 				{
@@ -356,7 +363,7 @@ namespace Netkeiba
 					_ml.Model.Save(model, null, fileStream);
 					message.Add($"モデルを保存しました: {result.Path}");
 
-					WpfUtil.ExecuteOnUI(() => message.ForEach(s => MainViewModel.AddLog(s)));
+					WpfUtil.ExecuteOnUI(() => message.ForEach(s => MessageService.Debug(s)));
 				}
 				finally
 				{

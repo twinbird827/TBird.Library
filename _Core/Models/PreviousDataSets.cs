@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Codeplex.Data;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -128,7 +129,9 @@ namespace Netkeiba.Models
 
 		private Dictionary<string, TrackConditionDistance> _TrackConditionDistances = new();
 
-		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp) => _master[kvp.Key].Get(kvp.Value, new List<RaceDetail>()).Where(y => y.Race.RaceDate < x.Race.RaceDate.AddDays(-3)).ToList();
+		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp) => _master[kvp.Key]
+			.Get(kvp.Value, new List<RaceDetail>())
+			.Where(y => x.Race.RaceDate.AddYears(-3) < y.Race.RaceDate && y.Race.RaceDate < x.Race.RaceDate.AddDays(-3)).Take(100).ToList();
 
 		private string GetTrackConditionDistance(Race x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
 

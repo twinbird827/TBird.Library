@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SQLite;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -419,7 +420,12 @@ WHERE  CAST(h.障害 AS INTEGER) = 0 AND h.開催日 < ?
 ORDER BY h.開催日, h.ﾚｰｽID
 ";
 
-			foreach (var x in await conn.GetRows(sql, SQLiteUtil.CreateParameter(DbType.Object, date.ToString("yyyy/MM/dd"))))
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.Object, date.ToString("yyyy/MM/dd")),
+			};
+
+			foreach (var x in await conn.GetRows(sql, parameters))
 			{
 				yield return new Race(x);
 			}
@@ -459,6 +465,7 @@ WHERE  h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.ﾚｰｽID = o
 		{
 			var sql = $@"{GetRaceDetailSql()}
 AND h.ﾚｰｽID = ?
+ORDER BY h.開催日 DESC, h.ﾚｰｽID ASC, d.馬番 ASC
 ";
 			var parameters = new[]
 			{
@@ -482,22 +489,6 @@ FROM   t_model h
 			{
 				yield return x["RaceId"].Str();
 			}
-		}
-
-		public static IEnumerable<CustomProperty> GetPropertiesEX(this object value)
-		{
-			return value.GetType().GetPropertiesEX();
-		}
-
-		public static IEnumerable<CustomProperty> GetPropertiesEX(this Type type)
-		{
-			return type.GetProperties()
-				.Select(p => new CustomProperty(
-					p,
-					p.Name,
-					p.PropertyType,
-					p.GetCustomAttribute<FeaturesAttribute>()
-				));
 		}
 
 		public static async Task<OptimizedHorseFeatures[]> GetModelAsync(this SQLiteControl conn, DateTime start, DateTime end)
@@ -526,8 +517,7 @@ AND    CAST(h.障害 AS INTEGER) = 0
 				}
 				catch (Exception ex)
 				{
-					// MainViewModel.AddLog(ex.ToString());
-					Console.WriteLine(ex.ToString());
+					MessageService.Debug(ex.ToString());
 					throw;
 				}
 				return model;
@@ -602,7 +592,7 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		{
 			var sql = $@"{GetRaceDetailSql()}
 AND h.開催日 < ? AND {kvp.Select(x => $"{x.Key} = ?").GetString(" AND ")}
-ORDER BY h.開催日 DESC, h.ﾚｰｽID ASC
+ORDER BY h.開催日 DESC, h.ﾚｰｽID ASC, d.馬番 ASC
 LIMIT  1000
 ";
 			var parameters = new[]

@@ -1,4 +1,5 @@
-﻿using Microsoft.ML;
+﻿using Codeplex.Data;
+using Microsoft.ML;
 using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
@@ -27,14 +28,7 @@ namespace Netkeiba
 			}, nameof(IsChecked), false);
 		}
 
-		private async Task InitializePreviousDataSets(SQLiteControl conn)
-		{
-			await PreviousDataSets.Initialize(conn, MainViewModel.GetS4SelectedDate().AddDays(-3));
-		}
-
 		private IRelayCommand? _command;
-
-		private void AddLog(string message) => MainViewModel.AddLog(message);
 
 		private void SetHeader(string header) => MainViewModel.SetS4ResultHeader(header);
 
@@ -49,39 +43,35 @@ namespace Netkeiba
 				var getShutsuba = false;
 				var raceid = Value;
 
-				var ini = InitializePreviousDataSets(conn);
-
 				// 該当ﾚｰｽの出馬表を取得する
-				AddLog($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
+				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
 				await conn.BeginTransaction();
 				foreach (var racearr in await GetSTEP4Racearrs(conn, raceid).ToArrayAsync())
 				{
 					await conn.InsertShutsubaAsync(racearr);
 					await conn.InsertOikiriAsync(raceid);
 					getShutsuba = true;
-					AddLog($"ﾚｰｽID：{raceid} の出馬表データが取得できました。");
+					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データが取得できました。");
 				}
 				conn.Commit();
-
-				await ini;
 
 				var ml = new MLContext(seed: 1);
 
 				RacePrediction.Initialize(ml);
 
 				// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
-				AddLog($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
+				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
 				foreach (var race in await conn.GetShutsubaRaceAsync(raceid).ToArrayAsync())
 				{
 					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
 
-					AddLog($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
+					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
 
 					// 過去ﾃﾞｰﾀ設定
 					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
 
-					AddLog($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
+					MessageService.Debug($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
@@ -95,14 +85,16 @@ namespace Netkeiba
 						value.Label = 0;
 
 						return value;
-					}).CalculateInRaces();
+					});
 
-					AddLog($"ﾚｰｽID：{raceid} の特徴量を作成しました。");
+					var inraces = features.CalculateInRaces();
+
+					MessageService.Debug($"ﾚｰｽID：{raceid} の特徴量を作成しました。");
 
 					// ｽｺｱ計算
-					var predictions = RacePrediction.CalculatePrediction(ml, details, features);
+					var predictions = RacePrediction.CalculatePrediction(ml, details, inraces);
 
-					AddLog($"ﾚｰｽID：{raceid} のスコアを計算しました。");
+					MessageService.Debug($"ﾚｰｽID：{raceid} のスコアを計算しました。");
 
 					if (race.RaceDate < DateTime.Now)
 					{
@@ -143,17 +135,26 @@ namespace Netkeiba
 					}).WhenAll();
 					SetItems(arr);
 
-					AddLog($"ﾚｰｽID：{raceid} の処理が完了しました。");
+					MessageService.Debug($"ﾚｰｽID：{raceid} の処理が完了しました。");
 
 					using (var vm = new ReportItemViewModel(header, arr))
 					{
 						await vm.PrintAsync();
 					}
 
+					var groups = inraces
+						.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
+							.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
+						).ToArray();
+
+					var groupsstr = groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(",")).GetString("\r\n");
+
 					File.WriteAllText(
 						Path.Combine(Directories.DocumentsDirectory, $"{header}_{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv"),
-						OptimizedHorseFeatures.GetProperties().Select(x => x.Name).GetString(",") + "\n" +
-						features.SelectInParallel(x => OptimizedHorseFeatures.GetProperties().SelectInParallel(p => p.Property.GetValue(x)).GetString(",")).GetString("\n")
+						Arr(
+							Arr(groups.First().Select(x => x.ParameterName).GetString(",")),
+							groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(","))
+						).SelectMany(x => x).GetString("\r\n")
 					);
 
 				}

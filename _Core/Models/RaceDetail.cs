@@ -1,6 +1,8 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using Codeplex.Data;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -787,6 +789,13 @@ namespace Netkeiba.Models
 				// 脚質による有利不利(同じ脚質が少ないほど有利)
 				x.PaceAdvantageRank = x.GetRank(results, x => x.PaceAdvantage, true);
 			});
+
+			if (results.First().RaceId == "202608020201")
+			{
+				File.WriteAllText(DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt",
+					results.Select(x => DynamicJson.Serialize(x)).GetString("\r\n")
+				);
+			}
 
 			return results;
 		}

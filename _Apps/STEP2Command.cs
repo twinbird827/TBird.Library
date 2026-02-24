@@ -52,7 +52,7 @@ namespace Netkeiba
 		/// </summary>
 		public async Task GenerateAndSaveTrainingDataAsync(SQLiteControl conn)
 		{
-			MainViewModel.AddLog($"訓練データ生成開始");
+			MessageService.Debug($"訓練データ生成開始");
 
 			await PreviousDataSets.Initialize(conn);
 
@@ -98,7 +98,7 @@ namespace Netkeiba
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
 					details.ForEach(PreviousDataSets.AddHistory);
 
-					MainViewModel.AddLog($"訓練データ生成完了：{race.RaceId} {race.RaceDate}");
+					MessageService.Debug($"訓練データ生成完了：{race.RaceId} {race.RaceDate}");
 				}
 				catch (Exception ex)
 				{
@@ -106,7 +106,7 @@ namespace Netkeiba
 				}
 			}
 
-			MainViewModel.AddLog($"訓練データ生成完了");
+			MessageService.Debug($"訓練データ生成完了");
 		}
 
 	}

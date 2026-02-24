@@ -83,7 +83,7 @@ namespace Netkeiba
 
 							}
 							conn.Commit();
-							AddLog($"completed racebase:{racebase}");
+							MessageService.Debug($"completed racebase:{racebase}");
 
 							Progress.Value += 1D / dates.Length / racebases.Length;
 							existsrace = true;
@@ -103,7 +103,7 @@ namespace Netkeiba
 
 					}
 					conn.Commit();
-					AddLog($"completed racebase:{racebase}");
+					MessageService.Debug($"completed racebase:{racebase}");
 				}
 			}
 		}

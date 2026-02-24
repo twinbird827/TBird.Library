@@ -30,10 +30,5 @@ namespace Netkeiba
 		{
 			return true;
 		}
-
-		protected void AddLog(string message)
-		{
-			MainViewModel.AddLog(message);
-		}
 	}
 }

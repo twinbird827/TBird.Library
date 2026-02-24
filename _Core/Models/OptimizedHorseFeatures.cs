@@ -3,6 +3,7 @@ using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using TBird.Core;
 
 namespace Netkeiba.Models
@@ -24,10 +25,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
 		public float RestDays { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther)]
 		public float RestType { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther)]
 		public float NearestRaces { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
@@ -36,7 +37,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AgeRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float Gender { get; set; }
 
 		// 同ﾚｰｽ他馬との比較
@@ -51,7 +52,7 @@ namespace Netkeiba.Models
 
 		// 実績の集計 (直近5戦)
 		// 獲得賞金
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse, Normalization = true)]
 		public float AvgPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -126,7 +127,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float OikiriAdaptationRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.All | FeaturesType.HorseOther)]
 		public float OikiriTimeRating { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -151,7 +152,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Horse)]
 		//public float MaxFinishPosition1Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.All | FeaturesType.HorseOther)]
 		public float AvgFinishPosition3 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -169,14 +170,14 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgFinishPosition5Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther)]
 		public float MaxFinishPosition5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float MaxFinishPosition5Rank { get; set; }
 
 		// 調整ｽｺｱ
-		[Features(Type = FeaturesType.All | FeaturesType.HorseOther)]
+		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgAdjustedScore1 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -194,7 +195,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgAdjustedScore3Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float MaxAdjustedScore3 { get; set; }
 
 		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
@@ -206,10 +207,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgAdjustedScore5Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.HorseOther)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float MaxAdjustedScore5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float MaxAdjustedScore5Rank { get; set; }
 
 		// ﾄｯﾌﾟとのﾀｲﾑ差
@@ -225,28 +226,28 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Horse)]
 		//public float MaxTime2Top1Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float AvgTime2Top3 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgTime2Top3Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float MaxTime2Top3 { get; set; }
 
-		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther)]
 		public float MaxTime2Top3Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float AvgTime2Top5 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgTime2Top5Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float MaxTime2Top5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther)]
 		public float MaxTime2Top5Rank { get; set; }
 
 		// 同条件ﾚｰｽとのﾀｲﾑ差
@@ -262,7 +263,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Horse)]
 		//public float MaxTime2Condition1Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse, Normalization = true)]
 		public float AvgTime2Condition3 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -277,17 +278,17 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
 		public float AvgTime2Condition5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.All | FeaturesType.HorseOther)]
 		public float AvgTime2Condition5Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float MaxTime2Condition5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float MaxTime2Condition5Rank { get; set; }
 
 		// ﾄｯﾌﾟとの3ﾊﾛﾝ差
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.All | FeaturesType.HorseOther, Normalization = true)]
 		public float AvgLastThreeFurlongs2Top1 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -299,13 +300,13 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Horse)]
 		//public float MaxLastThreeFurlongs2Top1Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float AvgLastThreeFurlongs2Top3 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float AvgLastThreeFurlongs2Top3Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float MaxLastThreeFurlongs2Top3 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -317,10 +318,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float AvgLastThreeFurlongs2Top5Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float MaxLastThreeFurlongs2Top5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float MaxLastThreeFurlongs2Top5Rank { get; set; }
 
 		// 同条件ﾚｰｽとの3ﾊﾛﾝ差
@@ -339,10 +340,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
 		public float AvgLastThreeFurlongs2Condition3 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float AvgLastThreeFurlongs2Condition3Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.HorseOther, Normalization = true)]
 		public float MaxLastThreeFurlongs2Condition3 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
@@ -351,20 +352,20 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
 		public float AvgLastThreeFurlongs2Condition5 { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse)]
 		public float AvgLastThreeFurlongs2Condition5Rank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Horse, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Horse, Normalization = true)]
 		public float MaxLastThreeFurlongs2Condition5 { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Horse)]
 		public float MaxLastThreeFurlongs2Condition5Rank { get; set; }
 
 		// 父馬の兄弟馬の情報
-		[Features(Type = FeaturesType.All | FeaturesType.Blood, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood, Normalization = true)]
 		public float SireBrosAvgPrizeMoney { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood)]
 		public float SireBrosAvgPrizeMoneyRank { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Blood, Normalization = true)]
@@ -397,7 +398,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Blood)]
 		//public float SireBrosMaxGradeRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood, Normalization = true)]
 		public float SireBrosDistanceDiff { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
@@ -415,10 +416,10 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Blood)]
 		//public float SireBrosMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood)]
 		public float SireBrosAvgAdjustedScore { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood)]
 		public float SireBrosAvgAdjustedScoreRank { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
@@ -427,7 +428,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
 		public float SireBrosMaxAdjustedScoreRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood, Normalization = true)]
 		public float SireBrosAvgTime2Top { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
@@ -512,16 +513,16 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Blood)]
 		//public float DamSireBrosMaxGradeRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.BloodOther, Normalization = true)]
 		public float DamSireBrosDistanceDiff { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.BloodOther)]
 		public float DamSireBrosDistanceDiffRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.BloodOther)]
 		public float DamSireBrosAvgFinishPosition { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.BloodOther)]
 		public float DamSireBrosAvgFinishPositionRank { get; set; }
 
 		//[Features(Type = FeaturesType.Blood)]
@@ -530,10 +531,10 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Blood)]
 		//public float DamSireBrosMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.BloodOther)]
 		public float DamSireBrosAvgAdjustedScore { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.BloodOther)]
 		public float DamSireBrosAvgAdjustedScoreRank { get; set; }
 
 		//[Features(Type = FeaturesType.Blood)]
@@ -597,7 +598,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
 		public float SireDamSireBrosAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood, Normalization = true)]
 		public float SireDamSireBrosMaxPrizeMoney { get; set; }
 
 		//[Features(Type = FeaturesType.Blood)]
@@ -651,7 +652,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
 		public float SireDamSireBrosAvgAdjustedScoreRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Blood)]
 		public float SireDamSireBrosMaxAdjustedScore { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Blood)]
@@ -706,13 +707,13 @@ namespace Netkeiba.Models
 		//public float SireDamSireBrosMaxLastThreeFurlongs2ConditionRank { get; set; }
 
 		// 騎手の情報
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.ConnectionOther | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyAvgPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyMaxPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
@@ -754,10 +755,10 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Connection | FeaturesType.Jockey)]
 		//public float JockeyMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyAvgAdjustedScore { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.ConnectionOther | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyAvgAdjustedScoreRank { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
@@ -766,7 +767,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyMaxAdjustedScoreRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.JockeyOther, Normalization = true)]
+		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyAvgTime2Top { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
@@ -791,13 +792,13 @@ namespace Netkeiba.Models
 		//public float JockeyMaxTime2ConditionRank { get; set; }
 
 		// 騎手-場所相性の情報
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
+		[Features(Type = FeaturesType.All | FeaturesType.ConnectionOther | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyPlaceAvgPrizeMoney { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyPlaceAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyPlaceMaxPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
@@ -839,7 +840,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Connection | FeaturesType.Jockey)]
 		//public float JockeyPlaceMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.All | FeaturesType.ConnectionOther | FeaturesType.Jockey)]
 		public float JockeyPlaceAvgAdjustedScore { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
@@ -854,7 +855,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyPlaceAvgTime2Top { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.ConnectionOther | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyPlaceAvgTime2TopRank { get; set; }
 
 		//[Features(Type = FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
@@ -882,10 +883,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyTrackAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.ConnectionOther | FeaturesType.Jockey, Normalization = true)]
 		public float JockeyTrackMaxPrizeMoney { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.ConnectionOther | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyTrackMaxPrizeMoneyRank { get; set; }
 
 		//[Features(Type = FeaturesType.Connection | FeaturesType.Jockey, Normalization = true)]
@@ -924,7 +925,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Connection | FeaturesType.Jockey)]
 		//public float JockeyTrackMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection | FeaturesType.Jockey)]
 		public float JockeyTrackAvgAdjustedScore { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection | FeaturesType.Jockey)]
@@ -967,7 +968,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
 		public float TrainerAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.ConnectionOther, Normalization = true)]
 		public float TrainerMaxPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -997,7 +998,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Connection)]
 		//public float TrainerMaxGradeRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float TrainerAvgFinishPosition { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1009,7 +1010,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Connection)]
 		//public float TrainerMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float TrainerAvgAdjustedScore { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1018,7 +1019,7 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
 		public float TrainerMaxAdjustedScore { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float TrainerMaxAdjustedScoreRank { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
@@ -1046,13 +1047,13 @@ namespace Netkeiba.Models
 		//public float TrainerMaxTime2ConditionRank { get; set; }
 
 		// 生産者の情報
-		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection, Normalization = true)]
 		public float BreederAvgPrizeMoney { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float BreederAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
+		[Features(Type = FeaturesType.All | FeaturesType.ConnectionOther, Normalization = true)]
 		public float BreederMaxPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1094,7 +1095,7 @@ namespace Netkeiba.Models
 		//[Features(Type = FeaturesType.Connection)]
 		//public float BreederMaxFinishPositionRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float BreederAvgAdjustedScore { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1103,10 +1104,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
 		public float BreederMaxAdjustedScore { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float BreederMaxAdjustedScoreRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection, Normalization = true)]
 		public float BreederAvgTime2Top { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1134,10 +1135,10 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
 		public float TrainerBreederAvgPrizeMoney { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float TrainerBreederAvgPrizeMoneyRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection, Normalization = true)]
 		public float TrainerBreederMaxPrizeMoney { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1185,13 +1186,13 @@ namespace Netkeiba.Models
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
 		public float TrainerBreederAvgAdjustedScoreRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection)]
 		public float TrainerBreederMaxAdjustedScore { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
 		public float TrainerBreederMaxAdjustedScoreRank { get; set; }
 
-		[Features(Type = FeaturesType.All | FeaturesType.Connection, Normalization = true)]
+		[Features(Type = FeaturesType.AllOther | FeaturesType.Connection, Normalization = true)]
 		public float TrainerBreederAvgTime2Top { get; set; }
 
 		[Features(Type = FeaturesType.All | FeaturesType.Connection)]
@@ -1231,7 +1232,18 @@ namespace Netkeiba.Models
 			return instance;
 		}
 
-		public static CustomProperty[] GetProperties() => _properties = _properties ?? typeof(OptimizedHorseFeatures).GetPropertiesEX().ToArray();
+		public static CustomProperty[] GetProperties(Type type)
+		{
+			return type.GetProperties()
+				.Select(p => new CustomProperty(
+					p,
+					p.Name,
+					p.PropertyType,
+					p.GetCustomAttribute<FeaturesAttribute>()
+				)).ToArray();
+		}
+
+		public static CustomProperty[] GetProperties() => _properties = _properties ?? GetProperties(typeof(OptimizedHorseFeatures));
 
 		public static CustomProperty[]? _properties;
 

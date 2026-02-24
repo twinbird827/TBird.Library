@@ -1,3 +1,4 @@
+using Browser.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.ML;
@@ -10,11 +11,9 @@ namespace Browser.Pages
 {
 	public class RaceModel : PageModel
 	{
-		private readonly ILogger<RaceModel> _logger;
-
 		public RaceModel(ILogger<RaceModel> logger)
 		{
-			_logger = logger;
+			MessageService.SetService(new RazorMessageService(logger));
 		}
 
 		public async Task<IActionResult> OnGetAsync(string id)
@@ -34,7 +33,7 @@ namespace Browser.Pages
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "レース予想処理でエラーが発生しました");
+				MessageService.Exception(ex);
 				ErrorMessage = $"エラーが発生しました: {ex.Message}";
 				return Page();
 			}
@@ -49,14 +48,14 @@ namespace Browser.Pages
 				var ini = InitializePreviousDataSets(conn);
 
 				// 該当レースの出馬表を取得する
-				_logger.LogInformation($"レースID：{raceid} の出馬表データを取得します。");
+				MessageService.Debug($"レースID：{raceid} の出馬表データを取得します。");
 				await conn.BeginTransaction();
 				await foreach (var racearr in GetSTEP4Racearrs(conn, raceid))
 				{
 					await conn.InsertShutsubaAsync(racearr);
 					await conn.InsertOikiriAsync(raceid);
 					getShutsuba = true;
-					_logger.LogInformation($"レースID：{raceid} の出馬表データが取得できました。");
+					MessageService.Debug($"レースID：{raceid} の出馬表データが取得できました。");
 				}
 				conn.Commit();
 
@@ -67,18 +66,18 @@ namespace Browser.Pages
 				RacePrediction.Initialize(ml);
 
 				// 出馬表からレースデータを作成する
-				_logger.LogInformation($"レースID：{raceid} の出馬表データをデータベースから取得します。");
+				MessageService.Debug($"レースID：{raceid} の出馬表データをデータベースから取得します。");
 				await foreach (var race in conn.GetShutsubaRaceAsync(raceid))
 				{
 					// 今レースの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
 
-					_logger.LogInformation($"レースID：{raceid} の出馬表データがデータベースから取得できました。");
+					MessageService.Debug($"レースID：{raceid} の出馬表データがデータベースから取得できました。");
 
 					// 過去データ設定
 					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
 
-					_logger.LogInformation($"レースID：{raceid} の関連情報を取得しました。");
+					MessageService.Debug($"レースID：{raceid} の関連情報を取得しました。");
 
 					// 今レースのレーティング情報をセットする
 					race.AverageRating = details.Average(x => x.AverageRating);
@@ -94,12 +93,12 @@ namespace Browser.Pages
 						return value;
 					}).CalculateInRaces();
 
-					_logger.LogInformation($"レースID：{raceid} の特徴量を作成しました。");
+					MessageService.Debug($"レースID：{raceid} の特徴量を作成しました。");
 
 					// スコア計算
 					var predictions = RacePrediction.CalculatePrediction(ml, details, features);
 
-					_logger.LogInformation($"レースID：{raceid} のスコアを計算しました。");
+					MessageService.Debug($"レースID：{raceid} のスコアを計算しました。");
 
 					if (race.RaceDate < DateTime.Now)
 					{
@@ -142,7 +141,7 @@ namespace Browser.Pages
 						};
 					}).WhenAll();
 
-					_logger.LogInformation($"レースID：{raceid} の処理が完了しました。");
+					MessageService.Debug($"レースID：{raceid} の処理が完了しました。");
 				}
 
 				if (getShutsuba)

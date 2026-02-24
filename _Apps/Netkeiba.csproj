@@ -33,7 +33,7 @@
     <ProjectReference Include="..\TBird.DB\TBird.DB.csproj" />
     <ProjectReference Include="..\TBird.Web\TBird.Web.csproj" />
     <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
-    <ProjectReference Include="..\Netkeiba.Core\Netkeiba.Core.csproj" />
+    <ProjectReference Include="..\_Core\Netkeiba.Core.csproj" />
   </ItemGroup>
 
 </Project>

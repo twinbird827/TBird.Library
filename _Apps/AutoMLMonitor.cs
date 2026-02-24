@@ -1,6 +1,7 @@
 ﻿using Microsoft.ML.AutoML;
 using System;
 using System.Collections.Generic;
+using TBird.Core;
 
 namespace Netkeiba
 {
@@ -26,7 +27,7 @@ namespace Netkeiba
 			var ms = result.DurationInMilliseconds;
 			var mc = result.Metric;
 			var pl = _pipeline.ToString(result.TrialSettings.Parameter);
-			MainViewModel.AddLog($"Best Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
+			MessageService.Debug($"Best Trial={id}; DurationInMilliseconds={ms}; Loss={result.Loss}; Metric={mc}; Pipeline={pl};");
 			return;
 		}
 
@@ -42,9 +43,9 @@ namespace Netkeiba
 		{
 			if (exception.Message.Contains("Operation was canceled."))
 			{
-				MainViewModel.AddLog($"{settings.TrialId} cancelled. Time budget exceeded.");
+				MessageService.Debug($"{settings.TrialId} cancelled. Time budget exceeded.");
 			}
-			MainViewModel.AddLog($"{settings.TrialId} failed with exception {exception.Message}");
+			MessageService.Debug($"{settings.TrialId} failed with exception {exception.Message}");
 		}
 
 		public void ReportRunningTrial(TrialSettings setting)

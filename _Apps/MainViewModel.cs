@@ -1,10 +1,12 @@
 ﻿using AngleSharp.Html.Dom;
+using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using TBird.Core;
+using TBird.DB.SQLite;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
@@ -17,6 +19,8 @@ namespace Netkeiba
 		public MainViewModel()
 		{
 			_this = this;
+
+			MessageService.SetService(new MainViewService());
 
 			Logs = LogSource.ToBindableContextCollection();
 
@@ -45,6 +49,9 @@ namespace Netkeiba
 					{ "10", "小倉" },
 				};
 
+				using var conn = AppUtil.CreateSQLiteControl();
+				var ini = PreviousDataSets.Initialize(conn, MainViewModel.GetS4SelectedDate().AddDays(-3));
+
 				var arr = await NetkeibaGetter.GetCurrentRaceIds(MainViewModel.GetS4SelectedDate());
 
 				S4RoundHeader.TryDispose();
@@ -60,6 +67,8 @@ namespace Netkeiba
 						.Select(x => new STEP4RoundItem(x))
 					));
 				}
+
+				await ini;
 			});
 
 			AppSetting.Instance.Save();
@@ -120,8 +129,6 @@ namespace Netkeiba
 		public IRelayCommand S2EXEC => new STEP2Command(this).CreateCommand();
 
 		public IRelayCommand S3EXEC => new STEP3Command(this).CreateCommand();
-
-		public IRelayCommand S4EXEC => new STEP4Command(this).CreateCommand();
 
 		public string S4Text
 		{
