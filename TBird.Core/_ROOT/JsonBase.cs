@@ -198,7 +198,7 @@ namespace TBird.Core
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine(ex.ToString());
+				MessageService.Debug(ex.ToString());
 				throw;
 			}
 		}
