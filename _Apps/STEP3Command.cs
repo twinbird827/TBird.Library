@@ -78,32 +78,32 @@ namespace Netkeiba
 
 			var task = new List<Task>();
 
-			//task.Add(RankingAsync(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
+			task.Add(RankingAsync(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
 
-			//foreach (var type in FeaturesAttribute.GetTargetTypes())
-			//{
-			//	task.Add(RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
-			//}
+			foreach (var type in FeaturesAttribute.GetTargetTypes())
+			{
+				task.Add(RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
+			}
 
 			//task.AddRange(RankingAsync2(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
 
-			var targets = new Dictionary<FeaturesType, string[]>()
-			{
-				{ FeaturesType.Jockey, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.JockeyOther) },
-				{ FeaturesType.Connection, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.ConnectionOther) },
-				{ FeaturesType.Blood, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.BloodOther) },
-			};
-			var normalizations = new Dictionary<FeaturesType, string[]>()
-			{
-				{ FeaturesType.Jockey, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.JockeyOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Jockey)).ToArray() },
-				{ FeaturesType.Connection, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.ConnectionOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Connection)).ToArray() },
-				{ FeaturesType.Blood, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.BloodOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Blood)).ToArray() },
-			};
+			//var targets = new Dictionary<FeaturesType, string[]>()
+			//{
+			//	{ FeaturesType.Jockey, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.JockeyOther) },
+			//	{ FeaturesType.Connection, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.ConnectionOther) },
+			//	{ FeaturesType.Blood, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.BloodOther) },
+			//};
+			//var normalizations = new Dictionary<FeaturesType, string[]>()
+			//{
+			//	{ FeaturesType.Jockey, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.JockeyOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Jockey)).ToArray() },
+			//	{ FeaturesType.Connection, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.ConnectionOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Connection)).ToArray() },
+			//	{ FeaturesType.Blood, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.BloodOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Blood)).ToArray() },
+			//};
 
-			foreach (var type in new[] { FeaturesType.Jockey, FeaturesType.Connection, FeaturesType.Blood })
-			{
-				task.AddRange(RankingAsync2(type.GetLabel(), arr1, arr2, normalizations[type], OptimizedHorseFeatures.GetFeaturesTypeNames(type), targets[type]));
-			}
+			//foreach (var type in new[] { FeaturesType.Jockey, FeaturesType.Connection, FeaturesType.Blood })
+			//{
+			//	task.AddRange(RankingAsync2(type.GetLabel(), arr1, arr2, normalizations[type], OptimizedHorseFeatures.GetFeaturesTypeNames(type), targets[type]));
+			//}
 
 			await task.WhenAll();
 		}
