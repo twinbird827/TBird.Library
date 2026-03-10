@@ -3,7 +3,9 @@ using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB.SQLite;
@@ -91,11 +93,25 @@ namespace Netkeiba
 
 		private const int _logmax = 1024;
 
-		public IRelayCommand ClickSetting { get; } = RelayCommand.Create(_ =>
+		public IRelayCommand ClickSetting { get; } = RelayCommand.Create(async _ =>
 		{
-			using (var vm = new ModelViewModel())
+			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				vm.Show(() => new ModelWindow());
+				var date = DateTime.Now;
+				var data = await conn.GetModelAsync(date.AddYears(-6), date.AddDays(-4));
+				var path = Path.Combine(Directories.DocumentsDirectory, $"{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv");
+
+				var properties = OptimizedHorseFeatures.GetProperties();
+				using (var writer = new StreamWriter(path, false, Encoding.UTF8))
+				{
+					await writer.WriteLineAsync(properties.Select(x => x.Name).GetString(","));
+
+					foreach (var x in data)
+					{
+						var line = properties.SelectInParallel(p => p.Property.GetValue(x).Str()).GetString(",");
+						await writer.WriteLineAsync(line);
+					}
+				}
 			}
 		});
 

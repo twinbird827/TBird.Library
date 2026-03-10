@@ -204,15 +204,34 @@ namespace Netkeiba
 
 		public static float GetRank(this float val, float[] arr, bool higherIsBetter)
 		{
-			var same = arr.Count(x => Math.Abs(x - val) < 0.01f);
-			var wrse = higherIsBetter ? arr.Count(x => x < val) : arr.Count(x => x > val);
+			if (float.IsNaN(val)) return float.NaN;
+			var validArr = arr.Where(x => !float.IsNaN(x)).ToArray();
+			if (validArr.Length == 0) return float.NaN;
+			var same = validArr.Count(x => Math.Abs(x - val) < 0.01f);
+			var wrse = higherIsBetter ? validArr.Count(x => x < val) : validArr.Count(x => x > val);
 
-			return (wrse + same / 2.0f) / arr.Length; ;
+			return (wrse + same / 2.0f) / validArr.Length;
 		}
 
 		public static float GetRank<T>(this T detail, IEnumerable<T> src, Func<T, float> func, bool higherIsBetter)
 		{
 			return func(detail).GetRank(src.Select(func).ToArray(), higherIsBetter);
+		}
+
+		public static float GetZScore(this float val, float[] arr)
+		{
+			if (float.IsNaN(val)) return float.NaN;
+			var validArr = arr.Where(x => !float.IsNaN(x)).ToArray();
+			if (validArr.Length < 2) return 0f;
+			var mean = validArr.Average();
+			var std = CalculateStandardDeviation(validArr);
+			if (std < 0.0001f) return 0f;
+			return (val - mean) / std;
+		}
+
+		public static float GetZScore<T>(this T detail, IEnumerable<T> src, Func<T, float> func)
+		{
+			return func(detail).GetZScore(src.Select(func).ToArray());
 		}
 
 	}

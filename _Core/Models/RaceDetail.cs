@@ -30,6 +30,7 @@ namespace Netkeiba.Models
 				FinishDiff = x.Get("着差").Str();
 				Time = x.Get("ﾀｲﾑ変換").Single();
 				Weight = x.Get("体重").Single();
+				WeightChange = x.Get("増減").Single();
 				PrizeMoney = x.Get("賞金").Single();
 				PurchasePrice = x.Get("評価額").Single();
 				BirthDate = x.Get("生年月日").Date();
@@ -53,10 +54,7 @@ namespace Netkeiba.Models
 				LastThreeFurlongs = GetLastThreeFurlongs(x.Get("上り").Single());
 				Gender = x.Get("馬性").Str();
 				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
-				TimeIndex = x.Get("ﾀｲﾑ指数").Single().Run(x => Math.Max(x, 40F));
-				//RaceCount = x.Get("出走数").Int32();
-				//AverageRating = x.Get("レーティング").Single();
-				//LastRaceDate = x.Get("前回出走日").Date();
+				TimeIndex = x.Get("ﾀｲﾑ指数").Single().MinMax(40F, 135F);
 			}
 			catch (Exception ex)
 			{
@@ -76,13 +74,12 @@ namespace Netkeiba.Models
 		public string Trainer { get; }
 		public string Sire { get; }
 		public string DamSire { get; }
-		public string SireDamSire => $"{Sire}-{DamSire}";
-		public string JockeyTrainer => $"{Jockey}-{Trainer}";
 		public string Breeder { get; }
 		public float PurchasePrice { get; }
 		public DateTime BirthDate { get; }
 		public float Age { get; }
 		public float Weight { get; private set; }
+		public float WeightChange { get; private set; }
 		public float JockeyWeight { get; }
 		public string Gender { get; set; }
 
@@ -125,13 +122,13 @@ namespace Netkeiba.Models
 			RaceCount = horses.Count;
 
 			// ﾚｰｽ結果を元に計算
-			Time2Top = Math.Min(Time - inraces.Min(x => x.Time), 2.0F);
-			LastThreeFurlongs2Top = Math.Min(LastThreeFurlongs - inraces.Min(x => x.LastThreeFurlongs), 4.9F);
+			Time2Top = (Time - inraces.Min(x => x.Time)).MinMax(-4.9F, 4.9F);
+			LastThreeFurlongs2Top = (LastThreeFurlongs - inraces.Min(x => x.LastThreeFurlongs)).MinMax(-4.9F, 4.9F);
 			FinishDiff = FinishDiff == "同着" ? inraces.First(x => x.FinishPosition == FinishPosition && x.Umaban != Umaban).FinishDiff : FinishDiff;
 
 			// ﾚｰｽ平均を元に計算
-			Time2Avg = Math.Min(Time - tcd.Time, 2.0F);
-			LastThreeFurlongs2Avg = Math.Min(LastThreeFurlongs - tcd.LastThreeFurlongs, 4.9F);
+			Time2Avg = (Time - tcd.Time).MinMax(-4.9F, 4.9F);
+			LastThreeFurlongs2Avg = (LastThreeFurlongs - tcd.LastThreeFurlongs).MinMax(-4.9F, 4.9F);
 
 			// 直近の情報から計算
 			Last = horses.FirstOrDefault();
@@ -145,12 +142,11 @@ namespace Netkeiba.Models
 
 	public static class RaceDetailExtensions
 	{
-		private static float DefaultFinishPosition = 1F / 7F;
-		private static float DefaultAdjustedScore = 0.20F;
-		private static float DefaultRating = 60F;
-		private static float DefaultGrade = GradeType.新馬ク.GetGradeFeatures();
-		private static float DefaultTime2Top = 1.5F;
-		private static float DefaultLastThreeFurlongs2Top = 2.5F;
+		private static float DefaultFinishPosition = float.NaN;
+		private static float DefaultAdjustedScore = float.NaN;
+		private static float DefaultRating = float.NaN;
+		private static float DefaultTime2Top = float.NaN;
+		private static float DefaultLastThreeFurlongs2Top = float.NaN;
 
 		public static OptimizedHorseFeatures ExtractFeatures(this RaceDetail detail, RaceDetail[] inraces)
 		{
@@ -160,22 +156,43 @@ namespace Netkeiba.Models
 			var horses1 = GetHorseScoreMetrics(detail, horses.Take(1).ToList());
 			var horses3 = GetHorseScoreMetrics(detail, horses.Take(3).ToList());
 			var horses5 = GetHorseScoreMetrics(detail, horses.Take(5).ToList());
-			// 血統情報
-			var sires = GetHorseScoreMetrics(detail, PreviousDataSets.GetHorses(detail.Sire, detail));
-			var damsires = GetHorseScoreMetrics(detail, PreviousDataSets.GetHorses(detail.DamSire, detail));
+			// 個別レースの値
+			var fpArr = horses.Select(CalculateFinishPosition).Take(5).ToArray();
+			var t2tArr = horses.Select(x => x.Time2Top).Take(5).ToArray();
+			var t2cArr = horses.Select(x => x.Time2Avg).Take(5).ToArray();
+			var restDaysArr = Enumerable.Range(0, Math.Min(5, horses.Count)).Select(i =>
+				i + 1 < horses.Count
+				? Math.Min((float)(horses[i].Race.RaceDate - horses[i + 1].Race.RaceDate).TotalDays, 365F)
+				: float.NaN
+			).ToArray();
+			var daysAgoArr = horses.Select(x =>
+				(float)(detail.Race.RaceDate - x.Race.RaceDate).TotalDays
+			).Take(5).ToArray();
 			// 兄弟馬
 			var sirebros = GetHorseScoreMetrics(detail, PreviousDataSets.GetSires(detail));
-			var damsirebros = GetHorseScoreMetrics(detail, PreviousDataSets.GetDamSires(detail));
 			var siredamsirebros = GetHorseScoreMetrics(detail, PreviousDataSets.GetSireDamSires(detail));
+			// 父馬-馬場・父馬母父馬-馬場情報
+			var siretracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireTracks(detail));
+			var siredamsiretracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDamSireTracks(detail));
+			// 父馬・父馬母父馬-距離情報
+			var siredistances = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDistances(detail));
+			var siredamsiredistances = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDamSireDistances(detail));
 			// 関係者情報
 			var jockeys = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeys(detail));
 			var jockeyplaces = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyPlaces(detail));
 			var jockeytracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyTracks(detail));
+			var jockeydistances = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyDistances(detail));
+			var jockeytrainers = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyTrainers(detail));
 			var trainers = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainers(detail));
+			var trainerplaces = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainerPlaces(detail));
 			var breeders = GetConnectionScoreMetrics(detail, PreviousDataSets.GetBreeders(detail));
 			var trainerbreeders = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainerBreeders(detail));
-			var restDays = Math.Min((detail.Race.RaceDate - detail.LastRaceDate).Days, 365F);
-			var nearestRaces = horses.Count(x => x.Race.RaceDate > detail.Race.RaceDate.AddDays(-90));
+
+			// 休養日数とベル型変換（交差特徴量で使用）
+			var restDays = Math.Min((float)(detail.Race.RaceDate - detail.LastRaceDate).Days, 365F);
+			var restDaysFactor = restDays <= 90F ? restDays / 90F
+				: restDays <= 180F ? 1.0F
+				: Math.Max(0F, 1F - (restDays - 180F) / 185F);
 
 			var features = new OptimizedHorseFeatures()
 			{
@@ -188,28 +205,8 @@ namespace Netkeiba.Models
 				// 当日の情報
 				// 前走からの経過日数
 				RestDays = restDays,
-				// 前走の間隔ｽﾃｰﾀｽ
-				RestType = (restDays, horses.Count) switch
-				{
-					(_, 0) => 1,           // 初出走(8.22)
-					( < 10, _) => 3,       // 連闘（7.91）
-					( < 31, _) => 5,       // 通常ローテ（7.09-7.31）★良好
-					( < 90, _) => 4,       // 中期休養（7.88-8.00）
-					( < 175, _) => 2,      // 長期休養（8.02-8.70）
-					_ => 0                 // 超長期休養（9.41）★要注意
-				} / 5F,
-				// 直近のﾚｰｽ数
-				NearestRaces = nearestRaces switch
-				{
-					0 => 1,
-					1 => 2,
-					2 => 3,
-					3 => 4,
-					4 => 4,
-					5 => 4,
-					6 => 3,
-					_ => 0
-				} / 4F,
+				// 出走経験数
+				RaceCount = horses.Count,
 				// 年齢
 				Age = detail.Age,
 				// 年齢ﾗﾝｸ(5歳に近い方が良い)
@@ -221,24 +218,38 @@ namespace Netkeiba.Models
 					"セ" => 0.5F,
 					_ => 1.0F
 				},
+				// 過去ﾚｰｽの休養日数（個別）
+				RestDaysN1 = restDaysArr.Length > 0 ? restDaysArr[0] : float.NaN,
+				RestDaysN2 = restDaysArr.Length > 1 ? restDaysArr[1] : float.NaN,
+				RestDaysN3 = restDaysArr.Length > 2 ? restDaysArr[2] : float.NaN,
+				RestDaysN4 = restDaysArr.Length > 3 ? restDaysArr[3] : float.NaN,
+				RestDaysN5 = restDaysArr.Length > 4 ? restDaysArr[4] : float.NaN,
+				// 過去ﾚｰｽの経過日数（個別）
+				DaysAgoN1 = daysAgoArr.Length > 0 ? daysAgoArr[0] : float.NaN,
+				DaysAgoN2 = daysAgoArr.Length > 1 ? daysAgoArr[1] : float.NaN,
+				DaysAgoN3 = daysAgoArr.Length > 2 ? daysAgoArr[2] : float.NaN,
+				DaysAgoN4 = daysAgoArr.Length > 3 ? daysAgoArr[3] : float.NaN,
+				DaysAgoN5 = daysAgoArr.Length > 4 ? daysAgoArr[4] : float.NaN,
 				// 購入金額ﾗﾝｸ
+				PurchasePrice = detail.PurchasePrice,
 				PurchasePriceRank = detail.GetRank(inraces, x => x.PurchasePrice, true),
 				// 斤量ﾗﾝｸ(軽い方が良い)
+				JockeyWeight = detail.JockeyWeight,
 				JockeyWeightRank = detail.GetRank(inraces, x => x.JockeyWeight, false),
 				// 体重ﾗﾝｸ(重い方が良い)
+				Weight = detail.Weight,
 				WeightRank = detail.GetRank(inraces, x => x.Weight, true),
+				// 体重増減ﾗﾝｸ(少ない方が良い)
+				WeightDiff = detail.WeightChange,
+				WeightDiffRank = detail.GetRank(inraces, x => Math.Abs(x.WeightChange), false),
 
 				// 獲得賞金
 				AvgPrizeMoney = horses5.AvgPrizeMoney,
 				MaxPrizeMoney = horses5.MaxPrizeMoney,
 
 				//// ﾚｰﾃｨﾝｸﾞ
-				//AvgRating = horses5.AvgRating,
-				//MaxRating = horses5.MaxRating,
-
-				//// ｸﾞﾚｰﾄﾞ
-				//AvgGrade = horses5.AvgGrade,
-				//MaxGrade = horses5.MaxGrade,
+				AvgRating = horses5.AvgRating,
+				MaxRating = horses5.MaxRating,
 
 				// 距離
 				DistanceDiff = horses5.DistanceDiff,
@@ -254,25 +265,30 @@ namespace Netkeiba.Models
 				OikiriTotalScore = detail.Oikiri.TotalScore,
 
 				// 着順
-				AvgFinishPosition1 = horses1.AvgFinishPosition,
 				AvgFinishPosition3 = horses3.AvgFinishPosition,
 				MaxFinishPosition3 = horses3.MaxFinishPosition,
 				AvgFinishPosition5 = horses5.AvgFinishPosition,
 				MaxFinishPosition5 = horses5.MaxFinishPosition,
-
-				// 着順
-				AvgAdjustedScore1 = horses1.AvgAdjustedScore,
-				AvgAdjustedScore3 = horses3.AvgAdjustedScore,
-				MaxAdjustedScore3 = horses3.MaxAdjustedScore,
-				AvgAdjustedScore5 = horses5.AvgAdjustedScore,
-				MaxAdjustedScore5 = horses5.MaxAdjustedScore,
+				// 着順（個別）
+				FinishPositionN1 = fpArr.Length > 0 ? fpArr[0] : float.NaN,
+				FinishPositionN2 = fpArr.Length > 1 ? fpArr[1] : float.NaN,
+				FinishPositionN3 = fpArr.Length > 2 ? fpArr[2] : float.NaN,
+				FinishPositionN4 = fpArr.Length > 3 ? fpArr[3] : float.NaN,
+				FinishPositionN5 = fpArr.Length > 4 ? fpArr[4] : float.NaN,
+				// 着順トレンド（N1-N2、正=改善）
+				FinishPositionTrend = fpArr.Length >= 2 ? fpArr[0] - fpArr[1] : float.NaN,
 
 				// ﾄｯﾌﾟとのﾀｲﾑ差
-				AvgTime2Top1 = horses1.AvgTime2Top,
 				AvgTime2Top3 = horses3.AvgTime2Top,
 				MaxTime2Top3 = horses3.MaxTime2Top,
 				AvgTime2Top5 = horses5.AvgTime2Top,
 				MaxTime2Top5 = horses5.MaxTime2Top,
+				// ﾄｯﾌﾟとのﾀｲﾑ差（個別）
+				Time2TopN1 = t2tArr.Length > 0 ? t2tArr[0] : float.NaN,
+				Time2TopN2 = t2tArr.Length > 1 ? t2tArr[1] : float.NaN,
+				Time2TopN3 = t2tArr.Length > 2 ? t2tArr[2] : float.NaN,
+				Time2TopN4 = t2tArr.Length > 3 ? t2tArr[3] : float.NaN,
+				Time2TopN5 = t2tArr.Length > 4 ? t2tArr[4] : float.NaN,
 
 				// ﾄｯﾌﾟとの3ﾊﾛﾝ差
 				AvgLastThreeFurlongs2Top1 = horses1.AvgLastThreeFurlongs2Top,
@@ -280,13 +296,18 @@ namespace Netkeiba.Models
 				MaxLastThreeFurlongs2Top3 = horses3.MaxLastThreeFurlongs2Top,
 				AvgLastThreeFurlongs2Top5 = horses5.AvgLastThreeFurlongs2Top,
 				MaxLastThreeFurlongs2Top5 = horses5.MaxLastThreeFurlongs2Top,
-
 				// 同条件ﾚｰｽとのﾀｲﾑ差
 				AvgTime2Condition1 = horses1.AvgTime2Condition,
 				AvgTime2Condition3 = horses3.AvgTime2Condition,
 				MaxTime2Condition3 = horses3.MaxTime2Condition,
 				AvgTime2Condition5 = horses5.AvgTime2Condition,
 				MaxTime2Condition5 = horses5.MaxTime2Condition,
+				// 同条件ﾚｰｽとのﾀｲﾑ差（個別）
+				Time2ConditionN1 = t2cArr.Length > 0 ? t2cArr[0] : float.NaN,
+				Time2ConditionN2 = t2cArr.Length > 1 ? t2cArr[1] : float.NaN,
+				Time2ConditionN3 = t2cArr.Length > 2 ? t2cArr[2] : float.NaN,
+				Time2ConditionN4 = t2cArr.Length > 3 ? t2cArr[3] : float.NaN,
+				Time2ConditionN5 = t2cArr.Length > 4 ? t2cArr[4] : float.NaN,
 
 				// 同条件ﾚｰｽとの3ﾊﾛﾝ差
 				AvgLastThreeFurlongs2Condition1 = horses1.AvgLastThreeFurlongs2Condition,
@@ -294,212 +315,126 @@ namespace Netkeiba.Models
 				MaxLastThreeFurlongs2Condition3 = horses3.MaxLastThreeFurlongs2Condition,
 				AvgLastThreeFurlongs2Condition5 = horses5.AvgLastThreeFurlongs2Condition,
 				MaxLastThreeFurlongs2Condition5 = horses5.MaxLastThreeFurlongs2Condition,
-
-				//// 父馬の実績
-				//SireAvgPrizeMoney = sires.AvgPrizeMoney,
-				//SireMaxPrizeMoney = sires.MaxPrizeMoney,
-				//SireAvgRating = sires.AvgRating,
-				//SireMaxRating = sires.MaxRating,
-				//SireAvgGrade = sires.AvgGrade,
-				//SireMaxGrade = sires.MaxGrade,
-				//SireDistanceDiff = sires.DistanceDiff,
-				////SireTuka = sires.Tuka,
-				//SireAvgFinishPosition = sires.AvgFinishPosition,
-				//SireMaxFinishPosition = sires.MaxFinishPosition,
-				//SireAvgAdjustedScore = sires.AvgAdjustedScore,
-				//SireMaxAdjustedScore = sires.MaxAdjustedScore,
-				//SireAvgTime2Top = sires.AvgTime2Top,
-				//SireMaxTime2Top = sires.MaxTime2Top,
-				//SireAvgLastThreeFurlongs2Top = sires.AvgLastThreeFurlongs2Top,
-				//SireMaxLastThreeFurlongs2Top = sires.MaxLastThreeFurlongs2Top,
-				//SireAvgTime2Condition = sires.AvgTime2Condition,
-				//SireMaxTime2Condition = sires.MaxTime2Condition,
-				//SireAvgLastThreeFurlongs2Condition = sires.AvgLastThreeFurlongs2Condition,
-				//SireMaxLastThreeFurlongs2Condition = sires.MaxLastThreeFurlongs2Condition,
-
-				//// 母父馬の実績
-				//DamSireAvgPrizeMoney = damsires.AvgPrizeMoney,
-				//DamSireMaxPrizeMoney = damsires.MaxPrizeMoney,
-				//DamSireAvgRating = damsires.AvgRating,
-				//DamSireMaxRating = damsires.MaxRating,
-				//DamSireAvgGrade = damsires.AvgGrade,
-				//DamSireMaxGrade = damsires.MaxGrade,
-				//DamSireDistanceDiff = damsires.DistanceDiff,
-				////DamSireTuka = damsires.Tuka,
-				//DamSireAvgFinishPosition = damsires.AvgFinishPosition,
-				//DamSireMaxFinishPosition = damsires.MaxFinishPosition,
-				//DamSireAvgAdjustedScore = damsires.AvgAdjustedScore,
-				//DamSireMaxAdjustedScore = damsires.MaxAdjustedScore,
-				//DamSireAvgTime2Top = damsires.AvgTime2Top,
-				//DamSireMaxTime2Top = damsires.MaxTime2Top,
-				//DamSireAvgLastThreeFurlongs2Top = damsires.AvgLastThreeFurlongs2Top,
-				//DamSireMaxLastThreeFurlongs2Top = damsires.MaxLastThreeFurlongs2Top,
-				//DamSireAvgTime2Condition = damsires.AvgTime2Condition,
-				//DamSireMaxTime2Condition = damsires.MaxTime2Condition,
-				//DamSireAvgLastThreeFurlongs2Condition = damsires.AvgLastThreeFurlongs2Condition,
-				//DamSireMaxLastThreeFurlongs2Condition = damsires.MaxLastThreeFurlongs2Condition,
-
 				// 父馬の兄弟馬の実績
 				SireBrosAvgPrizeMoney = sirebros.AvgPrizeMoney,
-				SireBrosMaxPrizeMoney = sirebros.MaxPrizeMoney,
-				//SireBrosAvgRating = sirebros.AvgRating,
-				//SireBrosMaxRating = sirebros.MaxRating,
-				//SireBrosAvgGrade = sirebros.AvgGrade,
-				//SireBrosMaxGrade = sirebros.MaxGrade,
+				SireBrosAvgRating = sirebros.AvgRating,
 				SireBrosDistanceDiff = sirebros.DistanceDiff,
 				//SireBrosTuka = sirebros.Tuka,
 				SireBrosAvgFinishPosition = sirebros.AvgFinishPosition,
-				//SireBrosMaxFinishPosition = sirebros.MaxFinishPosition,
-				SireBrosAvgAdjustedScore = sirebros.AvgAdjustedScore,
-				SireBrosMaxAdjustedScore = sirebros.MaxAdjustedScore,
 				SireBrosAvgTime2Top = sirebros.AvgTime2Top,
-				//SireBrosMaxTime2Top = sirebros.MaxTime2Top,
 				SireBrosAvgLastThreeFurlongs2Top = sirebros.AvgLastThreeFurlongs2Top,
-				//SireBrosMaxLastThreeFurlongs2Top = sirebros.MaxLastThreeFurlongs2Top,
 				SireBrosAvgTime2Condition = sirebros.AvgTime2Condition,
-				//SireBrosMaxTime2Condition = sirebros.MaxTime2Condition,
 				SireBrosAvgLastThreeFurlongs2Condition = sirebros.AvgLastThreeFurlongs2Condition,
-				//SireBrosMaxLastThreeFurlongs2Condition = sirebros.MaxLastThreeFurlongs2Condition,
-
-				// 母父馬の兄弟馬の実績
-				//DamSireBrosAvgPrizeMoney = damsires.AvgPrizeMoney,
-				//DamSireBrosMaxPrizeMoney = damsires.MaxPrizeMoney,
-				//DamSireBrosAvgRating = damsires.AvgRating,
-				//DamSireBrosMaxRating = damsires.MaxRating,
-				//DamSireBrosAvgGrade = damsires.AvgGrade,
-				//DamSireBrosMaxGrade = damsires.MaxGrade,
-				DamSireBrosDistanceDiff = damsires.DistanceDiff,
-				//DamSireBrosTuka = damsires.Tuka,
-				DamSireBrosAvgFinishPosition = damsires.AvgFinishPosition,
-				//DamSireBrosMaxFinishPosition = damsires.MaxFinishPosition,
-				DamSireBrosAvgAdjustedScore = damsires.AvgAdjustedScore,
-				//DamSireBrosMaxAdjustedScore = damsires.MaxAdjustedScore,
-				//DamSireBrosAvgTime2Top = damsires.AvgTime2Top,
-				//DamSireBrosMaxTime2Top = damsires.MaxTime2Top,
-				//DamSireBrosAvgLastThreeFurlongs2Top = damsires.AvgLastThreeFurlongs2Top,
-				//DamSireBrosMaxLastThreeFurlongs2Top = damsires.MaxLastThreeFurlongs2Top,
-				//DamSireBrosAvgTime2Condition = damsires.AvgTime2Condition,
-				//DamSireBrosMaxTime2Condition = damsires.MaxTime2Condition,
-				//DamSireBrosAvgLastThreeFurlongs2Condition = damsires.AvgLastThreeFurlongs2Condition,
-				//DamSireBrosMaxLastThreeFurlongs2Condition = damsires.MaxLastThreeFurlongs2Condition,
 
 				// 父馬-母父馬の兄弟馬の実績
 				SireDamSireBrosAvgPrizeMoney = siredamsirebros.AvgPrizeMoney,
-				SireDamSireBrosMaxPrizeMoney = siredamsirebros.MaxPrizeMoney,
-				//SireDamSireBrosAvgRating = siredamsirebros.AvgRating,
-				//SireDamSireBrosMaxRating = siredamsirebros.MaxRating,
-				//SireDamSireBrosAvgGrade = siredamsirebros.AvgGrade,
-				//SireDamSireBrosMaxGrade = siredamsirebros.MaxGrade,
+				SireDamSireBrosAvgRating = siredamsirebros.AvgRating,
 				SireDamSireBrosDistanceDiff = siredamsirebros.DistanceDiff,
 				//SireDamSireBrosTuka = siredamsirebros.Tuka,
 				SireDamSireBrosAvgFinishPosition = siredamsirebros.AvgFinishPosition,
-				//SireDamSireBrosMaxFinishPosition = siredamsirebros.MaxFinishPosition,
-				SireDamSireBrosAvgAdjustedScore = siredamsirebros.AvgAdjustedScore,
-				SireDamSireBrosMaxAdjustedScore = siredamsirebros.MaxAdjustedScore,
 				SireDamSireBrosAvgTime2Top = siredamsirebros.AvgTime2Top,
-				//SireDamSireBrosMaxTime2Top = siredamsirebros.MaxTime2Top,
 				SireDamSireBrosAvgLastThreeFurlongs2Top = siredamsirebros.AvgLastThreeFurlongs2Top,
-				//SireDamSireBrosMaxLastThreeFurlongs2Top = siredamsirebros.MaxLastThreeFurlongs2Top,
 				SireDamSireBrosAvgTime2Condition = siredamsirebros.AvgTime2Condition,
-				//SireDamSireBrosMaxTime2Condition = siredamsirebros.MaxTime2Condition,
 				SireDamSireBrosAvgLastThreeFurlongs2Condition = siredamsirebros.AvgLastThreeFurlongs2Condition,
-				//SireDamSireBrosMaxLastThreeFurlongs2Condition = siredamsirebros.MaxLastThreeFurlongs2Condition,
+
+				// 父馬-馬場の情報
+				SireTrackAvgPrizeMoney = siretracks.AvgPrizeMoney,
+				SireTrackAvgRating = siretracks.AvgRating,
+				SireTrackAvgFinishPosition = siretracks.AvgFinishPosition,
+				SireTrackAvgTime2Top = siretracks.AvgTime2Top,
+				SireTrackAvgTime2Condition = siretracks.AvgTime2Condition,
+
+				// 父馬-母父馬-馬場の情報
+				SireDamSireTrackAvgPrizeMoney = siredamsiretracks.AvgPrizeMoney,
+				SireDamSireTrackAvgRating = siredamsiretracks.AvgRating,
+				SireDamSireTrackAvgFinishPosition = siredamsiretracks.AvgFinishPosition,
+				SireDamSireTrackAvgTime2Top = siredamsiretracks.AvgTime2Top,
+				SireDamSireTrackAvgTime2Condition = siredamsiretracks.AvgTime2Condition,
+
+				// 父馬-距離の情報
+				SireDistanceAvgPrizeMoney = siredistances.AvgPrizeMoney,
+				SireDistanceAvgRating = siredistances.AvgRating,
+				SireDistanceAvgFinishPosition = siredistances.AvgFinishPosition,
+				SireDistanceAvgTime2Top = siredistances.AvgTime2Top,
+				SireDistanceAvgTime2Condition = siredistances.AvgTime2Condition,
+
+				// 父馬-母父馬-距離の情報
+				SireDamSireDistanceAvgPrizeMoney = siredamsiredistances.AvgPrizeMoney,
+				SireDamSireDistanceAvgRating = siredamsiredistances.AvgRating,
+				SireDamSireDistanceAvgFinishPosition = siredamsiredistances.AvgFinishPosition,
+				SireDamSireDistanceAvgTime2Top = siredamsiredistances.AvgTime2Top,
+				SireDamSireDistanceAvgTime2Condition = siredamsiredistances.AvgTime2Condition,
 
 				// 騎手の情報
 				JockeyAvgPrizeMoney = jockeys.AvgPrizeMoney,
-				JockeyMaxPrizeMoney = jockeys.MaxPrizeMoney,
-				//JockeyAvgRating = jockeys.AvgRating,
-				//JockeyMaxRating = jockeys.MaxRating,
-				//JockeyAvgGrade = jockeys.AvgGrade,
-				//JockeyMaxGrade = jockeys.MaxGrade,
+				JockeyAvgRating = jockeys.AvgRating,
 				JockeyAvgFinishPosition = jockeys.AvgFinishPosition,
-				//JockeyMaxFinishPosition = jockeys.MaxFinishPosition,
-				JockeyAvgAdjustedScore = jockeys.AvgAdjustedScore,
-				JockeyMaxAdjustedScore = jockeys.MaxAdjustedScore,
 				JockeyAvgTime2Top = jockeys.AvgTime2Top,
-				//JockeyMaxTime2Top = jockeys.MaxTime2Top,
 				JockeyAvgTime2Condition = jockeys.AvgTime2Condition,
-				//JockeyMaxTime2Condition = jockeys.MaxTime2Condition,
 
 				// 騎手-場所相性の情報
 				JockeyPlaceAvgPrizeMoney = jockeyplaces.AvgPrizeMoney,
-				JockeyPlaceMaxPrizeMoney = jockeyplaces.MaxPrizeMoney,
-				//JockeyPlaceAvgRating = jockeyplaces.AvgRating,
-				//JockeyPlaceMaxRating = jockeyplaces.MaxRating,
-				//JockeyPlaceAvgGrade = jockeyplaces.AvgGrade,
-				//JockeyPlaceMaxGrade = jockeyplaces.MaxGrade,
+				JockeyPlaceAvgRating = jockeyplaces.AvgRating,
 				JockeyPlaceAvgFinishPosition = jockeyplaces.AvgFinishPosition,
-				//JockeyPlaceMaxFinishPosition = jockeyplaces.MaxFinishPosition,
-				JockeyPlaceAvgAdjustedScore = jockeyplaces.AvgAdjustedScore,
-				JockeyPlaceMaxAdjustedScore = jockeyplaces.MaxAdjustedScore,
 				JockeyPlaceAvgTime2Top = jockeyplaces.AvgTime2Top,
-				//JockeyPlaceMaxTime2Top = jockeyplaces.MaxTime2Top,
 				JockeyPlaceAvgTime2Condition = jockeyplaces.AvgTime2Condition,
-				//JockeyPlaceMaxTime2Condition = jockeyplaces.MaxTime2Condition,
 
 				// 騎手-馬場相性の情報
 				JockeyTrackAvgPrizeMoney = jockeytracks.AvgPrizeMoney,
-				JockeyTrackMaxPrizeMoney = jockeytracks.MaxPrizeMoney,
-				//JockeyTrackAvgRating = jockeytracks.AvgRating,
-				//JockeyTrackMaxRating = jockeytracks.MaxRating,
-				//JockeyTrackAvgGrade = jockeytracks.AvgGrade,
-				//JockeyTrackMaxGrade = jockeytracks.MaxGrade,
+				JockeyTrackAvgRating = jockeytracks.AvgRating,
 				JockeyTrackAvgFinishPosition = jockeytracks.AvgFinishPosition,
-				//JockeyTrackMaxFinishPosition = jockeytracks.MaxFinishPosition,
-				JockeyTrackAvgAdjustedScore = jockeytracks.AvgAdjustedScore,
-				JockeyTrackMaxAdjustedScore = jockeytracks.MaxAdjustedScore,
 				JockeyTrackAvgTime2Top = jockeytracks.AvgTime2Top,
-				//JockeyTrackMaxTime2Top = jockeytracks.MaxTime2Top,
 				JockeyTrackAvgTime2Condition = jockeytracks.AvgTime2Condition,
-				//JockeyTrackMaxTime2Condition = jockeytracks.MaxTime2Condition,
+
+				// 騎手-距離の情報
+				JockeyDistanceAvgPrizeMoney = jockeydistances.AvgPrizeMoney,
+				JockeyDistanceAvgRating = jockeydistances.AvgRating,
+				JockeyDistanceAvgFinishPosition = jockeydistances.AvgFinishPosition,
+				JockeyDistanceAvgTime2Top = jockeydistances.AvgTime2Top,
+				JockeyDistanceAvgTime2Condition = jockeydistances.AvgTime2Condition,
+
+				// 騎手-調教師相性の情報
+				JockeyTrainerAvgPrizeMoney = jockeytrainers.AvgPrizeMoney,
+				JockeyTrainerAvgRating = jockeytrainers.AvgRating,
+				JockeyTrainerAvgFinishPosition = jockeytrainers.AvgFinishPosition,
+				JockeyTrainerAvgTime2Top = jockeytrainers.AvgTime2Top,
+				JockeyTrainerAvgTime2Condition = jockeytrainers.AvgTime2Condition,
 
 				// 調教師の情報
 				TrainerAvgPrizeMoney = trainers.AvgPrizeMoney,
-				TrainerMaxPrizeMoney = trainers.MaxPrizeMoney,
-				//TrainerAvgRating = trainers.AvgRating,
-				//TrainerMaxRating = trainers.MaxRating,
-				//TrainerAvgGrade = trainers.AvgGrade,
-				//TrainerMaxGrade = trainers.MaxGrade,
+				TrainerAvgRating = trainers.AvgRating,
 				TrainerAvgFinishPosition = trainers.AvgFinishPosition,
-				//TrainerMaxFinishPosition = trainers.MaxFinishPosition,
-				TrainerAvgAdjustedScore = trainers.AvgAdjustedScore,
-				TrainerMaxAdjustedScore = trainers.MaxAdjustedScore,
 				TrainerAvgTime2Top = trainers.AvgTime2Top,
-				//TrainerMaxTime2Top = trainers.MaxTime2Top,
 				TrainerAvgTime2Condition = trainers.AvgTime2Condition,
-				//TrainerMaxTime2Condition = trainers.MaxTime2Condition,
+
+				// 調教師-場所の情報
+				TrainerPlaceAvgPrizeMoney = trainerplaces.AvgPrizeMoney,
+				TrainerPlaceAvgRating = trainerplaces.AvgRating,
+				TrainerPlaceAvgFinishPosition = trainerplaces.AvgFinishPosition,
+				TrainerPlaceAvgTime2Top = trainerplaces.AvgTime2Top,
+				TrainerPlaceAvgTime2Condition = trainerplaces.AvgTime2Condition,
 
 				// 生産者の情報
 				BreederAvgPrizeMoney = breeders.AvgPrizeMoney,
-				BreederMaxPrizeMoney = breeders.MaxPrizeMoney,
-				//BreederAvgRating = breeders.AvgRating,
-				//BreederMaxRating = breeders.MaxRating,
-				//BreederAvgGrade = breeders.AvgGrade,
-				//BreederMaxGrade = breeders.MaxGrade,
+				BreederAvgRating = breeders.AvgRating,
 				BreederAvgFinishPosition = breeders.AvgFinishPosition,
-				//BreederMaxFinishPosition = breeders.MaxFinishPosition,
-				BreederAvgAdjustedScore = breeders.AvgAdjustedScore,
-				BreederMaxAdjustedScore = breeders.MaxAdjustedScore,
 				BreederAvgTime2Top = breeders.AvgTime2Top,
-				//BreederMaxTime2Top = breeders.MaxTime2Top,
 				BreederAvgTime2Condition = breeders.AvgTime2Condition,
-				//BreederMaxTime2Condition = breeders.MaxTime2Condition,
 
 				// 調教師-生産者の情報
 				TrainerBreederAvgPrizeMoney = trainerbreeders.AvgPrizeMoney,
-				TrainerBreederMaxPrizeMoney = trainerbreeders.MaxPrizeMoney,
-				//TrainerBreederAvgRating = trainerbreeders.AvgRating,
-				//TrainerBreederMaxRating = trainerbreeders.MaxRating,
-				//TrainerBreederAvgGrade = trainerbreeders.AvgGrade,
-				//TrainerBreederMaxGrade = trainerbreeders.MaxGrade,
+				TrainerBreederAvgRating = trainerbreeders.AvgRating,
 				TrainerBreederAvgFinishPosition = trainerbreeders.AvgFinishPosition,
-				//TrainerBreederMaxFinishPosition = trainerbreeders.MaxFinishPosition,
-				TrainerBreederAvgAdjustedScore = trainerbreeders.AvgAdjustedScore,
-				TrainerBreederMaxAdjustedScore = trainerbreeders.MaxAdjustedScore,
 				TrainerBreederAvgTime2Top = trainerbreeders.AvgTime2Top,
-				//TrainerBreederMaxTime2Top = trainerbreeders.MaxTime2Top,
 				TrainerBreederAvgTime2Condition = trainerbreeders.AvgTime2Condition,
-				TrainerBreederMaxTime2Condition = trainerbreeders.MaxTime2Condition,
+
+				// 交差特徴量
+				CrossOikiriFinishPos = (detail.Oikiri.Rating / 20F) * horses5.AvgFinishPosition,
+				CrossOikiriTime2Top = (detail.Oikiri.Rating / 20F) * ((5F - horses5.AvgTime2Top) / 5F),
+				CrossDistanceFitFinishPos = (1F / (1F + Math.Abs(horses5.DistanceDiff) / 200F)) * horses5.AvgFinishPosition,
+				CrossRestDaysFinishPos = restDaysFactor * horses5.AvgFinishPosition,
+				CrossRatingOikiri = Math.Min(horses5.AvgRating / 100F, 1F) * (detail.Oikiri.Rating / 20F),
+				CrossOikiriJockey = (detail.Oikiri.Rating / 20F) * jockeys.AvgFinishPosition,
 
 			};
 
@@ -514,17 +449,16 @@ namespace Netkeiba.Models
 
 			results.ForEach(x =>
 			{
+				// 出走経験数
+				x.RaceCountRank = x.GetRank(results, x => x.RaceCount, true);
+
 				// 獲得賞金
 				x.AvgPrizeMoneyRank = x.GetRank(results, x => x.AvgPrizeMoney, true);
 				x.MaxPrizeMoneyRank = x.GetRank(results, x => x.MaxPrizeMoney, true);
 
 				//// ﾚｰﾃｨﾝｸﾞ
-				//x.AvgRatingRank = x.GetRank(results, x => x.AvgRating, true);
-				//x.MaxRatingRank = x.GetRank(results, x => x.MaxRating, true);
-
-				//// ｸﾞﾚｰﾄﾞ
-				//x.AvgGradeRank = x.GetRank(results, x => x.AvgGrade, true);
-				//x.MaxGradeRank = x.GetRank(results, x => x.MaxGrade, true);
+				x.AvgRatingRank = x.GetRank(results, x => x.AvgRating, true);
+				x.MaxRatingRank = x.GetRank(results, x => x.MaxRating, true);
 
 				// 距離
 				x.DistanceDiffRank = x.GetRank(results, x => Math.Abs(x.DistanceDiff), false);
@@ -539,26 +473,44 @@ namespace Netkeiba.Models
 				x.OikiriTimeRatingRank = x.GetRank(results, x => x.OikiriTimeRating, true);
 				x.OikiriTotalScoreRank = x.GetRank(results, x => x.OikiriTotalScore, true);
 
+				// 過去ﾚｰｽの休養日数（個別）Rank
+				x.RestDaysN1Rank = x.GetRank(results, x => x.RestDaysN1, true);
+				x.RestDaysN2Rank = x.GetRank(results, x => x.RestDaysN2, true);
+				x.RestDaysN3Rank = x.GetRank(results, x => x.RestDaysN3, true);
+				x.RestDaysN4Rank = x.GetRank(results, x => x.RestDaysN4, true);
+				x.RestDaysN5Rank = x.GetRank(results, x => x.RestDaysN5, true);
+				// 過去ﾚｰｽの経過日数（個別）Rank
+				x.DaysAgoN1Rank = x.GetRank(results, x => x.DaysAgoN1, false);
+				x.DaysAgoN2Rank = x.GetRank(results, x => x.DaysAgoN2, false);
+				x.DaysAgoN3Rank = x.GetRank(results, x => x.DaysAgoN3, false);
+				x.DaysAgoN4Rank = x.GetRank(results, x => x.DaysAgoN4, false);
+				x.DaysAgoN5Rank = x.GetRank(results, x => x.DaysAgoN5, false);
+
 				// 着順
-				x.AvgFinishPosition1Rank = x.GetRank(results, x => x.AvgFinishPosition1, true);
 				x.AvgFinishPosition3Rank = x.GetRank(results, x => x.AvgFinishPosition3, true);
 				x.MaxFinishPosition3Rank = x.GetRank(results, x => x.MaxFinishPosition3, true);
 				x.AvgFinishPosition5Rank = x.GetRank(results, x => x.AvgFinishPosition5, true);
 				x.MaxFinishPosition5Rank = x.GetRank(results, x => x.MaxFinishPosition5, true);
-
-				// 調整ｽｺｱ
-				x.AvgAdjustedScore1Rank = x.GetRank(results, x => x.AvgAdjustedScore1, true);
-				x.AvgAdjustedScore3Rank = x.GetRank(results, x => x.AvgAdjustedScore3, true);
-				x.MaxAdjustedScore3Rank = x.GetRank(results, x => x.MaxAdjustedScore3, true);
-				x.AvgAdjustedScore5Rank = x.GetRank(results, x => x.AvgAdjustedScore5, true);
-				x.MaxAdjustedScore5Rank = x.GetRank(results, x => x.MaxAdjustedScore5, true);
+				// 着順（個別）Rank
+				x.FinishPositionN1Rank = x.GetRank(results, x => x.FinishPositionN1, true);
+				x.FinishPositionN2Rank = x.GetRank(results, x => x.FinishPositionN2, true);
+				x.FinishPositionN3Rank = x.GetRank(results, x => x.FinishPositionN3, true);
+				x.FinishPositionN4Rank = x.GetRank(results, x => x.FinishPositionN4, true);
+				x.FinishPositionN5Rank = x.GetRank(results, x => x.FinishPositionN5, true);
+				// 着順トレンドRank
+				x.FinishPositionTrendRank = x.GetRank(results, x => x.FinishPositionTrend, true);
 
 				// ﾄｯﾌﾟとのﾀｲﾑ差
-				x.AvgTime2Top1Rank = x.GetRank(results, x => x.AvgTime2Top1, false);
 				x.AvgTime2Top3Rank = x.GetRank(results, x => x.AvgTime2Top3, false);
 				x.MaxTime2Top3Rank = x.GetRank(results, x => x.MaxTime2Top3, false);
 				x.AvgTime2Top5Rank = x.GetRank(results, x => x.AvgTime2Top5, false);
 				x.MaxTime2Top5Rank = x.GetRank(results, x => x.MaxTime2Top5, false);
+				// ﾄｯﾌﾟとのﾀｲﾑ差（個別）Rank
+				x.Time2TopN1Rank = x.GetRank(results, x => x.Time2TopN1, false);
+				x.Time2TopN2Rank = x.GetRank(results, x => x.Time2TopN2, false);
+				x.Time2TopN3Rank = x.GetRank(results, x => x.Time2TopN3, false);
+				x.Time2TopN4Rank = x.GetRank(results, x => x.Time2TopN4, false);
+				x.Time2TopN5Rank = x.GetRank(results, x => x.Time2TopN5, false);
 
 				// ﾄｯﾌﾟとの3ﾊﾛﾝ差
 				x.AvgLastThreeFurlongs2Top1Rank = x.GetRank(results, x => x.AvgLastThreeFurlongs2Top1, false);
@@ -566,13 +518,18 @@ namespace Netkeiba.Models
 				x.MaxLastThreeFurlongs2Top3Rank = x.GetRank(results, x => x.MaxLastThreeFurlongs2Top3, false);
 				x.AvgLastThreeFurlongs2Top5Rank = x.GetRank(results, x => x.AvgLastThreeFurlongs2Top5, false);
 				x.MaxLastThreeFurlongs2Top5Rank = x.GetRank(results, x => x.MaxLastThreeFurlongs2Top5, false);
-
 				// 同条件ﾚｰｽとのﾀｲﾑ差
 				x.AvgTime2Condition1Rank = x.GetRank(results, x => x.AvgTime2Condition1, false);
 				x.AvgTime2Condition3Rank = x.GetRank(results, x => x.AvgTime2Condition3, false);
 				x.MaxTime2Condition3Rank = x.GetRank(results, x => x.MaxTime2Condition3, false);
 				x.AvgTime2Condition5Rank = x.GetRank(results, x => x.AvgTime2Condition5, false);
 				x.MaxTime2Condition5Rank = x.GetRank(results, x => x.MaxTime2Condition5, false);
+				// 同条件ﾚｰｽとのﾀｲﾑ差（個別）Rank
+				x.Time2ConditionN1Rank = x.GetRank(results, x => x.Time2ConditionN1, false);
+				x.Time2ConditionN2Rank = x.GetRank(results, x => x.Time2ConditionN2, false);
+				x.Time2ConditionN3Rank = x.GetRank(results, x => x.Time2ConditionN3, false);
+				x.Time2ConditionN4Rank = x.GetRank(results, x => x.Time2ConditionN4, false);
+				x.Time2ConditionN5Rank = x.GetRank(results, x => x.Time2ConditionN5, false);
 
 				// 同条件ﾚｰｽとの3ﾊﾛﾝ差
 				x.AvgLastThreeFurlongs2Condition1Rank = x.GetRank(results, x => x.AvgLastThreeFurlongs2Condition1, false);
@@ -580,207 +537,211 @@ namespace Netkeiba.Models
 				x.MaxLastThreeFurlongs2Condition3Rank = x.GetRank(results, x => x.MaxLastThreeFurlongs2Condition3, false);
 				x.AvgLastThreeFurlongs2Condition5Rank = x.GetRank(results, x => x.AvgLastThreeFurlongs2Condition5, false);
 				x.MaxLastThreeFurlongs2Condition5Rank = x.GetRank(results, x => x.MaxLastThreeFurlongs2Condition5, false);
-
-				//// 父馬の実績
-				//x.SireAvgPrizeMoneyRank = x.GetRank(results, x => x.SireAvgPrizeMoney, true);
-				//x.SireMaxPrizeMoneyRank = x.GetRank(results, x => x.SireMaxPrizeMoney, true);
-				//x.SireAvgRatingRank = x.GetRank(results, x => x.SireAvgRating, true);
-				//x.SireMaxRatingRank = x.GetRank(results, x => x.SireMaxRating, true);
-				//x.SireAvgGradeRank = x.GetRank(results, x => x.SireAvgGrade, true);
-				//x.SireMaxGradeRank = x.GetRank(results, x => x.SireMaxGrade, true);
-				//x.SireDistanceDiffRank = x.GetRank(results, x => x.SireDistanceDiff, false);
-				//x.SireAvgFinishPositionRank = x.GetRank(results, x => x.SireAvgFinishPosition, true);
-				//x.SireMaxFinishPositionRank = x.GetRank(results, x => x.SireMaxFinishPosition, true);
-				//x.SireAvgAdjustedScoreRank = x.GetRank(results, x => x.SireAvgAdjustedScore, true);
-				//x.SireMaxAdjustedScoreRank = x.GetRank(results, x => x.SireMaxAdjustedScore, true);
-				//x.SireAvgTime2TopRank = x.GetRank(results, x => x.SireAvgTime2Top, false);
-				//x.SireMaxTime2TopRank = x.GetRank(results, x => x.SireMaxTime2Top, false);
-				//x.SireAvgLastThreeFurlongs2TopRank = x.GetRank(results, x => x.SireAvgLastThreeFurlongs2Top, false);
-				//x.SireMaxLastThreeFurlongs2TopRank = x.GetRank(results, x => x.SireMaxLastThreeFurlongs2Top, false);
-				//x.SireAvgTime2ConditionRank = x.GetRank(results, x => x.SireAvgTime2Condition, false);
-				//x.SireMaxTime2ConditionRank = x.GetRank(results, x => x.SireMaxTime2Condition, false);
-				//x.SireAvgLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.SireAvgLastThreeFurlongs2Condition, false);
-				//x.SireMaxLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.SireMaxLastThreeFurlongs2Condition, false);
-
-				//// 母父馬の実績
-				//x.DamSireAvgPrizeMoneyRank = x.GetRank(results, x => x.DamSireAvgPrizeMoney, true);
-				//x.DamSireMaxPrizeMoneyRank = x.GetRank(results, x => x.DamSireMaxPrizeMoney, true);
-				//x.DamSireAvgRatingRank = x.GetRank(results, x => x.DamSireAvgRating, true);
-				//x.DamSireMaxRatingRank = x.GetRank(results, x => x.DamSireMaxRating, true);
-				//x.DamSireAvgGradeRank = x.GetRank(results, x => x.DamSireAvgGrade, true);
-				//x.DamSireMaxGradeRank = x.GetRank(results, x => x.DamSireMaxGrade, true);
-				//x.DamSireDistanceDiffRank = x.GetRank(results, x => x.DamSireDistanceDiff, false);
-				//x.DamSireAvgFinishPositionRank = x.GetRank(results, x => x.DamSireAvgFinishPosition, true);
-				//x.DamSireMaxFinishPositionRank = x.GetRank(results, x => x.DamSireMaxFinishPosition, true);
-				//x.DamSireAvgAdjustedScoreRank = x.GetRank(results, x => x.DamSireAvgAdjustedScore, true);
-				//x.DamSireMaxAdjustedScoreRank = x.GetRank(results, x => x.DamSireMaxAdjustedScore, true);
-				//x.DamSireAvgTime2TopRank = x.GetRank(results, x => x.DamSireAvgTime2Top, false);
-				//x.DamSireMaxTime2TopRank = x.GetRank(results, x => x.DamSireMaxTime2Top, false);
-				//x.DamSireAvgLastThreeFurlongs2TopRank = x.GetRank(results, x => x.DamSireAvgLastThreeFurlongs2Top, false);
-				//x.DamSireMaxLastThreeFurlongs2TopRank = x.GetRank(results, x => x.DamSireMaxLastThreeFurlongs2Top, false);
-				//x.DamSireAvgTime2ConditionRank = x.GetRank(results, x => x.DamSireAvgTime2Condition, false);
-				//x.DamSireMaxTime2ConditionRank = x.GetRank(results, x => x.DamSireMaxTime2Condition, false);
-				//x.DamSireAvgLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.DamSireAvgLastThreeFurlongs2Condition, false);
-				//x.DamSireMaxLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.DamSireMaxLastThreeFurlongs2Condition, false);
-
 				// 父馬の兄弟馬の実績
 				x.SireBrosAvgPrizeMoneyRank = x.GetRank(results, x => x.SireBrosAvgPrizeMoney, true);
-				x.SireBrosMaxPrizeMoneyRank = x.GetRank(results, x => x.SireBrosMaxPrizeMoney, true);
-				//x.SireBrosAvgRatingRank = x.GetRank(results, x => x.SireBrosAvgRating, true);
-				//x.SireBrosMaxRatingRank = x.GetRank(results, x => x.SireBrosMaxRating, true);
-				//x.SireBrosAvgGradeRank = x.GetRank(results, x => x.SireBrosAvgGrade, true);
-				//x.SireBrosMaxGradeRank = x.GetRank(results, x => x.SireBrosMaxGrade, true);
+				x.SireBrosAvgRatingRank = x.GetRank(results, x => x.SireBrosAvgRating, true);
 				x.SireBrosDistanceDiffRank = x.GetRank(results, x => x.SireBrosDistanceDiff, false);
 				x.SireBrosAvgFinishPositionRank = x.GetRank(results, x => x.SireBrosAvgFinishPosition, true);
-				//x.SireBrosMaxFinishPositionRank = x.GetRank(results, x => x.SireBrosMaxFinishPosition, true);
-				x.SireBrosAvgAdjustedScoreRank = x.GetRank(results, x => x.SireBrosAvgAdjustedScore, true);
-				x.SireBrosMaxAdjustedScoreRank = x.GetRank(results, x => x.SireBrosMaxAdjustedScore, true);
 				x.SireBrosAvgTime2TopRank = x.GetRank(results, x => x.SireBrosAvgTime2Top, false);
-				//x.SireBrosMaxTime2TopRank = x.GetRank(results, x => x.SireBrosMaxTime2Top, false);
 				x.SireBrosAvgLastThreeFurlongs2TopRank = x.GetRank(results, x => x.SireBrosAvgLastThreeFurlongs2Top, false);
-				//x.SireBrosMaxLastThreeFurlongs2TopRank = x.GetRank(results, x => x.SireBrosMaxLastThreeFurlongs2Top, false);
 				x.SireBrosAvgTime2ConditionRank = x.GetRank(results, x => x.SireBrosAvgTime2Condition, false);
-				//x.SireBrosMaxTime2ConditionRank = x.GetRank(results, x => x.SireBrosMaxTime2Condition, false);
 				x.SireBrosAvgLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.SireBrosAvgLastThreeFurlongs2Condition, false);
-				//x.SireBrosMaxLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.SireBrosMaxLastThreeFurlongs2Condition, false);
-
-				// 母父馬の兄弟馬の実績
-				//x.DamSireBrosAvgPrizeMoneyRank = x.GetRank(results, x => x.DamSireBrosAvgPrizeMoney, true);
-				//x.DamSireBrosMaxPrizeMoneyRank = x.GetRank(results, x => x.DamSireBrosMaxPrizeMoney, true);
-				//x.DamSireBrosAvgRatingRank = x.GetRank(results, x => x.DamSireBrosAvgRating, true);
-				//x.DamSireBrosMaxRatingRank = x.GetRank(results, x => x.DamSireBrosMaxRating, true);
-				//x.DamSireBrosAvgGradeRank = x.GetRank(results, x => x.DamSireBrosAvgGrade, true);
-				//x.DamSireBrosMaxGradeRank = x.GetRank(results, x => x.DamSireBrosMaxGrade, true);
-				x.DamSireBrosDistanceDiffRank = x.GetRank(results, x => x.DamSireBrosDistanceDiff, false);
-				x.DamSireBrosAvgFinishPositionRank = x.GetRank(results, x => x.DamSireBrosAvgFinishPosition, true);
-				//x.DamSireBrosMaxFinishPositionRank = x.GetRank(results, x => x.DamSireBrosMaxFinishPosition, true);
-				x.DamSireBrosAvgAdjustedScoreRank = x.GetRank(results, x => x.DamSireBrosAvgAdjustedScore, true);
-				//x.DamSireBrosMaxAdjustedScoreRank = x.GetRank(results, x => x.DamSireBrosMaxAdjustedScore, true);
-				//x.DamSireBrosAvgTime2TopRank = x.GetRank(results, x => x.DamSireBrosAvgTime2Top, false);
-				//x.DamSireBrosMaxTime2TopRank = x.GetRank(results, x => x.DamSireBrosMaxTime2Top, false);
-				//x.DamSireBrosAvgLastThreeFurlongs2TopRank = x.GetRank(results, x => x.DamSireBrosAvgLastThreeFurlongs2Top, false);
-				//x.DamSireBrosMaxLastThreeFurlongs2TopRank = x.GetRank(results, x => x.DamSireBrosMaxLastThreeFurlongs2Top, false);
-				//x.DamSireBrosAvgTime2ConditionRank = x.GetRank(results, x => x.DamSireBrosAvgTime2Condition, false);
-				//x.DamSireBrosMaxTime2ConditionRank = x.GetRank(results, x => x.DamSireBrosMaxTime2Condition, false);
-				//x.DamSireBrosAvgLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.DamSireBrosAvgLastThreeFurlongs2Condition, false);
-				//x.DamSireBrosMaxLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.DamSireBrosMaxLastThreeFurlongs2Condition, false);
 
 				// 父馬-母父馬の兄弟馬の情報
 				x.SireDamSireBrosAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDamSireBrosAvgPrizeMoney, true);
-				//x.SireDamSireBrosMaxPrizeMoneyRank = x.GetRank(results, x => x.SireDamSireBrosMaxPrizeMoney, true);
-				//x.SireDamSireBrosAvgRatingRank = x.GetRank(results, x => x.SireDamSireBrosAvgRating, true);
-				//x.SireDamSireBrosMaxRatingRank = x.GetRank(results, x => x.SireDamSireBrosMaxRating, true);
-				//x.SireDamSireBrosAvgGradeRank = x.GetRank(results, x => x.SireDamSireBrosAvgGrade, true);
-				//x.SireDamSireBrosMaxGradeRank = x.GetRank(results, x => x.SireDamSireBrosMaxGrade, true);
+				x.SireDamSireBrosAvgRatingRank = x.GetRank(results, x => x.SireDamSireBrosAvgRating, true);
 				x.SireDamSireBrosDistanceDiffRank = x.GetRank(results, x => x.SireDamSireBrosDistanceDiff, false);
 				x.SireDamSireBrosAvgFinishPositionRank = x.GetRank(results, x => x.SireDamSireBrosAvgFinishPosition, true);
-				//x.SireDamSireBrosMaxFinishPositionRank = x.GetRank(results, x => x.SireDamSireBrosMaxFinishPosition, true);
-				x.SireDamSireBrosAvgAdjustedScoreRank = x.GetRank(results, x => x.SireDamSireBrosAvgAdjustedScore, true);
-				x.SireDamSireBrosMaxAdjustedScoreRank = x.GetRank(results, x => x.SireDamSireBrosMaxAdjustedScore, true);
-				//x.SireDamSireBrosAvgTime2TopRank = x.GetRank(results, x => x.SireDamSireBrosAvgTime2Top, false);
-				//x.SireDamSireBrosMaxTime2TopRank = x.GetRank(results, x => x.SireDamSireBrosMaxTime2Top, false);
+				x.SireDamSireBrosAvgTime2TopRank = x.GetRank(results, x => x.SireDamSireBrosAvgTime2Top, false);
 				x.SireDamSireBrosAvgLastThreeFurlongs2TopRank = x.GetRank(results, x => x.SireDamSireBrosAvgLastThreeFurlongs2Top, false);
-				//x.SireDamSireBrosMaxLastThreeFurlongs2TopRank = x.GetRank(results, x => x.SireDamSireBrosMaxLastThreeFurlongs2Top, false);
 				x.SireDamSireBrosAvgTime2ConditionRank = x.GetRank(results, x => x.SireDamSireBrosAvgTime2Condition, false);
-				//x.SireDamSireBrosMaxTime2ConditionRank = x.GetRank(results, x => x.SireDamSireBrosMaxTime2Condition, false);
 				x.SireDamSireBrosAvgLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.SireDamSireBrosAvgLastThreeFurlongs2Condition, false);
-				//x.SireDamSireBrosMaxLastThreeFurlongs2ConditionRank = x.GetRank(results, x => x.SireDamSireBrosMaxLastThreeFurlongs2Condition, false);
+
+				// 父馬-馬場の情報
+				x.SireTrackAvgPrizeMoneyRank = x.GetRank(results, x => x.SireTrackAvgPrizeMoney, true);
+				x.SireTrackAvgRatingRank = x.GetRank(results, x => x.SireTrackAvgRating, true);
+				x.SireTrackAvgFinishPositionRank = x.GetRank(results, x => x.SireTrackAvgFinishPosition, true);
+				x.SireTrackAvgTime2TopRank = x.GetRank(results, x => x.SireTrackAvgTime2Top, false);
+				x.SireTrackAvgTime2ConditionRank = x.GetRank(results, x => x.SireTrackAvgTime2Condition, false);
+
+				// 父馬-距離の情報
+				x.SireDistanceAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDistanceAvgPrizeMoney, true);
+				x.SireDistanceAvgRatingRank = x.GetRank(results, x => x.SireDistanceAvgRating, true);
+				x.SireDistanceAvgFinishPositionRank = x.GetRank(results, x => x.SireDistanceAvgFinishPosition, true);
+				x.SireDistanceAvgTime2TopRank = x.GetRank(results, x => x.SireDistanceAvgTime2Top, false);
+				x.SireDistanceAvgTime2ConditionRank = x.GetRank(results, x => x.SireDistanceAvgTime2Condition, false);
+
+				// 父馬-母父馬-馬場の情報
+				x.SireDamSireTrackAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDamSireTrackAvgPrizeMoney, true);
+				x.SireDamSireTrackAvgRatingRank = x.GetRank(results, x => x.SireDamSireTrackAvgRating, true);
+				x.SireDamSireTrackAvgFinishPositionRank = x.GetRank(results, x => x.SireDamSireTrackAvgFinishPosition, true);
+				x.SireDamSireTrackAvgTime2TopRank = x.GetRank(results, x => x.SireDamSireTrackAvgTime2Top, false);
+				x.SireDamSireTrackAvgTime2ConditionRank = x.GetRank(results, x => x.SireDamSireTrackAvgTime2Condition, false);
+
+				// 父馬-母父馬-距離の情報
+				x.SireDamSireDistanceAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDamSireDistanceAvgPrizeMoney, true);
+				x.SireDamSireDistanceAvgRatingRank = x.GetRank(results, x => x.SireDamSireDistanceAvgRating, true);
+				x.SireDamSireDistanceAvgFinishPositionRank = x.GetRank(results, x => x.SireDamSireDistanceAvgFinishPosition, true);
+				x.SireDamSireDistanceAvgTime2TopRank = x.GetRank(results, x => x.SireDamSireDistanceAvgTime2Top, false);
+				x.SireDamSireDistanceAvgTime2ConditionRank = x.GetRank(results, x => x.SireDamSireDistanceAvgTime2Condition, false);
 
 				// 騎手の情報
 				x.JockeyAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyAvgPrizeMoney, true);
-				x.JockeyMaxPrizeMoneyRank = x.GetRank(results, x => x.JockeyMaxPrizeMoney, true);
-				//x.JockeyAvgRatingRank = x.GetRank(results, x => x.JockeyAvgRating, true);
-				//x.JockeyMaxRatingRank = x.GetRank(results, x => x.JockeyMaxRating, true);
-				//x.JockeyAvgGradeRank = x.GetRank(results, x => x.JockeyAvgGrade, true);
-				//x.JockeyMaxGradeRank = x.GetRank(results, x => x.JockeyMaxGrade, true);
+				x.JockeyAvgRatingRank = x.GetRank(results, x => x.JockeyAvgRating, true);
 				x.JockeyAvgFinishPositionRank = x.GetRank(results, x => x.JockeyAvgFinishPosition, true);
-				//x.JockeyMaxFinishPositionRank = x.GetRank(results, x => x.JockeyMaxFinishPosition, true);
-				x.JockeyAvgAdjustedScoreRank = x.GetRank(results, x => x.JockeyAvgAdjustedScore, true);
-				x.JockeyMaxAdjustedScoreRank = x.GetRank(results, x => x.JockeyMaxAdjustedScore, true);
 				x.JockeyAvgTime2TopRank = x.GetRank(results, x => x.JockeyAvgTime2Top, false);
-				//x.JockeyMaxTime2TopRank = x.GetRank(results, x => x.JockeyMaxTime2Top, false);
 				x.JockeyAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyAvgTime2Condition, false);
-				//x.JockeyMaxTime2ConditionRank = x.GetRank(results, x => x.JockeyMaxTime2Condition, false);
 
 				// 騎手-ｺｰｽの情報
 				x.JockeyPlaceAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyPlaceAvgPrizeMoney, true);
-				x.JockeyPlaceMaxPrizeMoneyRank = x.GetRank(results, x => x.JockeyPlaceMaxPrizeMoney, true);
-				//x.JockeyPlaceAvgRatingRank = x.GetRank(results, x => x.JockeyPlaceAvgRating, true);
-				//x.JockeyPlaceMaxRatingRank = x.GetRank(results, x => x.JockeyPlaceMaxRating, true);
-				//x.JockeyPlaceAvgGradeRank = x.GetRank(results, x => x.JockeyPlaceAvgGrade, true);
-				//x.JockeyPlaceMaxGradeRank = x.GetRank(results, x => x.JockeyPlaceMaxGrade, true);
+				x.JockeyPlaceAvgRatingRank = x.GetRank(results, x => x.JockeyPlaceAvgRating, true);
 				x.JockeyPlaceAvgFinishPositionRank = x.GetRank(results, x => x.JockeyPlaceAvgFinishPosition, true);
-				//x.JockeyPlaceMaxFinishPositionRank = x.GetRank(results, x => x.JockeyPlaceMaxFinishPosition, true);
-				x.JockeyPlaceAvgAdjustedScoreRank = x.GetRank(results, x => x.JockeyPlaceAvgAdjustedScore, true);
-				x.JockeyPlaceMaxAdjustedScoreRank = x.GetRank(results, x => x.JockeyPlaceMaxAdjustedScore, true);
 				x.JockeyPlaceAvgTime2TopRank = x.GetRank(results, x => x.JockeyPlaceAvgTime2Top, false);
-				//x.JockeyPlaceMaxTime2TopRank = x.GetRank(results, x => x.JockeyPlaceMaxTime2Top, false);
 				x.JockeyPlaceAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyPlaceAvgTime2Condition, false);
-				//x.JockeyPlaceMaxTime2ConditionRank = x.GetRank(results, x => x.JockeyPlaceMaxTime2Condition, false);
 
 				// 騎手-馬場の情報
 				x.JockeyTrackAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyTrackAvgPrizeMoney, true);
-				x.JockeyTrackMaxPrizeMoneyRank = x.GetRank(results, x => x.JockeyTrackMaxPrizeMoney, true);
-				//x.JockeyTrackAvgRatingRank = x.GetRank(results, x => x.JockeyTrackAvgRating, true);
-				//x.JockeyTrackMaxRatingRank = x.GetRank(results, x => x.JockeyTrackMaxRating, true);
-				//x.JockeyTrackAvgGradeRank = x.GetRank(results, x => x.JockeyTrackAvgGrade, true);
-				//x.JockeyTrackMaxGradeRank = x.GetRank(results, x => x.JockeyTrackMaxGrade, true);
+				x.JockeyTrackAvgRatingRank = x.GetRank(results, x => x.JockeyTrackAvgRating, true);
 				x.JockeyTrackAvgFinishPositionRank = x.GetRank(results, x => x.JockeyTrackAvgFinishPosition, true);
-				//x.JockeyTrackMaxFinishPositionRank = x.GetRank(results, x => x.JockeyTrackMaxFinishPosition, true);
-				x.JockeyTrackAvgAdjustedScoreRank = x.GetRank(results, x => x.JockeyTrackAvgAdjustedScore, true);
-				x.JockeyTrackMaxAdjustedScoreRank = x.GetRank(results, x => x.JockeyTrackMaxAdjustedScore, true);
 				x.JockeyTrackAvgTime2TopRank = x.GetRank(results, x => x.JockeyTrackAvgTime2Top, false);
-				//x.JockeyTrackMaxTime2TopRank = x.GetRank(results, x => x.JockeyTrackMaxTime2Top, false);
 				x.JockeyTrackAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyTrackAvgTime2Condition, false);
-				//x.JockeyTrackMaxTime2ConditionRank = x.GetRank(results, x => x.JockeyTrackMaxTime2Condition, false);
+
+				// 騎手-距離の情報
+				x.JockeyDistanceAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyDistanceAvgPrizeMoney, true);
+				x.JockeyDistanceAvgRatingRank = x.GetRank(results, x => x.JockeyDistanceAvgRating, true);
+				x.JockeyDistanceAvgFinishPositionRank = x.GetRank(results, x => x.JockeyDistanceAvgFinishPosition, true);
+				x.JockeyDistanceAvgTime2TopRank = x.GetRank(results, x => x.JockeyDistanceAvgTime2Top, false);
+				x.JockeyDistanceAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyDistanceAvgTime2Condition, false);
+
+				// 騎手-調教師の情報
+				x.JockeyTrainerAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyTrainerAvgPrizeMoney, true);
+				x.JockeyTrainerAvgRatingRank = x.GetRank(results, x => x.JockeyTrainerAvgRating, true);
+				x.JockeyTrainerAvgFinishPositionRank = x.GetRank(results, x => x.JockeyTrainerAvgFinishPosition, true);
+				x.JockeyTrainerAvgTime2TopRank = x.GetRank(results, x => x.JockeyTrainerAvgTime2Top, false);
+				x.JockeyTrainerAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyTrainerAvgTime2Condition, false);
 
 				// 調教師の情報
 				x.TrainerAvgPrizeMoneyRank = x.GetRank(results, x => x.TrainerAvgPrizeMoney, true);
-				x.TrainerMaxPrizeMoneyRank = x.GetRank(results, x => x.TrainerMaxPrizeMoney, true);
-				//x.TrainerAvgRatingRank = x.GetRank(results, x => x.TrainerAvgRating, true);
-				//x.TrainerMaxRatingRank = x.GetRank(results, x => x.TrainerMaxRating, true);
-				//x.TrainerAvgGradeRank = x.GetRank(results, x => x.TrainerAvgGrade, true);
-				//x.TrainerMaxGradeRank = x.GetRank(results, x => x.TrainerMaxGrade, true);
+				x.TrainerAvgRatingRank = x.GetRank(results, x => x.TrainerAvgRating, true);
 				x.TrainerAvgFinishPositionRank = x.GetRank(results, x => x.TrainerAvgFinishPosition, true);
-				//x.TrainerMaxFinishPositionRank = x.GetRank(results, x => x.TrainerMaxFinishPosition, true);
-				x.TrainerAvgAdjustedScoreRank = x.GetRank(results, x => x.TrainerAvgAdjustedScore, true);
-				x.TrainerMaxAdjustedScoreRank = x.GetRank(results, x => x.TrainerMaxAdjustedScore, true);
 				x.TrainerAvgTime2TopRank = x.GetRank(results, x => x.TrainerAvgTime2Top, false);
-				//x.TrainerMaxTime2TopRank = x.GetRank(results, x => x.TrainerMaxTime2Top, false);
 				x.TrainerAvgTime2ConditionRank = x.GetRank(results, x => x.TrainerAvgTime2Condition, false);
-				//x.TrainerMaxTime2ConditionRank = x.GetRank(results, x => x.TrainerMaxTime2Condition, false);
+
+				// 調教師-場所の情報
+				x.TrainerPlaceAvgPrizeMoneyRank = x.GetRank(results, x => x.TrainerPlaceAvgPrizeMoney, true);
+				x.TrainerPlaceAvgRatingRank = x.GetRank(results, x => x.TrainerPlaceAvgRating, true);
+				x.TrainerPlaceAvgFinishPositionRank = x.GetRank(results, x => x.TrainerPlaceAvgFinishPosition, true);
+				x.TrainerPlaceAvgTime2TopRank = x.GetRank(results, x => x.TrainerPlaceAvgTime2Top, false);
+				x.TrainerPlaceAvgTime2ConditionRank = x.GetRank(results, x => x.TrainerPlaceAvgTime2Condition, false);
 
 				// 生産者の情報
 				x.BreederAvgPrizeMoneyRank = x.GetRank(results, x => x.BreederAvgPrizeMoney, true);
-				x.BreederMaxPrizeMoneyRank = x.GetRank(results, x => x.BreederMaxPrizeMoney, true);
-				//x.BreederAvgRatingRank = x.GetRank(results, x => x.BreederAvgRating, true);
-				//x.BreederMaxRatingRank = x.GetRank(results, x => x.BreederMaxRating, true);
-				//x.BreederAvgGradeRank = x.GetRank(results, x => x.BreederAvgGrade, true);
-				//x.BreederMaxGradeRank = x.GetRank(results, x => x.BreederMaxGrade, true);
+				x.BreederAvgRatingRank = x.GetRank(results, x => x.BreederAvgRating, true);
 				x.BreederAvgFinishPositionRank = x.GetRank(results, x => x.BreederAvgFinishPosition, true);
-				//x.BreederMaxFinishPositionRank = x.GetRank(results, x => x.BreederMaxFinishPosition, true);
-				x.BreederAvgAdjustedScoreRank = x.GetRank(results, x => x.BreederAvgAdjustedScore, true);
-				x.BreederMaxAdjustedScoreRank = x.GetRank(results, x => x.BreederMaxAdjustedScore, true);
 				x.BreederAvgTime2TopRank = x.GetRank(results, x => x.BreederAvgTime2Top, false);
-				//x.BreederMaxTime2TopRank = x.GetRank(results, x => x.BreederMaxTime2Top, false);
 				x.BreederAvgTime2ConditionRank = x.GetRank(results, x => x.BreederAvgTime2Condition, false);
-				//x.BreederMaxTime2ConditionRank = x.GetRank(results, x => x.BreederMaxTime2Condition, false);
 
 				// 調教師-生産者の情報
 				x.TrainerBreederAvgPrizeMoneyRank = x.GetRank(results, x => x.TrainerBreederAvgPrizeMoney, true);
-				x.TrainerBreederMaxPrizeMoneyRank = x.GetRank(results, x => x.TrainerBreederMaxPrizeMoney, true);
-				//x.TrainerBreederAvgRatingRank = x.GetRank(results, x => x.TrainerBreederAvgRating, true);
-				//x.TrainerBreederMaxRatingRank = x.GetRank(results, x => x.TrainerBreederMaxRating, true);
-				//x.TrainerBreederAvgGradeRank = x.GetRank(results, x => x.TrainerBreederAvgGrade, true);
-				//x.TrainerBreederMaxGradeRank = x.GetRank(results, x => x.TrainerBreederMaxGrade, true);
+				x.TrainerBreederAvgRatingRank = x.GetRank(results, x => x.TrainerBreederAvgRating, true);
 				x.TrainerBreederAvgFinishPositionRank = x.GetRank(results, x => x.TrainerBreederAvgFinishPosition, true);
-				//x.TrainerBreederMaxFinishPositionRank = x.GetRank(results, x => x.TrainerBreederMaxFinishPosition, true);
-				x.TrainerBreederAvgAdjustedScoreRank = x.GetRank(results, x => x.TrainerBreederAvgAdjustedScore, true);
-				x.TrainerBreederMaxAdjustedScoreRank = x.GetRank(results, x => x.TrainerBreederMaxAdjustedScore, true);
 				x.TrainerBreederAvgTime2TopRank = x.GetRank(results, x => x.TrainerBreederAvgTime2Top, false);
-				//x.TrainerBreederMaxTime2TopRank = x.GetRank(results, x => x.TrainerBreederMaxTime2Top, false);
 				x.TrainerBreederAvgTime2ConditionRank = x.GetRank(results, x => x.TrainerBreederAvgTime2Condition, false);
-				x.TrainerBreederMaxTime2ConditionRank = x.GetRank(results, x => x.TrainerBreederMaxTime2Condition, false);
+
+				// 交差特徴量
+				x.CrossOikiriFinishPosRank = x.GetRank(results, x => x.CrossOikiriFinishPos, true);
+				x.CrossOikiriTime2TopRank = x.GetRank(results, x => x.CrossOikiriTime2Top, true);
+				x.CrossDistanceFitFinishPosRank = x.GetRank(results, x => x.CrossDistanceFitFinishPos, true);
+				x.CrossRestDaysFinishPosRank = x.GetRank(results, x => x.CrossRestDaysFinishPos, true);
+				x.CrossRatingOikiriRank = x.GetRank(results, x => x.CrossRatingOikiri, true);
+				x.CrossOikiriJockeyRank = x.GetRank(results, x => x.CrossOikiriJockey, true);
+
+				// ========== Z-score計算 ==========
+				// A. パフォーマンス実績
+				x.AvgPrizeMoneyZScore = x.GetZScore(results, x => x.AvgPrizeMoney);
+				x.MaxPrizeMoneyZScore = x.GetZScore(results, x => x.MaxPrizeMoney);
+				x.AvgRatingZScore = x.GetZScore(results, x => x.AvgRating);
+				x.MaxRatingZScore = x.GetZScore(results, x => x.MaxRating);
+
+				// B. 着順指標（集計）
+				x.AvgFinishPosition3ZScore = x.GetZScore(results, x => x.AvgFinishPosition3);
+				x.MaxFinishPosition3ZScore = x.GetZScore(results, x => x.MaxFinishPosition3);
+				x.AvgFinishPosition5ZScore = x.GetZScore(results, x => x.AvgFinishPosition5);
+				x.MaxFinishPosition5ZScore = x.GetZScore(results, x => x.MaxFinishPosition5);
+				x.FinishPositionTrendZScore = x.GetZScore(results, x => x.FinishPositionTrend);
+
+				// C. タイム差指標（集計）- 小さいほど良いので符号反転
+				x.AvgTime2Top3ZScore = -x.GetZScore(results, x => x.AvgTime2Top3);
+				x.MaxTime2Top3ZScore = -x.GetZScore(results, x => x.MaxTime2Top3);
+				x.AvgTime2Top5ZScore = -x.GetZScore(results, x => x.AvgTime2Top5);
+				x.MaxTime2Top5ZScore = -x.GetZScore(results, x => x.MaxTime2Top5);
+				x.AvgTime2Condition1ZScore = -x.GetZScore(results, x => x.AvgTime2Condition1);
+				x.AvgTime2Condition3ZScore = -x.GetZScore(results, x => x.AvgTime2Condition3);
+				x.MaxTime2Condition3ZScore = -x.GetZScore(results, x => x.MaxTime2Condition3);
+				x.AvgTime2Condition5ZScore = -x.GetZScore(results, x => x.AvgTime2Condition5);
+				x.MaxTime2Condition5ZScore = -x.GetZScore(results, x => x.MaxTime2Condition5);
+				x.AvgLastThreeFurlongs2Top1ZScore = -x.GetZScore(results, x => x.AvgLastThreeFurlongs2Top1);
+				x.AvgLastThreeFurlongs2Top3ZScore = -x.GetZScore(results, x => x.AvgLastThreeFurlongs2Top3);
+				x.MaxLastThreeFurlongs2Top3ZScore = -x.GetZScore(results, x => x.MaxLastThreeFurlongs2Top3);
+				x.AvgLastThreeFurlongs2Top5ZScore = -x.GetZScore(results, x => x.AvgLastThreeFurlongs2Top5);
+				x.MaxLastThreeFurlongs2Top5ZScore = -x.GetZScore(results, x => x.MaxLastThreeFurlongs2Top5);
+				x.AvgLastThreeFurlongs2Condition1ZScore = -x.GetZScore(results, x => x.AvgLastThreeFurlongs2Condition1);
+				x.AvgLastThreeFurlongs2Condition3ZScore = -x.GetZScore(results, x => x.AvgLastThreeFurlongs2Condition3);
+				x.MaxLastThreeFurlongs2Condition3ZScore = -x.GetZScore(results, x => x.MaxLastThreeFurlongs2Condition3);
+				x.AvgLastThreeFurlongs2Condition5ZScore = -x.GetZScore(results, x => x.AvgLastThreeFurlongs2Condition5);
+				x.MaxLastThreeFurlongs2Condition5ZScore = -x.GetZScore(results, x => x.MaxLastThreeFurlongs2Condition5);
+
+				// D. 追切情報
+				x.OikiriAdjustedTime5ZScore = -x.GetZScore(results, x => x.OikiriAdjustedTime5); // 小さいほど良い
+				x.OikiriRatingZScore = x.GetZScore(results, x => x.OikiriRating);
+				x.OikiriAdaptationZScore = x.GetZScore(results, x => x.OikiriAdaptation);
+				x.OikiriTimeRatingZScore = x.GetZScore(results, x => x.OikiriTimeRating);
+				x.OikiriTotalScoreZScore = x.GetZScore(results, x => x.OikiriTotalScore);
+
+				// E. 基本指標
+				x.PurchasePriceZScore = x.GetZScore(results, x => x.PurchasePrice);
+				x.WeightZScore = x.GetZScore(results, x => x.Weight);
+				x.DistanceDiffZScore = -x.GetZScore(results, x => Math.Abs(x.DistanceDiff)); // 小さいほど良い
+
+				// F. 血統情報 - 父馬の兄弟馬
+				x.SireBrosAvgPrizeMoneyZScore = x.GetZScore(results, x => x.SireBrosAvgPrizeMoney);
+				x.SireBrosAvgRatingZScore = x.GetZScore(results, x => x.SireBrosAvgRating);
+				x.SireBrosDistanceDiffZScore = -x.GetZScore(results, x => x.SireBrosDistanceDiff); // 小さいほど良い
+				x.SireBrosAvgFinishPositionZScore = x.GetZScore(results, x => x.SireBrosAvgFinishPosition);
+				x.SireBrosAvgTime2TopZScore = -x.GetZScore(results, x => x.SireBrosAvgTime2Top); // 小さいほど良い
+				x.SireBrosAvgTime2ConditionZScore = -x.GetZScore(results, x => x.SireBrosAvgTime2Condition);
+				x.SireBrosAvgLastThreeFurlongs2TopZScore = -x.GetZScore(results, x => x.SireBrosAvgLastThreeFurlongs2Top);
+				x.SireBrosAvgLastThreeFurlongs2ConditionZScore = -x.GetZScore(results, x => x.SireBrosAvgLastThreeFurlongs2Condition);
+				// 父馬-母父馬の兄弟馬
+				x.SireDamSireBrosAvgPrizeMoneyZScore = x.GetZScore(results, x => x.SireDamSireBrosAvgPrizeMoney);
+				x.SireDamSireBrosAvgRatingZScore = x.GetZScore(results, x => x.SireDamSireBrosAvgRating);
+				x.SireDamSireBrosDistanceDiffZScore = -x.GetZScore(results, x => x.SireDamSireBrosDistanceDiff);
+				x.SireDamSireBrosAvgFinishPositionZScore = x.GetZScore(results, x => x.SireDamSireBrosAvgFinishPosition);
+				x.SireDamSireBrosAvgTime2TopZScore = -x.GetZScore(results, x => x.SireDamSireBrosAvgTime2Top);
+				x.SireDamSireBrosAvgTime2ConditionZScore = -x.GetZScore(results, x => x.SireDamSireBrosAvgTime2Condition);
+				x.SireDamSireBrosAvgLastThreeFurlongs2TopZScore = -x.GetZScore(results, x => x.SireDamSireBrosAvgLastThreeFurlongs2Top);
+				x.SireDamSireBrosAvgLastThreeFurlongs2ConditionZScore = -x.GetZScore(results, x => x.SireDamSireBrosAvgLastThreeFurlongs2Condition);
+				// 父馬-馬場
+				x.SireTrackAvgPrizeMoneyZScore = x.GetZScore(results, x => x.SireTrackAvgPrizeMoney);
+				x.SireDistanceAvgPrizeMoneyZScore = x.GetZScore(results, x => x.SireDistanceAvgPrizeMoney);
+				// 父馬-母父馬-馬場
+				x.SireDamSireTrackAvgPrizeMoneyZScore = x.GetZScore(results, x => x.SireDamSireTrackAvgPrizeMoney);
+				x.SireDamSireDistanceAvgPrizeMoneyZScore = x.GetZScore(results, x => x.SireDamSireDistanceAvgPrizeMoney);
+
+				// G. コネクション
+				x.JockeyAvgPrizeMoneyZScore = x.GetZScore(results, x => x.JockeyAvgPrizeMoney);
+				x.JockeyAvgRatingZScore = x.GetZScore(results, x => x.JockeyAvgRating);
+				x.TrainerAvgPrizeMoneyZScore = x.GetZScore(results, x => x.TrainerAvgPrizeMoney);
+				x.TrainerAvgRatingZScore = x.GetZScore(results, x => x.TrainerAvgRating);
+				x.TrainerPlaceAvgPrizeMoneyZScore = x.GetZScore(results, x => x.TrainerPlaceAvgPrizeMoney);
+				x.BreederAvgPrizeMoneyZScore = x.GetZScore(results, x => x.BreederAvgPrizeMoney);
+				x.BreederAvgRatingZScore = x.GetZScore(results, x => x.BreederAvgRating);
+				x.JockeyPlaceAvgPrizeMoneyZScore = x.GetZScore(results, x => x.JockeyPlaceAvgPrizeMoney);
+				x.JockeyTrackAvgPrizeMoneyZScore = x.GetZScore(results, x => x.JockeyTrackAvgPrizeMoney);
+				x.JockeyDistanceAvgPrizeMoneyZScore = x.GetZScore(results, x => x.JockeyDistanceAvgPrizeMoney);
+				x.JockeyTrainerAvgPrizeMoneyZScore = x.GetZScore(results, x => x.JockeyTrainerAvgPrizeMoney);
+				x.TrainerBreederAvgPrizeMoneyZScore = x.GetZScore(results, x => x.TrainerBreederAvgPrizeMoney);
+
 			});
 
 			// 上記設定した内容を使用した集計
@@ -789,13 +750,6 @@ namespace Netkeiba.Models
 				// 脚質による有利不利(同じ脚質が少ないほど有利)
 				x.PaceAdvantageRank = x.GetRank(results, x => x.PaceAdvantage, true);
 			});
-
-			if (results.First().RaceId == "202608020201")
-			{
-				File.WriteAllText(DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt",
-					results.Select(x => DynamicJson.Serialize(x)).GetString("\r\n")
-				);
-			}
 
 			return results;
 		}
@@ -824,15 +778,15 @@ namespace Netkeiba.Models
 
 			score += CalculateFinishPosition(x) * 0.2F;
 
-			score += (0.1F / Math.Max(x.Time2Avg, 0.1F)) * 0.2F;
+			score += (4.9F - x.Time2Avg) / 9.8F * 0.2F;
 
-			score += (0.1F / Math.Max(x.Time2Top, 0.1F)) * 0.2F;
+			score += (4.9F - x.LastThreeFurlongs2Avg) / 9.8F * 0.2F;
 
 			score += x.Race.Grade.GetGradeFeatures() * 0.15F;
 
 			score += (x.Race.AverageRating - 40F).MinMax(0F, 95F) / 95F * 0.15F;
 
-			score += x.Race.NumberOfHorses.Single().MinMax(5F, 18F) / 18F * 0.1F;
+			score += (x.Race.NumberOfHorses.Single().MinMax(5F, 18F) - 5F) / 13F * 0.1F;
 
 			return score;
 		}
@@ -842,22 +796,18 @@ namespace Netkeiba.Models
 			return new HorseScoreMetrics()
 			{
 				// 獲得賞金
-				AvgPrizeMoney = horses.Median(x => x.TimeIndex, 0F),
-				MaxPrizeMoney = horses.Max(x => x.TimeIndex, 0F),
+				AvgPrizeMoney = horses.Median(x => x.PrizeMoney, 0F),
+				MaxPrizeMoney = horses.Max(x => x.PrizeMoney, 0F),
 
 				// ﾚｰﾃｨﾝｸﾞ
 				AvgRating = horses.Median(x => x.TimeIndex, DefaultRating),
 				MaxRating = horses.Max(x => x.TimeIndex, DefaultRating),
 
-				// ｸﾞﾚｰﾄﾞ
-				AvgGrade = horses.Median(x => x.Race.Grade.GetGradeFeatures(), DefaultGrade),
-				MaxGrade = horses.Max(x => x.Race.Grade.GetGradeFeatures(), DefaultGrade),
-
 				// 距離
-				DistanceDiff = detail.Race.Distance - horses.Median(x => x.Race.Distance, 1400F),
+				DistanceDiff = detail.Race.Distance - horses.Median(x => x.Race.Distance, float.NaN),
 
 				// 通過順
-				Tuka = horses.Median(x => x.Tuka, 0.5F),
+				Tuka = horses.Median(x => x.Tuka, float.NaN),
 
 				// 着順
 				AvgFinishPosition = horses.Median(CalculateFinishPosition, DefaultFinishPosition),
@@ -890,32 +840,19 @@ namespace Netkeiba.Models
 			return new ConnectionScoreMetrics()
 			{
 				// 獲得賞金
-				AvgPrizeMoney = horses.Median(x => x.TimeIndex, 0F),
-				MaxPrizeMoney = horses.Max(x => x.TimeIndex, 0F),
+				AvgPrizeMoney = horses.Median(x => x.PrizeMoney, 0F),
 
 				// ﾚｰﾃｨﾝｸﾞ
 				AvgRating = horses.Median(x => x.TimeIndex, DefaultRating),
-				MaxRating = horses.Max(x => x.TimeIndex, DefaultRating),
-
-				// ｸﾞﾚｰﾄﾞ
-				AvgGrade = horses.Median(x => x.Race.Grade.GetGradeFeatures(), DefaultGrade),
-				MaxGrade = horses.Max(x => x.Race.Grade.GetGradeFeatures(), DefaultGrade),
 
 				// 着順
 				AvgFinishPosition = horses.Median(CalculateFinishPosition, DefaultFinishPosition),
-				MaxFinishPosition = horses.Max(CalculateFinishPosition, DefaultFinishPosition),
-
-				// 調整ｽｺｱ
-				AvgAdjustedScore = horses.Median(CalculateAdjustedScore, DefaultAdjustedScore),
-				MaxAdjustedScore = horses.Max(CalculateAdjustedScore, DefaultAdjustedScore),
 
 				// ﾄｯﾌﾟとのﾀｲﾑ差
 				AvgTime2Top = horses.Median(x => x.Time2Top, DefaultTime2Top),
-				MaxTime2Top = horses.Min(x => x.Time2Top, DefaultTime2Top),
 
 				// 同条件ﾚｰｽとのﾀｲﾑ差
 				AvgTime2Condition = horses.Median(x => x.Time2Avg, DefaultTime2Top),
-				MaxTime2Condition = horses.Min(x => x.Time2Avg, DefaultTime2Top),
 			};
 		}
 	}

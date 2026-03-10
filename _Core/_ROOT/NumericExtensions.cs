@@ -11,32 +11,38 @@ namespace Netkeiba
 	{
 		public static float Median(this IEnumerable<float> arr, float def)
 		{
-			return arr.Any() ? arr.Median() : def;
+			var valid = arr.Where(x => !float.IsNaN(x));
+			return valid.Any() ? valid.Median() : def;
 		}
 
 		public static float Median<T>(this IEnumerable<T> arr, Func<T, float> func, float def)
 		{
-			return arr.Any() ? arr.Select(func).Median() : def;
+			var valid = arr.Select(func).Where(x => !float.IsNaN(x));
+			return valid.Any() ? valid.Median() : def;
 		}
 
 		public static float Max(this IEnumerable<float> arr, float def)
 		{
-			return arr.Any() ? arr.Max() : def;
+			var valid = arr.Where(x => !float.IsNaN(x));
+			return valid.Any() ? valid.Max() : def;
 		}
 
 		public static float Max<T>(this IEnumerable<T> arr, Func<T, float> func, float def)
 		{
-			return arr.Any() ? arr.Select(func).Max() : def;
+			var valid = arr.Select(func).Where(x => !float.IsNaN(x));
+			return valid.Any() ? valid.Max() : def;
 		}
 
 		public static float Min(this IEnumerable<float> arr, float def)
 		{
-			return arr.Any() ? arr.Min() : def;
+			var valid = arr.Where(x => !float.IsNaN(x));
+			return valid.Any() ? valid.Min() : def;
 		}
 
 		public static float Min<T>(this IEnumerable<T> arr, Func<T, float> func, float def)
 		{
-			return arr.Any() ? arr.Select(func).Min() : def;
+			var valid = arr.Select(func).Where(x => !float.IsNaN(x));
+			return valid.Any() ? valid.Min() : def;
 		}
 
 		public static float MinMax(this float val, float min, float max)

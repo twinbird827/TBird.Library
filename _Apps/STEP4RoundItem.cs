@@ -65,11 +65,12 @@ namespace Netkeiba
 				{
 					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
+					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
@@ -143,9 +144,9 @@ namespace Netkeiba
 					}
 
 					var groups = inraces
-						.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
-							.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
-						).ToArray();
+	.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
+		.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
+	).ToArray();
 
 					var groupsstr = groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(",")).GetString("\r\n");
 
@@ -156,7 +157,6 @@ namespace Netkeiba
 							groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(","))
 						).SelectMany(x => x).GetString("\r\n")
 					);
-
 				}
 
 				if (getShutsuba)

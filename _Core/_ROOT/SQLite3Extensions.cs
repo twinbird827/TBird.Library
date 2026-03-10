@@ -333,12 +333,12 @@ SELECT DISTINCT 馬ID FROM (SELECT 父ID 馬ID FROM t_uma UNION ALL SELECT 母�
 		{
 			await conn.Create(
 				"t_model",
-				OptimizedHorseFeatures.GetProperties().Select(x => new Column()
-				{
-					Name = x.Name,
-					Type = x.GetTypeString(),
-					IsKey = new[] { "RaceId", "Horse" }.Contains(x.Name)
-				}).ToArray()
+				[
+					new Column() { Name = "Label", Type = "INTEGER", IsKey = false },
+					new Column() { Name = "RaceId", Type = "TEXT", IsKey = true },
+					new Column() { Name = "Horse", Type = "TEXT", IsKey = true },
+					new Column() { Name = "Features", Type = "BLOB", IsKey = false },
+				]
 			);
 
 			// TODO indexの作成
@@ -349,15 +349,18 @@ SELECT DISTINCT 馬ID FROM (SELECT 父ID 馬ID FROM t_uma UNION ALL SELECT 母�
 			return await conn.ExistsColumn("t_model", "RaceId");
 		}
 
-		public static async Task InsertModelAsync(this SQLiteControl conn, SQLiteParameter[][] parameterGroups)
+		public static async Task InsertModelAsync(this SQLiteControl conn, OptimizedHorseFeatures[] features)
 		{
-			if (!parameterGroups.Any()) return;
-
-			foreach (var parameters in parameterGroups)
+			foreach (var x in features)
 			{
-				var items = parameters.Select(p => p.ParameterName).GetString(",");
-				var values = parameters.Select(p => "?").GetString(",");
-				await conn.ExecuteNonQueryAsync($"REPLACE INTO t_model ({items}) VALUES ({values})", parameters);
+				var parameters = new[]
+				{
+					SQLiteUtil.CreateParameter(DbType.Int32, x.Label),
+					SQLiteUtil.CreateParameter(DbType.String, x.RaceId),
+					SQLiteUtil.CreateParameter(DbType.String, x.Horse),
+					SQLiteUtil.CreateParameter(DbType.Object, x.Serialize()),
+				};
+				await conn.ExecuteNonQueryAsync($"REPLACE INTO t_model (Label, RaceId, Horse, Features) VALUES (?, ?, ?, ?)", parameters);
 			}
 		}
 
@@ -502,8 +505,8 @@ AND    CAST(h.障害 AS INTEGER) = 0
 ";
 			var parameters = new[]
 			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start.AddYears(-7))),
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end.AddMonths(-1))),
+				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start)),
+				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end)),
 			};
 
 			var dbarr = await conn.GetRows(sql, parameters);

@@ -57,6 +57,10 @@ namespace Netkeiba
 			await PreviousDataSets.Initialize(conn);
 
 			var already = conn.GetAlreadyCreatedRacesAsync().ToBlockingEnumerable().ToArray();
+			var insertCount = 0;
+			var batchSize = 100;
+
+			await conn.BeginTransaction();
 
 			foreach (var race in await conn.GetRaceAsync().ToArrayAsync())
 			{
@@ -64,9 +68,10 @@ namespace Netkeiba
 				{
 					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
+					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
@@ -78,21 +83,23 @@ namespace Netkeiba
 						{
 							var features = x.ExtractFeatures(details);
 
-							// ラベル生成（難易度調整済み着順スコア）
-							features.Label = (x.FinishPosition - 1).Run(x => x < 12 ? x : 11);
+							// ラベル生成（1着=11=gain最大, 着外=0=gain最小）
+							features.Label = (x.FinishPosition - 1).Run(x => 11 - Math.Min(x, 11));
 
 							return features;
 						});
 
 						var inraces = results.CalculateInRaces();
 
-						var parameterGroups = inraces
-							.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
-								.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
-							).ToArray();
-
 						// ﾃﾞｰﾀﾍﾞｰｽに格納
-						await conn.InsertModelAsync(parameterGroups);
+						await conn.InsertModelAsync(inraces);
+						insertCount++;
+
+						if (insertCount % batchSize == 0)
+						{
+							conn.Commit();
+							await conn.BeginTransaction();
+						}
 					}
 
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
@@ -106,50 +113,10 @@ namespace Netkeiba
 				}
 			}
 
+			conn.Commit();
+
 			MessageService.Debug($"訓練データ生成完了");
 		}
 
-	}
-
-	public class HorseScoreMetrics
-	{
-		public float AvgPrizeMoney { get; set; }
-		public float MaxPrizeMoney { get; set; }
-		public float AvgRating { get; set; }
-		public float MaxRating { get; set; }
-		public float AvgGrade { get; set; }
-		public float MaxGrade { get; set; }
-		public float DistanceDiff { get; set; }
-		public float Tuka { get; set; }
-		public float AvgFinishPosition { get; set; }
-		public float MaxFinishPosition { get; set; }
-		public float AvgAdjustedScore { get; set; }
-		public float MaxAdjustedScore { get; set; }
-		public float AvgTime2Top { get; set; }
-		public float MaxTime2Top { get; set; }
-		public float AvgTime2Condition { get; set; }
-		public float MaxTime2Condition { get; set; }
-		public float AvgLastThreeFurlongs2Top { get; set; }
-		public float MaxLastThreeFurlongs2Top { get; set; }
-		public float AvgLastThreeFurlongs2Condition { get; set; }
-		public float MaxLastThreeFurlongs2Condition { get; set; }
-	}
-
-	public class ConnectionScoreMetrics
-	{
-		public float AvgPrizeMoney { get; set; }
-		public float MaxPrizeMoney { get; set; }
-		public float AvgRating { get; set; }
-		public float MaxRating { get; set; }
-		public float AvgGrade { get; set; }
-		public float MaxGrade { get; set; }
-		public float AvgFinishPosition { get; set; }
-		public float MaxFinishPosition { get; set; }
-		public float AvgAdjustedScore { get; set; }
-		public float MaxAdjustedScore { get; set; }
-		public float AvgTime2Top { get; set; }
-		public float MaxTime2Top { get; set; }
-		public float AvgTime2Condition { get; set; }
-		public float MaxTime2Condition { get; set; }
 	}
 }

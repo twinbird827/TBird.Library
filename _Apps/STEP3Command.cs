@@ -23,6 +23,14 @@ namespace Netkeiba
 		// ログ出力の並列数を制限するためのSemaphore（最大4並列）
 		private static readonly SemaphoreSlim LogSemaphore = new(10, 10);
 
+		private static readonly SemaphoreSlim LogSemaphore2 = new(1, 1);
+
+		/* AllTopFeatures / HorseTopFeatures は削除済み。
+		 * 特徴量の絞り込みは OptimizedHorseFeatures.cs の FeaturesType 属性で管理。
+		 * All: Top125 → FeaturesType.All, それ以外 → FeaturesType.AllOther
+		 * Horse: Top140 → FeaturesType.Horse, それ以外 → FeaturesType.HorseOther
+		 */
+
 		public STEP3Command(MainViewModel vm) : base(vm)
 		{
 
@@ -62,27 +70,34 @@ namespace Netkeiba
 				//		conn.GetModelAsync(grade, DateTime.Now.AddMonths(-1).AddDays(1), DateTime.Now)
 				//	);
 				//}
-				var basedate = DateTime.Parse("2025/12/02");
-				await RankingAsync(
-					await conn.GetModelAsync(basedate.AddYears(-6), basedate.AddMonths(-12)),
-					await conn.GetModelAsync(basedate.AddMonths(-12).AddDays(1), basedate)
-				);
-
+				var basedate = DateTime.Parse("2026/02/13");
+				for (var i = 0; i < 1; i++)
+				{
+					MessageService.Debug($"********** 基準日：{basedate} **********");
+					await RankingAsync(
+						await conn.GetModelAsync(basedate.AddYears(-6), basedate.AddMonths(-3)),
+						Array.Empty<OptimizedHorseFeatures>(),
+						await conn.GetModelAsync(basedate.AddMonths(-3).AddDays(1), basedate)
+					);
+					basedate = basedate.AddDays(-7);
+				}
 			}
 		}
 
-		private async Task RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2)
+		private async Task RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arrValid, OptimizedHorseFeatures[] arr2)
 		{
 			// これまで作成した教育ﾃﾞｰﾀの削除
 			AppSetting.Instance.RemoveAllRankingTrain();
 
 			var task = new List<Task>();
 
-			task.Add(RankingAsync(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
+			// Allモデル
+			task.Add(RankingAsync(FeaturesType.All.GetLabel(), arr1, arrValid, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
 
+			// サブモデル（Horse, Jockey, Blood, Connection）
 			foreach (var type in FeaturesAttribute.GetTargetTypes())
 			{
-				task.Add(RankingAsync(type.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(type), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
+				task.Add(RankingAsync(type.GetLabel(), arr1, arrValid, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
 			}
 
 			//task.AddRange(RankingAsync2(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
@@ -108,20 +123,28 @@ namespace Netkeiba
 			await task.WhenAll();
 		}
 
-		private IEnumerable<Task> RankingAsync2(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features, string[] targets)
+		private IEnumerable<Task> RankingAsync2(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arrValid, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features, string[] targets)
 		{
-			yield return RankingAsync(grade, arr1, arr2, normalizations, features, "all");
+			yield return RankingAsync(grade, arr1, arrValid, arr2, normalizations, features, "all");
 
 			foreach (var target in targets)
 			{
-				yield return RankingAsync(grade, arr1, arr2, normalizations, features, target);
+				yield return RankingAsync(grade, arr1, arrValid, arr2, normalizations, features, target);
 			}
 		}
 
-		private EstimatorChain<RankingPredictionTransformer<LightGbmRankingModelParameters>> GetPipeline(MLContext _ml, string[] normalizations, string[] features)
+		private EstimatorChain<RankingPredictionTransformer<LightGbmRankingModelParameters>> GetPipeline(MLContext _ml, string[] normalizations, string[] features,
+			int numberOfIterations = 800,
+			int numberOfLeaves = 20,
+			int maximumTreeDepth = 7,
+			double featureFraction = 0.1,
+			double subsampleFraction = 0.9,
+			double l2Regularization = 7.0,
+			double learningRate = 0.05,
+			int minimumExampleCountPerLeaf = 100)
 		{
 			var pipeline = _ml.Transforms.Conversion.MapValueToKey("RaceIdKey", "RaceId")
-				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label"))
+				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label", keyOrdinality: ValueToKeyMappingEstimator.KeyOrdinality.ByValue))
 				.NormalizeMeanVarianceMultiple(_ml, normalizations)
 				.Append(_ml.Transforms.Concatenate("Features", features))
 				.Append(_ml.Ranking.Trainers.LightGbm(new LightGbmRankingTrainer.Options
@@ -129,51 +152,48 @@ namespace Netkeiba
 					LabelColumnName = "LabelKey",
 					FeatureColumnName = "Features",
 					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = 200,     // やや減（過学習防止、案5）
-					LearningRate = 0.5,          // やや増（学習速度向上、案5）
-					NumberOfLeaves = 20,           // やや減（シンプル化、案5）
-					MinimumExampleCountPerLeaf = 100, // 最小サンプル数（維持）
-					MaximumBinCountPerFeature = 255, // ビン数を増やして精度向上（追加）
-					UseCategoricalSplit = true,    // カテゴリ分割使用（Season, RaceDistance, CurrentGrade, CurrentTrackCondition用）
-					HandleMissingValue = true,     // 欠損値処理（デフォルトtrue）
-					UseZeroAsMissingValue = false, // 0を欠損値として扱う（デフォルトfalse）
-					MinimumExampleCountPerGroup = 100, // グループの最小サンプル数（デフォルト100）
-					MaximumCategoricalSplitPointCount = 32, // カテゴリ分割点の最大数（デフォルト32）
-					CategoricalSmoothing = 10.0,   // カテゴリスムージング（デフォルト10.0）
-					L2CategoricalRegularization = 10.0, // L2カテゴリ正則化（デフォルト10.0）
+					NumberOfIterations = numberOfIterations,
+					LearningRate = learningRate,
+					NumberOfLeaves = numberOfLeaves,
+					MinimumExampleCountPerLeaf = minimumExampleCountPerLeaf,
+					MaximumBinCountPerFeature = 255,
+					UseCategoricalSplit = true,
+					HandleMissingValue = true,
+					UseZeroAsMissingValue = false,
+					MinimumExampleCountPerGroup = 100,
+					MaximumCategoricalSplitPointCount = 32,
+					CategoricalSmoothing = 10.0,
+					L2CategoricalRegularization = 10.0,
 
 					Booster = new GradientBooster.Options
 					{
-						L2Regularization = 0.75,    // やや増（汎化性能向上、案5）
-						L1Regularization = 0.25,   // L1正則化を微減（0.05→0.03）
-						MinimumSplitGain = 0.005,  // 分割の最小ゲインを調整（0.01→0.005）
-						MaximumTreeDepth = -1,      // 最大木の深さ（-1=制限なし、0→-1に変更）
+						L2Regularization = l2Regularization,
+						L1Regularization = 0.5,
+						MinimumSplitGain = 0.01,
+						MaximumTreeDepth = maximumTreeDepth,
+						FeatureFraction = featureFraction,
+						SubsampleFraction = subsampleFraction,
+						SubsampleFrequency = 1,
 					},
 
-					// NDCG@1を重視
 					EvaluationMetric = LightGbmRankingTrainer.Options.EvaluateMetricType.NormalizedDiscountedCumulativeGain,
-					// 1着に最大の重みを付ける
-					//CustomGains = new int[] { 0, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095 }.Reverse().ToArray()
 				}));
 
 			return pipeline;
 		}
 
-		private Task RankingAsync(string grade, OptimizedHorseFeatures[] data, OptimizedHorseFeatures[] test, string[] normalizations, string[] features, string target = "")
+		private Task RankingAsync(string grade, OptimizedHorseFeatures[] data, OptimizedHorseFeatures[] valid, OptimizedHorseFeatures[] test, string[] normalizations, string[] features, string target = "")
 		{
-			var _ml = new MLContext(seed: 1);
-
-			var viewdata = _ml.Data.LoadFromEnumerable(data);
-			var testdata = _ml.Data.LoadFromEnumerable(test);
-
 			if (target != "all" && target != "")
 			{
 				features = features.Concat(Arr(target)).ToArray();
-				//normalizations = normalizations.Where(x => features.Contains(x)).ToArray();
 			}
 
-			var pipeline = GetPipeline(_ml, normalizations, features);
+			var _ml = new MLContext(seed: 1);
+			var viewdata = _ml.Data.LoadFromEnumerable(data);
+			var testdata = _ml.Data.LoadFromEnumerable(test);
 
+			var pipeline = GetPipeline(_ml, normalizations, features);
 			var model = pipeline.Fit(viewdata);
 
 			// 並列数を制限してバックグラウンドで実行
@@ -210,7 +230,7 @@ namespace Netkeiba
 					var featuresPredictions = allScores.SelectInParallel((score, i) => new FeaturesPrediction
 					{
 						RaceId = test[i].RaceId,
-						ActualRank = test[i].Label + 1,
+						ActualRank = (uint)(12 - test[i].Label),
 						Score = score
 					}).ToArray();
 
@@ -280,7 +300,10 @@ namespace Netkeiba
 						message2.Add($"モデルを保存しました: {result.Path}");
 					}
 
-					WpfUtil.ExecuteOnUI(() => message2.ForEach(s => MessageService.Debug(s)));
+					using (await Locker.LockAsync(Lock))
+					{
+						message2.ForEach(s => WpfUtil.ExecuteOnUI(() => MessageService.Debug(s)));
+					}
 
 				}
 				finally
