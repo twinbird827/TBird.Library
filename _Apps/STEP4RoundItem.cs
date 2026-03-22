@@ -120,19 +120,7 @@ namespace Netkeiba
 					{
 						var name = await conn.ExecuteScalarAsync($"SELECT 馬名 FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, x.Detail.Horse));
 
-						return new STEP4ResultItem()
-						{
-							Wakuban = x.Detail.Wakuban,
-							Umaban = x.Detail.Umaban,
-							Name = name.Str(),
-							Result = x.Result.Str(),
-							Total = x.Total,
-							Horse = x.Horse,
-							TotalMedium = x.TotalMedium,
-							TotalSmall = x.TotalSmall,
-							Vars2 = x.Vars2,
-							Vars1 = x.Vars1,
-						};
+						return new STEP4ResultItem(x, name.Str());
 					}).WhenAll();
 					SetItems(arr);
 

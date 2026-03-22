@@ -4,88 +4,46 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 using TBird.Wpf;
 
 namespace Netkeiba
 {
 	public class STEP4ResultItem : BindableBase
 	{
-		public int Wakuban
+		public STEP4ResultItem(RacePrediction x, string name)
 		{
-			get => _Wakuban;
-			set => SetProperty(ref _Wakuban, value);
+			Wakuban = x.Detail.Wakuban;
+			Umaban = x.Detail.Umaban;
+			Name = name.Str();
+			Result = x.Result.Str();
+			Total = x.Total;
+			Horse = x.Horse;
+			TotalMedium = x.TotalMedium;
+			TotalSmall = x.TotalSmall;
+			Vars2 = x.Vars2;
+			Vars1 = x.Vars1;
 		}
-		private int _Wakuban;
 
-		public int Umaban
-		{
-			get => _Umaban;
-			set => SetProperty(ref _Umaban, value);
-		}
-		private int _Umaban;
+		public int Wakuban { get; set; }
 
-		public string Name
-		{
-			get => _Name;
-			set => SetProperty(ref _Name, value);
-		}
-		private string _Name = string.Empty;
+		public int Umaban { get; set; }
 
-		public string Result
-		{
-			get => _Result;
-			set => SetProperty(ref _Result, value);
-		}
-		private string _Result = string.Empty;
+		public string Name { get; set; }
 
-		public int Rank
-		{
-			get => _Rank;
-			set => SetProperty(ref _Rank, value);
-		}
-		private int _Rank;
+		public string Result { get; set; }
 
-		public RaceScore Total
-		{
-			get => _Total;
-			set => SetProperty(ref _Total, value);
-		}
-		private RaceScore _Total;
+		public RaceScore Total { get; set; }
 
-		public RaceScore Horse
-		{
-			get => _Horse;
-			set => SetProperty(ref _Horse, value);
-		}
-		private RaceScore _Horse;
+		public RaceScore Horse { get; set; }
 
-		public RaceScore TotalMedium
-		{
-			get => _TotalMedium;
-			set => SetProperty(ref _TotalMedium, value);
-		}
-		private RaceScore _TotalMedium;
+		public RaceScore TotalMedium { get; set; }
 
-		public RaceScore TotalSmall
-		{
-			get => _TotalSmall;
-			set => SetProperty(ref _TotalSmall, value);
-		}
-		private RaceScore _TotalSmall;
+		public RaceScore TotalSmall { get; set; }
 
-		public RaceScore Vars2
-		{
-			get => _Vars2;
-			set => SetProperty(ref _Vars2, value);
-		}
-		private RaceScore _Vars2;
+		public RaceScore Vars2 { get; set; }
 
-		public RaceScore Vars1
-		{
-			get => _Vars1;
-			set => SetProperty(ref _Vars1, value);
-		}
-		private RaceScore _Vars1;
+		public RaceScore Vars1 { get; set; }
 
 	}
 }

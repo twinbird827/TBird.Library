@@ -235,17 +235,10 @@
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
-						<GridViewColumn Header="Total">
+						<GridViewColumn Header="Vars2">
 							<GridViewColumn.CellTemplate>
 								<DataTemplate>
-									<ContentControl Content="{Binding Total}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
-						<GridViewColumn Header="Horse">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding Horse}" ContentTemplate="{StaticResource S4CellItem}" />
+									<ContentControl Content="{Binding Vars2}" ContentTemplate="{StaticResource S4CellItem}" />
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
@@ -263,10 +256,17 @@
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
-						<GridViewColumn Header="Vars2">
+						<GridViewColumn Header="Total">
 							<GridViewColumn.CellTemplate>
 								<DataTemplate>
-									<ContentControl Content="{Binding Vars2}" ContentTemplate="{StaticResource S4CellItem}" />
+									<ContentControl Content="{Binding Total}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="Horse">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Horse}" ContentTemplate="{StaticResource S4CellItem}" />
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
