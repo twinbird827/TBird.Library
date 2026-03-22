@@ -46,7 +46,7 @@ namespace Netkeiba
 				await conn.CreateOrig();
 
 				// 欠落ﾃﾞｰﾀを除外
-				//await conn.RemoveShortageMissingDatasAsync();
+				await conn.RemoveShortageMissingDatasAsync();
 
 				await Task.Delay(1000);
 

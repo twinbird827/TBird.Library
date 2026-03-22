@@ -30,7 +30,7 @@ namespace Netkeiba.Models
 	[Flags]
 	public enum FeaturesType
 	{
-		All = 1,
+		Total = 1,
 
 		Horse = 2,
 
@@ -40,7 +40,7 @@ namespace Netkeiba.Models
 
 		Connection = 16,
 
-		AllOther = 32,
+		TotalOther = 32,
 
 		HorseOther = 64,
 
@@ -49,6 +49,16 @@ namespace Netkeiba.Models
 		BloodOther = 256,
 
 		ConnectionOther = 512,
+
+		TotalLarge = 1024,
+
+		TotalMedium = 2048,
+
+		TotalSmall = 4096,
+
+		TotalRaw = 8192,
+
+		TotalRank = 16384,
 
 	}
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.ML;
+using Microsoft.ML;
 using Microsoft.ML.Data;
 using OpenQA.Selenium.DevTools.V141.Overlay;
 using System;
@@ -13,36 +13,41 @@ namespace Netkeiba.Models
 {
 	public class RacePrediction : TBirdObject
 	{
-		private RacePrediction(RaceDetail detail, float all, float horse, float jockey, float blood, float connection, OptimizedHorseFeatures features)
+		private RacePrediction(RaceDetail detail, float total, float horse, float connection, float totalMedium, float totalSmall, float totalRaw, float totalRank, OptimizedHorseFeatures features)
 		{
 			Detail = detail;
-			All.Score = all;
+			Total.Score = total;
 			Horse.Score = horse;
-			Jockey.Score = jockey;
-			Blood.Score = blood;
-			Connection.Score = connection;
-			Total.Score = Arr(
-				GetScore(All.Score, _key[0]),
-				GetScore(Horse.Score, _key[1]),
-				GetScore(Jockey.Score, _key[2]),
-				GetScore(Blood.Score, _key[3]),
-				GetScore(Connection.Score, _key[4])
-			).Average();
+			TotalMedium.Score = totalMedium;
+			TotalSmall.Score = totalSmall;
+
+			// Vars2 = total_vars2: Horse+TotalMedium+TotalSmall+TotalRaw+TotalRank（NDCG1²加重平均）
+			var wH = _key[1].NDCG1 * _key[1].NDCG1; // Horse
+			var wM = _key[3].NDCG1 * _key[3].NDCG1; // TotalMedium
+			var wS = _key[4].NDCG1 * _key[4].NDCG1; // TotalSmall
+			var wR = _key[5].NDCG1 * _key[5].NDCG1; // TotalRaw
+			var wK = _key[6].NDCG1 * _key[6].NDCG1; // TotalRank
+			Vars2.Score = (float)((horse * wH + totalMedium * wM + totalSmall * wS + totalRaw * wR + totalRank * wK) / (wH + wM + wS + wR + wK));
+
+			// Vars1 = total_vars: Total+Horse+TotalMedium+TotalSmall+Connection（NDCG1²加重平均）
+			var wT = _key[0].NDCG1 * _key[0].NDCG1; // Total
+			var wC = _key[2].NDCG1 * _key[2].NDCG1; // Connection
+			Vars1.Score = (float)((total * wT + horse * wH + connection * wC + totalMedium * wM + totalSmall * wS) / (wT + wH + wC + wM + wS));
 		}
 
 		public RaceDetail Detail { get; }
 
-		public RaceScore All { get; } = new();
+		public RaceScore Total { get; } = new();
 
 		public RaceScore Horse { get; } = new();
 
-		public RaceScore Jockey { get; } = new();
+		public RaceScore TotalMedium { get; } = new();
 
-		public RaceScore Blood { get; } = new();
+		public RaceScore TotalSmall { get; } = new();
 
-		public RaceScore Connection { get; } = new();
+		public RaceScore Vars2 { get; } = new();
 
-		public RaceScore Total { get; } = new();
+		public RaceScore Vars1 { get; } = new();
 
 		public int Result { get; set; }
 
@@ -50,11 +55,13 @@ namespace Netkeiba.Models
 		{
 			_key = new[]
 			{
-				AppSetting.Instance.GetRankingTrain(FeaturesType.All.GetLabel()),
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Horse.GetLabel()),
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Jockey.GetLabel()),
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Blood.GetLabel()),
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Connection.GetLabel()),
+				AppSetting.Instance.GetRankingTrain(FeaturesType.Total.GetLabel()),      // 0
+				AppSetting.Instance.GetRankingTrain(FeaturesType.Horse.GetLabel()),      // 1
+				AppSetting.Instance.GetRankingTrain(FeaturesType.Connection.GetLabel()), // 2
+				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalMedium.GetLabel()),// 3
+				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalSmall.GetLabel()), // 4
+				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalRaw.GetLabel()),   // 5
+				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalRank.GetLabel()),  // 6
 			};
 
 			_dic = _key.ToDictionary(key => key, key => LoadModel(ml, key));
@@ -64,34 +71,24 @@ namespace Netkeiba.Models
 		{
 			// ｽｺｱ計算
 			var view = ml.Data.LoadFromEnumerable(features);
-			var alls = GetScores(_dic[_key[0]], view);
+			var totl = GetScores(_dic[_key[0]], view);
 			var hrse = GetScores(_dic[_key[1]], view);
-			var jock = GetScores(_dic[_key[2]], view);
-			var blod = GetScores(_dic[_key[3]], view);
-			var conn = GetScores(_dic[_key[4]], view);
+			var conn = GetScores(_dic[_key[2]], view);
+			var tmed = GetScores(_dic[_key[3]], view);
+			var tsml = GetScores(_dic[_key[4]], view);
+			var traw = GetScores(_dic[_key[5]], view);
+			var trnk = GetScores(_dic[_key[6]], view);
 
 			var results = details
-				.Select((detail, i) => new RacePrediction(detail, alls[i], hrse[i], jock[i], blod[i], conn[i], features[i]))
-				.ToList();
+				.Select((detail, i) => new RacePrediction(detail, totl[i], hrse[i], conn[i], tmed[i], tsml[i], traw[i], trnk[i], features[i]))
+				.ToArray();
 
-			results.OrderByDescending(x => x.All.Score).ForEach((x, i) =>
-				x.All.Rank = i + 1
-			);
-			results.OrderByDescending(x => x.Horse.Score).ForEach((x, i) =>
-				x.Horse.Rank = i + 1
-			);
-			results.OrderByDescending(x => x.Jockey.Score).ForEach((x, i) =>
-				x.Jockey.Rank = i + 1
-			);
-			results.OrderByDescending(x => x.Blood.Score).ForEach((x, i) =>
-				x.Blood.Rank = i + 1
-			);
-			results.OrderByDescending(x => x.Connection.Score).ForEach((x, i) =>
-				x.Connection.Rank = i + 1
-			);
-			results.OrderByDescending(x => x.Total.Score).ForEach((x, i) =>
-				x.Total.Rank = i + 1
-			);
+			results.CalculateRank(x => x.Total);
+			results.CalculateRank(x => x.Horse);
+			results.CalculateRank(x => x.TotalMedium);
+			results.CalculateRank(x => x.TotalSmall);
+			results.CalculateRank(x => x.Vars2);
+			results.CalculateRank(x => x.Vars1);
 
 			return results.OrderBy(x => x.Detail.Umaban);
 		}
@@ -112,8 +109,6 @@ namespace Netkeiba.Models
 			var scores = predictions.GetColumn<float>("Score").ToArray();
 			return scores;
 		}
-
-		private static float GetScore(float score, RankingTrain train) => score * (float)(train.NDCG1 + train.NDCG3 / 2 + train.NDCG5 / 3);
 	}
 
 	public class RaceScore
@@ -121,5 +116,15 @@ namespace Netkeiba.Models
 		public float Score { get; set; }
 
 		public int Rank { get; set; }
+	}
+
+	public static class RaceScoreExtension
+	{
+		public static void CalculateRank(this RacePrediction[] results, Func<RacePrediction, RaceScore> func)
+		{
+			results.OrderByDescending(x => func(x).Score).ForEach((x, i) =>
+				func(x).Rank = i + 1
+			);
+		}
 	}
 }

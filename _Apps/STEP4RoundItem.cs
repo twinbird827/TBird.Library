@@ -126,12 +126,12 @@ namespace Netkeiba
 							Umaban = x.Detail.Umaban,
 							Name = name.Str(),
 							Result = x.Result.Str(),
-							All = x.All,
-							Horse = x.Horse,
-							Jockey = x.Jockey,
-							Blood = x.Blood,
-							Connection = x.Connection,
 							Total = x.Total,
+							Horse = x.Horse,
+							TotalMedium = x.TotalMedium,
+							TotalSmall = x.TotalSmall,
+							Vars2 = x.Vars2,
+							Vars1 = x.Vars1,
 						};
 					}).WhenAll();
 					SetItems(arr);

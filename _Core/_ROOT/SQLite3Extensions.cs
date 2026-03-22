@@ -93,12 +93,14 @@ namespace Netkeiba
 		/// <returns></returns>
 		public static async Task RemoveShortageMissingDatasAsync(this SQLiteControl conn)
 		{
-			if (await conn.ExistsColumn("t_orig_d", "ﾚｰｽID"))
+			var getDatetimeSql = "SELECT MIN(開催日) FROM t_orig_h WHERE ﾚｰｽID IN (SELECT ﾚｰｽID FROM t_orig_d WHERE CAST(着順 AS REAL) = 0)";
+			if (await conn.ExistsColumn("t_orig_d", "ﾚｰｽID") && DateTime.TryParse(await conn.ExecuteScalarAsync<string>(getDatetimeSql), out DateTime datetime))
 			{
+				var parameter = SQLiteUtil.CreateParameter(DbType.String, datetime.ToString("yyyy/MM/dd"));
 				await conn.BeginTransaction();
-				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE 着順 IS NULL");
-				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE 着順 = ''");
-				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE 着順 = 0");
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE ﾚｰｽID IN (SELECT ﾚｰｽID FROM t_orig_h WHERE 開催日 >= ?)", parameter);
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_oikiri WHERE ﾚｰｽID IN (SELECT ﾚｰｽID FROM t_orig_h WHERE 開催日 >= ?)", parameter);
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_h WHERE 開催日 >= ?)", parameter);
 				conn.Commit();
 			}
 		}

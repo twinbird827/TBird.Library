@@ -92,12 +92,12 @@
                     <th rowspan="2">馬番</th>
                     <th rowspan="2">馬名</th>
                     <th rowspan="2">結果</th>
-                    <th colspan="2">総合</th>
-                    <th colspan="2">馬</th>
-                    <th colspan="2">騎手</th>
-                    <th colspan="2">血統</th>
-                    <th colspan="2">関係</th>
-                    <th colspan="2">合計</th>
+                    <th colspan="2">Total</th>
+                    <th colspan="2">Horse</th>
+                    <th colspan="2">Medium</th>
+                    <th colspan="2">Small</th>
+                    <th colspan="2">Vars2</th>
+                    <th colspan="2">Vars1</th>
                 </tr>
                 <tr>
                     <th>スコア</th>
@@ -122,18 +122,18 @@
                         <td>@item.Umaban</td>
                         <td style="text-align: left;">@item.Name</td>
                         <td>@item.Result</td>
-                        <td>@item.AllScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.AllRank)">@item.AllRank</td>
-                        <td>@item.HorseScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.HorseRank)">@item.HorseRank</td>
-                        <td>@item.JockeyScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.JockeyRank)">@item.JockeyRank</td>
-                        <td>@item.BloodScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.BloodRank)">@item.BloodRank</td>
-                        <td>@item.ConnectionScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.ConnectionRank)">@item.ConnectionRank</td>
                         <td>@item.TotalScore.ToString("F4")</td>
                         <td class="@GetRankClass(item.TotalRank)">@item.TotalRank</td>
+                        <td>@item.HorseScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.HorseRank)">@item.HorseRank</td>
+                        <td>@item.TotalMediumScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.TotalMediumRank)">@item.TotalMediumRank</td>
+                        <td>@item.TotalSmallScore.ToString("F4")</td>
+                        <td class="@GetRankClass(item.TotalSmallRank)">@item.TotalSmallRank</td>
+                        <td>@item.Vars2Score.ToString("F4")</td>
+                        <td class="@GetRankClass(item.Vars2Rank)">@item.Vars2Rank</td>
+                        <td>@item.Vars1Score.ToString("F4")</td>
+                        <td class="@GetRankClass(item.Vars1Rank)">@item.Vars1Rank</td>
                     </tr>
                 }
             </tbody>

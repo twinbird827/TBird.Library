@@ -104,6 +104,7 @@ namespace Netkeiba
 
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
 					details.ForEach(PreviousDataSets.AddHistory);
+					PreviousDataSets.UpdateElo(details);
 
 					MessageService.Debug($"訓練データ生成完了：{race.RaceId} {race.RaceDate}");
 				}

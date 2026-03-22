@@ -126,18 +126,18 @@ namespace Browser.Pages
 							Umaban = x.Detail.Umaban,
 							Name = name.Str(),
 							Result = x.Result.Str(),
-							AllScore = x.All.Score,
-							AllRank = x.All.Rank,
+							TotalScore = x.Total.Score,
+							TotalRank = x.Total.Rank,
 							HorseScore = x.Horse.Score,
 							HorseRank = x.Horse.Rank,
-							JockeyScore = x.Jockey.Score,
-							JockeyRank = x.Jockey.Rank,
-							BloodScore = x.Blood.Score,
-							BloodRank = x.Blood.Rank,
-							ConnectionScore = x.Connection.Score,
-							ConnectionRank = x.Connection.Rank,
-							TotalScore = x.Total.Score,
-							TotalRank = x.Total.Rank
+							TotalMediumScore = x.TotalMedium.Score,
+							TotalMediumRank = x.TotalMedium.Rank,
+							TotalSmallScore = x.TotalSmall.Score,
+							TotalSmallRank = x.TotalSmall.Rank,
+							Vars2Score = x.Vars2.Score,
+							Vars2Rank = x.Vars2.Rank,
+							Vars1Score = x.Vars1.Score,
+							Vars1Rank = x.Vars1.Rank
 						};
 					}).WhenAll();
 
@@ -182,17 +182,17 @@ namespace Browser.Pages
 		public int Umaban { get; set; }
 		public string Name { get; set; } = string.Empty;
 		public string Result { get; set; } = string.Empty;
-		public float AllScore { get; set; }
-		public int AllRank { get; set; }
-		public float HorseScore { get; set; }
-		public int HorseRank { get; set; }
-		public float JockeyScore { get; set; }
-		public int JockeyRank { get; set; }
-		public float BloodScore { get; set; }
-		public int BloodRank { get; set; }
-		public float ConnectionScore { get; set; }
-		public int ConnectionRank { get; set; }
 		public float TotalScore { get; set; }
 		public int TotalRank { get; set; }
+		public float HorseScore { get; set; }
+		public int HorseRank { get; set; }
+		public float TotalMediumScore { get; set; }
+		public int TotalMediumRank { get; set; }
+		public float TotalSmallScore { get; set; }
+		public int TotalSmallRank { get; set; }
+		public float Vars2Score { get; set; }
+		public int Vars2Rank { get; set; }
+		public float Vars1Score { get; set; }
+		public int Vars1Rank { get; set; }
 	}
 }

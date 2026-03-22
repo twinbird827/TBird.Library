@@ -174,6 +174,9 @@ namespace Netkeiba.Models
 			// 父馬-馬場・父馬母父馬-馬場情報
 			var siretracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireTracks(detail));
 			var siredamsiretracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDamSireTracks(detail));
+			// 父馬-馬場状態・父馬母父馬-馬場状態情報
+			var siretrackconditions = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireTrackConditions(detail));
+			var siredamsiretrackconditions = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDamSireTrackConditions(detail));
 			// 父馬・父馬母父馬-距離情報
 			var siredistances = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDistances(detail));
 			var siredamsiredistances = GetConnectionScoreMetrics(detail, PreviousDataSets.GetSireDamSireDistances(detail));
@@ -181,6 +184,7 @@ namespace Netkeiba.Models
 			var jockeys = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeys(detail));
 			var jockeyplaces = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyPlaces(detail));
 			var jockeytracks = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyTracks(detail));
+			var jockeytrackconditions = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyTrackConditions(detail));
 			var jockeydistances = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyDistances(detail));
 			var jockeytrainers = GetConnectionScoreMetrics(detail, PreviousDataSets.GetJockeyTrainers(detail));
 			var trainers = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainers(detail));
@@ -218,6 +222,12 @@ namespace Netkeiba.Models
 					"セ" => 0.5F,
 					_ => 1.0F
 				},
+				// 枠番・馬番
+				Wakuban = detail.Wakuban,
+				Umaban = detail.Umaban,
+				// 前走変化
+				JockeyChange = detail.Last != null && detail.Jockey != detail.Last.Jockey ? 1F : 0F,
+				SurfaceChange = detail.Last != null && detail.Race.TrackType != detail.Last.Race.TrackType ? 1F : 0F,
 				// 過去ﾚｰｽの休養日数（個別）
 				RestDaysN1 = restDaysArr.Length > 0 ? restDaysArr[0] : float.NaN,
 				RestDaysN2 = restDaysArr.Length > 1 ? restDaysArr[1] : float.NaN,
@@ -253,9 +263,24 @@ namespace Netkeiba.Models
 
 				// 距離
 				DistanceDiff = horses5.DistanceDiff,
+				// 前走距離差
+				DistanceFromLast = detail.Last != null ? detail.Race.Distance - detail.Last.Race.Distance : 0F,
+				// クラス変化
+				GradeChange = detail.Last != null
+					? detail.Race.Grade.GetGradeFeatures() - detail.Last.Race.Grade.GetGradeFeatures()
+					: 0F,
 
 				// 通過順
 				Tuka = horses5.Tuka,
+
+				// Eloﾚｰﾃｨﾝｸﾞ — 通常(K=24)
+				HorseElo = PreviousDataSets.GetHorseElo(detail),
+				JockeyElo = PreviousDataSets.GetJockeyElo(detail),
+				TrainerElo = PreviousDataSets.GetTrainerElo(detail),
+				// Eloﾚｰﾃｨﾝｸﾞ — 早期収束(K=48)
+				FastHorseElo = PreviousDataSets.GetFastHorseElo(detail),
+				FastJockeyElo = PreviousDataSets.GetFastJockeyElo(detail),
+				FastTrainerElo = PreviousDataSets.GetFastTrainerElo(detail),
 
 				// 追切情報
 				OikiriAdjustedTime5 = detail.Oikiri.AdjustedTime5,
@@ -343,6 +368,12 @@ namespace Netkeiba.Models
 				SireTrackAvgFinishPosition = siretracks.AvgFinishPosition,
 				SireTrackAvgTime2Top = siretracks.AvgTime2Top,
 				SireTrackAvgTime2Condition = siretracks.AvgTime2Condition,
+				// 父馬-馬場状態の情報
+				SireTrackConditionAvgPrizeMoney = siretrackconditions.AvgPrizeMoney,
+				SireTrackConditionAvgRating = siretrackconditions.AvgRating,
+				SireTrackConditionAvgFinishPosition = siretrackconditions.AvgFinishPosition,
+				SireTrackConditionAvgTime2Top = siretrackconditions.AvgTime2Top,
+				SireTrackConditionAvgTime2Condition = siretrackconditions.AvgTime2Condition,
 
 				// 父馬-母父馬-馬場の情報
 				SireDamSireTrackAvgPrizeMoney = siredamsiretracks.AvgPrizeMoney,
@@ -350,6 +381,12 @@ namespace Netkeiba.Models
 				SireDamSireTrackAvgFinishPosition = siredamsiretracks.AvgFinishPosition,
 				SireDamSireTrackAvgTime2Top = siredamsiretracks.AvgTime2Top,
 				SireDamSireTrackAvgTime2Condition = siredamsiretracks.AvgTime2Condition,
+				// 父馬-母父馬-馬場状態の情報
+				SireDamSireTrackConditionAvgPrizeMoney = siredamsiretrackconditions.AvgPrizeMoney,
+				SireDamSireTrackConditionAvgRating = siredamsiretrackconditions.AvgRating,
+				SireDamSireTrackConditionAvgFinishPosition = siredamsiretrackconditions.AvgFinishPosition,
+				SireDamSireTrackConditionAvgTime2Top = siredamsiretrackconditions.AvgTime2Top,
+				SireDamSireTrackConditionAvgTime2Condition = siredamsiretrackconditions.AvgTime2Condition,
 
 				// 父馬-距離の情報
 				SireDistanceAvgPrizeMoney = siredistances.AvgPrizeMoney,
@@ -385,6 +422,12 @@ namespace Netkeiba.Models
 				JockeyTrackAvgFinishPosition = jockeytracks.AvgFinishPosition,
 				JockeyTrackAvgTime2Top = jockeytracks.AvgTime2Top,
 				JockeyTrackAvgTime2Condition = jockeytracks.AvgTime2Condition,
+				// 騎手-馬場状態の情報
+				JockeyTrackConditionAvgPrizeMoney = jockeytrackconditions.AvgPrizeMoney,
+				JockeyTrackConditionAvgRating = jockeytrackconditions.AvgRating,
+				JockeyTrackConditionAvgFinishPosition = jockeytrackconditions.AvgFinishPosition,
+				JockeyTrackConditionAvgTime2Top = jockeytrackconditions.AvgTime2Top,
+				JockeyTrackConditionAvgTime2Condition = jockeytrackconditions.AvgTime2Condition,
 
 				// 騎手-距離の情報
 				JockeyDistanceAvgPrizeMoney = jockeydistances.AvgPrizeMoney,
@@ -462,9 +505,22 @@ namespace Netkeiba.Models
 
 				// 距離
 				x.DistanceDiffRank = x.GetRank(results, x => Math.Abs(x.DistanceDiff), false);
+				// 前走距離差（abs値で順位、小さい方がﾌｨｯﾄ）
+				x.DistanceFromLastRank = x.GetRank(results, x => Math.Abs(x.DistanceFromLast), false);
+				// クラス変化（昇級が大きいほど不利）
+				x.GradeChangeRank = x.GetRank(results, x => x.GradeChange, false);
 
 				// 脚質による有利不利(同じ脚質が少ないほど有利)
 				x.PaceAdvantage = 1F - Math.Abs(pace - x.Tuka);
+
+				// Eloﾚｰﾃｨﾝｸﾞ — 通常（高い方が有利）
+				x.HorseEloRank = x.GetRank(results, x => x.HorseElo, true);
+				x.JockeyEloRank = x.GetRank(results, x => x.JockeyElo, true);
+				x.TrainerEloRank = x.GetRank(results, x => x.TrainerElo, true);
+				// Eloﾚｰﾃｨﾝｸﾞ — 早期収束（高い方が有利）
+				x.FastHorseEloRank = x.GetRank(results, x => x.FastHorseElo, true);
+				x.FastJockeyEloRank = x.GetRank(results, x => x.FastJockeyElo, true);
+				x.FastTrainerEloRank = x.GetRank(results, x => x.FastTrainerElo, true);
 
 				// 追切情報
 				x.OikiriAdjustedTime5Rank = x.GetRank(results, x => x.OikiriAdjustedTime5, false);
@@ -563,6 +619,12 @@ namespace Netkeiba.Models
 				x.SireTrackAvgFinishPositionRank = x.GetRank(results, x => x.SireTrackAvgFinishPosition, true);
 				x.SireTrackAvgTime2TopRank = x.GetRank(results, x => x.SireTrackAvgTime2Top, false);
 				x.SireTrackAvgTime2ConditionRank = x.GetRank(results, x => x.SireTrackAvgTime2Condition, false);
+				// 父馬-馬場状態の情報
+				x.SireTrackConditionAvgPrizeMoneyRank = x.GetRank(results, x => x.SireTrackConditionAvgPrizeMoney, true);
+				x.SireTrackConditionAvgRatingRank = x.GetRank(results, x => x.SireTrackConditionAvgRating, true);
+				x.SireTrackConditionAvgFinishPositionRank = x.GetRank(results, x => x.SireTrackConditionAvgFinishPosition, true);
+				x.SireTrackConditionAvgTime2TopRank = x.GetRank(results, x => x.SireTrackConditionAvgTime2Top, false);
+				x.SireTrackConditionAvgTime2ConditionRank = x.GetRank(results, x => x.SireTrackConditionAvgTime2Condition, false);
 
 				// 父馬-距離の情報
 				x.SireDistanceAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDistanceAvgPrizeMoney, true);
@@ -577,6 +639,12 @@ namespace Netkeiba.Models
 				x.SireDamSireTrackAvgFinishPositionRank = x.GetRank(results, x => x.SireDamSireTrackAvgFinishPosition, true);
 				x.SireDamSireTrackAvgTime2TopRank = x.GetRank(results, x => x.SireDamSireTrackAvgTime2Top, false);
 				x.SireDamSireTrackAvgTime2ConditionRank = x.GetRank(results, x => x.SireDamSireTrackAvgTime2Condition, false);
+				// 父馬-母父馬-馬場状態の情報
+				x.SireDamSireTrackConditionAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDamSireTrackConditionAvgPrizeMoney, true);
+				x.SireDamSireTrackConditionAvgRatingRank = x.GetRank(results, x => x.SireDamSireTrackConditionAvgRating, true);
+				x.SireDamSireTrackConditionAvgFinishPositionRank = x.GetRank(results, x => x.SireDamSireTrackConditionAvgFinishPosition, true);
+				x.SireDamSireTrackConditionAvgTime2TopRank = x.GetRank(results, x => x.SireDamSireTrackConditionAvgTime2Top, false);
+				x.SireDamSireTrackConditionAvgTime2ConditionRank = x.GetRank(results, x => x.SireDamSireTrackConditionAvgTime2Condition, false);
 
 				// 父馬-母父馬-距離の情報
 				x.SireDamSireDistanceAvgPrizeMoneyRank = x.GetRank(results, x => x.SireDamSireDistanceAvgPrizeMoney, true);
@@ -605,6 +673,12 @@ namespace Netkeiba.Models
 				x.JockeyTrackAvgFinishPositionRank = x.GetRank(results, x => x.JockeyTrackAvgFinishPosition, true);
 				x.JockeyTrackAvgTime2TopRank = x.GetRank(results, x => x.JockeyTrackAvgTime2Top, false);
 				x.JockeyTrackAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyTrackAvgTime2Condition, false);
+				// 騎手-馬場状態の情報
+				x.JockeyTrackConditionAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyTrackConditionAvgPrizeMoney, true);
+				x.JockeyTrackConditionAvgRatingRank = x.GetRank(results, x => x.JockeyTrackConditionAvgRating, true);
+				x.JockeyTrackConditionAvgFinishPositionRank = x.GetRank(results, x => x.JockeyTrackConditionAvgFinishPosition, true);
+				x.JockeyTrackConditionAvgTime2TopRank = x.GetRank(results, x => x.JockeyTrackConditionAvgTime2Top, false);
+				x.JockeyTrackConditionAvgTime2ConditionRank = x.GetRank(results, x => x.JockeyTrackConditionAvgTime2Condition, false);
 
 				// 騎手-距離の情報
 				x.JockeyDistanceAvgPrizeMoneyRank = x.GetRank(results, x => x.JockeyDistanceAvgPrizeMoney, true);

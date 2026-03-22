@@ -98,7 +98,7 @@ namespace Netkeiba
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var date = DateTime.Now;
-				var data = await conn.GetModelAsync(date.AddYears(-6), date.AddDays(-4));
+				var data = await conn.GetModelAsync(date.AddMonths(-6), date.AddDays(-4));
 				var path = Path.Combine(Directories.DocumentsDirectory, $"{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv");
 
 				var properties = OptimizedHorseFeatures.GetProperties();

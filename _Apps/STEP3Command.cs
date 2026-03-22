@@ -1,9 +1,10 @@
-﻿using Microsoft.ML;
+using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Trainers.LightGbm;
 using Microsoft.ML.Transforms;
 using Netkeiba.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -25,11 +26,54 @@ namespace Netkeiba
 
 		private static readonly SemaphoreSlim LogSemaphore2 = new(1, 1);
 
-		/* AllTopFeatures / HorseTopFeatures は削除済み。
-		 * 特徴量の絞り込みは OptimizedHorseFeatures.cs の FeaturesType 属性で管理。
-		 * All: Top125 → FeaturesType.All, それ以外 → FeaturesType.AllOther
-		 * Horse: Top140 → FeaturesType.Horse, それ以外 → FeaturesType.HorseOther
-		 */
+		// アンサンブル評価用：各ウィンドウの訓練済みモデルとNDCG1を保持
+		private readonly ConcurrentDictionary<string, (ITransformer model, double ndcg1)> _ensembleModels = new();
+
+		// モデル別ハイパーパラメータ（label=""がモデル保存対象）
+		// (label, iter, leaves, depth, featFrac, subFrac, l2, minLeaf, lr, es)
+		private static readonly Dictionary<FeaturesType, (string label, int iter, int leaves, int depth, double featFrac, double subFrac, double l2, int minLeaf, double lr, int es)[]> ModelParams = new()
+		{
+			// Total: 全398特徴量 (0.5002)
+			{ FeaturesType.Total, new[] {
+				("", 2000, 20, 7, 0.25, 0.90, 7.0, 100, 0.02, 150),
+			}},
+			// Horse: 191特徴量 (0.5041)
+			{ FeaturesType.Horse, new[] {
+				("", 2000, 15, 6, 0.30, 0.80, 12.0, 150, 0.02, 150),
+			}},
+			// Jockey: 70特徴量 (0.3953)
+			{ FeaturesType.Jockey, new[] {
+				("", 2000, 12, 5, 0.50, 0.70, 20.0, 250, 0.02, 150),
+			}},
+			// Blood: 112特徴量 (0.3905)
+			{ FeaturesType.Blood, new[] {
+				("", 800, 15, 7, 0.30, 0.70, 15.0, 200, 0.02, 150),
+			}},
+			// Connection: 116特徴量 (0.4277)
+			{ FeaturesType.Connection, new[] {
+				("", 2000, 20, 6, 0.35, 0.75, 15.0, 200, 0.02, 150),
+			}},
+			// TotalLarge: importance>=0.10 311特徴量
+			{ FeaturesType.TotalLarge, new[] {
+				("", 2000, 15, 6, 0.40, 0.85, 10.0, 120, 0.02, 150),
+			}},
+			// TotalMedium: importance>=0.12 190特徴量 (0.5076)
+			{ FeaturesType.TotalMedium, new[] {
+				("", 2000, 15, 6, 0.40, 0.85, 10.0, 120, 0.02, 150),
+			}},
+			// TotalSmall: importance>=0.15 110特徴量 (0.5079)
+			{ FeaturesType.TotalSmall, new[] {
+				("", 2000, 15, 6, 0.55, 0.85, 10.0, 120, 0.02, 150),
+			}},
+			// TotalRaw: 生値のみ 171特徴量 (0.5037)
+			{ FeaturesType.TotalRaw, new[] {
+				("", 2000, 15, 6, 0.40, 0.85, 10.0, 120, 0.02, 150),
+			}},
+			// TotalRank: Rankのみ 162特徴量 (0.4907)
+			{ FeaturesType.TotalRank, new[] {
+				("", 2000, 15, 6, 0.40, 0.85, 10.0, 120, 0.02, 150),
+			}},
+		};
 
 		public STEP3Command(MainViewModel vm) : base(vm)
 		{
@@ -46,155 +90,219 @@ namespace Netkeiba
 					return;
 				}
 
-				//foreach (var grade in EnumUtil.GetValues<GradeType>())
-				//{
-				//	if (grade == GradeType.勝2ク) continue;
-
-				//	// モデルの評価
-				//	MainViewModel.AddLog($"モデル学習開始：{grade}");
-
-				//	RankingAsync(
-				//		conn.GetModelAsync(grade.ToString(), DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-1)),
-				//		conn.GetModelAsync(grade.ToString(), DateTime.Now.AddMonths(-1).AddDays(1), DateTime.Now)
-				//	);
-				//}
-
-				//foreach (var grade in Arr("未勝利ク", "勝古", "新馬", "オク", "オ古", "勝ク", "オ障", "未勝利障"))
-				//{
-				//	// モデルの評価
-				//	MainViewModel.AddLog($"モデル学習開始：{grade}");
-
-				//	RankingAsync(
-				//		grade,
-				//		conn.GetModelAsync(grade, DateTime.Now.AddYears(-7), DateTime.Now.AddMonths(-1)),
-				//		conn.GetModelAsync(grade, DateTime.Now.AddMonths(-1).AddDays(1), DateTime.Now)
-				//	);
-				//}
-				var basedate = DateTime.Parse("2026/02/13");
-				for (var i = 0; i < 1; i++)
+				var basedate = DateTime.Now.AddDays(-2);
+				for (var i = 0; i < 4; i++)
 				{
 					MessageService.Debug($"********** 基準日：{basedate} **********");
 					await RankingAsync(
 						await conn.GetModelAsync(basedate.AddYears(-6), basedate.AddMonths(-3)),
 						Array.Empty<OptimizedHorseFeatures>(),
-						await conn.GetModelAsync(basedate.AddMonths(-3).AddDays(1), basedate)
+						await conn.GetModelAsync(basedate.AddMonths(-3).AddDays(1), basedate),
+						shouldSaveModels: (i == 0)
 					);
-					basedate = basedate.AddDays(-7);
+					basedate = basedate.AddMonths(-1);
 				}
 			}
 		}
 
-		private async Task RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arrValid, OptimizedHorseFeatures[] arr2)
+		private async Task RankingAsync(OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arrValid, OptimizedHorseFeatures[] arr2, bool shouldSaveModels = true)
 		{
-			// これまで作成した教育ﾃﾞｰﾀの削除
-			AppSetting.Instance.RemoveAllRankingTrain();
+			// 初回のみ既存モデルを削除
+			if (shouldSaveModels)
+			{
+				AppSetting.Instance.RemoveAllRankingTrain();
+			}
+
+			// アンサンブル用モデル辞書をクリア
+			_ensembleModels.Clear();
 
 			var task = new List<Task>();
 
-			// Allモデル
-			task.Add(RankingAsync(FeaturesType.All.GetLabel(), arr1, arrValid, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
-
-			// サブモデル（Horse, Jockey, Blood, Connection）
-			foreach (var type in FeaturesAttribute.GetTargetTypes())
+			// 全モデルを統一ループで訓練
+			foreach (var (type, configs) in ModelParams)
 			{
-				task.Add(RankingAsync(type.GetLabel(), arr1, arrValid, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(type)));
+				var grade = type.GetLabel();
+				foreach (var p in configs)
+				{
+					task.Add(RankingAsync(grade, arr1, arrValid, arr2,
+						OptimizedHorseFeatures.GetNormalizationNames(),
+						OptimizedHorseFeatures.GetFeaturesTypeNames(type),
+						p, shouldSaveModels));
+				}
 			}
-
-			//task.AddRange(RankingAsync2(FeaturesType.All.GetLabel(), arr1, arr2, OptimizedHorseFeatures.GetNormalizationNames(), OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.All)));
-
-			//var targets = new Dictionary<FeaturesType, string[]>()
-			//{
-			//	{ FeaturesType.Jockey, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.JockeyOther) },
-			//	{ FeaturesType.Connection, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.ConnectionOther) },
-			//	{ FeaturesType.Blood, OptimizedHorseFeatures.GetFeaturesTypeNames(FeaturesType.BloodOther) },
-			//};
-			//var normalizations = new Dictionary<FeaturesType, string[]>()
-			//{
-			//	{ FeaturesType.Jockey, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.JockeyOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Jockey)).ToArray() },
-			//	{ FeaturesType.Connection, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.ConnectionOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Connection)).ToArray() },
-			//	{ FeaturesType.Blood, OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.BloodOther).Concat(OptimizedHorseFeatures.GetNormalizationNames(FeaturesType.Blood)).ToArray() },
-			//};
-
-			//foreach (var type in new[] { FeaturesType.Jockey, FeaturesType.Connection, FeaturesType.Blood })
-			//{
-			//	task.AddRange(RankingAsync2(type.GetLabel(), arr1, arr2, normalizations[type], OptimizedHorseFeatures.GetFeaturesTypeNames(type), targets[type]));
-			//}
 
 			await task.WhenAll();
+
+			// 全ウィンドウでアンサンブル評価（メモリ上のモデルを使用）
+			EvaluateEnsemble(arr2);
 		}
 
-		private IEnumerable<Task> RankingAsync2(string grade, OptimizedHorseFeatures[] arr1, OptimizedHorseFeatures[] arrValid, OptimizedHorseFeatures[] arr2, string[] normalizations, string[] features, string[] targets)
+		private void EvaluateEnsemble(OptimizedHorseFeatures[] test)
 		{
-			yield return RankingAsync(grade, arr1, arrValid, arr2, normalizations, features, "all");
+			var ml = new MLContext(seed: 1);
 
-			foreach (var target in targets)
+			// メモリ上の訓練済みモデルを使用
+			// 0=Total, 1=Horse, 2=Jockey, 3=Blood, 4=Connection,
+			// 5=TotalLarge, 6=TotalMedium, 7=TotalSmall, 8=TotalRaw, 9=TotalRank
+			var types = new[]
 			{
-				yield return RankingAsync(grade, arr1, arrValid, arr2, normalizations, features, target);
+				FeaturesType.Total, FeaturesType.Horse, FeaturesType.Jockey, FeaturesType.Blood, FeaturesType.Connection,
+				FeaturesType.TotalLarge, FeaturesType.TotalMedium, FeaturesType.TotalSmall, FeaturesType.TotalRaw, FeaturesType.TotalRank,
+			};
+			var grades = types.Select(t => t.GetLabel()).ToArray();
+
+			// 全モデルが揃っているか確認
+			if (grades.Any(g => !_ensembleModels.ContainsKey(g))) return;
+
+			var entries = grades.Select(g => _ensembleModels[g]).ToArray();
+
+			// テストデータの各モデルスコアを取得
+			var view = ml.Data.LoadFromEnumerable(test);
+			var scores = entries.Select(e =>
+			{
+				var predictions = e.model.Transform(view);
+				return predictions.GetColumn<float>("Score").ToArray();
+			}).ToArray();
+
+			// NDCG1²重み（事前計算）
+			var ndcg1Sq = entries.Select(e => e.ndcg1 * e.ndcg1).ToArray();
+
+			// NDCG1²加重平均スコアラーを生成するヘルパー
+			Func<int, float> MakeScorer(int[] idx)
+			{
+				var s = idx.Select(j => ndcg1Sq[j]).Sum();
+				return i => (float)(idx.Select(j => scores[j][i] * ndcg1Sq[j]).Sum() / s);
 			}
+
+			// アンサンブル方式定義（12パターン）
+			var methods = new (string name, Func<int, float> scorer)[]
+			{
+				//// (a) top3_current: Total + Horse + Connection
+				//("(a) top3_current", MakeScorer(new[] { 0, 1, 4 })),
+				//// (b) top3_large: TotalLarge + Horse + Connection
+				//("(b) top3_large", MakeScorer(new[] { 5, 1, 4 })),
+				//// (c) top3_medium: TotalMedium + Horse + Connection
+				//("(c) top3_medium", MakeScorer(new[] { 6, 1, 4 })),
+				//// (d) top3_small: TotalSmall + Horse + Connection
+				//("(d) top3_small", MakeScorer(new[] { 7, 1, 4 })),
+				//// (e) top3_raw: TotalRaw + Horse + Connection
+				//("(e) top3_raw", MakeScorer(new[] { 8, 1, 4 })),
+				//// (f) top3_rank: TotalRank + Horse + Connection
+				//("(f) top3_rank", MakeScorer(new[] { 9, 1, 4 })),
+				//// (g) top4_add_medium: Total + TotalMedium + Horse + Connection
+				//("(g) top4_add_med", MakeScorer(new[] { 0, 6, 1, 4 })),
+				//// (h) top4_add_small: Total + TotalSmall + Horse + Connection
+				//("(h) top4_add_sml", MakeScorer(new[] { 0, 7, 1, 4 })),
+				//// (i) diverse4: TotalMedium + TotalRaw + Horse + Connection
+				//("(i) diverse4", MakeScorer(new[] { 6, 8, 1, 4 })),
+				//// (j) all5: Total + Horse + Jockey + Blood + Connection
+				//("(j) all5", MakeScorer(new[] { 0, 1, 2, 3, 4 })),
+				//// (k) med_all5: TotalMedium + Horse + Jockey + Blood + Connection
+				//("(k) med_all5", MakeScorer(new[] { 6, 1, 2, 3, 4 })),
+				// (l) total_variants: Total + TotalMedium + TotalSmall + Horse + Connection
+				("(l) total_vars", MakeScorer(new[] { 0, 6, 7, 1, 4 })),
+				// (l) total_variants: Total + TotalMedium + TotalSmall + Horse + Connection
+				("(j) total_vars2", MakeScorer(new[] { 1, 6, 7, 8, 9 })),
+			};
+
+			var message = new List<string> { "========== アンサンブル評価 ==========" };
+
+			// 各方式のNDCGを計算
+			foreach (var (name, scorer) in methods)
+			{
+				var preds = test.Select((t, i) => new FeaturesPrediction
+				{
+					RaceId = t.RaceId,
+					ActualRank = (uint)(12 - t.Label),
+					Score = scorer(i)
+				}).ToArray();
+
+				var ndcg = GetNDCG(preds);
+				message.Add($"{name}\tNDCG@1\t{ndcg.NDCG1:F4}\tNDCG@3\t{ndcg.NDCG3:F4}\tNDCG@5\t{ndcg.NDCG5:F4}");
+			}
+
+			message.Add("==========================================");
+			message.ForEach(s => WpfUtil.ExecuteOnUI(() => MessageService.Debug(s)));
 		}
 
-		private EstimatorChain<RankingPredictionTransformer<LightGbmRankingModelParameters>> GetPipeline(MLContext _ml, string[] normalizations, string[] features,
-			int numberOfIterations = 800,
+		private LightGbmRankingTrainer GetTrainer(MLContext _ml,
+			int numberOfIterations = 2000,
 			int numberOfLeaves = 20,
 			int maximumTreeDepth = 7,
-			double featureFraction = 0.1,
+			double featureFraction = 0.25,
 			double subsampleFraction = 0.9,
 			double l2Regularization = 7.0,
-			double learningRate = 0.05,
-			int minimumExampleCountPerLeaf = 100)
+			double learningRate = 0.02,
+			int minimumExampleCountPerLeaf = 100,
+			int earlyStoppingRound = 150)
 		{
-			var pipeline = _ml.Transforms.Conversion.MapValueToKey("RaceIdKey", "RaceId")
-				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label", keyOrdinality: ValueToKeyMappingEstimator.KeyOrdinality.ByValue))
-				.NormalizeMeanVarianceMultiple(_ml, normalizations)
-				.Append(_ml.Transforms.Concatenate("Features", features))
-				.Append(_ml.Ranking.Trainers.LightGbm(new LightGbmRankingTrainer.Options
+			return _ml.Ranking.Trainers.LightGbm(new LightGbmRankingTrainer.Options
+			{
+				LabelColumnName = "LabelKey",
+				FeatureColumnName = "Features",
+				RowGroupColumnName = "RaceIdKey",
+				NumberOfIterations = numberOfIterations,
+				LearningRate = learningRate,
+				NumberOfLeaves = numberOfLeaves,
+				MinimumExampleCountPerLeaf = minimumExampleCountPerLeaf,
+				MaximumBinCountPerFeature = 255,
+				UseCategoricalSplit = true,
+				HandleMissingValue = true,
+				UseZeroAsMissingValue = false,
+				MinimumExampleCountPerGroup = 100,
+				MaximumCategoricalSplitPointCount = 32,
+				CategoricalSmoothing = 10.0,
+				L2CategoricalRegularization = 10.0,
+				EarlyStoppingRound = earlyStoppingRound,
+
+				Booster = new GradientBooster.Options
 				{
-					LabelColumnName = "LabelKey",
-					FeatureColumnName = "Features",
-					RowGroupColumnName = "RaceIdKey",
-					NumberOfIterations = numberOfIterations,
-					LearningRate = learningRate,
-					NumberOfLeaves = numberOfLeaves,
-					MinimumExampleCountPerLeaf = minimumExampleCountPerLeaf,
-					MaximumBinCountPerFeature = 255,
-					UseCategoricalSplit = true,
-					HandleMissingValue = true,
-					UseZeroAsMissingValue = false,
-					MinimumExampleCountPerGroup = 100,
-					MaximumCategoricalSplitPointCount = 32,
-					CategoricalSmoothing = 10.0,
-					L2CategoricalRegularization = 10.0,
+					L2Regularization = l2Regularization,
+					L1Regularization = 0.5,
+					MinimumSplitGain = 0.01,
+					MaximumTreeDepth = maximumTreeDepth,
+					FeatureFraction = featureFraction,
+					SubsampleFraction = subsampleFraction,
+					SubsampleFrequency = 1,
+				},
 
-					Booster = new GradientBooster.Options
-					{
-						L2Regularization = l2Regularization,
-						L1Regularization = 0.5,
-						MinimumSplitGain = 0.01,
-						MaximumTreeDepth = maximumTreeDepth,
-						FeatureFraction = featureFraction,
-						SubsampleFraction = subsampleFraction,
-						SubsampleFrequency = 1,
-					},
-
-					EvaluationMetric = LightGbmRankingTrainer.Options.EvaluateMetricType.NormalizedDiscountedCumulativeGain,
-				}));
-
-			return pipeline;
+				EvaluationMetric = LightGbmRankingTrainer.Options.EvaluateMetricType.NormalizedDiscountedCumulativeGain,
+			});
 		}
 
-		private Task RankingAsync(string grade, OptimizedHorseFeatures[] data, OptimizedHorseFeatures[] valid, OptimizedHorseFeatures[] test, string[] normalizations, string[] features, string target = "")
+		private Task RankingAsync(string grade, OptimizedHorseFeatures[] data, OptimizedHorseFeatures[] valid, OptimizedHorseFeatures[] test, string[] normalizations, string[] features,
+			(string label, int iter, int leaves, int depth, double featFrac, double subFrac, double l2, int minLeaf, double lr, int es) p, bool shouldSaveModels = true)
 		{
-			if (target != "all" && target != "")
-			{
-				features = features.Concat(Arr(target)).ToArray();
-			}
-
 			var _ml = new MLContext(seed: 1);
 			var viewdata = _ml.Data.LoadFromEnumerable(data);
+			var validdata = valid.Length > 0 ? _ml.Data.LoadFromEnumerable(valid) : null;
 			var testdata = _ml.Data.LoadFromEnumerable(test);
 
-			var pipeline = GetPipeline(_ml, normalizations, features);
-			var model = pipeline.Fit(viewdata);
+			// 前処理パイプライン（RaceIdはHashで語彙不要・検証データでも安全に変換）
+			var preprocessPipeline = _ml.Transforms.Conversion.Hash("RaceIdKey", "RaceId")
+				.Append(_ml.Transforms.Conversion.MapValueToKey("LabelKey", "Label", keyOrdinality: ValueToKeyMappingEstimator.KeyOrdinality.ByValue))
+				.NormalizeMeanVarianceMultiple(_ml, normalizations)
+				.Append(_ml.Transforms.Concatenate("Features", features));
+			var preprocessModel = preprocessPipeline.Fit(viewdata);
+			var transformedTrain = preprocessModel.Transform(viewdata);
+			var transformedValid = validdata != null ? preprocessModel.Transform(validdata) : null;
+
+			// LightGBMトレーナー
+			var trainer = GetTrainer(_ml,
+				numberOfIterations: p.iter,
+				numberOfLeaves: p.leaves,
+				maximumTreeDepth: p.depth,
+				featureFraction: p.featFrac,
+				subsampleFraction: p.subFrac,
+				l2Regularization: p.l2,
+				minimumExampleCountPerLeaf: p.minLeaf,
+				learningRate: p.lr,
+				earlyStoppingRound: p.es);
+			var trainedModel = transformedValid != null
+				? trainer.Fit(transformedTrain, transformedValid)
+				: trainer.Fit(transformedTrain);
+
+			var model = preprocessModel.Append(trainedModel);
 
 			// 並列数を制限してバックグラウンドで実行
 			return Task.Run(async () =>
@@ -204,10 +312,11 @@ namespace Netkeiba
 				{
 					var message1 = new List<string>();
 
-					if (target != "")
-						message1.Add($"{grade}\t{target}");
+					if (p.label != "")
+						message1.Add($"{grade}\t[{p.label}]");
 					else
 						message1.Add($"========== 予測スコア統計: {grade} ==========");
+					message1.Add($"params\titer={p.iter}\tleaves={p.leaves}\tdepth={p.depth}\tfeatFrac={p.featFrac}\tsubFrac={p.subFrac}\tl2={p.l2}\tminLeaf={p.minLeaf}\tlr={p.lr}\tes={p.es}");
 
 					// 予測を実行
 					var predictions = model.Transform(testdata);
@@ -236,7 +345,19 @@ namespace Netkeiba
 
 					var ndcg = GetNDCG(featuresPredictions);
 
+					// 訓練データのNDCGを計算
+					var trainPredictions = model.Transform(viewdata);
+					var trainScores = trainPredictions.GetColumn<float>("Score").ToArray();
+					var trainFeaturesPredictions = trainScores.SelectInParallel((score, i) => new FeaturesPrediction
+					{
+						RaceId = data[i].RaceId,
+						ActualRank = (uint)(12 - data[i].Label),
+						Score = score
+					}).ToArray();
+					var trainNdcg = GetNDCG(trainFeaturesPredictions);
+
 					// 手動でNDCGを計算
+					message1.Add($"訓練NDCG@1\t{trainNdcg.NDCG1:F4}\t訓練NDCG@3\t{trainNdcg.NDCG3:F4}\t訓練NDCG@5\t{trainNdcg.NDCG5:F4}");
 					message1.Add($"手動NDCG@1\t{ndcg.NDCG1:F4}\t手動NDCG@3\t{ndcg.NDCG3:F4}\t手動NDCG@5\t{ndcg.NDCG5:F4}\t評価レース数\t{ndcg.Count}");
 					message1.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE1@{i + 1}\t{ndcg.RATE1[i]:F4}").GetString("\t"));
 					message1.Add(Enumerable.Range(0, 7).Select(i => $"手動RATE2@{i + 1}\t{ndcg.RATE2[i]:F4}").GetString("\t"));
@@ -246,7 +367,13 @@ namespace Netkeiba
 
 					message2.Add(message1.GetString("\t"));
 
-					if (target == "")
+					// アンサンブル評価用にモデルとNDCG1を保持（全ウィンドウ）
+					if (p.label == "")
+					{
+						_ensembleModels[grade] = (model, ndcg.NDCG1);
+					}
+
+					if (p.label == "" && shouldSaveModels)
 					{
 
 						message2.Add("==============================");
@@ -277,7 +404,7 @@ namespace Netkeiba
 								message2.Add("==========================================");
 
 								// 特徴量相関分析
-								AnalyzeFeatureCorrelations(test, features, weights, message2);
+								//AnalyzeFeatureCorrelations(test, features, weights, message2);
 							}
 						}
 						catch (Exception ex)

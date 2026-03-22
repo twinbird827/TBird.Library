@@ -1,4 +1,4 @@
-﻿using Netkeiba.Models;
+using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,12 +45,12 @@ namespace Netkeiba
 		}
 		private int _Rank;
 
-		public RaceScore All
+		public RaceScore Total
 		{
-			get => _All;
-			set => SetProperty(ref _All, value);
+			get => _Total;
+			set => SetProperty(ref _Total, value);
 		}
-		private RaceScore _All;
+		private RaceScore _Total;
 
 		public RaceScore Horse
 		{
@@ -59,33 +59,33 @@ namespace Netkeiba
 		}
 		private RaceScore _Horse;
 
-		public RaceScore Jockey
+		public RaceScore TotalMedium
 		{
-			get => _Jockey;
-			set => SetProperty(ref _Jockey, value);
+			get => _TotalMedium;
+			set => SetProperty(ref _TotalMedium, value);
 		}
-		private RaceScore _Jockey;
+		private RaceScore _TotalMedium;
 
-		public RaceScore Blood
+		public RaceScore TotalSmall
 		{
-			get => _Blood;
-			set => SetProperty(ref _Blood, value);
+			get => _TotalSmall;
+			set => SetProperty(ref _TotalSmall, value);
 		}
-		private RaceScore _Blood;
+		private RaceScore _TotalSmall;
 
-		public RaceScore Connection
+		public RaceScore Vars2
 		{
-			get => _Connection;
-			set => SetProperty(ref _Connection, value);
+			get => _Vars2;
+			set => SetProperty(ref _Vars2, value);
 		}
-		private RaceScore _Connection;
+		private RaceScore _Vars2;
 
-		public RaceScore Total
+		public RaceScore Vars1
 		{
-			get => _Total;
-			set => SetProperty(ref _Total, value);
+			get => _Vars1;
+			set => SetProperty(ref _Vars1, value);
 		}
-		private RaceScore _Total;
+		private RaceScore _Vars1;
 
 	}
 }
