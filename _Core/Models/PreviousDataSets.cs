@@ -1,10 +1,12 @@
 ﻿using AngleSharp.Common;
 using Codeplex.Data;
+using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB.SQLite;
@@ -244,10 +246,9 @@ namespace Netkeiba.Models
 
 		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp) => GetMaster(x, kvp, x => true);
 
-		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp, Func<RaceDetail, bool> func) => ((IEnumerable<RaceDetail>)_master[kvp.Key]
-			.Get(kvp.Value, new List<RaceDetail>()))
-			.Reverse()
-			.Where(y => y.Race.RaceDate < x.Race.RaceDate.AddDays(-3) && func(y)).Take(100).ToList();
+		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp, Func<RaceDetail, bool> func) => _master[kvp.Key]
+			.Get(kvp.Value, new List<RaceDetail>())
+			.Where(y => y.Race.RaceDate < x.Race.RaceDate.AddDays(-3) && func(y)).Reverse().Take(100).ToList();
 
 		private string GetTrackConditionDistance(Race x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
 
@@ -255,7 +256,7 @@ namespace Netkeiba.Models
 
 		private async Task InitializeHistory(SQLiteControl conn, DateTime date)
 		{
-			var prevdate = date.AddYears(-10);
+			var prevdate = date.AddYears(-7);
 			await foreach (var (race, details) in conn.GetRaceDetailsGroupedAsync(date))
 			{
 				if (race.RaceDate > prevdate)
@@ -263,7 +264,7 @@ namespace Netkeiba.Models
 					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
 					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(GetHorses(x), details, tcd));
+					details.ForEach(detail => detail.SetHistoricalData(GetHorses(detail), details, tcd));
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
@@ -285,55 +286,6 @@ namespace Netkeiba.Models
 			_FastHorseElo.Clear();
 			_FastJockeyElo.Clear();
 			_FastTrainerElo.Clear();
-		}
-	}
-
-	public class CircularDateBuffer
-	{
-		private readonly RaceDetail[] _buffer;
-		private int _head;    // 先頭インデックス
-		private int _count;
-		private readonly int _retentionYears;
-
-		public int Count => _count;
-
-		public CircularDateBuffer(
-			int capacity = 2048,
-			int retentionYears = 3)
-		{
-			_buffer = new RaceDetail[capacity];
-			_retentionYears = retentionYears;
-		}
-
-		// 追加 O(1)
-		public void Add(RaceDetail item)
-		{
-			if (_count == _buffer.Length)
-				throw new InvalidOperationException("Buffer full");
-
-			int tail = (_head + _count) % _buffer.Length;
-			_buffer[tail] = item;
-			_count++;
-
-			var threshold = item.Race.RaceDate.AddYears(-_retentionYears);
-			while (_count > 0 && _buffer[_head].Race.RaceDate < threshold)
-			{
-				_buffer[_head] = default!;       // GC参照を切る
-				_head = (_head + 1) % _buffer.Length; // O(1) ⚡ シフトなし
-				_count--;
-			}
-		}
-
-		// 逆順 Where ToArray  ← ここも最適化
-		public RaceDetail[] GetReversedWhere(Func<RaceDetail, bool> predicate)
-		{
-			var result = new List<RaceDetail>(_count);
-			for (int i = _count - 1; i >= 0; i--)
-			{
-				var item = _buffer[(_head + i) % _buffer.Length];
-				if (predicate(item)) result.Add(item);
-			}
-			return result.ToArray();
 		}
 	}
 }
