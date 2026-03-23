@@ -54,5 +54,15 @@ namespace Netkeiba.Models
 		public bool IsAgedHorseRace { get; }
 		public string TrackDistance => $"{Track}-{Distance}";
 		public string TrackConditionDistance => $"{Track}-{TrackCondition}-{Distance}";
+
+		public override bool Equals(object? obj)
+		{
+			return obj is Race x && x.RaceId == RaceId;
+		}
+
+		public override int GetHashCode()
+		{
+			return RaceId.GetHashCode();
+		}
 	}
 }

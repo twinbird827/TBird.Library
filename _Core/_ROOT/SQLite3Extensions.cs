@@ -466,6 +466,41 @@ WHERE  h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND d.ﾚｰｽID = o
 ";
 		}
 
+		public static async IAsyncEnumerable<(Race Race, RaceDetail[] Details)> GetRaceDetailsGroupedAsync(this SQLiteControl conn, DateTime date)
+		{
+			var sql = $@"{GetRaceDetailSql()}
+AND CAST(h.障害 AS INTEGER) = 0 AND h.開催日 < ?
+ORDER BY h.開催日 ASC, h.ﾚｰｽID ASC, d.馬番 ASC
+";
+			var parameters = new[]
+			{
+				SQLiteUtil.CreateParameter(DbType.Object, date.ToString("yyyy/MM/dd")),
+			};
+
+			Race? currentRace = null;
+			var buffer = new List<RaceDetail>();
+
+			foreach (var x in await conn.GetRows(sql, parameters))
+			{
+				var raceid = x["ﾚｰｽID"].Str();
+				if (currentRace != null && currentRace.RaceId != raceid)
+				{
+					yield return (currentRace, buffer.ToArray());
+					buffer.Clear();
+				}
+				if (currentRace == null || currentRace.RaceId != raceid)
+				{
+					currentRace = new Race(x);
+				}
+				buffer.Add(new RaceDetail(x, currentRace));
+			}
+
+			if (currentRace != null && buffer.Count > 0)
+			{
+				yield return (currentRace, buffer.ToArray());
+			}
+		}
+
 		public static async IAsyncEnumerable<RaceDetail> GetRaceDetailsAsync(this SQLiteControl conn, Race race)
 		{
 			var sql = $@"{GetRaceDetailSql()}

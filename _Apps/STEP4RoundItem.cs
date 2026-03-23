@@ -30,9 +30,7 @@ namespace Netkeiba
 
 		private IRelayCommand? _command;
 
-		private void SetHeader(string header) => MainViewModel.SetS4ResultHeader(header);
-
-		private void SetItems(IEnumerable<STEP4ResultItem> items) => MainViewModel.SetS4ResultItems(items);
+		private void SetResult(string header, STEP4ResultItem[] items) => MainViewModel.SetS4Result(header, items);
 
 		private async Task ActionAsync(object dummy)
 		{
@@ -112,9 +110,6 @@ namespace Netkeiba
 
 					var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
 
-					// ﾀｲﾄﾙの設定
-					SetHeader(header);
-
 					// 明細の設定
 					var arr = await predictions.Select(async x =>
 					{
@@ -122,7 +117,7 @@ namespace Netkeiba
 
 						return new STEP4ResultItem(x, name.Str());
 					}).WhenAll();
-					SetItems(arr);
+					SetResult(header, arr);
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の処理が完了しました。");
 

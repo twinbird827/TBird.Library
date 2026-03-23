@@ -33,6 +33,8 @@ namespace Netkeiba
 
 			S4ResultItems = S4ResultItemSources.ToBindableContextCollection();
 
+			S4ResultEntries = S4ResultEntrySources.ToBindableContextCollection();
+
 			S4Dates.AddOnPropertyChanged(this, async (sender, e) =>
 			{
 				if (string.IsNullOrWhiteSpace(S4Dates.SelectedItem.Value)) return;
@@ -172,30 +174,35 @@ namespace Netkeiba
 
 		public BindableContextCollection<UniformViewModel<STEP4RoundItem>> S4RoundItems { get; }
 
-		public string S4ResultHeader
-		{
-			get => _S4ResultHeader;
-			set => SetProperty(ref _S4ResultHeader, value);
-		}
-		private string _S4ResultHeader = string.Empty;
-
-		public static void SetS4ResultHeader(string message)
-		{
-			if (_this == null) return;
-
-			_this.S4ResultHeader = message;
-		}
-
 		public BindableCollection<STEP4ResultItem> S4ResultItemSources { get; } = [];
 
 		public BindableContextCollection<STEP4ResultItem> S4ResultItems { get; }
 
-		public static void SetS4ResultItems(IEnumerable<STEP4ResultItem> items)
+		public BindableCollection<STEP4ResultEntry> S4ResultEntrySources { get; } = [];
+
+		public BindableContextCollection<STEP4ResultEntry> S4ResultEntries { get; }
+
+		public STEP4ResultEntry? S4ResultSelectedEntry
+		{
+			get => _S4ResultSelectedEntry;
+			set
+			{
+				if (SetProperty(ref _S4ResultSelectedEntry, value) && value != null)
+				{
+					S4ResultItemSources.Clear();
+					S4ResultItemSources.AddRange(value.Items);
+				}
+			}
+		}
+		private STEP4ResultEntry? _S4ResultSelectedEntry;
+
+		public static void SetS4Result(string header, STEP4ResultItem[] items)
 		{
 			if (_this == null) return;
 
-			_this.S4ResultItemSources.Clear();
-			_this.S4ResultItemSources.AddRange(items);
+			var entry = new STEP4ResultEntry(header, items);
+			_this.S4ResultEntrySources.Add(entry);
+			_this.S4ResultSelectedEntry = entry;
 		}
 
 		public static DateTime GetS4SelectedDate() => _this != null ? DateTime.ParseExact(_this.S4Dates.SelectedItem.Value, "yyyyMMdd", null) : DateTime.Now;

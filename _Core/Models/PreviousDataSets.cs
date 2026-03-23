@@ -1,6 +1,8 @@
-﻿using Codeplex.Data;
+﻿using AngleSharp.Common;
+using Codeplex.Data;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -144,25 +146,21 @@ namespace Netkeiba.Models
 
 		public static void AddHistory(RaceDetail x)
 		{
-			void AddHistory(Dictionary<string, List<RaceDetail>> dic, RaceDetail tgt, string key)
+			foreach (var key in _PDS.GetKeyArray(x))
 			{
-				if (!dic.ContainsKey(key))
+				var dic = _PDS._master[key.Key];
+				if (!dic.TryGetValue(key.Value, out var list))
 				{
-					dic.Add(key, new List<RaceDetail>());
+					list = new List<RaceDetail>();
+					dic.Add(key.Value, list);
 				}
-				var list = dic[key];
-				list.Insert(0, tgt);
-				var cutoff = tgt.Race.RaceDate.AddYears(-3);
-				while (list.Count > 0 && list[^1].Race.RaceDate < cutoff)
+				list.Add(x);
+				var cutoff = x.Race.RaceDate.AddYears(-3);
+				while (list.Count > 0 && list[0].Race.RaceDate < cutoff)
 				{
-					list.RemoveAt(list.Count - 1);
+					list.RemoveAt(0);
 				}
 			}
-
-			_PDS.GetKeyArray(x).ForEach(key =>
-			{
-				AddHistory(_PDS._master[key.Key], x, key.Value);
-			});
 		}
 
 	}
@@ -246,8 +244,9 @@ namespace Netkeiba.Models
 
 		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp) => GetMaster(x, kvp, x => true);
 
-		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp, Func<RaceDetail, bool> func) => _master[kvp.Key]
-			.Get(kvp.Value, new List<RaceDetail>())
+		private List<RaceDetail> GetMaster(RaceDetail x, KeyValuePair<int, string> kvp, Func<RaceDetail, bool> func) => ((IEnumerable<RaceDetail>)_master[kvp.Key]
+			.Get(kvp.Value, new List<RaceDetail>()))
+			.Reverse()
 			.Where(y => y.Race.RaceDate < x.Race.RaceDate.AddDays(-3) && func(y)).Take(100).ToList();
 
 		private string GetTrackConditionDistance(Race x) => $"T{x.Track}-C{x.TrackCondition}-D{x.Distance}";
@@ -256,20 +255,22 @@ namespace Netkeiba.Models
 
 		private async Task InitializeHistory(SQLiteControl conn, DateTime date)
 		{
-			foreach (var race in await conn.GetRaceAsync(date).ToArrayAsync())
+			var prevdate = date.AddYears(-10);
+			await foreach (var (race, details) in conn.GetRaceDetailsGroupedAsync(date))
 			{
-				// 今ﾚｰｽの情報を取得する
-				var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
-				var tcd = PreviousDataSets.GetTrackConditionDistances(race);
+				if (race.RaceDate > prevdate)
+				{
+					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
-				// 過去ﾃﾞｰﾀ設定
-				details.ForEach(x => x.SetHistoricalData(GetHorses(x), details, tcd));
+					// 過去ﾃﾞｰﾀ設定
+					details.ForEach(x => x.SetHistoricalData(GetHorses(x), details, tcd));
 
-				// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
-				race.AverageRating = details.Average(x => x.AverageRating);
+					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
+					race.AverageRating = details.Average(x => x.AverageRating);
 
-				// 今ﾚｰｽの情報をﾒﾓﾘに格納
-				details.ForEach(AddHistory);
+					// 今ﾚｰｽの情報をﾒﾓﾘに格納
+					details.ForEach(AddHistory);
+				}
 				UpdateElo(details);
 			}
 		}
@@ -284,6 +285,55 @@ namespace Netkeiba.Models
 			_FastHorseElo.Clear();
 			_FastJockeyElo.Clear();
 			_FastTrainerElo.Clear();
+		}
+	}
+
+	public class CircularDateBuffer
+	{
+		private readonly RaceDetail[] _buffer;
+		private int _head;    // 先頭インデックス
+		private int _count;
+		private readonly int _retentionYears;
+
+		public int Count => _count;
+
+		public CircularDateBuffer(
+			int capacity = 2048,
+			int retentionYears = 3)
+		{
+			_buffer = new RaceDetail[capacity];
+			_retentionYears = retentionYears;
+		}
+
+		// 追加 O(1)
+		public void Add(RaceDetail item)
+		{
+			if (_count == _buffer.Length)
+				throw new InvalidOperationException("Buffer full");
+
+			int tail = (_head + _count) % _buffer.Length;
+			_buffer[tail] = item;
+			_count++;
+
+			var threshold = item.Race.RaceDate.AddYears(-_retentionYears);
+			while (_count > 0 && _buffer[_head].Race.RaceDate < threshold)
+			{
+				_buffer[_head] = default!;       // GC参照を切る
+				_head = (_head + 1) % _buffer.Length; // O(1) ⚡ シフトなし
+				_count--;
+			}
+		}
+
+		// 逆順 Where ToArray  ← ここも最適化
+		public RaceDetail[] GetReversedWhere(Func<RaceDetail, bool> predicate)
+		{
+			var result = new List<RaceDetail>(_count);
+			for (int i = _count - 1; i >= 0; i--)
+			{
+				var item = _buffer[(_head + i) % _buffer.Length];
+				if (predicate(item)) result.Add(item);
+			}
+			return result.ToArray();
 		}
 	}
 }

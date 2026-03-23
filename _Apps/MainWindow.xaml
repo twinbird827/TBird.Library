@@ -201,7 +201,13 @@
 			</Grid>
 		</GroupBox>
 
-		<GroupBox Header="{Binding S4ResultHeader}">
+		<ComboBox DockPanel.Dock="Top"
+				  Margin="10,19,10,0"
+				  ItemsSource="{Binding S4ResultEntries}"
+				  SelectedItem="{Binding S4ResultSelectedEntry}"
+				  DisplayMemberPath="Header" />
+
+		<GroupBox>
 			<ListView ItemsSource="{Binding S4ResultItems}">
 				<ListView.ItemContainerStyle>
 					<Style TargetType="ListViewItem">
