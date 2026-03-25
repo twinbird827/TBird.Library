@@ -120,7 +120,7 @@ namespace TBird.Core
 			using (var ss = new FileStream(ToShort(src), FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
 			using (var ds = new FileStream(ToShort(dst), FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
 			{
-				await ss.CopyToAsync(ds, buffersize, cts.Token);
+				await ss.CopyToAsync(ds, buffersize, cts.Token).ConfigureAwait(false);
 			}
 		}
 
@@ -164,9 +164,9 @@ namespace TBird.Core
 
 				foreach (var line in lines)
 				{
-					await sw.WriteLineAsync(line);
+					await sw.WriteLineAsync(line).ConfigureAwait(false);
 				}
-				await sw.FlushAsync();
+				await sw.FlushAsync().ConfigureAwait(false);
 			}
 		}
 

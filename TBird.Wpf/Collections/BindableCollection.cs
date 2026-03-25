@@ -23,7 +23,7 @@ namespace TBird.Wpf.Collections
 
 		public BindableCollection(IEnumerable<T> enumerable, bool disposesource = false)
 		{
-			LockObject = Guid.NewGuid().ToString();
+			LockObject = System.Guid.NewGuid().ToString();
 			_list = new List<T>(enumerable);
 
 			AddDisposed((sender, e) =>

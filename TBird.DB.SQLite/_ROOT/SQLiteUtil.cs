@@ -16,7 +16,7 @@ namespace TBird.DB.SQLite
 		{
 			FileUtil.BeforeCreate(path);
 
-			using (await Locker.LockAsync(src.Lock))
+			using (await src.LockAsync().ConfigureAwait(false))
 			using (var dst = new SQLiteControl($"datasource={path}"))
 			{
 				src._m._conn.BackupDatabase(dst._m._conn, "main", "main", -1, null, 0);
@@ -92,7 +92,7 @@ namespace TBird.DB.SQLite
 			var count = await conn.ExecuteScalarAsync<long>(
 				$"SELECT COUNT(*) FROM PRAGMA_TABLE_INFO(?) WHERE NAME=?",
 				parameters
-			);
+			).ConfigureAwait(false);
 			return 0 < count;
 		}
 

@@ -41,7 +41,7 @@ namespace TBird.Core
 		private async void Tick(object sender)
 		{
 			// 処理の重複禁止
-			using (await Locker.LockAsync(Lock))
+			using (await LockAsync().ConfigureAwait(false))
 			{
 				// ﾀｲﾏｰ停止
 				_timer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -49,7 +49,7 @@ namespace TBird.Core
 				try
 				{
 					// 非同期処理を実行
-					await _func().Cts(_cts);
+					await _func().Cts(_cts).ConfigureAwait(false);
 				}
 				catch (TimeoutException)
 				{

@@ -8,6 +8,9 @@ namespace TBird.Web
 {
 	public static class WebImageUtil
 	{
+		/// <summary>多重起動抑止ﾛｯｸ</summary>
+		private static Locker _lock = new Locker();
+
 		private const string SaveDir = @"cache\bytes";
 
 		static WebImageUtil()
@@ -27,10 +30,10 @@ namespace TBird.Web
 			{
 				if (string.IsNullOrEmpty(url)) continue;
 
-				var response = await WebUtil.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+				var response = await WebUtil.SendAsync(new HttpRequestMessage(HttpMethod.Get, url)).ConfigureAwait(false);
 				if (response.IsSuccessStatusCode)
 				{
-					return await response.Content.ReadAsByteArrayAsync();
+					return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 				}
 			}
 			return null;
@@ -44,11 +47,11 @@ namespace TBird.Web
 		/// <returns></returns>
 		public static async Task<byte[]> GetBytesAsync(string key, string[] urls)
 		{
-			using (await Locker.LockAsync(key))
+			using (await _lock.LockAsync().ConfigureAwait(false))
 			{
 				byte[] bytes = GetBytesFromFile(key);
 
-				if (bytes == null) bytes = await GetBytesAsync(urls);
+				if (bytes == null) bytes = await GetBytesAsync(urls).ConfigureAwait(false);
 
 				if (bytes == null) return null;
 
@@ -57,8 +60,6 @@ namespace TBird.Web
 				return bytes;
 			}
 		}
-
-		private static string _lock = Locker.GetNewLockKey(typeof(WebImageUtil));
 
 		/// <summary>
 		/// ｷｰに紐づくﾌｧｲﾙからﾊﾞｲﾄﾃﾞｰﾀを取得する。

@@ -209,7 +209,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static async Task<IEnumerable<TResult>> Select<TSource, TResult>(this Task<IEnumerable<TSource>> array, Func<TSource, TResult> func)
 		{
-			return (await array).Select(func);
+			return (await array.ConfigureAwait(false)).Select(func);
 		}
 
 		/// <summary>
@@ -246,9 +246,10 @@ namespace TBird.Core
 		{
 			var _dummy = new object();
 			return await array
-				.Select(async x => await func(x) ? x : _dummy)
+				.Select(async x => await func(x).ConfigureAwait(false) ? x : _dummy)
 				.WhenAll()
-				.RunAsync(x => x.OfType<T>());
+				.RunAsync(x => x.OfType<T>())
+				.ConfigureAwait(false);
 		}
 
 		/// <summary>

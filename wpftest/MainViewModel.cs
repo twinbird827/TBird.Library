@@ -9,6 +9,8 @@ namespace wpftest
 {
 	public class MainViewModel : WindowViewModel
 	{
+		private Locker _lock = new();
+
 		public MainViewModel()
 		{
 			Loaded.Add(() => Task.Delay(new Random().Next(1000, 3000)));
@@ -16,7 +18,7 @@ namespace wpftest
 			Closing.Add(() =>
 			{
 				Command.Dispose();
-				//using (Command.Lock())
+				//using (await _lock.LockAsync())
 				{
 					MessageBox.Show("test");
 				}
@@ -33,7 +35,7 @@ namespace wpftest
 		public IRelayCommand Command => _Command = _Command ?? RelayCommand.Create(async _ =>
 		{
 			Text += "Command: lock: ";
-			Text += Locker.Count(Lock);
+			Text += _lock.WaitingCount;
 			Text += "index: " + _index++;
 			Text += "\n";
 			Text += "B:" + DateTime.Now.ToString("yyyy.MM.dd-HH:mm:ss.fff ");

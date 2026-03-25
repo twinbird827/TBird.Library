@@ -44,13 +44,13 @@ namespace TBird.Wpf.Collections
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Insert(e.NewStartingIndex, await func((TSource)e.NewItems[0]));
+						Insert(e.NewStartingIndex, await func((TSource)e.NewItems[0]).ConfigureAwait(false));
 						break;
 					case NotifyCollectionChangedAction.Remove:
 						RemoveAt(e.OldStartingIndex);
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = await func((TSource)e.NewItems[0]);
+						this[e.NewStartingIndex] = await func((TSource)e.NewItems[0]).ConfigureAwait(false);
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
@@ -65,7 +65,7 @@ namespace TBird.Wpf.Collections
 		{
 			foreach (var item in collection)
 			{
-				Add(await func(item));
+				Add(await func(item).ConfigureAwait(false));
 			}
 		}
 	}
