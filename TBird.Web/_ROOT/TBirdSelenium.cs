@@ -9,7 +9,7 @@ using TBird.Core;
 
 namespace TBird.Web
 {
-	public class TBirdSelenium : TBirdObject, IDisposable
+	public class TBirdSelenium : TBirdObject
 	{
 		/// <summary>ﾌﾞﾗｳｻﾞ</summary>
 		internal ChromeDriver _driver;
@@ -78,7 +78,7 @@ namespace TBird.Web
 		/// <returns></returns>
 		public async Task<T> Execute<T>(Func<ChromeDriver, T> func)
 		{
-			using (await Locker.LockAsync(Lock))
+			using (await LockAsync().ConfigureAwait(false))
 			using (this.Disposer(x => x.Executing = false))
 			{
 				Executing = true;
@@ -106,7 +106,7 @@ namespace TBird.Web
 						// ﾄﾞﾗｲﾊﾞｰﾘｾｯﾄ
 						DriverDispose();
 						// 5秒待機してﾘﾄﾗｲ
-						await Task.Delay(5000);
+						await Task.Delay(5000).ConfigureAwait(false);
 					}
 				}
 				throw new WebDriverTimeoutException("The process was not completed despite retrying the specified number of times.");
@@ -116,8 +116,8 @@ namespace TBird.Web
 
 	public static class TBirdSeleniumFactory
 	{
-		/// <summary>ﾌﾞﾗｳｻﾞ作成用ﾛｯｸ文字</summary>
-		private static string _lock = Guid.NewGuid().ToString();
+		/// <summary>多重起動抑止ﾛｯｸ</summary>
+		private static Locker _lock = new Locker();
 
 		/// <summary>作成済のﾌﾞﾗｳｻﾞを保管するためのﾘｽﾄ</summary>
 		private static List<TBirdSelenium> _list = new List<TBirdSelenium>();
@@ -129,7 +129,7 @@ namespace TBird.Web
 		/// <returns></returns>
 		public static async Task<TBirdSelenium> CreateSelenium(int pararell)
 		{
-			using (await Locker.LockAsync(_lock))
+			using (await _lock.LockAsync().ConfigureAwait(false))
 			{
 				// 実行中ではないﾌﾞﾗｳｻﾞを取得し、取得出来たら返却する。
 				var instance = _list.FirstOrDefault(x => !x.Executing);
@@ -144,7 +144,7 @@ namespace TBird.Web
 				}
 
 				// 実行完了するまで待機する。
-				await TaskUtil.Delay(() => _list.FirstOrDefault(x => !x.Executing) != null);
+				await TaskUtil.Delay(() => _list.FirstOrDefault(x => !x.Executing) != null).ConfigureAwait(false);
 				// 返却
 				return _list.First(x => !x.Executing);
 			}

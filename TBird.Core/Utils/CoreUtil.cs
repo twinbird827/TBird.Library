@@ -82,7 +82,7 @@ namespace TBird.Core
 			{
 				if (process == null) return -1;
 
-				if (action != null) for (string s; (s = await process.StandardOutput.ReadLineAsync()) != null;)
+				if (action != null) for (string s; (s = await process.StandardOutput.ReadLineAsync().ConfigureAwait(false)) != null;)
 					{
 						action(s);
 					}

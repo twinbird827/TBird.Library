@@ -1,21 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using TBird.Core.Utils;
 
 namespace TBird.Core
 {
-	public abstract class TBirdObject : IDisposable, ILocker
+	public abstract class TBirdObject : IDisposable
 	{
+		private Locker _lock = new();
+
+		public int WaitingCount => _lock.WaitingCount;
+
+		public Task<IDisposable> LockAsync() => _lock.LockAsync();
+
+		public void LockSync(Action action) => _lock.LockSync(action);
+
+		public T LockSync<T>(Func<T> func) => _lock.LockSync(func);
+
 		/// <summary>
 		/// GUID
 		/// </summary>
-		public string Lock
+		public string Guid
 		{
-			get => _Guid = _Guid ?? Locker.GetNewLockKey(this);
+			get => _Guid = _Guid ?? GetLockString();
 			set => _Guid = value;
 		}
 		private string? _Guid;
+
+		protected virtual string GetLockString() => $"{GetType().FullName}-{System.Guid.NewGuid().ToString()}";
 
 		/// <summary>
 		/// ｲﾝｽﾀﾝｽの文字列表現を取得します。
@@ -23,7 +37,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public override string ToString()
 		{
-			return $"{base.ToString()} {Lock}";
+			return $"{base.ToString()} {Guid}";
 		}
 
 		/// <summary>
@@ -34,7 +48,7 @@ namespace TBird.Core
 		public override bool Equals(object obj)
 		{
 			return obj is TBirdObject disposable && disposable != null
-				? Lock.Equals(disposable.Lock)
+				? Guid.Equals(disposable.Guid)
 				: false;
 		}
 
@@ -44,7 +58,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public override int GetHashCode()
 		{
-			return Lock.GetHashCode();
+			return Guid.GetHashCode();
 		}
 
 		/// <summary>
@@ -81,7 +95,7 @@ namespace TBird.Core
 				EventUtil.Raise(Disposed, this);
 				Disposed = null;
 			}
-			Locker.Dispose(Lock);
+			_lock.Dispose();
 		}
 
 		protected virtual void DisposeUnmanagedResource()

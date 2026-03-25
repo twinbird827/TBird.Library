@@ -40,7 +40,7 @@ namespace TBird.Roslyn
 
 		public async void RunBackground()
 		{
-			await TaskUtil.WaitAsync(RunAsync);
+			await TaskUtil.WaitAsync(RunAsync).ConfigureAwait(false);
 		}
 	}
 }

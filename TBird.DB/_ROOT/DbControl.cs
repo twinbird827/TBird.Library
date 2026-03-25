@@ -10,12 +10,11 @@ using TBird.Core;
 
 namespace TBird.DB
 {
-	public abstract partial class DbControl : IDbControl, ILocker
+	public abstract partial class DbControl : TBirdObject, IDbControl
 	{
 		protected DbControl(string connectionString)
 		{
 			_conn = CreateConnection(connectionString);
-			Lock = CreateLock(connectionString);
 		}
 
 		private DbConnection _conn;
@@ -26,16 +25,14 @@ namespace TBird.DB
 
 		private Stopwatch _stopwatch = new Stopwatch();
 
-		public string Lock { get; private set; }
-
 		public abstract DbConnection CreateConnection(string connectionString);
 
 		public async Task BeginTransaction()
 		{
-			using (await Locker.LockAsync(Lock))
+			using (await LockAsync().ConfigureAwait(false))
 			{
-				await OpenAsync();
-				await WaitTransaction().Timeout(_timeout, null);
+				await OpenAsync().ConfigureAwait(false);
+				await WaitTransaction().Timeout(_timeout, null).ConfigureAwait(false);
 				_tran = _conn.BeginTransaction();
 			}
 		}
@@ -84,7 +81,7 @@ namespace TBird.DB
 
 		private async Task<T> ExecuteAsync<T>(Func<DbCommand, Task<T>> execute, string sql, DbParameter[] parameters)
 		{
-			await OpenAsync();
+			await OpenAsync().ConfigureAwait(false);
 
 			//using (await Locker.LockAsync(Lock))
 			{
@@ -98,7 +95,7 @@ namespace TBird.DB
 						cmnd.CommandText = sql;
 						cmnd.Parameters.Clear();
 						cmnd.Parameters.AddRange(parameters);
-						return await execute(cmnd);
+						return await execute(cmnd).ConfigureAwait(false);
 					}
 				}
 				catch
@@ -124,14 +121,14 @@ namespace TBird.DB
 
 		private async Task WaitTransaction()
 		{
-			while (_tran != null) await Task.Delay(16);
+			while (_tran != null) await Task.Delay(16).ConfigureAwait(false);
 		}
 
 		protected virtual async Task OpenAsync()
 		{
 			if (_conn.State != ConnectionState.Open)
 			{
-				await _conn.OpenAsync();
+				await _conn.OpenAsync().ConfigureAwait(false);
 			}
 		}
 
@@ -146,9 +143,11 @@ namespace TBird.DB
 			);
 		}
 
-		protected virtual string CreateLock(string connectionString)
+		protected override void DisposeManagedResource()
 		{
-			return Locker.GetNewLockKey(this);
+			base.DisposeManagedResource();
+			Rollback();
+			Close();
 		}
 	}
 }
