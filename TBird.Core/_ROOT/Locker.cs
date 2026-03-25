@@ -50,7 +50,7 @@ namespace TBird.Core
 
 		public void LockSync(Action action)
 		{
-			using (_lock.Lock())
+			lock (_lock)
 			{
 				action();
 			}
@@ -58,13 +58,13 @@ namespace TBird.Core
 
 		public T LockSync<T>(Func<T> func)
 		{
-			using (_lock.Lock())
+			lock (_lock)
 			{
 				return func();
 			}
 		}
 
-		private FastSpinLock _lock;
+		private object _lock = new object();
 
 		private bool disposedValue;
 
@@ -105,43 +105,6 @@ namespace TBird.Core
 			// このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
 			Dispose(disposing: true);
 			GC.SuppressFinalize(this);
-		}
-
-		private struct FastSpinLock
-		{
-			private const int SYNC_ENTER = 1;
-			private const int SYNC_EXIT = 0;
-			private int _syncFlag;
-
-			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			private void Enter()
-			{
-				if (Interlocked.CompareExchange(ref _syncFlag, SYNC_ENTER, SYNC_EXIT) == SYNC_ENTER)
-				{
-					Spin();
-				}
-				return;
-			}
-
-			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			private void Exit() => Volatile.Write(ref _syncFlag, SYNC_EXIT);
-
-			[MethodImpl(MethodImplOptions.NoInlining)]
-			private void Spin()
-			{
-				var spinner = new SpinWait();
-				spinner.SpinOnce();
-				while (Interlocked.CompareExchange(ref _syncFlag, SYNC_ENTER, SYNC_EXIT) == SYNC_ENTER)
-				{
-					spinner.SpinOnce();
-				}
-			}
-
-			public IDisposable Lock()
-			{
-				Enter();
-				return this.Disposer(x => x.Exit());
-			}
 		}
 	}
 }
