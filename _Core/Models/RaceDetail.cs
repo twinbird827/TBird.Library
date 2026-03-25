@@ -2,6 +2,7 @@
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -12,56 +13,102 @@ namespace Netkeiba.Models
 {
 	public class RaceDetail
 	{
-		public RaceDetail(Dictionary<string, object> x, Race race)
+		private RaceDetail(Race race, Oikiri oikiri, int wakuban, int umaban, string horse, string jockey, string trainer,
+			string sire, string damSire, string breeder, int finishPosition, float time, float prizeMoney,
+			float purchasePrice, DateTime birthDate, float jockeyWeight, string tuka, float agari,
+			string gender, float timeIndex, string finishDiff, float weight, float weightChange, float odds)
 		{
-			try
-			{
-				Race = race;
-				Oikiri = new Oikiri(x, this);
-				Wakuban = x.Get("枠番").Int32();
-				Umaban = x.Get("馬番").Int32();
-				Horse = x.Get("馬ID").Str();
-				Jockey = x.Get("騎手ID").Str();
-				Trainer = x.Get("調教師ID").Str();
-				Sire = x.Get("父ID").Str();
-				DamSire = x.Get("母父ID").Str();
-				Breeder = x.Get("生産者ID").Str();
-				FinishPosition = (uint)x.Get("着順").Int32();
-				FinishDiff = x.Get("着差").Str();
-				Time = x.Get("ﾀｲﾑ変換").Single();
-				Weight = x.Get("体重").Single();
-				WeightChange = x.Get("増減").Single();
-				PrizeMoney = x.Get("賞金").Single();
-				PurchasePrice = x.Get("評価額").Single();
-				BirthDate = x.Get("生年月日").Date();
-				JockeyWeight = x.Get("斤量").Single();
-				// 通過順＝0:前方～1:後方
-				Tuka = x.Get("通過").Str()
-					// ﾊｲﾌﾝ区切り
-					.Run(y => y.Split('-'))
-					.Run(y => y.Length switch
-					{
-						// ﾃﾞｰﾀがない＝出走頭数の半分
-						0 => (Race.NumberOfHorses / 2).Str(),
-						// 短距離＝最後のﾊﾛﾝ
-						1 or 2 => y.Last(),
-						// その他＝1つ手前のﾊﾛﾝ
-						_ => y[y.Length - 2]
-					})
-					.Run(y => (object)y)
-					.Single() / (float)Race.NumberOfHorses;
-				Tuka = Math.Min(Tuka, 1.0F);
-				LastThreeFurlongs = GetLastThreeFurlongs(x.Get("上り").Single());
-				Gender = x.Get("馬性").Str();
-				Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
-				TimeIndex = x.Get("ﾀｲﾑ指数").Single().MinMax(40F, 135F);
-			}
-			catch (Exception ex)
-			{
-				MessageService.Debug(ex.ToString());
-				throw;
-			}
+			Race = race;
+			Oikiri = oikiri;
+			Wakuban = wakuban;
+			Umaban = umaban;
+			Horse = horse;
+			Jockey = jockey;
+			Trainer = trainer;
+			Sire = sire;
+			DamSire = damSire;
+			Breeder = breeder;
+			FinishPosition = (uint)finishPosition;
+			Time = time;
+			PrizeMoney = prizeMoney;
+			PurchasePrice = purchasePrice;
+			BirthDate = birthDate;
+			JockeyWeight = jockeyWeight;
+			// 通過順＝0:前方～1:後方
+			Tuka = tuka
+				.Run(y => y.Split('-'))
+				.Run(y => y.Length switch
+				{
+					0 => (Race.NumberOfHorses / 2).Str(),
+					1 or 2 => y.Last(),
+					_ => y[y.Length - 2]
+				})
+				.Run(y => (object)y)
+				.Single() / (float)Race.NumberOfHorses;
+			Tuka = Math.Min(Tuka, 1.0F);
+			LastThreeFurlongs = GetLastThreeFurlongs(agari);
+			Gender = gender;
+			Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
+			TimeIndex = timeIndex.MinMax(40F, 135F);
+			FinishDiff = finishDiff;
+			Weight = weight;
+			WeightChange = weightChange;
+			Odds = odds;
 		}
+
+		public RaceDetail(DbDataReader r, Race race, int offset = 10) : this(
+			race, new Oikiri(r, offset: 32),
+			r.GetValue(offset + 0).Int32(),       // 枠番
+			r.GetValue(offset + 1).Int32(),        // 馬番
+			r.GetValue(offset + 2).Str(),          // 馬ID
+			r.GetValue(offset + 3).Str(),          // 騎手ID
+			r.GetValue(offset + 4).Str(),          // 調教師ID
+			r.GetValue(offset + 5).Str(),          // 父ID
+			r.GetValue(offset + 6).Str(),          // 母父ID
+			r.GetValue(offset + 7).Str(),          // 生産者ID
+			r.GetValue(offset + 8).Int32(),        // 着順
+			r.GetValue(offset + 9).Single(),       // ﾀｲﾑ変換
+			r.GetValue(offset + 10).Single(),      // 賞金
+			r.GetValue(offset + 11).Single(),      // 評価額
+			r.GetValue(offset + 12).Date(),        // 生年月日
+			r.GetValue(offset + 13).Single(),      // 斤量
+			r.GetValue(offset + 14).Str(),         // 通過
+			r.GetValue(offset + 15).Single(),      // 上り
+			r.GetValue(offset + 16).Str(),         // 馬性
+			r.GetValue(offset + 17).Single(),      // ﾀｲﾑ指数
+			r.GetValue(offset + 18).Str(),         // 着差
+			r.GetValue(offset + 19).Single(),      // 体重
+			r.GetValue(offset + 20).Single(),      // 増減
+			r.GetValue(offset + 21).Single()       // 単勝
+		)
+		{ }
+
+		public RaceDetail(Dictionary<string, object> x, Race race) : this(
+			race, new Oikiri(x),
+			x.Get("枠番").Int32(),
+			x.Get("馬番").Int32(),
+			x.Get("馬ID").Str(),
+			x.Get("騎手ID").Str(),
+			x.Get("調教師ID").Str(),
+			x.Get("父ID").Str(),
+			x.Get("母父ID").Str(),
+			x.Get("生産者ID").Str(),
+			x.Get("着順").Int32(),
+			x.Get("ﾀｲﾑ変換").Single(),
+			x.Get("賞金").Single(),
+			x.Get("評価額").Single(),
+			x.Get("生年月日").Date(),
+			x.Get("斤量").Single(),
+			x.Get("通過").Str(),
+			x.Get("上り").Single(),
+			x.Get("馬性").Str(),
+			x.Get("ﾀｲﾑ指数").Single(),
+			x.Get("着差").Str(),
+			x.Get("体重").Single(),
+			x.Get("増減").Single(),
+			x.Get("単勝").Single()
+		)
+		{ }
 
 		// 当日取得できる情報
 		public Race Race { get; }
@@ -79,8 +126,9 @@ namespace Netkeiba.Models
 		public DateTime BirthDate { get; }
 		public float Age { get; }
 		public float Weight { get; private set; }
-		public float WeightChange { get; private set; }
+		public float WeightChange { get; }
 		public float JockeyWeight { get; }
+		public float Odds { get; }
 		public string Gender { get; set; }
 
 		// これまでの実績に紐づく情報

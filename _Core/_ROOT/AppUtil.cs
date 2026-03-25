@@ -20,6 +20,9 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
+		/// <summary>多重起動抑止ﾛｯｸ</summary>
+		private static Locker _lock = new Locker(_pararell);
+
 		public static string Sqlitepath { get; } = Path.Combine(Path.Combine(PathSetting.Instance.RootDirectory, @"database"), "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
@@ -101,7 +104,7 @@ namespace Netkeiba
 
 			if (context == null) throw new ApplicationException("");
 
-			using (await Locker.LockAsync(_guid, _pararell))
+			using (await _lock.LockAsync())
 			{
 				await Task.Delay(1250);
 

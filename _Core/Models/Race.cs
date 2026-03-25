@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,32 +10,52 @@ namespace Netkeiba.Models
 {
 	public class Race
 	{
-		public Race(Dictionary<string, object> x)
+		private Race(string raceId, string courseName, string place, int distance, string track, string trackCondition, string grade, long firstPrizeMoney, DateTime raceDate, int numberOfHorses)
 		{
-			try
-			{
-				RaceId = x.Get("ﾚｰｽID").Str();
-				CourseName = x.Get("ﾚｰｽ名").Str();
-				Place = x.Get("開催場所").Str();
-				Distance = x.Get("距離").Int32();
-				DistanceCategory = Distance.ToDistanceCategory();
-				Track = x.Get("馬場").Str();
-				TrackType = Track.ToTrackType();
-				TrackCondition = x.Get("馬場状態").Str();
-				TrackConditionType = TrackCondition.ToTrackConditionType();
-				Grade = x.Get("ﾗﾝｸ1").Str().ToGrade();
-				FirstPrizeMoney = x.Get("優勝賞金").Int64();
-				NumberOfHorses = x.Get("頭数").Int32();
-				RaceDate = x.Get("開催日").Date();
-				IsInternational = Grade.IsG1() && FirstPrizeMoney > 200000000;
-				IsAgedHorseRace = Grade.IsCLASSIC() == false;
-			}
-			catch (Exception ex)
-			{
-				MessageService.Debug(ex.ToString());
-				throw;
-			}
+			RaceId = raceId;
+			CourseName = courseName;
+			Place = place;
+			Distance = distance;
+			DistanceCategory = Distance.ToDistanceCategory();
+			Track = track;
+			TrackType = Track.ToTrackType();
+			TrackCondition = trackCondition;
+			TrackConditionType = TrackCondition.ToTrackConditionType();
+			Grade = grade.ToGrade();
+			FirstPrizeMoney = firstPrizeMoney;
+			RaceDate = raceDate;
+			NumberOfHorses = numberOfHorses;
+			IsInternational = Grade.IsG1() && FirstPrizeMoney > 200000000;
+			IsAgedHorseRace = Grade.IsCLASSIC() == false;
 		}
+
+		public Race(DbDataReader r, int offset = 0) : this(
+			r.GetValue(offset + 0).Str(),       // ﾚｰｽID
+			r.GetValue(offset + 1).Str(),       // ﾚｰｽ名
+			r.GetValue(offset + 2).Str(),       // 開催場所
+			r.GetValue(offset + 3).Int32(),     // 距離
+			r.GetValue(offset + 4).Str(),       // 馬場
+			r.GetValue(offset + 5).Str(),       // 馬場状態
+			r.GetValue(offset + 6).Str(),       // ﾗﾝｸ1
+			r.GetValue(offset + 7).Int64(),     // 優勝賞金
+			r.GetValue(offset + 8).Date(),      // 開催日
+			r.GetValue(offset + 9).Int32()      // 頭数
+		)
+		{ }
+
+		public Race(Dictionary<string, object> x) : this(
+			x.Get("ﾚｰｽID").Str(),
+			x.Get("ﾚｰｽ名").Str(),
+			x.Get("開催場所").Str(),
+			x.Get("距離").Int32(),
+			x.Get("馬場").Str(),
+			x.Get("馬場状態").Str(),
+			x.Get("ﾗﾝｸ1").Str(),
+			x.Get("優勝賞金").Int64(),
+			x.Get("開催日").Date(),
+			x.Get("頭数").Int32()
+		)
+		{ }
 
 		public string RaceId { get; }
 		public string CourseName { get; }

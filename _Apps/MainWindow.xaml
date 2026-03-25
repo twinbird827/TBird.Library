@@ -234,6 +234,15 @@
 										DisplayMemberBinding="{Binding Name}" />
 						<GridViewColumn Header="着順"
 										DisplayMemberBinding="{Binding Result}" />
+						<GridViewColumn Header="単勝"
+										DisplayMemberBinding="{Binding Odds, StringFormat={}{0:F1}}" />
+						<GridViewColumn Header="EV">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding EV}" ContentTemplate="{StaticResource S4EVCellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
 						<GridViewColumn Header="Vars1">
 							<GridViewColumn.CellTemplate>
 								<DataTemplate>

@@ -117,29 +117,33 @@ namespace Netkeiba
 
 						return new STEP4ResultItem(x, name.Str());
 					}).WhenAll();
+
+					// EV列のRank計算
+					arr.OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
+
 					SetResult(header, arr);
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の処理が完了しました。");
 
-					using (var vm = new ReportItemViewModel(header, arr))
-					{
-						await vm.PrintAsync();
-					}
+					//using (var vm = new ReportItemViewModel(header, arr))
+					//{
+					//	await vm.PrintAsync();
+					//}
 
-					var groups = inraces
-	.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
-		.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
-	).ToArray();
+					//var groups = inraces
+					//	.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
+					//		.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
+					//	).ToArray();
 
-					var groupsstr = groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(",")).GetString("\r\n");
+					//var groupsstr = groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(",")).GetString("\r\n");
 
-					File.WriteAllText(
-						Path.Combine(Directories.DocumentsDirectory, $"{header}_{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv"),
-						Arr(
-							Arr(groups.First().Select(x => x.ParameterName).GetString(",")),
-							groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(","))
-						).SelectMany(x => x).GetString("\r\n")
-					);
+					//File.WriteAllText(
+					//	Path.Combine(Directories.DocumentsDirectory, $"{header}_{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv"),
+					//	Arr(
+					//		Arr(groups.First().Select(x => x.ParameterName).GetString(",")),
+					//		groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(","))
+					//	).SelectMany(x => x).GetString("\r\n")
+					//);
 				}
 
 				if (getShutsuba)

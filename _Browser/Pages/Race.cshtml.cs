@@ -69,13 +69,15 @@ namespace Browser.Pages
 				MessageService.Debug($"レースID：{raceid} の出馬表データをデータベースから取得します。");
 				await foreach (var race in conn.GetShutsubaRaceAsync(raceid))
 				{
+					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
+
 					// 今レースの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
 
 					MessageService.Debug($"レースID：{raceid} の出馬表データがデータベースから取得できました。");
 
 					// 過去データ設定
-					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, PreviousDataSets.GetTrackConditionDistances(x)));
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
 
 					MessageService.Debug($"レースID：{raceid} の関連情報を取得しました。");
 
@@ -120,24 +122,30 @@ namespace Browser.Pages
 					{
 						var name = await conn.ExecuteScalarAsync($"SELECT 馬名 FROM t_uma WHERE 馬ID = ?", TBird.DB.SQLite.SQLiteUtil.CreateParameter(System.Data.DbType.String, x.Detail.Horse));
 
+						var probs = new[] { x.Vars1.WinProb, x.Vars2.WinProb, x.TotalMedium.WinProb, x.TotalSmall.WinProb, x.Total.WinProb, x.Horse.WinProb };
+						Array.Sort(probs);
+						var medianProb = (probs[2] + probs[3]) / 2f;
+
 						return new RaceResultItem
 						{
 							Wakuban = x.Detail.Wakuban,
 							Umaban = x.Detail.Umaban,
 							Name = name.Str(),
 							Result = x.Result.Str(),
-							TotalScore = x.Total.Score,
+							TotalWinProb = x.Total.WinProb,
 							TotalRank = x.Total.Rank,
-							HorseScore = x.Horse.Score,
+							HorseWinProb = x.Horse.WinProb,
 							HorseRank = x.Horse.Rank,
-							TotalMediumScore = x.TotalMedium.Score,
+							TotalMediumWinProb = x.TotalMedium.WinProb,
 							TotalMediumRank = x.TotalMedium.Rank,
-							TotalSmallScore = x.TotalSmall.Score,
+							TotalSmallWinProb = x.TotalSmall.WinProb,
 							TotalSmallRank = x.TotalSmall.Rank,
-							Vars2Score = x.Vars2.Score,
+							Vars2WinProb = x.Vars2.WinProb,
 							Vars2Rank = x.Vars2.Rank,
-							Vars1Score = x.Vars1.Score,
-							Vars1Rank = x.Vars1.Rank
+							Vars1WinProb = x.Vars1.WinProb,
+							Vars1Rank = x.Vars1.Rank,
+							Odds = x.Detail.Odds,
+							EV = medianProb * x.Detail.Odds
 						};
 					}).WhenAll();
 
@@ -182,17 +190,19 @@ namespace Browser.Pages
 		public int Umaban { get; set; }
 		public string Name { get; set; } = string.Empty;
 		public string Result { get; set; } = string.Empty;
-		public float TotalScore { get; set; }
+		public float TotalWinProb { get; set; }
 		public int TotalRank { get; set; }
-		public float HorseScore { get; set; }
+		public float HorseWinProb { get; set; }
 		public int HorseRank { get; set; }
-		public float TotalMediumScore { get; set; }
+		public float TotalMediumWinProb { get; set; }
 		public int TotalMediumRank { get; set; }
-		public float TotalSmallScore { get; set; }
+		public float TotalSmallWinProb { get; set; }
 		public int TotalSmallRank { get; set; }
-		public float Vars2Score { get; set; }
+		public float Vars2WinProb { get; set; }
 		public int Vars2Rank { get; set; }
-		public float Vars1Score { get; set; }
+		public float Vars1WinProb { get; set; }
 		public int Vars1Rank { get; set; }
+		public float Odds { get; set; }
+		public float EV { get; set; }
 	}
 }

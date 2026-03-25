@@ -43,11 +43,13 @@
         .result-table tr:hover {
             background-color: #ddd;
         }
-        .rank-1 { background-color: #FFD700 !important; }
-        .rank-2 { background-color: #C0C0C0 !important; }
-        .rank-3 { background-color: #CD7F32 !important; }
-        .rank-4 { background-color: #E6E6FA !important; }
-        .rank-5 { background-color: #FFF0F5 !important; }
+        .rank-1 { background-color: Red; color: white; font-weight: bold; }
+        .rank-2 { background-color: Blue; color: white; font-weight: bold; }
+        .rank-3 { background-color: Green; color: white; font-weight: bold; }
+        .rank-4 { background-color: MediumPurple; color: white; font-weight: bold; }
+        .rank-5 { background-color: Aqua; color: white; font-weight: bold; }
+        .rank-6 { background-color: Yellow; font-weight: bold; }
+        .rank-7 { background-color: LightYellow; font-weight: bold; }
         .error {
             color: red;
             padding: 20px;
@@ -92,26 +94,14 @@
                     <th rowspan="2">馬番</th>
                     <th rowspan="2">馬名</th>
                     <th rowspan="2">結果</th>
-                    <th colspan="2">Total</th>
-                    <th colspan="2">Horse</th>
-                    <th colspan="2">Medium</th>
-                    <th colspan="2">Small</th>
-                    <th colspan="2">Vars2</th>
-                    <th colspan="2">Vars1</th>
-                </tr>
-                <tr>
-                    <th>スコア</th>
-                    <th>順位</th>
-                    <th>スコア</th>
-                    <th>順位</th>
-                    <th>スコア</th>
-                    <th>順位</th>
-                    <th>スコア</th>
-                    <th>順位</th>
-                    <th>スコア</th>
-                    <th>順位</th>
-                    <th>スコア</th>
-                    <th>順位</th>
+                    <th rowspan="2">単勝</th>
+                    <th>Vars1</th>
+                    <th>Vars2</th>
+                    <th>Medium</th>
+                    <th>Small</th>
+                    <th>Total</th>
+                    <th>Horse</th>
+                    <th>EV</th>
                 </tr>
             </thead>
             <tbody>
@@ -122,18 +112,14 @@
                         <td>@item.Umaban</td>
                         <td style="text-align: left;">@item.Name</td>
                         <td>@item.Result</td>
-                        <td>@item.TotalScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.TotalRank)">@item.TotalRank</td>
-                        <td>@item.HorseScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.HorseRank)">@item.HorseRank</td>
-                        <td>@item.TotalMediumScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.TotalMediumRank)">@item.TotalMediumRank</td>
-                        <td>@item.TotalSmallScore.ToString("F4")</td>
-                        <td class="@GetRankClass(item.TotalSmallRank)">@item.TotalSmallRank</td>
-                        <td>@item.Vars2Score.ToString("F4")</td>
-                        <td class="@GetRankClass(item.Vars2Rank)">@item.Vars2Rank</td>
-                        <td>@item.Vars1Score.ToString("F4")</td>
-                        <td class="@GetRankClass(item.Vars1Rank)">@item.Vars1Rank</td>
+                        <td>@item.Odds.ToString("F1")</td>
+                        <td class="@GetRankClass(item.Vars1Rank)">@((item.Vars1WinProb * 100).ToString("F1"))%</td>
+                        <td class="@GetRankClass(item.Vars2Rank)">@((item.Vars2WinProb * 100).ToString("F1"))%</td>
+                        <td class="@GetRankClass(item.TotalMediumRank)">@((item.TotalMediumWinProb * 100).ToString("F1"))%</td>
+                        <td class="@GetRankClass(item.TotalSmallRank)">@((item.TotalSmallWinProb * 100).ToString("F1"))%</td>
+                        <td class="@GetRankClass(item.TotalRank)">@((item.TotalWinProb * 100).ToString("F1"))%</td>
+                        <td class="@GetRankClass(item.HorseRank)">@((item.HorseWinProb * 100).ToString("F1"))%</td>
+                        <td class="@GetRankClass(GetEVRank(item, Model.Results))">@item.EV.ToString("F2")</td>
                     </tr>
                 }
             </tbody>
@@ -156,7 +142,14 @@
             3 => "rank-3",
             4 => "rank-4",
             5 => "rank-5",
+            6 => "rank-6",
+            7 => "rank-7",
             _ => ""
         };
+    }
+
+    int GetEVRank(Browser.Pages.RaceResultItem item, IEnumerable<Browser.Pages.RaceResultItem> results)
+    {
+        return results.OrderByDescending(x => x.EV).Select((x, i) => new { x, Rank = i + 1 }).First(x => x.x == item).Rank;
     }
 }

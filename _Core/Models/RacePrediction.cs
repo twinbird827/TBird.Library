@@ -90,6 +90,13 @@ namespace Netkeiba.Models
 			results.CalculateRank(x => x.Vars2);
 			results.CalculateRank(x => x.Vars1);
 
+			results.CalculateWinProb(x => x.Total, _key[0].Temperature);
+			results.CalculateWinProb(x => x.Horse, _key[1].Temperature);
+			results.CalculateWinProb(x => x.TotalMedium, _key[3].Temperature);
+			results.CalculateWinProb(x => x.TotalSmall, _key[4].Temperature);
+			results.CalculateWinProb(x => x.Vars2, _key[0].Temperature); // アンサンブルはTotal基準
+			results.CalculateWinProb(x => x.Vars1, _key[0].Temperature); // アンサンブルはTotal基準
+
 			return results.OrderBy(x => x.Detail.Umaban);
 		}
 
@@ -116,6 +123,8 @@ namespace Netkeiba.Models
 		public float Score { get; set; }
 
 		public int Rank { get; set; }
+
+		public float WinProb { get; set; }
 	}
 
 	public static class RaceScoreExtension
@@ -125,6 +134,15 @@ namespace Netkeiba.Models
 			results.OrderByDescending(x => func(x).Score).ForEach((x, i) =>
 				func(x).Rank = i + 1
 			);
+		}
+
+		public static void CalculateWinProb(this RacePrediction[] results, Func<RacePrediction, RaceScore> func, double temperature)
+		{
+			var t = (float)temperature;
+			var maxScore = results.Max(x => func(x).Score);
+			var exps = results.Select(x => MathF.Exp((func(x).Score - maxScore) / t)).ToArray();
+			var sumExp = exps.Sum();
+			results.ForEach((x, i) => func(x).WinProb = exps[i] / sumExp);
 		}
 	}
 }

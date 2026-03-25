@@ -18,9 +18,10 @@ namespace Netkeiba.Models
 			NDCG1 = 0;
 			NDCG3 = 0;
 			NDCG5 = 0;
+			Temperature = 1.0;
 		}
 
-		public RankingTrain(DateTime date, string grade, double ndcg1, double ndcg3, double ndcg5)
+		public RankingTrain(DateTime date, string grade, double ndcg1, double ndcg3, double ndcg5, double temperature = 1.0)
 		{
 			Date = date;
 			Path = $@"model\Ranking_{grade}_{date.ToString("yyyyMMdd-HHmmss")}.model";
@@ -28,6 +29,7 @@ namespace Netkeiba.Models
 			NDCG1 = ndcg1;
 			NDCG3 = ndcg3;
 			NDCG5 = ndcg5;
+			Temperature = temperature;
 		}
 
 		public DateTime Date { get; set; }
@@ -41,5 +43,7 @@ namespace Netkeiba.Models
 		public double NDCG3 { get; set; }
 
 		public double NDCG5 { get; set; }
+
+		public double Temperature { get; set; }
 	}
 }

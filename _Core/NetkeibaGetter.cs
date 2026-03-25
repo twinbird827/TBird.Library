@@ -7,12 +7,37 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
+using TBird.Web;
 
 namespace Netkeiba
 {
 	public static class NetkeibaGetter
 	{
 		private static string[] Arr(params string[] arr) => arr;
+
+		public static async Task<Dictionary<string, string>> GetOdds(string raceid)
+		{
+			var dic = new Dictionary<string, string>();
+			try
+			{
+				var str = await WebUtil.GetStringAsync($"https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={raceid}&type=1");
+				if (string.IsNullOrEmpty(str)) return dic;
+
+				using var doc = System.Text.Json.JsonDocument.Parse(str);
+				var odds = doc.RootElement.GetProperty("data").GetProperty("odds").GetProperty("1");
+				foreach (var prop in odds.EnumerateObject())
+				{
+					// 値は配列 ["6.6", "", "1"] の先頭がオッズ
+					var value = prop.Value[0].GetString() ?? "0";
+					dic[prop.Name] = value;
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageService.Debug($"オッズ取得エラー: {ex.Message}");
+			}
+			return dic;
+		}
 
 		public static async Task<List<Dictionary<string, string>>> GetRaceResults(string raceid)
 		{
@@ -238,6 +263,7 @@ namespace Netkeiba
 		public static async Task<List<Dictionary<string, string>>> GetRaceShutubas(string raceid)
 		{
 			var arr = new List<Dictionary<string, string>>();
+			var odds = await GetOdds(raceid);
 
 			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
 
@@ -347,8 +373,8 @@ namespace Netkeiba
 					dic["通過"] = "0";
 					// 上り(なし)
 					dic["上り"] = "0";
-					// 単勝(スクレイピングじゃ取れないらしい)
-					dic["単勝"] = "0";
+					// 単勝(APIから取得)
+					dic["単勝"] = odds.GetValueOrDefault(dic["馬番"].Int32().ToString("D2"), "0");
 					// 人気(スクレイピングじゃ取れないらしい)
 					dic["人気"] = "0";
 					// 体重

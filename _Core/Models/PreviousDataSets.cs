@@ -257,23 +257,45 @@ namespace Netkeiba.Models
 		private async Task InitializeHistory(SQLiteControl conn, DateTime date)
 		{
 			var prevdate = date.AddYears(-7);
+			var swDb = new Stopwatch();
+			var swSetHist = new Stopwatch();
+			var swAddHist = new Stopwatch();
+			var swElo = new Stopwatch();
+			int raceCount = 0;
+
+			swDb.Start();
 			await foreach (var (race, details) in conn.GetRaceDetailsGroupedAsync(date))
 			{
+				swDb.Stop();
+				raceCount++;
+
 				if (race.RaceDate > prevdate)
 				{
 					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
 					// 過去ﾃﾞｰﾀ設定
+					swSetHist.Start();
 					details.ForEach(detail => detail.SetHistoricalData(GetHorses(detail), details, tcd));
+					swSetHist.Stop();
 
 					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
 
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
+					swAddHist.Start();
 					details.ForEach(AddHistory);
+					swAddHist.Stop();
 				}
+
+				swElo.Start();
 				UpdateElo(details);
+				swElo.Stop();
+
+				swDb.Start();
 			}
+			swDb.Stop();
+
+			MessageService.Debug($"[InitializeHistory] Races={raceCount} DB={swDb.ElapsedMilliseconds}ms SetHist={swSetHist.ElapsedMilliseconds}ms AddHist={swAddHist.ElapsedMilliseconds}ms Elo={swElo.ElapsedMilliseconds}ms");
 		}
 
 		private void Clear()

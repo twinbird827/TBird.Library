@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -10,32 +11,34 @@ namespace Netkeiba.Models
 {
 	public class Oikiri
 	{
-		public Oikiri(Dictionary<string, object> x, RaceDetail detail)
+		private Oikiri(string course, string track, string rider,
+			float time1, float time2, float time3, float time4, float time5,
+			string timeRating1, string timeRating2, string timeRating3, string timeRating4, string timeRating5,
+			string adaptation, string comment, string rating)
 		{
-			Detail = detail;
-			Course = x["コース"].Str();
-			Track = x["馬場"].Str();
-			Rider = x["乗り役"].Str().Run(x => x == "助手" ? 0F : 1F);
-			Time1 = x["時間1"].Single();
-			Time2 = x["時間2"].Single();
-			Time3 = x["時間3"].Single();
-			Time4 = x["時間4"].Single();
-			Time5 = x["時間5"].Single();
+			Course = course;
+			Track = track;
+			Rider = rider.Run(x => x == "助手" ? 0F : 1F);
+			Time1 = time1;
+			Time2 = time2;
+			Time3 = time3;
+			Time4 = time4;
+			Time5 = time5;
 
-			float GetTimeRating(string s) => x[s].Str().Run(x => x switch
+			static float ToTimeRating(string s) => s switch
 			{
 				"TokeiColor01" => 1.0F,
 				"TokeiColor02" => 0.5F,
 				_ => 0.0F
-			});
+			};
 
-			TimeRating1 = GetTimeRating("時間評価1");
-			TimeRating2 = GetTimeRating("時間評価2");
-			TimeRating3 = GetTimeRating("時間評価3");
-			TimeRating4 = GetTimeRating("時間評価4");
-			TimeRating5 = GetTimeRating("時間評価5");
+			TimeRating1 = ToTimeRating(timeRating1);
+			TimeRating2 = ToTimeRating(timeRating2);
+			TimeRating3 = ToTimeRating(timeRating3);
+			TimeRating4 = ToTimeRating(timeRating4);
+			TimeRating5 = ToTimeRating(timeRating5);
 
-			Adaptation = x["脚色"].Str().Run(x => x switch
+			Adaptation = adaptation switch
 			{
 				"一杯" => 1.00F,
 				"Ｇ強" => 0.80F,
@@ -43,20 +46,59 @@ namespace Netkeiba.Models
 				"馬也" => 0.40F,
 				"攻手" => 0.20F,
 				_ => 0.00F
-			});
+			};
 
-			Comment = x["一言"].Str();
-			Rating = x["評価"].Str().Run(x => x switch
+			Comment = comment;
+			Rating = rating switch
 			{
 				"A" => 1.00F,
 				"B" => 0.65F,
 				"C" => 0.40F,
 				"D" => 0.00F,
 				_ => 0.30F
-			});
+			};
 		}
 
-		public RaceDetail Detail { get; }
+		public Oikiri(DbDataReader r, int hTrackIndex = 4, int offset = 31) : this(
+			r.GetValue(offset + 0).Str(),       // コース
+			r.GetValue(hTrackIndex).Str(),       // 馬場 (h.馬場互換)
+			r.GetValue(offset + 2).Str(),        // 乗り役
+			r.GetValue(offset + 3).Single(),     // 時間1
+			r.GetValue(offset + 4).Single(),     // 時間2
+			r.GetValue(offset + 5).Single(),     // 時間3
+			r.GetValue(offset + 6).Single(),     // 時間4
+			r.GetValue(offset + 7).Single(),     // 時間5
+			r.GetValue(offset + 8).Str(),        // 時間評価1
+			r.GetValue(offset + 9).Str(),        // 時間評価2
+			r.GetValue(offset + 10).Str(),       // 時間評価3
+			r.GetValue(offset + 11).Str(),       // 時間評価4
+			r.GetValue(offset + 12).Str(),       // 時間評価5
+			r.GetValue(offset + 13).Str(),       // 脚色
+			r.GetValue(offset + 14).Str(),       // 一言
+			r.GetValue(offset + 15).Str()        // 評価
+		)
+		{ }
+
+		public Oikiri(Dictionary<string, object> x) : this(
+			x["コース"].Str(),
+			x["馬場"].Str(),
+			x["乗り役"].Str(),
+			x["時間1"].Single(),
+			x["時間2"].Single(),
+			x["時間3"].Single(),
+			x["時間4"].Single(),
+			x["時間5"].Single(),
+			x["時間評価1"].Str(),
+			x["時間評価2"].Str(),
+			x["時間評価3"].Str(),
+			x["時間評価4"].Str(),
+			x["時間評価5"].Str(),
+			x["脚色"].Str(),
+			x["一言"].Str(),
+			x["評価"].Str()
+		)
+		{ }
+
 		public string Course { get; set; }
 		public string Track { get; set; }
 		public float Rider { get; set; }

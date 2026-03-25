@@ -24,8 +24,6 @@ namespace Netkeiba
 		// ログ出力の並列数を制限するためのSemaphore（最大4並列）
 		private static readonly SemaphoreSlim LogSemaphore = new(10, 10);
 
-		private static readonly SemaphoreSlim LogSemaphore2 = new(1, 1);
-
 		// アンサンブル評価用：各ウィンドウの訓練済みモデルとNDCG1を保持
 		private readonly ConcurrentDictionary<string, (ITransformer model, double ndcg1)> _ensembleModels = new();
 
@@ -412,12 +410,15 @@ namespace Netkeiba
 							message2.Add($"特徴量重要度の取得に失敗: {ex.Message}");
 						}
 
+						var calibration = GetCalibration(featuresPredictions);
+
 						var result = new RankingTrain(
 							DateTime.Now,
 							grade,
 							ndcg.NDCG1,
 							ndcg.NDCG3,
-							ndcg.NDCG5
+							ndcg.NDCG5,
+							calibration.BestTemperature
 						);
 						AppSetting.Instance.UpdateRankingTrains(result);
 
@@ -427,7 +428,7 @@ namespace Netkeiba
 						message2.Add($"モデルを保存しました: {result.Path}");
 					}
 
-					using (await Locker.LockAsync(Lock))
+					using (await LockAsync())
 					{
 						message2.ForEach(s => WpfUtil.ExecuteOnUI(() => MessageService.Debug(s)));
 					}
@@ -674,6 +675,56 @@ namespace Netkeiba
 				RATE3 = x.RATE3 / x.Count,
 				RATE5 = x.RATE5 / x.Count,
 			}).OrderBy(x => x.Target).ToArray();
+		}
+
+		private (double BestTemperature, double BestBrier) GetCalibration(FeaturesPrediction[] tests)
+		{
+			var temperatures = new[] { 0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f };
+			var raceGroups = tests.GroupBy(x => x.RaceId).Where(g => g.Count() >= 3).ToArray();
+
+			if (raceGroups.Length == 0) return (1.0, 1.0);
+
+			var bestT = 1.0;
+			var bestBrier = double.MaxValue;
+			var logLines = new List<string>();
+
+			foreach (var t in temperatures)
+			{
+				double brierSum = 0;
+				int count = 0;
+
+				foreach (var race in raceGroups)
+				{
+					var horses = race.ToArray();
+
+					// softmax: P(i) = exp(Score_i / T) / Σ exp(Score_j / T)
+					var maxScore = horses.Max(h => h.Score);
+					var exps = horses.Select(h => Math.Exp((h.Score - maxScore) / t)).ToArray();
+					var sumExp = exps.Sum();
+					var probs = exps.Select(e => e / sumExp).ToArray();
+
+					for (int i = 0; i < horses.Length; i++)
+					{
+						var actual = horses[i].ActualRank == 1 ? 1.0 : 0.0;
+						brierSum += Math.Pow(probs[i] - actual, 2);
+						count++;
+					}
+				}
+
+				var brier = brierSum / count;
+				logLines.Add($"T={t:F2}\tBrier={brier:F6}");
+
+				if (brier < bestBrier)
+				{
+					bestBrier = brier;
+					bestT = t;
+				}
+			}
+
+			logLines.Insert(0, $"[Calibration] Best T={bestT:F2}, Brier={bestBrier:F6}, Races={raceGroups.Length}");
+			logLines.ForEach(s => MessageService.Debug(s));
+
+			return (bestT, bestBrier);
 		}
 
 		//private AggregateNDCG GetNDCG(OptimizedHorseFeatures[] test, float[] allScores)
