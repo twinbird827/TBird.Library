@@ -1,3 +1,4 @@
+﻿@ -0,0 + 1,239 @@
 ﻿using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
@@ -20,9 +21,6 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		/// <summary>多重起動抑止ﾛｯｸ</summary>
-		private static Locker _lock = new Locker(_pararell);
-
 		public static string Sqlitepath { get; } = Path.Combine(Path.Combine(PathSetting.Instance.RootDirectory, @"database"), "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
@@ -113,7 +111,6 @@ namespace Netkeiba
 
 				return await context.OpenAsync(url).RunAsync(x => ((x.DocumentElement as IHtmlDocument) ?? x as IHtmlDocument).NotNull());
 			}
-
 			//var selenium = await TBirdSeleniumFactory.CreateSelenium(1);
 
 			//if (login)
@@ -153,8 +150,10 @@ namespace Netkeiba
 			//}).RunAsync(async x => await x);
 		}
 
-		private static string _guid = Guid.NewGuid().ToString();
 		private static int _pararell = 1;
+
+		/// <summary>多重起動抑止ﾛｯｸ</summary>
+		private static Locker _lock = new Locker(_pararell);
 
 		private static IBrowsingContext? _logincontext;
 		private static DateTime _loginsession = DateTime.Now.AddDays(-1);
