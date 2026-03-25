@@ -1,153 +1,146 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TBird.Core
 {
-	public static class Locker
+	public class Locker : IDisposable
 	{
-		/// <summary>
-		/// 内部用ｾﾏﾌｫﾏﾈｰｼﾞｬ
-		/// </summary>
-		private static Dictionary<string, Manager> _manages { get; set; } = new Dictionary<string, Manager>();
-
-		/// <summary>
-		/// 内部用ﾛｯｸｲﾝｽﾀﾝｽ
-		/// </summary>
-		private static Manager _lock { get; } = new Manager(1);
-
-		private static void AddManager(string key, int pararell)
+		public Locker(int pararell = 1, bool sync = false)
 		{
-			if (_manages.ContainsKey(key)) return;
+			_pararell = pararell;
+			_sync = sync;
+		}
 
+		private bool _sync;
+
+		private int _pararell;
+
+		public int WaitingCount
+		{
+			get => _WaitingCount;
+		}
+		private int _WaitingCount;
+
+		public async Task<IDisposable> LockAsync()
+		{
+			// 破棄時の対応
+			if (disposedValue) throw new ObjectDisposedException(nameof(Locker));
+			// ｾﾏﾌｫ取得
+			var slim = GetSlim();
+			// 待機開始
+			Interlocked.Increment(ref _WaitingCount);
+			// ﾛｯｸ取得
+			await slim.WaitAsync().ConfigureAwait(false);
+			// 待機終了
+			Interlocked.Decrement(ref _WaitingCount);
+			// ﾛｯｸ開放(処理終了後)
+			return slim.Disposer(x => x.Release());
+		}
+
+		private SemaphoreSlim GetSlim()
+		{
+			return LockSync(() => _slim ??= new SemaphoreSlim(_pararell, _pararell));
+		}
+
+		private SemaphoreSlim? _slim;
+
+		public void LockSync(Action action)
+		{
 			using (_lock.Lock())
 			{
-				if (_manages.ContainsKey(key)) return;
-
-				_manages.Add(key, new Manager(pararell));
+				action();
 			}
 		}
 
-		private static async Task AddManagerAsync(string key, int pararell)
+		public T LockSync<T>(Func<T> func)
 		{
-			if (_manages.ContainsKey(key)) return;
-
-			using (await _lock.LockAsync())
-			{
-				if (_manages.ContainsKey(key)) return;
-
-				_manages.Add(key, new Manager(pararell));
-			}
-		}
-
-		public static string GetNewLockKey()
-		{
-			return Guid.NewGuid().ToString();
-		}
-
-		public static string GetNewLockKey(object x)
-		{
-			return GetNewLockKey(x.GetType());
-		}
-
-		public static string GetNewLockKey(Type x)
-		{
-			return $"[{x.FullName}] {GetNewLockKey()}";
-		}
-
-		/// <summary>
-		/// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
-		/// </summary>
-		/// <returns></returns>
-		public static async Task<IDisposable> LockAsync(string key, int pararell = 1)
-		{
-			await AddManagerAsync(key, pararell);
-			return await _manages[key].LockAsync();
-		}
-
-		/// <summary>
-		/// 処理を待機し、Disposeすることで処理を開放できるｲﾝｽﾀﾝｽを取得します。
-		/// </summary>
-		/// <returns></returns>
-		public static IDisposable Lock(string key, int pararell = 1)
-		{
-			AddManager(key, pararell);
-			return _manages[key].Lock();
-		}
-
-		/// <summary>
-		/// 処理が解放されるまで非同期で待機します。
-		/// </summary>
-		/// <returns></returns>
-		public static void Dispose(string key)
-		{
-			if (key == null) return;
-
-			if (!_manages.ContainsKey(key)) return;
-
 			using (_lock.Lock())
 			{
-				if (!_manages.ContainsKey(key)) return;
-
-				using (_manages[key].Lock()) { }
-
-				_manages[key]._slim.Dispose();
-				_manages.Remove(key);
+				return func();
 			}
 		}
 
-		/// <summary>
-		/// 待機中の処理数をｶｳﾝﾄします。
-		/// </summary>
-		/// <returns></returns>
-		public static int Count(string key)
+		private FastSpinLock _lock;
+
+		private bool disposedValue;
+
+		protected virtual void Dispose(bool disposing)
 		{
-			return _manages.ContainsKey(key)
-				? _manages[key]._cnt
-				: 0;
+			if (!disposedValue)
+			{
+				if (disposing)
+				{
+					// TODO: マネージド状態を破棄します (マネージド オブジェクト)
+					if (_slim != null)
+					{
+						var task = Task.Run(async () =>
+						{
+							await _slim.WaitAsync().ConfigureAwait(false);
+							_slim.Release();
+							_slim.Dispose();
+						});
+						if (_sync) task.GetAwaiter().GetResult();
+					}
+				}
+
+				// TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
+				// TODO: 大きなフィールドを null に設定します
+				disposedValue = true;
+			}
 		}
 
-		private class Manager
+		// // TODO: 'Dispose(bool disposing)' にアンマネージド リソースを解放するコードが含まれる場合にのみ、ファイナライザーをオーバーライドします
+		// ~Locker()
+		// {
+		//     // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
+		//     Dispose(disposing: false);
+		// }
+
+		public void Dispose()
 		{
-			public Manager(int pararell)
+			// このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
+			Dispose(disposing: true);
+			GC.SuppressFinalize(this);
+		}
+
+		private struct FastSpinLock
+		{
+			private const int SYNC_ENTER = 1;
+			private const int SYNC_EXIT = 0;
+			private int _syncFlag;
+
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private void Enter()
 			{
-				_slim = new SemaphoreSlim(pararell, pararell);
-				_cnt = 0;
+				if (Interlocked.CompareExchange(ref _syncFlag, SYNC_ENTER, SYNC_EXIT) == SYNC_ENTER)
+				{
+					Spin();
+				}
+				return;
 			}
 
-			internal SemaphoreSlim _slim;
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private void Exit() => Volatile.Write(ref _syncFlag, SYNC_EXIT);
 
-			public int _cnt;
-
-			public Task WaitAsync()
+			[MethodImpl(MethodImplOptions.NoInlining)]
+			private void Spin()
 			{
-				Interlocked.Increment(ref _cnt);
-				return _slim.WaitAsync();
-			}
-
-			public void Wait()
-			{
-				Interlocked.Increment(ref _cnt);
-				_slim.Wait();
-			}
-
-			public int Release()
-			{
-				Interlocked.Decrement(ref _cnt);
-				return _slim.Release();
-			}
-
-			public async Task<IDisposable> LockAsync()
-			{
-				await WaitAsync();
-				return this.Disposer(arg => arg.Release());
+				var spinner = new SpinWait();
+				spinner.SpinOnce();
+				while (Interlocked.CompareExchange(ref _syncFlag, SYNC_ENTER, SYNC_EXIT) == SYNC_ENTER)
+				{
+					spinner.SpinOnce();
+				}
 			}
 
 			public IDisposable Lock()
 			{
-				Wait();
-				return this.Disposer(arg => arg.Release());
+				Enter();
+				return this.Disposer(x => x.Exit());
 			}
 		}
 	}

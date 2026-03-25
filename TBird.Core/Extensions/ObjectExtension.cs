@@ -28,8 +28,8 @@ namespace TBird.Core
 		/// </summary>
 		/// <param name="value">元となる値</param>
 		/// <returns></returns>
-		public static DateTime Date(this object? value, DateTime def) => value is DateTime x 
-			? x 
+		public static DateTime Date(this object? value, DateTime def) => value is DateTime x
+			? x
 			: value != null
 			? DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""))
 			: def;
@@ -95,7 +95,7 @@ namespace TBird.Core
 		/// <param name="value">ｵﾌﾞｼﾞｪｸﾄ</param>
 		public static void TryDispose(this object? value)
 		{
-			if (value is IDisposable disposable)
+			if (value is System.IDisposable disposable)
 			{
 				disposable.Dispose();
 			}
@@ -192,15 +192,15 @@ namespace TBird.Core
 
 		public static async Task<T> RunAsync<T>(this Task<T> target, Action<T> action)
 		{
-			var x = await target;
+			var x = await target.ConfigureAwait(false);
 			action(x);
 			return x;
 		}
 
 		public static async Task<T> RunAsync<T>(this Task<T> target, Func<T, Task> action)
 		{
-			var x = await target;
-			await action(x);
+			var x = await target.ConfigureAwait(false);
+			await action(x).ConfigureAwait(false);
 			return x;
 		}
 
@@ -211,7 +211,7 @@ namespace TBird.Core
 
 		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, Task<TResult>> action)
 		{
-			return await action(await target);
+			return await action(await target.ConfigureAwait(false)).ConfigureAwait(false);
 		}
 
 		public static T NotNull<T>(this T? value, string message = "value can not null.") => value ?? throw new ArgumentNullException(message);
