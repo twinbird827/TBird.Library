@@ -9,11 +9,34 @@ namespace TBird.Core
 {
 	public class Locker : IDisposable
 	{
-		public Locker(int pararell = 1, bool sync = false)
+		private static Dictionary<string, Locker> _locker = new();
+
+		public static Locker Create(int pararell = 1, bool sync = false) => Create(Guid.NewGuid().ToString(), pararell, sync);
+
+		public static Locker Create(string key, int pararell = 1, bool sync = false)
 		{
+			lock (_locker)
+			{
+				var instance = _locker.TryGetValue(key, out Locker locker)
+					? locker
+					: _locker[key] = new Locker(key, pararell, sync);
+
+				Interlocked.Increment(ref instance._createcount);
+
+				return instance;
+			}
+		}
+
+		private Locker(string key, int pararell, bool sync)
+		{
+			_key = key;
 			_pararell = pararell;
 			_sync = sync;
 		}
+
+		private int _createcount;
+
+		private string _key;
 
 		private bool _sync;
 
@@ -74,6 +97,13 @@ namespace TBird.Core
 			{
 				if (disposing)
 				{
+					lock (_lock)
+					{
+						Interlocked.Decrement(ref _createcount);
+						// 参照がまだ残っている場合は中断
+						if (_createcount > 0) return;
+					}
+
 					// TODO: マネージド状態を破棄します (マネージド オブジェクト)
 					if (_slim != null)
 					{
@@ -82,8 +112,14 @@ namespace TBird.Core
 							await _slim.WaitAsync().ConfigureAwait(false);
 							_slim.Release();
 							_slim.Dispose();
+							_slim = null;
 						});
 						if (_sync) task.GetAwaiter().GetResult();
+					}
+
+					lock (_locker)
+					{
+						_locker.Remove(_key);
 					}
 				}
 
