@@ -73,7 +73,7 @@
                         Visibility="{Binding MenuMode, Converter={StaticResource Enum2Boolean2VisibilityCollapsedConverter}, ConverterParameter=Niconico}"
                         Command="{Binding OnClickMode}"
                         CommandParameter="{x:Static core:MenuMode.Youtube}"
-                        Kind="AppleFinder"
+                        Kind="CommentText"
                         Text="Niconico" />
 
 				<corestyle:IconPacksButton
@@ -81,7 +81,7 @@
                         Visibility="{Binding MenuMode, Converter={StaticResource Enum2Boolean2VisibilityCollapsedConverter}, ConverterParameter=Youtube}"
                         Command="{Binding OnClickMode}"
                         CommandParameter="{x:Static core:MenuMode.Niconico}"
-                        Kind="Youtube"
+                        Kind="TelevisionPlay"
                         Text="Youtube" />
 			</StackPanel>
 

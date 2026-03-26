@@ -26,7 +26,18 @@ namespace Moviewer.Core.Windows
 			Loaded.Add(DoLoading);
 
 			Closing.Add(DoClosing);
+
+			NowTimer = new IntervalTimer(() => OnPropertyChanged(nameof(Now)));
+			NowTimer.Interval = TimeSpan.FromMilliseconds(256);
+			NowTimer.Start();
 		}
+
+		private IntervalTimer NowTimer { get; }
+
+		/// <summary>
+		/// 現在時刻
+		/// </summary>
+		public DateTime Now => DateTime.Now;
 
 		public DateTime StartupTime { get; } = DateTime.Now;
 
@@ -96,11 +107,11 @@ namespace Moviewer.Core.Windows
 
 			ComboUtil.Initialize();
 
-			AddCollectionChanged(VideoUtil.Temporaries, (sender, e) =>
+			VideoUtil.Temporaries.AddOnPropertyChanged(this, (sender, e) =>
 			{
 				OnPropertyChanged(nameof(NicoTemporaryCount));
 				OnPropertyChanged(nameof(TubeTemporaryCount));
-			});
+			}, nameof(VideoUtil.Temporaries.Count), true);
 
 			// お気に入り巡回ﾀｲﾏｰの起動
 			FavoriteChecker = new IntervalTimer(PatrolFavorites);
@@ -116,6 +127,12 @@ namespace Moviewer.Core.Windows
 			{
 				FavoriteChecker.Stop();
 				FavoriteChecker.Dispose();
+			}
+
+			if (NowTimer != null)
+			{
+				NowTimer.Stop();
+				NowTimer.Dispose();
 			}
 
 			NicoModel.Save();

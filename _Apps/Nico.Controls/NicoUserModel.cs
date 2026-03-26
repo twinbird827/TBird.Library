@@ -38,7 +38,8 @@ namespace Moviewer.Nico.Controls
 
 		private static async Task<string> GetNickname(string userid)
 		{
-			using (await Locker.LockAsync(_nicknamelock))
+			using (var _lock = Locker.Create(_nicknamelock))
+			using (await _lock.LockAsync())
 			{
 				if (_nicknames.ContainsKey(userid)) return _nicknames[userid];
 
@@ -67,6 +68,6 @@ namespace Moviewer.Nico.Controls
 		}
 
 		private static Dictionary<string, string> _nicknames = new Dictionary<string, string>();
-		private static string _nicknamelock = Locker.GetNewLockKey(typeof(NicoUserModel));
+		private static string _nicknamelock = typeof(NicoUserModel).FullName;
 	}
 }

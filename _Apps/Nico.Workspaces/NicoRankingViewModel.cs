@@ -3,6 +3,7 @@ using Moviewer.Core.Windows;
 using Moviewer.Nico.Controls;
 using Moviewer.Nico.Core;
 using System.ComponentModel;
+using TBird.Core;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 
@@ -61,7 +62,7 @@ namespace Moviewer.Nico.Workspaces
 				{
 					Sources.Add(item);
 				}
-			});
+			}).TryCatch();
 		}
 	}
 }

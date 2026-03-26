@@ -49,7 +49,7 @@ namespace Moviewer.Tube.Workspaces
 			{
 				Sources.Clear();
 				Sources.AddRange(x.Result);
-			});
+			}).TryCatch();
 		}
 
 	}

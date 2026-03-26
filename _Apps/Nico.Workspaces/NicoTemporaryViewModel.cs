@@ -124,7 +124,7 @@ namespace Moviewer.Nico.Workspaces
 
 		protected override async void OnDropProcess(string droptxt)
 		{
-			await AddTemporary(droptxt);
+			await AddTemporary(droptxt).TryCatch();
 		}
 
 		private async Task AddTemporary(string url)
