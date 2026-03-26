@@ -3,7 +3,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace TBird.Core
 {
@@ -199,7 +198,7 @@ namespace TBird.Core
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine(ex.ToString());
+				MessageService.Debug(ex.ToString());
 				throw;
 			}
 		}

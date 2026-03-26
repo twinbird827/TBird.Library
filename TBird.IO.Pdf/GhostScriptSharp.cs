@@ -2,8 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using TBird.Core;
 
 namespace GhostscriptSharp.API
@@ -154,7 +157,31 @@ namespace GhostscriptSharp
 			};
 
 			// なぜかｴﾗｰｺｰﾄﾞが返ってくるのでこのｺｰﾙではｴﾗｰを無視する。
-			return API.GhostScript.Call(args, false);
+			var pagesize = API.GhostScript.Call(args, false);
+
+			return 0 < pagesize ? pagesize : GetPageSizeFromPdfText(path);
+		}
+
+		/// <summary>
+		/// PDFﾌｧｲﾙのﾍﾟｰｼﾞ数をﾃｷｽﾄ形式で読み込んで取得します。
+		/// </summary>
+		/// <param name="path">PDFﾌｧｲﾙﾊﾟｽ</param>
+		/// <returns></returns>
+		/// <remarks>
+		/// "/Count [Total number of pages]"という形でﾃｷｽﾄ埋め込みがされているので、
+		/// 左記形式の行をすべて取得して最も大きい数をﾍﾟｰｼﾞ数として返却
+		/// (ｻﾝﾌﾟﾙPDFに"/Count xxx"が複数存在していたため)
+		/// </remarks>
+		private static int GetPageSizeFromPdfText(string path)
+		{
+			var regex = new Regex(@"/Count (?<pagesize>[\d]+)");
+
+			// ﾌｧｲﾙ読取
+			return File.ReadAllLines(path, Encoding.UTF8)
+				.Select(line => regex.Match(line))
+				.Where(m => m.Success)
+				.Select(m => m.Groups["pagesize"].Value.GetInt32())
+				.MaxOrDefault(i => i, 0);
 		}
 
 		public static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, GhostscriptPageSizes pagesize, int min = 0, int max = 0)

@@ -5,7 +5,6 @@ using System.Data.Common;
 using System.Data.SQLite;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -31,6 +30,10 @@ namespace TBird.DB.SQLite
 		{
 			lock (_lock)
 			{
+				var fn = this.GetType().FullName;
+				var ds = ToConnectionDictionary(connectionString)["datasource"];
+				_lockstring = $"{fn}+{ds}";
+
 				_cs = connectionString;
 
 				if (_manages.ContainsKey(connectionString))
@@ -51,17 +54,16 @@ namespace TBird.DB.SQLite
 		internal Manager _m;
 		private static object _lock = new object();
 		private static Dictionary<string, Manager> _manages = new Dictionary<string, Manager>();
+		private string _lockstring;
 
-		protected override string CreateLock(string connectionString)
+		protected override string GetLockString()
 		{
-			var fn = this.GetType().FullName;
-			var ds = ToConnectionDictionary(connectionString)["datasource"];
-			return $"{fn}+{ds}";
+			return _lockstring ?? base.GetLockString();
 		}
 
 		private async Task OpenAsync(bool executerecovery)
 		{
-			await base.OpenAsync();
+			await base.OpenAsync().ConfigureAwait(false);
 
 			if (!executerecovery) return;
 
@@ -77,8 +79,8 @@ namespace TBird.DB.SQLite
 				if (mindex.Success)
 				{
 					// indexが壊れていたら修復して再帰
-					await ExecuteNonQueryAsync($"REINDEX {mindex.Groups["s"]}");
-					await OpenAsync(true);
+					await ExecuteNonQueryAsync($"REINDEX {mindex.Groups["s"]}").ConfigureAwait(false);
+					await OpenAsync(true).ConfigureAwait(false);
 				}
 				else
 				{
@@ -92,13 +94,13 @@ namespace TBird.DB.SQLite
 					var dst = $"{src}.tmp";
 
 					// ｿｰｽﾌｧｲﾙをﾊﾞｯｸｱｯﾌﾟ
-					await FileUtil.CopyAsync(src, bak);
+					await FileUtil.CopyAsync(src, bak).ConfigureAwait(false);
 
 					if (!string.IsNullOrEmpty(password))
 					{
 						// ﾀﾞﾝﾌﾟするためにﾊﾟｽﾜｰﾄﾞを解除する。
-						await ExecuteNonQueryAsync($"PRAGMA key = '{password}'");
-						await ExecuteNonQueryAsync($"PRAGMA key = ''");
+						await ExecuteNonQueryAsync($"PRAGMA key = '{password}'").ConfigureAwait(false);
+						await ExecuteNonQueryAsync($"PRAGMA key = ''").ConfigureAwait(false);
 					}
 					Close();
 
@@ -109,7 +111,7 @@ namespace TBird.DB.SQLite
 
 					using (var control = new SQLiteControl(dcs))
 					{
-						await control.OpenAsync();
+						await control.OpenAsync().ConfigureAwait(false);
 					}
 
 					// ﾀﾞﾝﾌﾟ実行
@@ -124,13 +126,13 @@ namespace TBird.DB.SQLite
 					{
 						using (var control = new SQLiteControl(dcs))
 						{
-							await control.ExecuteNonQueryAsync($"PRAGMA rekey = '{password}'");
+							await control.ExecuteNonQueryAsync($"PRAGMA rekey = '{password}'").ConfigureAwait(false);
 						}
 					}
 
 					// ｵﾘｼﾞﾅﾙﾃﾞｰﾀﾍﾞｰｽに差し替えて再帰
 					FileUtil.Move(dst, src);
-					await OpenAsync(true);
+					await OpenAsync(true).ConfigureAwait(false);
 				}
 			}
 

@@ -1,6 +1,4 @@
-﻿using TBird.Core;
-using TBird.IO.Pdf;
-using System;
+﻿using TBird.IO.Pdf;
 
 /* **************************************************
  *  ﾒｲﾝﾒｿｯﾄﾞ

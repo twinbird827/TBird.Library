@@ -1,25 +1,51 @@
-﻿using System;
-using System.Collections.Specialized;
-using System.Threading;
 using TBird.Core;
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Linq;
+using System.Threading;
 
 namespace TBird.Wpf.Collections
 {
-	public class BindableContextCollection<T> : BindableChildCollection<T>
+	public class BindableContextCollection<T> : BindableChildCollection<T>, INotifyCollectionChanged
 	{
+		public event NotifyCollectionChangedEventHandler CollectionChanged;
+
+		protected override void OnCollectionChanged(bool isnotifycount, bool isnotifyitem, NotifyCollectionChangedEventArgs e)
+		{
+			base.OnCollectionChanged(isnotifycount, isnotifyitem, e);
+			if (CollectionChanged != null) CollectionChanged(this, e);
+		}
+
 		private SynchronizationContext _context;
 
-		internal BindableContextCollection(BindableCollection<T> collection, SynchronizationContext context) : base(collection)
-		{
-			_context = context;
-			collection.ForEach(item => Add(item));
+		private int _chunk;
 
-			AddCollectionChanged(collection, (sender, e) =>
+		internal BindableContextCollection(BindableCollection<T> collection, SynchronizationContext context, int chunk) : base(collection, false)
+		{
+			_chunk = chunk;
+			_context = context;
+			AddRange(collection);
+
+			AddBindableCollectionChanged((sender, e) =>
 			{
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Insert(e.NewStartingIndex, (T)e.NewItems[0]);
+						var beginindex = e.NewStartingIndex;
+						e.NewItems.OfType<T>().Chunk(_chunk).ForEach(arr =>
+						{
+							Post(args =>
+							{
+								var newindex = (int)args[0];
+								var newitems = (T[])args[1];
+								for (var i = 0; i < newitems.Length; i++)
+								{
+									base.Insert(newindex + i, (T)newitems[i]);
+								}
+							}, beginindex, arr.ToArray());
+							beginindex += _chunk;
+						});
 						break;
 					case NotifyCollectionChangedAction.Remove:
 						Remove((T)e.OldItems[0]);
@@ -50,9 +76,14 @@ namespace TBird.Wpf.Collections
 			Post(args => base.Add((T)args[0]), item);
 		}
 
+		public override void AddRange(IEnumerable<T> items)
+		{
+			Post(args => base.AddRange((IEnumerable<T>)args[0]), items);
+		}
+
 		public override void Clear()
 		{
-			Post(_ => base.Clear(), null);
+			Post(_ => base.Clear());
 		}
 
 		public override int IndexOf(T item)
@@ -76,14 +107,14 @@ namespace TBird.Wpf.Collections
 			}
 			else
 			{
-				_context.Post(x => base.Remove((T)x), item);
+				Post(x => base.Remove(x), item);
 				return true;
 			}
 		}
 
 		public override void RemoveAt(int index)
 		{
-			_context.Post(x => base.RemoveAt((int)x), index);
+			Post(x => base.RemoveAt(x), index);
 		}
 
 		private void Post(Action<object[]> post, params object[] args)
@@ -91,18 +122,23 @@ namespace TBird.Wpf.Collections
 			_context.Post(x => post((object[])x), args);
 		}
 
+		private void Post<TItem>(Action<TItem> post, TItem args)
+		{
+			_context.Post(x => post((TItem)x), args);
+		}
+
 	}
 
 	public static class BindableContextCollectionExtension
 	{
-		public static BindableContextCollection<T> ToBindableContextCollection<T>(this BindableCollection<T> collection, SynchronizationContext context)
+		public static BindableContextCollection<T> ToBindableContextCollection<T>(this BindableCollection<T> collection, SynchronizationContext context, int chunk = 10)
 		{
-			return new BindableContextCollection<T>(collection, context);
+			return new BindableContextCollection<T>(collection, context, chunk);
 		}
 
-		public static BindableContextCollection<T> ToBindableContextCollection<T>(this BindableCollection<T> collection)
+		public static BindableContextCollection<T> ToBindableContextCollection<T>(this BindableCollection<T> collection, int chunk = 10)
 		{
-			return ToBindableContextCollection(collection, WpfUtil.GetContext());
+			return ToBindableContextCollection(collection, WpfUtil.GetContext(), chunk);
 		}
 	}
 }

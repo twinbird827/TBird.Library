@@ -1,6 +1,4 @@
-﻿using Microsoft.Toolkit.Uwp.Notifications;
-
-namespace TBird.Wpf
+﻿namespace TBird.Wpf
 {
 	public static class WpfToast
 	{

@@ -4,6 +4,6 @@ namespace TBird.Wpf.Collections
 {
 	public interface IBindableChild : IDisposable
 	{
-
+		IBindableCollection Parent { get; }
 	}
 }

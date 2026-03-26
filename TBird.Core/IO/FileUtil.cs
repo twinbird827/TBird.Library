@@ -59,8 +59,19 @@ namespace TBird.Core
 		/// <param name="overwrite">移動先ﾊﾟｽにﾌｧｲﾙが既に存在していたら上書きするかどうか</param>
 		public static void Move(string src, string dst, bool overwrite = true)
 		{
-			if (overwrite) BeforeCreate(dst);
-
+			if (src == dst)
+			{
+				return;
+			}
+			else if (overwrite)
+			{
+				BeforeCreate(dst);
+			}
+			else if (Exists(dst).Result)
+			{
+				Move(src, GetFullPathWithoutExtension(dst) + "-COPY" + Path.GetExtension(dst).NotNull(), overwrite);
+				return;
+			}
 			File.Move(ToShort(src), ToShort(dst));
 		}
 
@@ -109,7 +120,7 @@ namespace TBird.Core
 			using (var ss = new FileStream(ToShort(src), FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
 			using (var ds = new FileStream(ToShort(dst), FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
 			{
-				await ss.CopyToAsync(ds, buffersize, cts.Token);
+				await ss.CopyToAsync(ds, buffersize, cts.Token).ConfigureAwait(false);
 			}
 		}
 
@@ -153,10 +164,40 @@ namespace TBird.Core
 
 				foreach (var line in lines)
 				{
-					await sw.WriteLineAsync(line);
+					await sw.WriteLineAsync(line).ConfigureAwait(false);
 				}
-				await sw.FlushAsync();
+				await sw.FlushAsync().ConfigureAwait(false);
 			}
+		}
+
+		/// <summary>
+		/// ﾌｧｲﾙの内容を置換します。
+		/// </summary>
+		/// <param name="path">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <param name="encoding">ｴﾝｺｰﾃﾞｨﾝｸﾞ</param>
+		/// <param name="old">置換前の文字</param>
+		/// <param name="dst">置換後の文字</param>
+		public static void Replace(string path, Encoding encoding, string old, string dst) => Replace(path, encoding, old.Kvp(dst));
+
+		/// <summary>
+		/// ﾌｧｲﾙの内容を置換します。
+		/// </summary>
+		/// <param name="path">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <param name="encoding">ｴﾝｺｰﾃﾞｨﾝｸﾞ</param>
+		/// <param name="pairs">置換前後の文字を<see cref="KeyValuePair{string, string}"/>に纏めたﾘｽﾄ</param>
+		public static void Replace(string path, Encoding encoding, params KeyValuePair<string, string>[] pairs) => Replace(path, encoding, pairs.ToDictionary(x => x.Key, x => x.Value));
+
+		/// <summary>
+		/// ﾌｧｲﾙの内容を置換します。
+		/// </summary>
+		/// <param name="path">ﾌｧｲﾙﾊﾟｽ</param>
+		/// <param name="encoding">ｴﾝｺｰﾃﾞｨﾝｸﾞ</param>
+		/// <param name="dic">置換前後の文字を<see cref="Dictionary{string, string}"/>に纏めたﾘｽﾄ</param>
+		public static void Replace(string path, Encoding encoding, Dictionary<string, string> dic)
+		{
+			var contents = File.ReadAllText(path, encoding);
+			var results = Regex.Replace(contents, $"({dic.Keys.GetString("|")})", m => dic[m.Value]);
+			File.WriteAllText(path, results, encoding);
 		}
 	}
 }

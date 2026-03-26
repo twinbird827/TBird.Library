@@ -66,7 +66,7 @@ namespace TBird.Core
 			var start = s.Length - length;
 			if (start < 0)
 			{
-				return new string(padding, length - start) + s;
+				return new string(padding, length + start) + s;
 			}
 			else
 			{
@@ -91,6 +91,17 @@ namespace TBird.Core
 				yield return s.Substring(prev, next - prev);
 				prev = next + split.Length;
 			}
+		}
+
+		/// <summary>
+		/// 指定した文字を繰り返します。
+		/// </summary>
+		/// <param name="c">繰り返す文字</param>
+		/// <param name="count">繰り返す回数</param>
+		/// <returns></returns>
+		public static string Repeat(this char c, int count)
+		{
+			return "".Left(count, c);
 		}
 	}
 }
