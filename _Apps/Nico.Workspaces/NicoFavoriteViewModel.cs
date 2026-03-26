@@ -53,7 +53,7 @@ namespace Moviewer.Nico.Workspaces
 			{
 				Sources.Clear();
 				Sources.AddRange(x.Result);
-			});
+			}).TryCatch();
 		});
 		private ICommand _OnSearch;
 

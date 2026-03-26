@@ -97,7 +97,7 @@ namespace Moviewer.Nico.Core
 
 		public static Task<IEnumerable<NicoVideoModel>> GetVideosByRanking(string genre, string tag, string term)
 		{
-			var url = $"https://www.nicovideo.jp/ranking/genre/{genre}?video_ranking_menu?tag={tag}&term={term}&rss=2.0&lang=ja-jp";
+			var url = $"https://www.nicovideo.jp/ranking/genre/{genre}?video_ranking_menu&tag={tag}&term={term}&rss=2.0&lang=ja-jp";
 
 			return GetVideosFromXmlUrl(url,
 				"nico-info-total-view",

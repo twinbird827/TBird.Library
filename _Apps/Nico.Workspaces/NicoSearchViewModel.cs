@@ -66,7 +66,7 @@ namespace Moviewer.Nico.Workspaces
 			{
 				Sources.Clear();
 				Sources.AddRange(x.Result);
-			});
+			}).TryCatch();
 
 			NicoModel.AddSearch(Word, t);
 		});

@@ -56,13 +56,13 @@ namespace Moviewer.Tube.Core
 
 		private static void SetClientIdAndSecret()
 		{
-			if (string.IsNullOrEmpty(CoreUtil.Nvl(TubeSetting.Instance.ClientId, TubeSetting.Instance.ClientSecret)))
+			while (string.IsNullOrEmpty(CoreUtil.Nvl(TubeSetting.Instance.ClientId, TubeSetting.Instance.ClientSecret)))
 			{
 				using (var vm = new TubeOAuthViewModel())
 				{
 					if (!vm.ShowDialog(() => new TubeOAuthWindow()))
 					{
-						SetClientIdAndSecret();
+						break;
 					}
 				}
 			}

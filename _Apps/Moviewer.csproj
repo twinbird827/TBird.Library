@@ -2,9 +2,8 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <ApplicationIcon>Core.Windows\cinema.ico</ApplicationIcon>
     <PackageIcon>cinema.ico</PackageIcon>
   </PropertyGroup>
