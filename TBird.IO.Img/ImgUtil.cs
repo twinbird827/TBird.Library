@@ -83,7 +83,7 @@ namespace TBird.IO.Img
 				);
 
 				using (var afterwriter = File.OpenWrite(FileUtil.GetFullPathWithoutExtension(src) + ".jpg"))
-				using (var after = before.Resize(info, SKFilterQuality.High))
+				using (var after = before.Resize(info, SKSamplingOptions.Default))
 				{
 					after.Encode(afterwriter, SKEncodedImageFormat.Jpeg, quality);
 				}
