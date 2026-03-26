@@ -1,0 +1,11 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:nicocore="clr-namespace:Moviewer.Nico.Core">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/_Converters.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<nicocore:NicoSearchTypeKindConverter x:Key="NicoSearchTypeKindConverter" />
+</ResourceDictionary>

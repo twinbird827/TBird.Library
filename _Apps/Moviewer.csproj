@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Core.Windows\cinema.ico</ApplicationIcon>
+    <PackageIcon>cinema.ico</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="lib\nico-combo-setting.xml" />
+    <None Remove="lib\tube-combo-setting.xml" />
+    <None Remove="lib\view-combo-setting.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Core.Windows\cinema.ico" />
+    <Content Include="lib\view-combo-setting.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="lib\tube-combo-setting.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="lib\nico-combo-setting.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MahApps.Metro" Version="2.4.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.IO\TBird.IO.csproj" />
+    <ProjectReference Include="..\TBird.Web\TBird.Web.csproj" />
+    <ProjectReference Include="..\TBird.Wpf\TBird.Wpf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Core.Windows\cinema.ico">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="lang\moviewer-language.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
+  </Target>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="rd /s /q &quot;$(TargetDir)&quot;&#xD;&#xA;&#xD;&#xA;set direc=$(ProjectDir)..\_Tools\$(ProjectName)\lib&#xD;&#xA;set time_tmp=%25time: =0%25&#xD;&#xA;set dt=%25date:/=%25%25time_tmp:~0,2%25%25time_tmp:~3,2%25%25time_tmp:~6,2%25&#xD;&#xA;&#xD;&#xA;xcopy &quot;%25direc%25\*.xml&quot; &quot;%25direc%25\%25dt%25&quot; /H /C /I&#xD;&#xA;xcopy &quot;%25direc%25\*.json&quot; &quot;%25direc%25\%25dt%25&quot; /H /C /I" />
+  </Target>
+
+</Project>

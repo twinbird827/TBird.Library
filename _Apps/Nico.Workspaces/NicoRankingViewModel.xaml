@@ -1,0 +1,25 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:local="clr-namespace:Moviewer.Nico.Workspaces">
+
+	<DataTemplate DataType="{x:Type local:NicoRankingViewModel}">
+		<DockPanel>
+
+			<StackPanel DockPanel.Dock="Top"
+                        Style="{DynamicResource HorizontalStackPanel}">
+
+				<ComboBox Style="{DynamicResource Core.HeaderComboBox}"
+                          ItemsSource="{Binding Genre.Items}"
+                          SelectedItem="{Binding Genre.SelectedItem}" />
+
+				<ComboBox Style="{DynamicResource Core.HeaderComboBox}"
+                          ItemsSource="{Binding Period.Items}"
+                          SelectedItem="{Binding Period.SelectedItem}" />
+			</StackPanel>
+
+			<ListBox Style="{DynamicResource Core.VideoStyle}"
+                     ItemsSource="{Binding Videos}"
+                     ItemContainerStyle="{DynamicResource VideoViewModel.ItemContainerStyle}" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>
