@@ -9,7 +9,7 @@ namespace wpftest
 {
 	public class MainViewModel : WindowViewModel
 	{
-		private Locker _lock = new();
+		private Locker _lock = Locker.Create();
 
 		public MainViewModel()
 		{
