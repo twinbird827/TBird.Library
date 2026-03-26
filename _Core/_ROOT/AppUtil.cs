@@ -152,7 +152,7 @@ namespace Netkeiba
 		private static int _pararell = 1;
 
 		/// <summary>多重起動抑止ﾛｯｸ</summary>
-		private static Locker _lock = new Locker(_pararell);
+		private static Locker _lock = Locker.Create(_pararell);
 
 		private static IBrowsingContext? _logincontext;
 		private static DateTime _loginsession = DateTime.Now.AddDays(-1);

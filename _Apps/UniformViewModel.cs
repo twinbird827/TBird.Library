@@ -16,7 +16,7 @@ namespace Netkeiba
 			ColumnsSource = new BindableCollection<T>(columns);
 			Columns = ColumnsSource.ToBindableContextCollection();
 
-			AddCollectionChanged(ColumnsSource, (sender, e) =>
+			AddCollectionChanged(Columns, (sender, e) =>
 			{
 				OnPropertyChanged(nameof(ColumnCount));
 			});
