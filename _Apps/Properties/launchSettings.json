@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Moviewer": {
-      "commandName": "Project",
-      "nativeDebugging": true
-    }
-  }
-}
