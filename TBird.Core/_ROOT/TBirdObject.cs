@@ -9,7 +9,7 @@ namespace TBird.Core
 {
 	public abstract class TBirdObject : IDisposable
 	{
-		private Locker _lock = new();
+		private Locker _lock = Locker.Create();
 
 		public int WaitingCount => _lock.WaitingCount;
 

@@ -50,6 +50,16 @@ namespace TBird.Wpf
 
 		private static SynchronizationContext _context;
 
+		public static void Post(Action action)
+		{
+			GetContext().Post(x => action(), null);
+		}
+
+		public static void Post<T>(Action<T> action, T arg)
+		{
+			GetContext().Post(x => action((T)x), arg);
+		}
+
 		/// <summary>
 		/// UI上で処理を実行します。
 		/// </summary>

@@ -8,9 +8,6 @@ namespace TBird.Web
 {
 	public static class WebImageUtil
 	{
-		/// <summary>多重起動抑止ﾛｯｸ</summary>
-		private static Locker _lock = new Locker();
-
 		private const string SaveDir = @"cache\bytes";
 
 		static WebImageUtil()
@@ -47,6 +44,7 @@ namespace TBird.Web
 		/// <returns></returns>
 		public static async Task<byte[]> GetBytesAsync(string key, string[] urls)
 		{
+			using (var _lock = Locker.Create(key))
 			using (await _lock.LockAsync().ConfigureAwait(false))
 			{
 				byte[] bytes = GetBytesFromFile(key);

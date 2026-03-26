@@ -117,7 +117,7 @@ namespace TBird.Web
 	public static class TBirdSeleniumFactory
 	{
 		/// <summary>多重起動抑止ﾛｯｸ</summary>
-		private static Locker _lock = new Locker();
+		private static Locker _lock = Locker.Create();
 
 		/// <summary>作成済のﾌﾞﾗｳｻﾞを保管するためのﾘｽﾄ</summary>
 		private static List<TBirdSelenium> _list = new List<TBirdSelenium>();
