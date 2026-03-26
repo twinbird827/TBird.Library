@@ -1,0 +1,11 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:moctrl="clr-namespace:Moviewer.Core.Controls"
+					xmlns:mocore="clr-namespace:Moviewer.Core.Styles">
+
+	<DataTemplate DataType="{x:Type moctrl:TagViewModel}">
+		<mocore:LinkedTextBlock Margin="5,3"
+                                Command="{Binding OnClickTag}"
+                                Text="{Binding Tag}" />
+	</DataTemplate>
+</ResourceDictionary>

@@ -1,0 +1,9 @@
+﻿・各項目Loadedｲﾍﾞﾝﾄを追加して時間のかかる処理はここで書く
+・Delｷｰ押下でOnDelete
+・Descriptionの内容確認
+・History画面の実装
+・ページングの実装
+・ch_icon_urlの軽量な取得方法
+・ch_icon_urlをch_idから作成する方法
+・Temporaryで抽出条件＝ユーザとか視聴済とか
+・Mylist thumnailがnullになる

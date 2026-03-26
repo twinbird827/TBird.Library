@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xml>
+    <combo group="video_type">
+        <item value="sm"   display="個人動画" />
+        <item value="so"   display="チャンネル動画" />
+    </combo>
+    <combo group="mylist_title_removes">
+        <item value="0"   display="‐ニコニコ動画" />
+        <item value="1"   display="マイリスト " />
+    </combo>
+    <combo group="rank_genre">
+        <item value="all"                   display="全ジャンル" />
+        <item value="hot_topic"             display="話題" />
+        <item value="entertainment"         display="エンターテイメント" />
+        <item value="radio"                 display="ラジオ" />
+        <item value="music_sound"           display="音楽・サウンド" />
+        <item value="dance"                 display="ダンス" />
+        <item value="animal"                display="動物" />
+        <item value="nature"                display="自然" />
+        <item value="cooking"               display="料理" />
+        <item value="traveling_outdoor"     display="旅行・アウトドア" />
+        <item value="vehicle"               display="乗り物" />
+        <item value="sports"                display="スポーツ" />
+        <item value="society_politics_news" display="社会・政治・時事" />
+        <item value="technology_craft"      display="技術・工作" />
+        <item value="commentary_lecture"    display="解説・講座" />
+        <item value="anime"                 display="アニメ" />
+        <item value="game"                  display="ゲーム" />
+        <item value="other"                 display="その他" />
+        <item value="r18"                   display="R-18" />
+    </combo>
+    <combo group="rank_period">
+        <item value="hourly"  display="時間" />
+        <item value="daily"   display="日間" />
+        <item value="weekly"  display="週間" />
+        <item value="monthly" display="月間" />
+        <item value="total"   display="総合" />
+    </combo>
+    <combo group="order_by">
+        <item value="regdate-"   display="登録日時(降順)" />
+        <item value="regdate+"   display="登録日時(昇順)" />
+        <item value="stadate-"   display="投稿日時(降順)" />
+        <item value="stadate+"   display="投稿日時(昇順)" />
+        <item value="viewcnt-"   display="再生数(降順)" />
+        <item value="viewcnt+"   display="再生数(昇順)" />
+        <item value="commcnt-"   display="コメント数(降順)" />
+        <item value="commcnt+"   display="コメント数(昇順)" />
+        <item value="listcnt-"   display="マイリスト数(降順)" />
+        <item value="listcnt+"   display="マイリスト数(昇順)" />
+        <item value="likecnt-"   display="いいね！数(降順)" />
+        <item value="likecnt+"   display="いいね！数(昇順)" />
+        <item value="lengsec-"   display="再生時間(降順)" />
+        <item value="lengsec+"   display="再生時間(昇順)" />
+    </combo>
+    <combo group="oyder_by_apiv2">
+        <item value="regdate-"   display="-startTime" />
+        <item value="regdate+"   display="+startTime" />
+        <item value="stadate-"   display="-startTime" />
+        <item value="stadate+"   display="+startTime" />
+        <item value="viewcnt-"   display="-viewCounter" />
+        <item value="viewcnt+"   display="+viewCounter" />
+        <item value="commcnt-"   display="-commentCounter" />
+        <item value="commcnt+"   display="+commentCounter" />
+        <item value="listcnt-"   display="-mylistCounter" />
+        <item value="listcnt+"   display="+mylistCounter" />
+        <item value="likecnt-"   display="-likeCounter" />
+        <item value="likecnt+"   display="+likeCounter" />
+        <item value="lengsec-"   display="-lengthSeconds" />
+        <item value="lengsec+"   display="+lengthSeconds" />
+    </combo>
+    <combo group="oyder_by_mylist">
+        <item value="regdate-"   display="1" />
+        <item value="regdate+"   display="0" />
+        <item value="stadate-"   display="6" />
+        <item value="stadate+"   display="7" />
+        <item value="viewcnt-"   display="8" />
+        <item value="viewcnt+"   display="9" />
+        <item value="commcnt-"   display="12" />
+        <item value="commcnt+"   display="13" />
+        <item value="listcnt-"   display="14" />
+        <item value="listcnt+"   display="15" />
+        <item value="likecnt-"   display="14" />
+        <item value="likecnt+"   display="15" />
+        <item value="lengsec-"   display="16" />
+        <item value="lengsec+"   display="17" />
+    </combo>
+    <combo group="oyder_by_user">
+        <item value="regdate-"   display="registeredAt,desc" />
+        <item value="regdate+"   display="registeredAt,asc" />
+        <item value="stadate-"   display="registeredAt,desc" />
+        <item value="stadate+"   display="registeredAt,asc" />
+        <item value="viewcnt-"   display="viewCount,desc" />
+        <item value="viewcnt+"   display="viewCount,asc" />
+        <item value="commcnt-"   display="commentCount,desc" />
+        <item value="commcnt+"   display="commentCount,asc" />
+        <item value="listcnt-"   display="mylistCount,desc" />
+        <item value="listcnt+"   display="mylistCount,asc" />
+        <item value="likecnt-"   display="likeCount,desc" />
+        <item value="likecnt+"   display="likeCount,asc" />
+        <item value="lengsec-"   display="duration,desc" />
+        <item value="lengsec+"   display="duration,asc" />
+    </combo>
+</xml>

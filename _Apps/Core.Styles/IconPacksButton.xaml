@@ -1,0 +1,71 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:icon="http://metro.mahapps.com/winfx/xaml/iconpacks"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:core="clr-namespace:Moviewer.Core.Styles">
+
+	<ResourceDictionary.MergedDictionaries>
+		<ResourceDictionary Source="pack://application:,,,/TBird.Wpf;component/Styles/Button.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<Style x:Key="IconPacksButton.Button" TargetType="Button" BasedOn="{StaticResource DefaultButton}">
+		<Setter Property="VerticalAlignment" Value="Stretch" />
+		<Setter Property="HorizontalAlignment" Value="Stretch" />
+		<Setter Property="VerticalContentAlignment" Value="Stretch" />
+		<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+	</Style>
+
+	<Style x:Key="IconPacksButton.PackIconMaterial" TargetType="{x:Type icon:PackIconMaterial}">
+		<Setter Property="Margin" Value="{DynamicResource Margin.Zero}" />
+		<Setter Property="VerticalAlignment" Value="Stretch" />
+		<Setter Property="HorizontalAlignment" Value="Stretch" />
+		<Setter Property="VerticalContentAlignment" Value="Stretch" />
+		<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+	</Style>
+
+	<ControlTemplate x:Key="IconPacksButton.ControlTemplate.IconOnly" TargetType="{x:Type core:IconPacksButton}">
+		<Button Style="{StaticResource IconPacksButton.Button}"
+                Command="{TemplateBinding Command}"
+                CommandParameter="{TemplateBinding CommandParameter}"
+                Padding="{TemplateBinding Padding}">
+			<icon:PackIconMaterial Style="{StaticResource IconPacksButton.PackIconMaterial}"
+                                   Kind="{TemplateBinding Kind}" />
+		</Button>
+	</ControlTemplate>
+
+	<ControlTemplate x:Key="IconPacksButton.ControlTemplate.Horizontal" TargetType="{x:Type core:IconPacksButton}">
+		<Button Style="{StaticResource IconPacksButton.Button}"
+                Command="{TemplateBinding Command}"
+                CommandParameter="{TemplateBinding CommandParameter}"
+                Padding="{TemplateBinding Padding}"
+                FontSize="{TemplateBinding FontSize}"
+                FontWeight="{TemplateBinding FontWeight}">
+			<DockPanel>
+				<icon:PackIconMaterial DockPanel.Dock="Left"
+                                       Style="{StaticResource IconPacksButton.PackIconMaterial}"
+                                       Kind="{TemplateBinding Kind}" />
+
+				<TextBlock FontSize="{TemplateBinding FontSize}"
+                           TextAlignment="Center"
+                           Text="{TemplateBinding Text}" />
+			</DockPanel>
+		</Button>
+	</ControlTemplate>
+
+	<ControlTemplate x:Key="IconPacksButton.ControlTemplate.Vertical" TargetType="{x:Type core:IconPacksButton}">
+		<Button Style="{StaticResource IconPacksButton.Button}"
+                Command="{TemplateBinding Command}"
+                CommandParameter="{TemplateBinding CommandParameter}"
+                Padding="{TemplateBinding Padding}"
+                FontSize="{TemplateBinding FontSize}"
+                FontWeight="{TemplateBinding FontWeight}">
+			<StackPanel>
+				<icon:PackIconMaterial Style="{StaticResource IconPacksButton.PackIconMaterial}"
+                                       Kind="{TemplateBinding Kind}" />
+
+				<TextBlock FontSize="{TemplateBinding FontSize}"
+                           TextAlignment="Center"
+                           Text="{TemplateBinding Text}" />
+			</StackPanel>
+		</Button>
+	</ControlTemplate>
+</ResourceDictionary>

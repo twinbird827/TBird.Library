@@ -1,0 +1,129 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+					xmlns:icon="http://metro.mahapps.com/winfx/xaml/iconpacks"
+					xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+					xmlns:mocore="clr-namespace:Moviewer.Core"
+					xmlns:mostyl="clr-namespace:Moviewer.Core.Styles"
+					xmlns:nictrl="clr-namespace:Moviewer.Nico.Controls"
+					xmlns:niwork="clr-namespace:Moviewer.Nico.Workspaces"
+					xmlns:beha="clr-namespace:TBird.Wpf.Behaviors;assembly=TBird.Wpf">
+
+	<ResourceDictionary.MergedDictionaries>
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/_Core.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Styles/_Converters.xaml" />
+
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Core.Controls/UserViewModel.xaml" />
+		<ResourceDictionary Source="pack://application:,,,/Moviewer;component/Nico.Controls/NicoMylistViewModel.xaml" />
+	</ResourceDictionary.MergedDictionaries>
+
+	<Style x:Key="NicoSearchHistoryViewModel.ItemContainerStyle" TargetType="ListBoxItem" BasedOn="{StaticResource MahApps.Styles.ListBoxItem}">
+		<Setter Property="beha:FrameworkElementBehavior.LDoubleClick" Value="{Binding OnDoubleClick}" />
+		<Setter Property="beha:FrameworkElementBehavior.KeyDown" Value="{Binding OnKeyDown}" />
+		<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+		<Setter Property="ContextMenu">
+			<Setter.Value>
+				<ContextMenu>
+					<MenuItem Visibility="{Binding Parent, Converter={StaticResource Type2ReverseVisibilityCollapsedConverter}, ConverterParameter={x:Type niwork:NicoFavoriteViewModel}}"
+                              Header="{x:Static mocore:AppConst.L_AddFavorite}"
+                              Command="{Binding OnFavoriteAdd}" />
+					<MenuItem Visibility="{Binding Parent, Converter={StaticResource Type2VisibilityCollapsedConverter}, ConverterParameter={x:Type niwork:NicoFavoriteViewModel}}"
+                              Header="{x:Static mocore:AppConst.L_DelFavorite}"
+                              Command="{Binding OnFavoriteDel}" />
+				</ContextMenu>
+			</Setter.Value>
+		</Setter>
+	</Style>
+
+	<Style x:Key="NicoSearchHistoryViewModel.IconPacksButton.TypeDisplay" TargetType="{x:Type mostyl:IconPacksButton}" BasedOn="{StaticResource Core.HorizontalIconPackButton}">
+		<Setter Property="Orientation" Value="Horizontal" />
+		<Setter Property="Margin" Value="4,2" />
+		<Setter Property="Kind" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Tag, Converter={StaticResource NicoSearchTypeKindConverter}}" />
+		<Setter Property="Text" Value="{Binding RelativeSource={RelativeSource Mode=Self}, Path=Tag, Converter={StaticResource Enum2StringConverter}}" />
+	</Style>
+
+	<DataTemplate x:Key="NicoSearchHistoryViewModel.Display" DataType="{x:Type nictrl:NicoSearchHistoryViewModel}">
+		<TextBlock Text="{Binding Display}"
+                   FontSize="{DynamicResource FontSize.L}"
+                   Foreground="DarkBlue"
+                   TextDecorations="Underline" />
+	</DataTemplate>
+
+	<DataTemplate x:Key="NicoSearchHistoryViewModel.Display.NicoUserViewModel" DataType="{x:Type nictrl:NicoSearchHistoryViewModel}">
+		<ContentControl DataContext="{Binding Display}"
+                        Content="{Binding}"
+                        ContentTemplate="{DynamicResource UserViewModel.Search}" />
+	</DataTemplate>
+
+	<DataTemplate x:Key="NicoSearchHistoryViewModel.Display.NicoMylistViewModel" DataType="{x:Type nictrl:NicoSearchHistoryViewModel}">
+		<ContentControl DataContext="{Binding Display}"
+                        Content="{Binding}"
+                        ContentTemplate="{DynamicResource NicoMylistViewModel.M}" />
+	</DataTemplate>
+
+	<Style x:Key="NicoSearchHistoryViewModel.Display.ContentPresenter" TargetType="ContentPresenter">
+		<Style.Triggers>
+			<DataTrigger Binding="{Binding Type}" Value="User">
+				<Setter Property="ContentTemplate" Value="{DynamicResource NicoSearchHistoryViewModel.Display.NicoUserViewModel}" />
+			</DataTrigger>
+			<DataTrigger Binding="{Binding Type}" Value="Tag">
+				<Setter Property="ContentTemplate" Value="{DynamicResource NicoSearchHistoryViewModel.Display}" />
+			</DataTrigger>
+			<DataTrigger Binding="{Binding Type}" Value="Word">
+				<Setter Property="ContentTemplate" Value="{DynamicResource NicoSearchHistoryViewModel.Display}" />
+			</DataTrigger>
+			<DataTrigger Binding="{Binding Type}" Value="Mylist">
+				<Setter Property="ContentTemplate" Value="{DynamicResource NicoSearchHistoryViewModel.Display.NicoMylistViewModel}" />
+			</DataTrigger>
+		</Style.Triggers>
+	</Style>
+
+	<DataTemplate DataType="{x:Type nictrl:NicoSearchHistoryViewModel}">
+		<DockPanel beha:FrameworkElementBehavior.Height="80" beha:FrameworkElementBehavior.Loaded="{Binding OnLoaded}">
+
+			<DockPanel DockPanel.Dock="Right">
+
+				<Button DockPanel.Dock="Top"
+                        HorizontalAlignment="Right"
+                        Margin="2"
+                        Command="{Binding OnDelete}">
+					<Button.Template>
+						<ControlTemplate>
+							<icon:PackIconMaterial Style="{DynamicResource Core.ButtonInnerPackIconMaterial}"
+                                                   Kind="Close" />
+						</ControlTemplate>
+					</Button.Template>
+				</Button>
+
+				<DockPanel DockPanel.Dock="Bottom"
+                           beha:FrameworkElementBehavior.Width="100"
+                           beha:FrameworkElementBehavior.Height="25">
+					<icon:PackIconMaterial DockPanel.Dock="Left"
+                                           Kind="{Binding Type, Converter={StaticResource NicoSearchTypeKindConverter}}"
+                                           Margin="{DynamicResource Margin.Zero}"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Stretch" />
+
+					<TextBlock FontSize="{DynamicResource FontSize.M}"
+                               TextAlignment="Center"
+                               VerticalAlignment="Center"
+                               Text="{Binding Type, Converter={StaticResource Enum2StringConverter}}" />
+				</DockPanel>
+
+				<StackPanel />
+			</DockPanel>
+
+			<DockPanel DockPanel.Dock="Bottom">
+
+				<TextBlock DockPanel.Dock="Left"
+                           Foreground="DarkRed"
+                           Text="{Binding Date, StringFormat={}{0:yy/MM/dd HH:mm:ss}}" />
+
+				<StackPanel />
+			</DockPanel>
+
+			<ContentPresenter Style="{StaticResource NicoSearchHistoryViewModel.Display.ContentPresenter}"
+                              Content="{Binding}"
+                              Margin="5" />
+		</DockPanel>
+	</DataTemplate>
+</ResourceDictionary>
