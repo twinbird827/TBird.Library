@@ -1,9 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
 	<UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
