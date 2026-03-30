@@ -107,6 +107,8 @@ namespace TBird.Core
 		{
 			if (!IsDisposed)
 			{
+				IsDisposed = true;
+
 				if (disposing)
 				{
 					// TODO: マネージド状態を破棄します (マネージド オブジェクト)
@@ -116,7 +118,6 @@ namespace TBird.Core
 				// TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
 				// TODO: 大きなフィールドを null に設定します
 				DisposeUnmanagedResource();
-				IsDisposed = true;
 			}
 		}
 
