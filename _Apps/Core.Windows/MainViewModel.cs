@@ -84,11 +84,11 @@ namespace Moviewer.Core.Windows
 			}
 		}
 
-		public BindableChildCollection<DownloadViewModel> Downloads
+		public BindableContextCollection<DownloadViewModel> Downloads
 		{
 			get => _Downloads = _Downloads ?? DownloadSources.ToBindableContextCollection();
 		}
-		private BindableChildCollection<DownloadViewModel> _Downloads;
+		private BindableContextCollection<DownloadViewModel> _Downloads;
 
 		public BindableCollection<DownloadViewModel> DownloadSources
 		{

@@ -3,6 +3,7 @@ using Moviewer.Core.Windows;
 using Moviewer.Nico.Controls;
 using Moviewer.Nico.Core;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using TBird.Core;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
@@ -29,6 +30,8 @@ namespace Moviewer.Nico.Workspaces
 			Period.SelectedItem = Period.GetItemNotNull(NicoSetting.Instance.NicoRankingPeriod);
 			Period.AddOnPropertyChanged(this, Reload, nameof(Period.SelectedItem), true);
 
+			Loaded.Add(Reload);
+
 			AddDisposed((sender, e) =>
 			{
 				NicoSetting.Instance.NicoRankingGenre = Genre.SelectedItem.Value;
@@ -54,6 +57,14 @@ namespace Moviewer.Nico.Workspaces
 		public BindableContextCollection<NicoVideoViewModel> Videos { get; private set; }
 
 		private async void Reload(object sender, PropertyChangedEventArgs e)
+		{
+			using (await LockAsync())
+			{
+				await Reload();
+			}
+		}
+
+		private async Task Reload()
 		{
 			await NicoUtil.GetVideosByRanking(Genre.SelectedItem.Value, "all", Period.SelectedItem.Value).ContinueWith(x =>
 			{

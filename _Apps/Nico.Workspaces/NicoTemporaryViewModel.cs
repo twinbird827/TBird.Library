@@ -74,12 +74,12 @@ namespace Moviewer.Nico.Workspaces
 		});
 		private ICommand _OnDeleteVideoType;
 
-		public BindableChildCollection<UserViewModel> Users
+		public BindableContextCollection<UserViewModel> Users
 		{
 			get => _Users;
 			set => SetProperty(ref _Users, value);
 		}
-		private BindableChildCollection<UserViewModel> _Users;
+		private BindableContextCollection<UserViewModel> _Users;
 
 		public UserViewModel SelectedUser
 		{

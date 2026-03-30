@@ -107,7 +107,7 @@ namespace Moviewer.Core.Controls
 		}
 		private BitmapImage _Thumbnail;
 
-		public BindableCollection<CounterViewModel> Counters { get; private set; }
+		public BindableContextCollection<CounterViewModel> Counters { get; private set; }
 
 		public DateTime StartTime
 		{
@@ -137,7 +137,7 @@ namespace Moviewer.Core.Controls
 		}
 		private UserViewModel _UserInfo;
 
-		public BindableCollection<TagViewModel> Tags { get; private set; }
+		public BindableContextCollection<TagViewModel> Tags { get; private set; }
 
 		public VideoStatus Status
 		{

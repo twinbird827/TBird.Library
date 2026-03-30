@@ -65,12 +65,12 @@ namespace Moviewer.Tube.Workspaces
 		//});
 		//private ICommand _OnDeleteVideoType;
 
-		public BindableChildCollection<UserViewModel> Users
+		public BindableContextCollection<UserViewModel> Users
 		{
 			get => _Users;
 			set => SetProperty(ref _Users, value);
 		}
-		public BindableChildCollection<UserViewModel> _Users;
+		public BindableContextCollection<UserViewModel> _Users;
 
 		public UserViewModel SelectedUser
 		{
