@@ -140,36 +140,37 @@ namespace Netkeiba
 					dic["着差"] = row.Cells[8].GetInnerHtml();
 					// ﾀｲﾑ指数(有料)
 					dic["ﾀｲﾑ指数"] = row.Cells[9].GetInnerHtml().Replace("\n", "");
+					// [10]タイム指数M [11]スタート指数 [12]追走指数 [13]上がり指数 は有料列のためスキップ
 					// 通過
-					dic["通過"] = row.Cells[10].GetInnerHtml();
+					dic["通過"] = row.Cells[14].GetInnerHtml();
 					// 上り
-					dic["上り"] = GetAgari(dic["距離"], dic["馬場"], dic["回り"] == "障", row.Cells[11].GetInnerHtml());
+					dic["上り"] = GetAgari(dic["距離"], dic["馬場"], dic["回り"] == "障", row.Cells[15].GetInnerHtml());
 					// 単勝
-					dic["単勝"] = row.Cells[12].GetInnerHtml();
+					dic["単勝"] = row.Cells[16].GetInnerHtml();
 					// 人気
-					dic["人気"] = row.Cells[13].GetInnerHtml();
+					dic["人気"] = row.Cells[17].GetInnerHtml();
 					// 体重
-					dic["体重"] = row.Cells[14].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
+					dic["体重"] = row.Cells[18].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
 					// 増減 TODO 軽量不能時はｾﾞﾛ
-					dic["増減"] = row.Cells[14].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
+					dic["増減"] = row.Cells[18].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
 					//// 調教ﾀｲﾑ(有料)
-					//dic["調教ﾀｲﾑ"] = row.Cells[15].GetInnerHtml();
+					//dic["調教ﾀｲﾑ"] = row.Cells[19].GetInnerHtml();
 					//// 厩舎ｺﾒﾝﾄ(有料)
-					//dic["厩舎ｺﾒﾝﾄ"] = row.Cells[16].GetInnerHtml();
+					//dic["厩舎ｺﾒﾝﾄ"] = row.Cells[20].GetInnerHtml();
 					// 備考(有料)
-					dic["備考"] = row.Cells[17].GetInnerHtml().Replace("\n", "");
+					dic["備考"] = row.Cells[21].GetInnerHtml().Replace("\n", "");
 					// 調教場所
-					dic["調教場所"] = row.Cells[18].GetInnerHtml().Split('[')[1].Split(']')[0];
+					dic["調教場所"] = row.Cells[22].GetInnerHtml().Split('[')[1].Split(']')[0];
 					// 調教師名
-					dic["調教師名"] = row.Cells[18].GetHrefAttribute("title");
+					dic["調教師名"] = row.Cells[22].GetHrefAttribute("title");
 					// 調教師ID
-					dic["調教師ID"] = row.Cells[18].GetHrefAttribute("href").Split('/')[4];
+					dic["調教師ID"] = row.Cells[22].GetHrefAttribute("href").Split('/')[4];
 					// 馬主名
-					dic["馬主名"] = row.Cells[19].GetHrefAttribute("title");
+					dic["馬主名"] = row.Cells[23].GetHrefAttribute("title");
 					// 馬主ID
-					dic["馬主ID"] = row.Cells[19].GetHrefAttribute("href").Split('/')[4];
+					dic["馬主ID"] = row.Cells[23].GetHrefAttribute("href").Split('/')[4];
 					// 賞金
-					dic["賞金"] = $"{row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle()}";
+					dic["賞金"] = $"{row.Cells[24].GetInnerHtml().Replace(",", "").GetSingle()}";
 
 					arr.Add(dic);
 				}

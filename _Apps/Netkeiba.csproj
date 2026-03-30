@@ -36,4 +36,8 @@
     <ProjectReference Include="..\_Core\Netkeiba.Core.csproj" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
+  </Target>
+
 </Project>
