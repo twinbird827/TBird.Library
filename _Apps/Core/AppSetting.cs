@@ -4,15 +4,13 @@ namespace Moviewer.Core
 {
 	public class AppSetting : JsonBase<AppSetting>
 	{
-		private const string _path = @"lib\app-setting.json";
-
 		public static AppSetting Instance
 		{
 			get => _Instance = _Instance ?? new AppSetting();
 		}
 		private static AppSetting _Instance;
 
-		public AppSetting() : base(_path)
+		public AppSetting() : base(PathSetting.Instance.GetFullPath("lib", "app-setting.json"))
 		{
 			if (!Load())
 			{

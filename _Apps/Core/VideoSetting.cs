@@ -4,15 +4,13 @@ namespace Moviewer.Core
 {
 	public class VideoSetting : JsonBase<VideoSetting>
 	{
-		private const string _path = @"lib\video-setting.json";
-
 		public static VideoSetting Instance
 		{
 			get => _Instance = _Instance ?? new VideoSetting();
 		}
 		private static VideoSetting _Instance;
 
-		public VideoSetting() : base(_path)
+		public VideoSetting() : base(PathSetting.Instance.GetFullPath("lib", "video-setting.json"))
 		{
 			if (!Load())
 			{

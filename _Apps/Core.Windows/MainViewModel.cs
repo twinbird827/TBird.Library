@@ -27,6 +27,8 @@ namespace Moviewer.Core.Windows
 
 			Closing.Add(DoClosing);
 
+			PathSetting.Instance.Save();
+
 			NowTimer = new IntervalTimer(() => OnPropertyChanged(nameof(Now)));
 			NowTimer.Interval = TimeSpan.FromMilliseconds(256);
 			NowTimer.Start();
