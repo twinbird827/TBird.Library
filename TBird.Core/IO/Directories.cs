@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 
 namespace TBird.Core
 {
@@ -40,9 +41,9 @@ namespace TBird.Core
 			return Path.Combine(RootDirectory, path);
 		}
 
-		public static string GetAbsolutePath(string directory, string file)
+		public static string GetAbsolutePath(string directory, params string[] paths)
 		{
-			return Path.Combine(GetAbsolutePath(directory), file);
+			return Path.Combine(new[] { GetAbsolutePath(directory) }.Concat(paths).ToArray());
 		}
 	}
 }
