@@ -147,7 +147,7 @@ namespace Moviewer.Nico.Core
 			var context = CoreSetting.Instance.ApplicationKey;
 			var orderbyapiv2 = ComboUtil.GetNicoDisplay("oyder_by_apiv2", order);
 			var field = "contentId,title,description,userId,viewCounter,mylistCounter,lengthSeconds,thumbnailUrl,startTime,commentCounter,tags,channelId,thumbnailUrl";
-			var url = $"https://api.search.nicovideo.jp/api/v2/snapshot/video/contents/search?q={word}&targets={target}&fields={field}&&_sort={orderbyapiv2}&_offset={offset}&_limit={limit}&_context={context}";
+			var url = $"https://snapshot.search.nicovideo.jp/api/v2/snapshot/video/contents/search?q={word}&targets={target}&fields={field}&_sort={orderbyapiv2}&_offset={offset}&_limit={limit}&_context={context}";
 
 			return SearchApiV2(await WebUtil.GetJsonAsync(url));
 		}

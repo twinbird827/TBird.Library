@@ -37,7 +37,8 @@ namespace Moviewer.Nico.Controls
 				MylistCount = DynamicUtil.L(item, "mylistCounter");
 				StartTime = DateTimeOffset.Parse(DynamicUtil.S(item, "startTime")).DateTime;
 				Duration = TimeSpan.FromSeconds(DynamicUtil.L(item, "lengthSeconds"));
-				Tags.AddRange((string[])DynamicUtil.O(item, "tags"));
+				var tagsStr = DynamicUtil.S(item, "tags");
+				if (!string.IsNullOrEmpty(tagsStr)) Tags.AddRange(tagsStr.Split(' '));
 				RefreshStatus();
 
 				_beforedisplay = true;
