@@ -1,7 +1,8 @@
-﻿using TBird.Core;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
+using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
@@ -20,17 +21,14 @@ namespace TBird.Wpf.Collections
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						for (var i = 0; i < e.NewItems.Count; i++)
-						{
-							Add((T)e.NewItems[i]);
-						}
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Remove:
-						Remove((T)e.OldItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						Remove((T)e.OldItems[0]);
-						Add((T)e.NewItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();

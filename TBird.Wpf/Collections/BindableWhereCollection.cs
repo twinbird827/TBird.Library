@@ -40,8 +40,7 @@ namespace TBird.Wpf.Collections
 						break;
 					case NotifyCollectionChangedAction.Replace:
 						e.OldItems.OfType<T>().ForEach(item => Remove(item));
-						e.NewItems.OfType<T>().ForEach(Add);
-						break;
+						goto case NotifyCollectionChangedAction.Add;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
 						break;
