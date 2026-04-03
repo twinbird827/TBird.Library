@@ -1,9 +1,10 @@
-using TBird.Core;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Threading;
+using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
@@ -13,6 +14,7 @@ namespace TBird.Wpf.Collections
 
 		protected override void OnCollectionChanged(bool isnotifycount, bool isnotifyitem, NotifyCollectionChangedEventArgs e)
 		{
+			if (IsDisposed) return;
 			base.OnCollectionChanged(isnotifycount, isnotifyitem, e);
 			if (CollectionChanged != null) CollectionChanged(this, e);
 		}
@@ -29,29 +31,33 @@ namespace TBird.Wpf.Collections
 
 			AddBindableCollectionChanged((sender, e) =>
 			{
+				void MultiPost(int index, IList items, Action<int, T> action)
+				{
+					items.OfType<T>().Chunk(_chunk).ForEach(arr =>
+					{
+						Post(args =>
+						{
+							var newindex = (int)args[0];
+							var newitems = (T[])args[1];
+							for (var i = 0; i < newitems.Length; i++)
+							{
+								action(newindex + i, newitems[i]);
+							}
+						}, index, arr.ToArray());
+						index += _chunk;
+					});
+				}
+
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						var beginindex = e.NewStartingIndex;
-						e.NewItems.OfType<T>().Chunk(_chunk).ForEach(arr =>
-						{
-							Post(args =>
-							{
-								var newindex = (int)args[0];
-								var newitems = (T[])args[1];
-								for (var i = 0; i < newitems.Length; i++)
-								{
-									base.Insert(newindex + i, (T)newitems[i]);
-								}
-							}, beginindex, arr.ToArray());
-							beginindex += _chunk;
-						});
+						MultiPost(e.NewStartingIndex, e.NewItems, (i, item) => base.Insert(i, item));
 						break;
 					case NotifyCollectionChangedAction.Remove:
-						Remove((T)e.OldItems[0]);
+						MultiPost(0, e.OldItems, (i, item) => Remove(item));
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = (T)e.NewItems[0];
+						MultiPost(e.NewStartingIndex, e.NewItems, (i, item) => base[i] = item);
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
