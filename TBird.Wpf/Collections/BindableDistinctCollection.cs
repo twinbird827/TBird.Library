@@ -23,14 +23,14 @@ namespace TBird.Wpf.Collections
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Add((T)e.NewItems[0]);
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Remove:
-						Remove((T)e.OldItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						Remove((T)e.OldItems[0]);
-						Add((T)e.NewItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();

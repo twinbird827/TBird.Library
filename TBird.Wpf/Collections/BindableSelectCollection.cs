@@ -28,7 +28,10 @@ namespace TBird.Wpf.Collections
 						RemoveAt(e.OldStartingIndex);
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = func((TSource)e.NewItems[0]);
+						for (var i = 0; i < e.NewItems.Count; i++)
+						{
+							this[e.NewStartingIndex + i] = func((TSource)e.NewItems[i]);
+						}
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
@@ -57,7 +60,10 @@ namespace TBird.Wpf.Collections
 						RemoveAt(e.OldStartingIndex);
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = await func((TSource)e.NewItems[0]);
+						for (var i = 0; i < e.NewItems.Count; i++)
+						{
+							this[e.NewStartingIndex + i] = await func((TSource)e.NewItems[i]);
+						}
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
