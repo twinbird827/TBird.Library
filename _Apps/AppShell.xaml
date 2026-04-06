@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:LanobeReader.Views"
+       x:Class="LanobeReader.AppShell"
+       Title="ラノベリーダ">
+
+    <!-- Bottom tab navigation -->
+    <TabBar>
+        <ShellContent Title="一覧" Route="novels"
+                      ContentTemplate="{DataTemplate views:NovelListPage}"
+                      Icon="{OnPlatform Android='book_open.png'}" />
+
+        <ShellContent Title="検索" Route="search"
+                      ContentTemplate="{DataTemplate views:SearchPage}"
+                      Icon="{OnPlatform Android='magnify.png'}" />
+
+        <ShellContent Title="設定" Route="settings"
+                      ContentTemplate="{DataTemplate views:SettingsPage}"
+                      Icon="{OnPlatform Android='cog.png'}" />
+    </TabBar>
+
+</Shell>

@@ -1,0 +1,242 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using LanobeReader.Helpers;
+using LanobeReader.Models;
+using LanobeReader.Services;
+using LanobeReader.Services.Database;
+
+namespace LanobeReader.ViewModels;
+
+public partial class ReaderViewModel : ObservableObject, IQueryAttributable
+{
+    private readonly EpisodeRepository _episodeRepo;
+    private readonly EpisodeCacheRepository _cacheRepo;
+    private readonly NovelRepository _novelRepo;
+    private readonly INovelServiceFactory _serviceFactory;
+    private readonly AppSettingsRepository _settingsRepo;
+
+    private int _novelDbId;
+    private int _currentEpisodeId;
+    private int _siteType;
+    private string _siteNovelId = string.Empty;
+
+    public ReaderViewModel(
+        EpisodeRepository episodeRepo,
+        EpisodeCacheRepository cacheRepo,
+        NovelRepository novelRepo,
+        INovelServiceFactory serviceFactory,
+        AppSettingsRepository settingsRepo)
+    {
+        _episodeRepo = episodeRepo;
+        _cacheRepo = cacheRepo;
+        _novelRepo = novelRepo;
+        _serviceFactory = serviceFactory;
+        _settingsRepo = settingsRepo;
+    }
+
+    [ObservableProperty]
+    private string _episodeTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _episodeContent = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLoading = true;
+
+    [ObservableProperty]
+    private bool _isHeaderVisible = true;
+
+    [ObservableProperty]
+    private bool _isFooterVisible = true;
+
+    [ObservableProperty]
+    private double _fontSize = 16;
+
+    [ObservableProperty]
+    private double _lineHeight = 1.7;
+
+    [ObservableProperty]
+    private Color _backgroundColor = Color.FromArgb("#FFFFFF");
+
+    [ObservableProperty]
+    private Color _textColor = Color.FromArgb("#212121");
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PrevEpisodeCommand))]
+    private bool _hasPrevEpisode;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NextEpisodeCommand))]
+    private bool _hasNextEpisode;
+
+    private Episode? _episode;
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("novelId", out var nid)) int.TryParse(nid?.ToString(), out _novelDbId);
+        if (query.TryGetValue("episodeId", out var eid)) int.TryParse(eid?.ToString(), out _currentEpisodeId);
+        if (query.TryGetValue("siteType", out var st)) int.TryParse(st?.ToString(), out _siteType);
+        if (query.TryGetValue("siteNovelId", out var snid)) _siteNovelId = snid?.ToString() ?? "";
+
+        _ = InitializeAsync();
+    }
+
+    public async Task InitializeAsync()
+    {
+        await LoadSettingsAsync();
+        await LoadEpisodeAsync(_currentEpisodeId);
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16).ConfigureAwait(false);
+        var backgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0).ConfigureAwait(false);
+        var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1).ConfigureAwait(false);
+
+        var (bg, text) = ThemeHelper.GetThemeColors(backgroundTheme);
+        var lh = ThemeHelper.GetLineHeight(lineSpacing);
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            FontSize = fontSizeSp;
+            BackgroundColor = bg;
+            TextColor = text;
+            LineHeight = lh;
+        });
+    }
+
+    private async Task LoadEpisodeAsync(int episodeId)
+    {
+        IsLoading = true;
+        try
+        {
+            _episode = await _episodeRepo.GetByIdAsync(episodeId).ConfigureAwait(false);
+            if (_episode is null) return;
+
+            // Check for prev/next
+            var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1).ConfigureAwait(false);
+            var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1).ConfigureAwait(false);
+
+            // Get content (cache first)
+            string content;
+            var cache = await _cacheRepo.GetByEpisodeIdAsync(episodeId).ConfigureAwait(false);
+            if (cache is not null)
+            {
+                content = cache.Content;
+            }
+            else
+            {
+                // Check connectivity
+                var connectivity = Connectivity.Current.NetworkAccess;
+                if (connectivity != NetworkAccess.Internet)
+                {
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                        Shell.Current.DisplayAlert("エラー", "オフラインのため表示できません。キャッシュがありません", "OK"));
+                    return;
+                }
+
+                var service = _serviceFactory.GetService((SiteType)_siteType);
+                content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo).ConfigureAwait(false);
+
+                // Save to cache
+                await _cacheRepo.InsertAsync(new EpisodeCache
+                {
+                    EpisodeId = episodeId,
+                    Content = content,
+                    CachedAt = DateTime.UtcNow.ToString("o"),
+                }).ConfigureAwait(false);
+            }
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                EpisodeTitle = _episode.Title;
+                EpisodeContent = content;
+                HasPrevEpisode = prev is not null;
+                HasNextEpisode = next is not null;
+                IsHeaderVisible = true;
+                IsFooterVisible = true;
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            await MainThread.InvokeOnMainThreadAsync(() =>
+                Shell.Current.DisplayAlert("エラー", "タイムアウトしました", "OK"));
+        }
+        catch (HttpRequestException ex)
+        {
+            await MainThread.InvokeOnMainThreadAsync(() =>
+                Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（HTTPエラー: {ex.Message}）", "OK"));
+        }
+        catch (Exception ex)
+        {
+            await MainThread.InvokeOnMainThreadAsync(() =>
+                Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（{ex.Message}）", "OK"));
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoPrev))]
+    private async Task PrevEpisodeAsync()
+    {
+        if (_episode is null) return;
+        var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1).ConfigureAwait(false);
+        if (prev is not null)
+        {
+            _currentEpisodeId = prev.Id;
+            await LoadEpisodeAsync(prev.Id);
+        }
+    }
+
+    private bool CanGoPrev() => HasPrevEpisode;
+
+    [RelayCommand(CanExecute = nameof(CanGoNext))]
+    private async Task NextEpisodeAsync()
+    {
+        if (_episode is null) return;
+        var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1).ConfigureAwait(false);
+        if (next is not null)
+        {
+            _currentEpisodeId = next.Id;
+            await LoadEpisodeAsync(next.Id);
+        }
+    }
+
+    private bool CanGoNext() => HasNextEpisode;
+
+    [RelayCommand]
+    private async Task NavigateToTocAsync()
+    {
+        await Shell.Current.GoToAsync("..");
+    }
+
+    [RelayCommand]
+    private void ToggleHeaderFooter()
+    {
+        IsHeaderVisible = !IsHeaderVisible;
+        IsFooterVisible = !IsFooterVisible;
+    }
+
+    [RelayCommand]
+    private async Task MarkAsReadAsync()
+    {
+        if (_episode is null || _episode.IsRead == 1) return;
+
+        await _episodeRepo.MarkAsReadAsync(_episode.Id).ConfigureAwait(false);
+        _episode.IsRead = 1;
+
+        // Check if all episodes are read
+        var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId).ConfigureAwait(false);
+        if (allRead)
+        {
+            var novel = await _novelRepo.GetByIdAsync(_novelDbId).ConfigureAwait(false);
+            if (novel is not null && novel.HasUnconfirmedUpdate == 1)
+            {
+                novel.HasUnconfirmedUpdate = 0;
+                await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+            }
+        }
+    }
+}

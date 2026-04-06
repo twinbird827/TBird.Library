@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             x:Class="LanobeReader.Views.ReaderPage"
+             x:DataType="vm:ReaderViewModel"
+             Shell.TabBarIsVisible="False"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{Binding BackgroundColor}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Tap gesture to toggle header/footer -->
+        <Grid.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding ToggleHeaderFooterCommand}" />
+        </Grid.GestureRecognizers>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Padding="8" BackgroundColor="#80000000"
+              ColumnDefinitions="Auto,*,Auto"
+              IsVisible="{Binding IsHeaderVisible}">
+            <Button Grid.Column="0" Text="◀" Command="{Binding PrevEpisodeCommand}"
+                    BackgroundColor="Transparent" TextColor="White" />
+            <Label Grid.Column="1" Text="{Binding EpisodeTitle}" TextColor="White"
+                   FontSize="14" VerticalOptions="Center" HorizontalTextAlignment="Center"
+                   LineBreakMode="TailTruncation" />
+            <Button Grid.Column="2" Text="目次" Command="{Binding NavigateToTocCommand}"
+                    BackgroundColor="Transparent" TextColor="White" />
+        </Grid>
+
+        <!-- Loading -->
+        <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+
+        <!-- Content -->
+        <ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled">
+            <!-- Swipe gestures -->
+            <ScrollView.GestureRecognizers>
+                <SwipeGestureRecognizer Direction="Right" Swiped="OnSwipedRight" />
+                <SwipeGestureRecognizer Direction="Left" Swiped="OnSwipedLeft" />
+            </ScrollView.GestureRecognizers>
+
+            <Label Text="{Binding EpisodeContent}" Padding="16"
+                   FontSize="{Binding FontSize}"
+                   LineHeight="{Binding LineHeight}"
+                   TextColor="{Binding TextColor}" />
+        </ScrollView>
+
+        <!-- Footer -->
+        <Grid Grid.Row="2" Padding="8" BackgroundColor="#80000000"
+              ColumnDefinitions="*,*,*"
+              IsVisible="{Binding IsFooterVisible}">
+            <Button Grid.Column="0" Text="目次" Command="{Binding NavigateToTocCommand}"
+                    BackgroundColor="Transparent" TextColor="White" />
+            <Button Grid.Column="1" Text="◀ 前へ" Command="{Binding PrevEpisodeCommand}"
+                    BackgroundColor="Transparent" TextColor="White" />
+            <Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextEpisodeCommand}"
+                    BackgroundColor="Transparent" TextColor="White" />
+        </Grid>
+    </Grid>
+</ContentPage>

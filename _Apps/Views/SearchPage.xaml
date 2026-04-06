@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:converters="clr-namespace:LanobeReader.Converters"
+             x:Class="LanobeReader.Views.SearchPage"
+             x:DataType="vm:SearchViewModel"
+             Title="検索">
+
+	<ContentPage.Resources>
+		<converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+		<converters:InverseBoolConverter x:Key="InverseBool" />
+	</ContentPage.Resources>
+
+	<Grid RowDefinitions="Auto,Auto,*">
+		<!-- Search bar -->
+		<Grid Grid.Row="0" Padding="8" ColumnDefinitions="*,Auto">
+			<Entry Grid.Column="0" Placeholder="タイトル・作者名で検索"
+                   Text="{Binding SearchKeyword}" ReturnCommand="{Binding SearchCommand}" />
+			<Button Grid.Column="1" Text="検索" Command="{Binding SearchCommand}" Margin="4,0,0,0" />
+		</Grid>
+
+		<!-- Site filters -->
+		<HorizontalStackLayout Grid.Row="1" Padding="8,0" Spacing="16">
+			<HorizontalStackLayout Spacing="4">
+				<CheckBox IsChecked="{Binding SearchNarou}" />
+				<Label Text="なろう" VerticalOptions="Center" />
+			</HorizontalStackLayout>
+			<HorizontalStackLayout Spacing="4">
+				<CheckBox IsChecked="{Binding SearchKakuyomu}" />
+				<Label Text="カクヨム" VerticalOptions="Center" />
+			</HorizontalStackLayout>
+		</HorizontalStackLayout>
+
+		<Grid Grid.Row="2">
+			<!-- Loading indicator -->
+			<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+
+			<!-- Error message -->
+			<Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                   TextColor="Red" Padding="16" FontSize="14" />
+
+			<!-- Empty state -->
+			<Label Text="見つかりませんでした" FontSize="16"
+                   HorizontalOptions="Center" VerticalOptions="Center"
+                   IsVisible="False" x:Name="EmptyLabel" />
+
+			<!-- Search results -->
+			<CollectionView ItemsSource="{Binding SearchResults}" SelectionMode="None">
+				<CollectionView.ItemTemplate>
+					<DataTemplate x:DataType="vm:SearchResultViewModel">
+						<Frame Margin="8,4" Padding="12" HasShadow="True" CornerRadius="8">
+							<Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+								<!-- Title -->
+								<Label Grid.Row="0" Grid.Column="0" Text="{Binding Title}"
+                                       FontSize="15" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+
+								<!-- Site badge -->
+								<Label Grid.Row="0" Grid.Column="1" Text="{Binding SiteTypeLabel}"
+                                       FontSize="11" TextColor="Gray" VerticalOptions="Center" />
+
+								<!-- Author -->
+								<Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                       Text="{Binding Author}" FontSize="12" TextColor="Gray" />
+
+								<!-- Info row -->
+								<HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="12">
+									<Label Text="{Binding TotalEpisodes, StringFormat='{0}話'}" FontSize="12" />
+									<Label Text="完結" FontSize="11" TextColor="Green"
+                                           IsVisible="{Binding IsCompleted}" />
+									<Label Text="連載中" FontSize="11" TextColor="Orange"
+                                           IsVisible="{Binding IsCompleted, Converter={StaticResource InverseBool}}" />
+								</HorizontalStackLayout>
+
+								<!-- Register button -->
+								<Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,0">
+									<Button Text="登録"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, Path=RegisterCommand, x:DataType=vm:SearchViewModel}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding IsRegistered, Converter={StaticResource InverseBool}}"
+                                            IsVisible="{Binding IsRegistered, Converter={StaticResource InverseBool}}"
+                                            HeightRequest="36" />
+									<Label Text="登録済" FontSize="14" TextColor="Green"
+                                           HorizontalOptions="End" VerticalOptions="Center"
+                                           IsVisible="{Binding IsRegistered}" />
+									<ActivityIndicator IsRunning="{Binding IsRegistering}"
+                                                       IsVisible="{Binding IsRegistering}"
+                                                       HorizontalOptions="Center" HeightRequest="30" />
+								</Grid>
+							</Grid>
+						</Frame>
+					</DataTemplate>
+				</CollectionView.ItemTemplate>
+
+				<CollectionView.EmptyView>
+					<VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Padding="20">
+						<Label Text="見つかりませんでした" FontSize="16"
+                               HorizontalTextAlignment="Center"
+                               IsVisible="{Binding HasSearched}" />
+					</VerticalStackLayout>
+				</CollectionView.EmptyView>
+			</CollectionView>
+		</Grid>
+	</Grid>
+</ContentPage>

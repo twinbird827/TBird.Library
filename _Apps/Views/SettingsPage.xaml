@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             x:Class="LanobeReader.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="設定">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="24">
+
+            <!-- Cache settings -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="キャッシュ設定" FontSize="18" FontAttributes="Bold" />
+
+                <Label FontSize="14">
+                    <Label.Text>
+                        <Binding Path="CacheMonths" StringFormat="保存期間: {0}ヶ月" />
+                    </Label.Text>
+                </Label>
+                <Slider Minimum="1" Maximum="24" Value="{Binding CacheMonths}"
+                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+
+                <Button Text="キャッシュをすべてクリア" Command="{Binding ClearCacheCommand}"
+                        BackgroundColor="#F44336" TextColor="White" />
+            </VerticalStackLayout>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- Update settings -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="更新設定" FontSize="18" FontAttributes="Bold" />
+
+                <Label FontSize="14">
+                    <Label.Text>
+                        <Binding Path="UpdateIntervalHours" StringFormat="チェック間隔: {0}時間" />
+                    </Label.Text>
+                </Label>
+                <Slider Minimum="1" Maximum="24" Value="{Binding UpdateIntervalHours}"
+                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+            </VerticalStackLayout>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- Reading settings -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="読書設定" FontSize="18" FontAttributes="Bold" />
+
+                <!-- Font size -->
+                <Label FontSize="14">
+                    <Label.Text>
+                        <Binding Path="FontSizeSp" StringFormat="フォントサイズ: {0}sp" />
+                    </Label.Text>
+                </Label>
+                <Slider Minimum="12" Maximum="24" Value="{Binding FontSizeSp}"
+                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+
+                <!-- Preview -->
+                <Frame Padding="12" CornerRadius="8" HasShadow="True">
+                    <Label Text="{Binding PreviewText}" FontSize="{Binding FontSizeSp}" />
+                </Frame>
+
+                <!-- Background theme -->
+                <Label Text="背景色テーマ" FontSize="14" Margin="0,8,0,0" />
+                <HorizontalStackLayout Spacing="8">
+                    <RadioButton Content="白" IsChecked="True" GroupName="Theme"
+                                 CheckedChanged="OnThemeChanged" x:Name="ThemeWhite" />
+                    <RadioButton Content="黒" GroupName="Theme"
+                                 CheckedChanged="OnThemeChanged" x:Name="ThemeBlack" />
+                    <RadioButton Content="セピア" GroupName="Theme"
+                                 CheckedChanged="OnThemeChanged" x:Name="ThemeSepia" />
+                </HorizontalStackLayout>
+
+                <!-- Line spacing -->
+                <Label Text="行間" FontSize="14" Margin="0,8,0,0" />
+                <HorizontalStackLayout Spacing="8">
+                    <RadioButton Content="狭" GroupName="Spacing"
+                                 CheckedChanged="OnSpacingChanged" x:Name="SpacingNarrow" />
+                    <RadioButton Content="普通" IsChecked="True" GroupName="Spacing"
+                                 CheckedChanged="OnSpacingChanged" x:Name="SpacingNormal" />
+                    <RadioButton Content="広" GroupName="Spacing"
+                                 CheckedChanged="OnSpacingChanged" x:Name="SpacingWide" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- Paging settings -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="目次ページ設定" FontSize="18" FontAttributes="Bold" />
+
+                <Label FontSize="14">
+                    <Label.Text>
+                        <Binding Path="EpisodesPerPage" StringFormat="1ページ件数: {0}件" />
+                    </Label.Text>
+                </Label>
+                <Slider Minimum="10" Maximum="100" Value="{Binding EpisodesPerPage}"
+                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

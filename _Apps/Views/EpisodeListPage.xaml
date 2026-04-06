@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:converters="clr-namespace:LanobeReader.Converters"
+             x:Class="LanobeReader.Views.EpisodeListPage"
+             x:DataType="vm:EpisodeListViewModel"
+             Title="{Binding NovelTitle}"
+             Shell.TabBarIsVisible="False">
+
+	<ContentPage.Resources>
+		<converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+		<converters:InverseBoolConverter x:Key="InverseBool" />
+		<converters:BoolToGrayConverter x:Key="BoolToGrayConverter" />
+	</ContentPage.Resources>
+
+	<ContentPage.ToolbarItems>
+		<ToolbarItem Text="続きから読む" Command="{Binding ReadContinueCommand}" />
+	</ContentPage.ToolbarItems>
+
+	<Grid RowDefinitions="*,Auto">
+		<!-- Loading -->
+		<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+
+		<!-- Episode list -->
+		<CollectionView Grid.Row="0" ItemsSource="{Binding Episodes}" SelectionMode="None"
+                         IsGrouped="False">
+			<CollectionView.ItemTemplate>
+				<DataTemplate x:DataType="vm:EpisodeViewModel">
+					<Grid Padding="16,10" ColumnDefinitions="Auto,*">
+						<Grid.GestureRecognizers>
+							<TapGestureRecognizer
+									Command="{Binding Source={RelativeSource AncestorType={x:Type vm:EpisodeListViewModel}}, Path=NavigateToEpisodeCommand, x:DataType=vm:EpisodeListViewModel}"
+									CommandParameter="{Binding}" />
+						</Grid.GestureRecognizers>
+
+						<!-- Episode number -->
+						<Label Grid.Column="0" Text="{Binding EpisodeNo, StringFormat='{0}.'}"
+                               FontSize="14" WidthRequest="40"
+                               TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
+
+						<!-- Chapter + Title -->
+						<VerticalStackLayout Grid.Column="1">
+							<Label Text="{Binding ChapterName}" FontSize="10" TextColor="Gray"
+                                   IsVisible="{Binding ChapterName, Converter={StaticResource BoolToVis}}" />
+							<Label Text="{Binding Title}" FontSize="14"
+                                   TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
+						</VerticalStackLayout>
+					</Grid>
+				</DataTemplate>
+			</CollectionView.ItemTemplate>
+		</CollectionView>
+
+		<!-- Paging buttons (hidden when has chapters) -->
+		<Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" Padding="8"
+              IsVisible="{Binding HasChapters, Converter={StaticResource InverseBool}}">
+			<Button Grid.Column="0" Text="◀ 前へ" Command="{Binding PrevPageCommand}"
+                    HorizontalOptions="Start" />
+			<Label Grid.Column="1" VerticalOptions="Center" HorizontalOptions="Center"
+                   FontSize="14">
+				<Label.Text>
+					<MultiBinding StringFormat="{}{0} / {1}">
+						<Binding Path="CurrentPage" />
+						<Binding Path="MaxPage" />
+					</MultiBinding>
+				</Label.Text>
+			</Label>
+			<Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextPageCommand}"
+                    HorizontalOptions="End" />
+		</Grid>
+	</Grid>
+</ContentPage>
