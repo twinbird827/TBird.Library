@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AngleSharp;
+using AngleSharp.Dom;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
 
@@ -35,34 +36,26 @@ public class KakuyomuApiService : INovelService
         var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
 
         var results = new List<SearchResult>();
-        var items = document.QuerySelectorAll("[data-widget-id] a[href^='/works/']");
+        var seen = new HashSet<string>();
 
-        // Try parsing search results from the page
-        var workCards = document.QuerySelectorAll(".widget-workCard");
-        if (workCards.Length == 0)
+        // New structure: <a title="タイトル" href="https://kakuyomu.jp/works/ID" class="...">タイトル</a>
+        var titleLinks = document.QuerySelectorAll("a[title][href*='/works/']");
+        foreach (var link in titleLinks)
         {
-            // Fallback: try alternative selectors
-            workCards = document.QuerySelectorAll("[class*='WorkCard']");
-        }
+            var href = link.GetAttribute("href") ?? "";
+            if (href.Contains("/reviews")) continue;
 
-        foreach (var card in workCards)
-        {
-            var linkEl = card.QuerySelector("a[href*='/works/']");
-            if (linkEl is null) continue;
-
-            var href = linkEl.GetAttribute("href") ?? "";
             var workId = ExtractWorkId(href);
-            if (string.IsNullOrEmpty(workId)) continue;
+            if (string.IsNullOrEmpty(workId) || !seen.Add(workId)) continue;
 
-            var titleEl = card.QuerySelector("[class*='title'], .widget-workCard-title, h3");
-            var authorEl = card.QuerySelector("[class*='author'], .widget-workCard-author");
+            var title = link.GetAttribute("title")?.Trim() ?? link.TextContent.Trim();
 
             results.Add(new SearchResult
             {
                 SiteType = SiteType.Kakuyomu,
                 NovelId = workId,
-                Title = titleEl?.TextContent.Trim() ?? linkEl.TextContent.Trim(),
-                Author = authorEl?.TextContent.Trim() ?? "",
+                Title = title,
+                Author = "",
                 TotalEpisodes = 0,  // Will be fetched on registration
                 IsCompleted = false,
             });
@@ -76,44 +69,119 @@ public class KakuyomuApiService : INovelService
     public async Task<List<Episode>> FetchEpisodeListAsync(string novelId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
 
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
 
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+        return ParseEpisodesFromApolloState(html);
+    }
 
-        var episodes = new List<Episode>();
-        string? currentChapter = null;
-        int episodeNo = 0;
+    private static List<string> ParseEpisodeIdsFromApolloState(string html)
+    {
+        var ids = new List<string>();
+        var apolloState = ExtractApolloState(html);
+        if (apolloState is null) return ids;
 
-        // Parse table of contents
-        var tocItems = document.QuerySelectorAll(".widget-toc-episode, .widget-toc-chapter");
-        if (tocItems.Length == 0)
+        var state = apolloState.Value;
+        var chapters = new List<JsonElement>();
+        foreach (var prop in state.EnumerateObject())
         {
-            tocItems = document.QuerySelectorAll("[class*='TableOfContents'] a, [class*='chapter']");
+            if (prop.Name.StartsWith("TableOfContentsChapter:", StringComparison.Ordinal))
+            {
+                chapters.Add(prop.Value);
+            }
         }
 
-        foreach (var item in tocItems)
+        foreach (var chapter in chapters)
         {
-            if (item.ClassList.Contains("widget-toc-chapter") || item.TagName == "H3")
+            if (!chapter.TryGetProperty("episodeUnions", out var episodeUnions)) continue;
+            if (episodeUnions.ValueKind != JsonValueKind.Array) continue;
+
+            foreach (var union in episodeUnions.EnumerateArray())
             {
-                currentChapter = item.TextContent.Trim();
-                continue;
+                if (!union.TryGetProperty("__ref", out var refProp)) continue;
+                var refKey = refProp.GetString();
+                if (string.IsNullOrEmpty(refKey)) continue;
+                // refKey looks like "Episode:16816927862837791426"
+                var colonIdx = refKey.IndexOf(':');
+                if (colonIdx < 0) continue;
+                ids.Add(refKey.Substring(colonIdx + 1));
+            }
+        }
+
+        return ids;
+    }
+
+    private static JsonElement? ExtractApolloState(string html)
+    {
+        const string marker = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
+        var start = html.IndexOf(marker, StringComparison.Ordinal);
+        if (start < 0) return null;
+        start += marker.Length;
+        var end = html.IndexOf("</script>", start, StringComparison.Ordinal);
+        if (end < 0) return null;
+
+        var json = html.Substring(start, end - start);
+        var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("props", out var props)) return null;
+        if (!props.TryGetProperty("pageProps", out var pageProps)) return null;
+        if (!pageProps.TryGetProperty("__APOLLO_STATE__", out var apolloState)) return null;
+        // Clone so the JsonDocument can be disposed safely
+        return apolloState.Clone();
+    }
+
+    private static List<Episode> ParseEpisodesFromApolloState(string html)
+    {
+        var episodes = new List<Episode>();
+        var apolloState = ExtractApolloState(html);
+        if (apolloState is null) return episodes;
+
+        var state = apolloState.Value;
+        var chapters = new List<JsonElement>();
+        foreach (var prop in state.EnumerateObject())
+        {
+            if (prop.Name.StartsWith("TableOfContentsChapter:", StringComparison.Ordinal))
+            {
+                chapters.Add(prop.Value);
+            }
+        }
+
+        int episodeNo = 0;
+        foreach (var chapter in chapters)
+        {
+            string? chapterTitle = null;
+            if (chapter.TryGetProperty("title", out var ct) && ct.ValueKind == JsonValueKind.String)
+            {
+                var t = ct.GetString();
+                if (!string.IsNullOrEmpty(t)) chapterTitle = t;
             }
 
-            var link = item.TagName == "A" ? item : item.QuerySelector("a");
-            if (link is null) continue;
+            if (!chapter.TryGetProperty("episodeUnions", out var episodeUnions)) continue;
+            if (episodeUnions.ValueKind != JsonValueKind.Array) continue;
 
-            episodeNo++;
-            episodes.Add(new Episode
+            foreach (var union in episodeUnions.EnumerateArray())
             {
-                EpisodeNo = episodeNo,
-                Title = link.TextContent.Trim(),
-                ChapterName = currentChapter,
-            });
+                if (!union.TryGetProperty("__ref", out var refProp)) continue;
+                var refKey = refProp.GetString();
+                if (string.IsNullOrEmpty(refKey)) continue;
+
+                if (!state.TryGetProperty(refKey, out var episodeEntry)) continue;
+                if (!episodeEntry.TryGetProperty("__typename", out var typename)) continue;
+                if (typename.GetString() != "Episode") continue;
+
+                var title = episodeEntry.TryGetProperty("title", out var titleProp)
+                    ? titleProp.GetString() ?? ""
+                    : "";
+
+                episodeNo++;
+                episodes.Add(new Episode
+                {
+                    EpisodeNo = episodeNo,
+                    Title = title,
+                    ChapterName = chapterTitle,
+                });
+            }
         }
 
         return episodes;
@@ -121,37 +189,26 @@ public class KakuyomuApiService : INovelService
 
     public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
     {
-        // First fetch episode list to get the actual episode URL
-        var episodes = await FetchEpisodeListAsync(novelId, ct).ConfigureAwait(false);
-        if (episodeNo < 1 || episodeNo > episodes.Count)
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+        // Fetch TOC and extract episode IDs from Apollo State
+        var tocUrl = $"{BASE_URL}/works/{novelId}";
+        var tocHtml = await _httpClient.GetStringAsync(tocUrl, cts.Token).ConfigureAwait(false);
+        var episodeIds = ParseEpisodeIdsFromApolloState(tocHtml);
+
+        if (episodeNo < 1 || episodeNo > episodeIds.Count)
         {
             throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
         }
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        var episodeId = episodeIds[episodeNo - 1];
+        var episodeHref = $"{BASE_URL}/works/{novelId}/episodes/{episodeId}";
 
-        // Fetch episode page and extract episode ID from TOC
-        var tocUrl = $"{BASE_URL}/works/{novelId}";
-        var tocHtml = await _httpClient.GetStringAsync(tocUrl, cts.Token).ConfigureAwait(false);
+        var episodeHtml = await _httpClient.GetStringAsync(episodeHref, cts.Token).ConfigureAwait(false);
 
         var config = Configuration.Default;
         var context = BrowsingContext.New(config);
-        var tocDoc = await context.OpenAsync(req => req.Content(tocHtml), cts.Token).ConfigureAwait(false);
-
-        var episodeLinks = tocDoc.QuerySelectorAll(".widget-toc-episode a, [class*='TableOfContents'] a");
-        if (episodeNo - 1 >= episodeLinks.Length)
-        {
-            throw new InvalidOperationException("エピソードのURLが特定できません");
-        }
-
-        var episodeHref = episodeLinks[episodeNo - 1].GetAttribute("href") ?? "";
-        if (!episodeHref.StartsWith("http"))
-        {
-            episodeHref = $"{BASE_URL}{episodeHref}";
-        }
-
-        var episodeHtml = await _httpClient.GetStringAsync(episodeHref, cts.Token).ConfigureAwait(false);
         var episodeDoc = await context.OpenAsync(req => req.Content(episodeHtml), cts.Token).ConfigureAwait(false);
 
         var contentEl = episodeDoc.QuerySelector(".widget-episodeBody, [class*='EpisodeBody']");
@@ -160,13 +217,14 @@ public class KakuyomuApiService : INovelService
             throw new InvalidOperationException("本文の取得に失敗しました（サイト構造が変わった可能性があります）");
         }
 
-        return contentEl.InnerHtml
-            .Replace("<br>", "\n")
-            .Replace("<br/>", "\n")
-            .Replace("<br />", "\n")
-            .Replace("</p>", "\n")
-            .Replace("<p>", "")
-            .Trim();
+        var paragraphs = contentEl.QuerySelectorAll("p");
+        if (paragraphs.Length > 0)
+        {
+            var lines = paragraphs.Select(p => p.TextContent);
+            return string.Join("\n", lines).Trim();
+        }
+
+        return contentEl.TextContent.Trim();
     }
 
     public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
@@ -177,17 +235,20 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
 
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+        var totalEpisodes = ParseEpisodeIdsFromApolloState(html).Count;
 
-        // Count episodes
-        var episodeLinks = document.QuerySelectorAll(".widget-toc-episode a, [class*='TableOfContents'] a");
-        int totalEpisodes = episodeLinks.Length;
-
-        // Check completion status
-        var statusEl = document.QuerySelector("[class*='Status'], [class*='status']");
-        bool isCompleted = statusEl?.TextContent.Contains("完結") ?? false;
+        bool isCompleted = false;
+        var apolloState = ExtractApolloState(html);
+        if (apolloState is not null)
+        {
+            var workKey = $"Work:{novelId}";
+            if (apolloState.Value.TryGetProperty(workKey, out var work)
+                && work.TryGetProperty("serialStatus", out var status)
+                && status.ValueKind == JsonValueKind.String)
+            {
+                isCompleted = status.GetString() == "COMPLETED";
+            }
+        }
 
         return (totalEpisodes, DateTime.UtcNow.ToString("o"), isCompleted);
     }

@@ -67,41 +67,33 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         IsLoading = true;
         try
         {
-            _novel = await _novelRepo.GetByIdAsync(_novelDbId).ConfigureAwait(false);
+            _novel = await _novelRepo.GetByIdAsync(_novelDbId);
             if (_novel is null) return;
 
-            _episodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50).ConfigureAwait(false);
+            _episodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
 
             // Check if episodes have chapters
-            var allEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId).ConfigureAwait(false);
+            var allEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
             var hasChapters = allEpisodes.Any(e => e.ChapterName is not null);
 
             // Check last read
-            var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId).ConfigureAwait(false);
+            var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId);
 
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                NovelTitle = _novel.Title;
-                HasChapters = hasChapters;
-                HasLastRead = lastRead is not null;
-            });
+            NovelTitle = _novel.Title;
+            HasChapters = hasChapters;
+            HasLastRead = lastRead is not null;
 
             if (hasChapters)
             {
                 // Show all episodes grouped by chapter (no paging)
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    Episodes = new ObservableCollection<EpisodeViewModel>(
-                        allEpisodes.Select(EpisodeViewModel.FromModel));
-                    MaxPage = 1;
-                });
+                Episodes = new ObservableCollection<EpisodeViewModel>(
+                    allEpisodes.Select(EpisodeViewModel.FromModel));
+                MaxPage = 1;
             }
             else
             {
                 var totalCount = allEpisodes.Count;
-                var maxPage = Math.Max(1, (int)Math.Ceiling((double)totalCount / _episodesPerPage));
-
-                MainThread.BeginInvokeOnMainThread(() => MaxPage = maxPage);
+                MaxPage = Math.Max(1, (int)Math.Ceiling((double)totalCount / _episodesPerPage));
                 await LoadPageAsync();
             }
         }
@@ -117,20 +109,16 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 
     private async Task LoadPageAsync()
     {
-        var episodes = await _episodeRepo.GetPagedByNovelIdAsync(_novelDbId, CurrentPage, _episodesPerPage).ConfigureAwait(false);
-
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            Episodes = new ObservableCollection<EpisodeViewModel>(
-                episodes.Select(EpisodeViewModel.FromModel));
-        });
+        var episodes = await _episodeRepo.GetPagedByNovelIdAsync(_novelDbId, CurrentPage, _episodesPerPage);
+        Episodes = new ObservableCollection<EpisodeViewModel>(
+            episodes.Select(EpisodeViewModel.FromModel));
     }
 
     [RelayCommand]
     private async Task ReadContinueAsync()
     {
-        var firstUnread = await _episodeRepo.GetFirstUnreadEpisodeAsync(_novelDbId).ConfigureAwait(false);
-        var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId).ConfigureAwait(false);
+        var firstUnread = await _episodeRepo.GetFirstUnreadEpisodeAsync(_novelDbId);
+        var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId);
 
         var target = firstUnread ?? lastRead;
         if (target is not null && _novel is not null)

@@ -50,7 +50,13 @@
 			<CollectionView ItemsSource="{Binding SearchResults}" SelectionMode="None">
 				<CollectionView.ItemTemplate>
 					<DataTemplate x:DataType="vm:SearchResultViewModel">
-						<Frame Margin="8,4" Padding="12" HasShadow="True" CornerRadius="8">
+						<Border Margin="8,4" Padding="12">
+							<Border.Shadow>
+								<Shadow Brush="#66000000" Offset="0,6" Radius="14" Opacity="1" />
+							</Border.Shadow>
+							<Border.StrokeShape>
+								<RoundRectangle CornerRadius="10" />
+							</Border.StrokeShape>
 							<Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
 								<!-- Title -->
 								<Label Grid.Row="0" Grid.Column="0" Text="{Binding Title}"
@@ -89,7 +95,7 @@
                                                        HorizontalOptions="Center" HeightRequest="30" />
 								</Grid>
 							</Grid>
-						</Frame>
+						</Border>
 					</DataTemplate>
 				</CollectionView.ItemTemplate>
 

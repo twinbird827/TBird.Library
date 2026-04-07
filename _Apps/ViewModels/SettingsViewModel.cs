@@ -39,12 +39,12 @@ public partial class SettingsViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
-        CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3).ConfigureAwait(false);
-        UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, 6).ConfigureAwait(false);
-        FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16).ConfigureAwait(false);
-        BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0).ConfigureAwait(false);
-        LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1).ConfigureAwait(false);
-        EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50).ConfigureAwait(false);
+        CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3);
+        UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, 6);
+        FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16);
+        BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
+        LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1);
+        EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
     }
 
     partial void OnCacheMonthsChanged(int value) =>
@@ -73,7 +73,7 @@ public partial class SettingsViewModel : ObservableObject
 
         if (confirm)
         {
-            await _cacheRepo.DeleteAllAsync().ConfigureAwait(false);
+            await _cacheRepo.DeleteAllAsync();
             // Snackbar-like notification
             await Shell.Current.DisplayAlert("完了", "クリアしました", "OK");
         }

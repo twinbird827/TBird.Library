@@ -67,7 +67,7 @@ public partial class SearchViewModel : ObservableObject
                 try
                 {
                     var narouService = _serviceFactory.GetService(SiteType.Narou);
-                    var narouResults = await narouService.SearchAsync(SearchKeyword, searchTarget).ConfigureAwait(false);
+                    var narouResults = await narouService.SearchAsync(SearchKeyword, searchTarget);
                     results.AddRange(narouResults);
                 }
                 catch (TaskCanceledException)
@@ -87,7 +87,7 @@ public partial class SearchViewModel : ObservableObject
                 try
                 {
                     var kakuyomuService = _serviceFactory.GetService(SiteType.Kakuyomu);
-                    var kakuyomuResults = await kakuyomuService.SearchAsync(SearchKeyword, searchTarget).ConfigureAwait(false);
+                    var kakuyomuResults = await kakuyomuService.SearchAsync(SearchKeyword, searchTarget);
                     results.AddRange(kakuyomuResults);
                 }
                 catch (TaskCanceledException)
@@ -104,15 +104,12 @@ public partial class SearchViewModel : ObservableObject
             var viewModels = new List<SearchResultViewModel>();
             foreach (var result in results)
             {
-                var existing = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId).ConfigureAwait(false);
+                var existing = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
                 viewModels.Add(SearchResultViewModel.FromModel(result, existing is not null));
             }
 
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                SearchResults = new ObservableCollection<SearchResultViewModel>(viewModels);
-                HasSearched = true;
-            });
+            SearchResults = new ObservableCollection<SearchResultViewModel>(viewModels);
+            HasSearched = true;
         }
         catch (Exception ex)
         {
@@ -148,32 +145,29 @@ public partial class SearchViewModel : ObservableObject
                 LastUpdatedAt = DateTime.UtcNow.ToString("o"),
             };
 
-            await _novelRepo.InsertAsync(novel).ConfigureAwait(false);
+            await _novelRepo.InsertAsync(novel);
 
             // Fetch episode list
             var service = _serviceFactory.GetService(result.SiteType);
-            var episodes = await service.FetchEpisodeListAsync(result.NovelId).ConfigureAwait(false);
+            var episodes = await service.FetchEpisodeListAsync(result.NovelId);
 
             // Set novel_id for each episode
-            var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId).ConfigureAwait(false);
+            var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
             if (dbNovel is not null)
             {
                 foreach (var ep in episodes)
                 {
                     ep.NovelId = dbNovel.Id;
                 }
-                await _episodeRepo.InsertAllAsync(episodes).ConfigureAwait(false);
+                await _episodeRepo.InsertAllAsync(episodes);
 
                 // Update total episodes
                 dbNovel.TotalEpisodes = episodes.Count;
-                await _novelRepo.UpdateAsync(dbNovel).ConfigureAwait(false);
+                await _novelRepo.UpdateAsync(dbNovel);
             }
 
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                result.IsRegistered = true;
-                result.TotalEpisodes = episodes.Count;
-            });
+            result.IsRegistered = true;
+            result.TotalEpisodes = episodes.Count;
         }
         catch (Exception ex)
         {

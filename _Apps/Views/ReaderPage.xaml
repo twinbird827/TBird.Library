@@ -9,10 +9,6 @@
              BackgroundColor="{Binding BackgroundColor}">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Tap gesture to toggle header/footer -->
-        <Grid.GestureRecognizers>
-            <TapGestureRecognizer Command="{Binding ToggleHeaderFooterCommand}" />
-        </Grid.GestureRecognizers>
 
         <!-- Header -->
         <Grid Grid.Row="0" Padding="8" BackgroundColor="#80000000"
@@ -33,12 +29,6 @@
 
         <!-- Content -->
         <ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled">
-            <!-- Swipe gestures -->
-            <ScrollView.GestureRecognizers>
-                <SwipeGestureRecognizer Direction="Right" Swiped="OnSwipedRight" />
-                <SwipeGestureRecognizer Direction="Left" Swiped="OnSwipedLeft" />
-            </ScrollView.GestureRecognizers>
-
             <Label Text="{Binding EpisodeContent}" Padding="16"
                    FontSize="{Binding FontSize}"
                    LineHeight="{Binding LineHeight}"

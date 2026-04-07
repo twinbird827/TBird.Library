@@ -89,20 +89,17 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     private async Task LoadSettingsAsync()
     {
-        var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16).ConfigureAwait(false);
-        var backgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0).ConfigureAwait(false);
-        var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1).ConfigureAwait(false);
+        var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16);
+        var backgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
+        var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1);
 
         var (bg, text) = ThemeHelper.GetThemeColors(backgroundTheme);
         var lh = ThemeHelper.GetLineHeight(lineSpacing);
 
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            FontSize = fontSizeSp;
-            BackgroundColor = bg;
-            TextColor = text;
-            LineHeight = lh;
-        });
+        FontSize = fontSizeSp;
+        BackgroundColor = bg;
+        TextColor = text;
+        LineHeight = lh;
     }
 
     private async Task LoadEpisodeAsync(int episodeId)
@@ -110,16 +107,16 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         IsLoading = true;
         try
         {
-            _episode = await _episodeRepo.GetByIdAsync(episodeId).ConfigureAwait(false);
+            _episode = await _episodeRepo.GetByIdAsync(episodeId);
             if (_episode is null) return;
 
             // Check for prev/next
-            var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1).ConfigureAwait(false);
-            var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1).ConfigureAwait(false);
+            var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1);
+            var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1);
 
             // Get content (cache first)
             string content;
-            var cache = await _cacheRepo.GetByEpisodeIdAsync(episodeId).ConfigureAwait(false);
+            var cache = await _cacheRepo.GetByEpisodeIdAsync(episodeId);
             if (cache is not null)
             {
                 content = cache.Content;
@@ -130,13 +127,12 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
                 var connectivity = Connectivity.Current.NetworkAccess;
                 if (connectivity != NetworkAccess.Internet)
                 {
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                        Shell.Current.DisplayAlert("エラー", "オフラインのため表示できません。キャッシュがありません", "OK"));
+                    await Shell.Current.DisplayAlert("エラー", "オフラインのため表示できません。キャッシュがありません", "OK");
                     return;
                 }
 
                 var service = _serviceFactory.GetService((SiteType)_siteType);
-                content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo).ConfigureAwait(false);
+                content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo);
 
                 // Save to cache
                 await _cacheRepo.InsertAsync(new EpisodeCache
@@ -144,33 +140,27 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
                     EpisodeId = episodeId,
                     Content = content,
                     CachedAt = DateTime.UtcNow.ToString("o"),
-                }).ConfigureAwait(false);
+                });
             }
 
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                EpisodeTitle = _episode.Title;
-                EpisodeContent = content;
-                HasPrevEpisode = prev is not null;
-                HasNextEpisode = next is not null;
-                IsHeaderVisible = true;
-                IsFooterVisible = true;
-            });
+            EpisodeTitle = _episode.Title;
+            EpisodeContent = content;
+            HasPrevEpisode = prev is not null;
+            HasNextEpisode = next is not null;
+            IsHeaderVisible = true;
+            IsFooterVisible = true;
         }
         catch (TaskCanceledException)
         {
-            await MainThread.InvokeOnMainThreadAsync(() =>
-                Shell.Current.DisplayAlert("エラー", "タイムアウトしました", "OK"));
+            await Shell.Current.DisplayAlert("エラー", "タイムアウトしました", "OK");
         }
         catch (HttpRequestException ex)
         {
-            await MainThread.InvokeOnMainThreadAsync(() =>
-                Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（HTTPエラー: {ex.Message}）", "OK"));
+            await Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（HTTPエラー: {ex.Message}）", "OK");
         }
         catch (Exception ex)
         {
-            await MainThread.InvokeOnMainThreadAsync(() =>
-                Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（{ex.Message}）", "OK"));
+            await Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（{ex.Message}）", "OK");
         }
         finally
         {
@@ -182,7 +172,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task PrevEpisodeAsync()
     {
         if (_episode is null) return;
-        var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1).ConfigureAwait(false);
+        var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1);
         if (prev is not null)
         {
             _currentEpisodeId = prev.Id;
@@ -196,7 +186,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task NextEpisodeAsync()
     {
         if (_episode is null) return;
-        var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1).ConfigureAwait(false);
+        var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1);
         if (next is not null)
         {
             _currentEpisodeId = next.Id;
@@ -224,18 +214,18 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     {
         if (_episode is null || _episode.IsRead == 1) return;
 
-        await _episodeRepo.MarkAsReadAsync(_episode.Id).ConfigureAwait(false);
+        await _episodeRepo.MarkAsReadAsync(_episode.Id);
         _episode.IsRead = 1;
 
         // Check if all episodes are read
-        var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId).ConfigureAwait(false);
+        var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId);
         if (allRead)
         {
-            var novel = await _novelRepo.GetByIdAsync(_novelDbId).ConfigureAwait(false);
+            var novel = await _novelRepo.GetByIdAsync(_novelDbId);
             if (novel is not null && novel.HasUnconfirmedUpdate == 1)
             {
                 novel.HasUnconfirmedUpdate = 0;
-                await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                await _novelRepo.UpdateAsync(novel);
             }
         }
     }

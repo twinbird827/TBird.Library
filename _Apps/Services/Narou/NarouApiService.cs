@@ -54,7 +54,7 @@ public class NarouApiService : INovelService
                 Title = item.GetProperty("title").GetString() ?? "",
                 Author = item.GetProperty("writer").GetString() ?? "",
                 TotalEpisodes = item.GetProperty("general_all_no").GetInt32(),
-                IsCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 1,
+                IsCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0,
                 LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null,
             });
         }
@@ -64,52 +64,69 @@ public class NarouApiService : INovelService
 
     public async Task<List<Episode>> FetchEpisodeListAsync(string novelId, CancellationToken ct = default)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
-
-        var url = $"{NCODE_BASE}{novelId}/";
-        var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
-
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
-
         var episodes = new List<Episode>();
         string? currentChapter = null;
-
-        var indexBox = document.QuerySelector(".index_box");
-        if (indexBox is null)
-        {
-            // Single episode (short story)
-            episodes.Add(new Episode
-            {
-                EpisodeNo = 1,
-                Title = "本編",
-            });
-            return episodes;
-        }
-
         int episodeNo = 0;
-        foreach (var child in indexBox.Children)
+        int page = 1;
+
+        var config = Configuration.Default;
+
+        while (true)
         {
-            if (child.ClassList.Contains("chapter_title"))
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var url = page == 1
+                ? $"{NCODE_BASE}{novelId}/"
+                : $"{NCODE_BASE}{novelId}/?p={page}";
+            var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
+
+            var context = BrowsingContext.New(config);
+            var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+
+            var eplist = document.QuerySelector(".p-eplist");
+            if (eplist is null)
             {
-                currentChapter = child.TextContent.Trim();
-            }
-            else if (child.ClassList.Contains("novel_sublist2"))
-            {
-                var link = child.QuerySelector("a");
-                if (link is not null)
+                if (page == 1)
                 {
-                    episodeNo++;
+                    // Single episode (short story)
                     episodes.Add(new Episode
                     {
-                        EpisodeNo = episodeNo,
-                        Title = link.TextContent.Trim(),
-                        ChapterName = currentChapter,
+                        EpisodeNo = 1,
+                        Title = "本編",
                     });
                 }
+                break;
             }
+
+            foreach (var child in eplist.Children)
+            {
+                if (child.ClassList.Contains("p-eplist__chapter-title"))
+                {
+                    currentChapter = child.TextContent.Trim();
+                }
+                else if (child.ClassList.Contains("p-eplist__sublist"))
+                {
+                    var link = child.QuerySelector(".p-eplist__subtitle");
+                    if (link is not null)
+                    {
+                        episodeNo++;
+                        episodes.Add(new Episode
+                        {
+                            EpisodeNo = episodeNo,
+                            Title = link.TextContent.Trim(),
+                            ChapterName = currentChapter,
+                        });
+                    }
+                }
+            }
+
+            // Check for next page
+            var nextLink = document.QuerySelector(".c-pager__item--next");
+            if (nextLink is null || nextLink.TagName != "A")
+                break;
+
+            page++;
         }
 
         return episodes;
@@ -127,27 +144,15 @@ public class NarouApiService : INovelService
         var context = BrowsingContext.New(config);
         var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
 
-        var honbun = document.QuerySelector("#novel_honbun");
+        var honbun = document.QuerySelector(".js-novel-text.p-novel__text:not(.p-novel__text--afterword)");
         if (honbun is null)
         {
             throw new InvalidOperationException("本文の取得に失敗しました（サイト構造が変わった可能性があります）");
         }
 
-        return honbun.InnerHtml
-            .Replace("<br>", "\n")
-            .Replace("<br/>", "\n")
-            .Replace("<br />", "\n")
-            .Replace("</p>", "\n")
-            .Replace("<p>", "")
-            .Replace("<ruby>", "")
-            .Replace("</ruby>", "")
-            .Replace("<rb>", "")
-            .Replace("</rb>", "")
-            .Replace("<rp>", "")
-            .Replace("</rp>", "")
-            .Replace("<rt>", "")
-            .Replace("</rt>", "")
-            .Trim();
+        var paragraphs = honbun.QuerySelectorAll("p");
+        var lines = paragraphs.Select(p => p.TextContent);
+        return string.Join("\n", lines).Trim();
     }
 
     public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
@@ -167,7 +172,7 @@ public class NarouApiService : INovelService
         var item = jsonArray[1];
         var totalEpisodes = item.GetProperty("general_all_no").GetInt32();
         var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null;
-        var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 1;
+        var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0;
 
         return (totalEpisodes, lastUpdatedAt, isCompleted);
     }

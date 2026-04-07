@@ -45,20 +45,17 @@ public partial class NovelListViewModel : ObservableObject
     {
         try
         {
-            var novels = await _novelRepo.GetAllAsync().ConfigureAwait(false);
+            var novels = await _novelRepo.GetAllAsync();
             var cards = new List<NovelCardViewModel>();
 
             foreach (var novel in novels)
             {
-                var unread = await _episodeRepo.CountUnreadByNovelIdAsync(novel.Id).ConfigureAwait(false);
+                var unread = await _episodeRepo.CountUnreadByNovelIdAsync(novel.Id);
                 cards.Add(NovelCardViewModel.FromModel(novel, unread));
             }
 
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                Novels = new ObservableCollection<NovelCardViewModel>(cards);
-                HasCheckError = novels.Any(n => n.HasCheckError == 1);
-            });
+            Novels = new ObservableCollection<NovelCardViewModel>(cards);
+            HasCheckError = novels.Any(n => n.HasCheckError == 1);
         }
         catch (Exception ex)
         {
@@ -72,7 +69,7 @@ public partial class NovelListViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
+            await _updateCheckService.CheckAllAsync();
             await LoadNovelsAsync();
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -92,11 +89,11 @@ public partial class NovelListViewModel : ObservableObject
     private async Task NavigateToDetail(NovelCardViewModel card)
     {
         // Confirm unconfirmed update
-        var novel = await _novelRepo.GetByIdAsync(card.Id).ConfigureAwait(false);
+        var novel = await _novelRepo.GetByIdAsync(card.Id);
         if (novel is not null && novel.HasUnconfirmedUpdate == 1)
         {
             novel.HasUnconfirmedUpdate = 0;
-            await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+            await _novelRepo.UpdateAsync(novel);
             card.HasUnconfirmedUpdate = false;
         }
 
@@ -111,7 +108,7 @@ public partial class NovelListViewModel : ObservableObject
 
         if (confirm)
         {
-            await _cacheRepo.DeleteByNovelIdAsync(card.Id).ConfigureAwait(false);
+            await _cacheRepo.DeleteByNovelIdAsync(card.Id);
         }
     }
 
@@ -123,8 +120,8 @@ public partial class NovelListViewModel : ObservableObject
 
         if (confirm)
         {
-            await _novelRepo.DeleteAsync(card.Id).ConfigureAwait(false);
-            MainThread.BeginInvokeOnMainThread(() => Novels.Remove(card));
+            await _novelRepo.DeleteAsync(card.Id);
+            Novels.Remove(card);
         }
     }
 }
