@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:mo="clr-namespace:LanobeReader.Models"
              x:Class="LanobeReader.Views.SearchPage"
              x:DataType="vm:SearchViewModel"
              Title="検索">
@@ -38,12 +39,12 @@
 				</HorizontalStackLayout>
 				<HorizontalStackLayout Spacing="8">
 					<Label Text="なろう大ジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding NarouBigGenres, x:DataType=vm:SearchViewModel}" ItemDisplayBinding="{Binding Name}"
+					<Picker ItemsSource="{Binding NarouBigGenres, x:DataType=vm:SearchViewModel}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
                             SelectedItem="{Binding SelectedNarouBigGenre}" />
 				</HorizontalStackLayout>
 				<HorizontalStackLayout Spacing="8">
 					<Label Text="カクヨムジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name}"
+					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
                             SelectedItem="{Binding SelectedKakuyomuGenre}" />
 				</HorizontalStackLayout>
 				<Button Text="ランキング取得" Command="{Binding FetchRankingCommand}" />
@@ -53,12 +54,12 @@
 			<VerticalStackLayout IsVisible="{Binding IsGenreMode}" Spacing="6">
 				<HorizontalStackLayout Spacing="8">
 					<Label Text="なろう大ジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding NarouBigGenres}" ItemDisplayBinding="{Binding Name}"
+					<Picker ItemsSource="{Binding NarouBigGenres}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
                             SelectedItem="{Binding SelectedNarouBigGenre}" />
 				</HorizontalStackLayout>
 				<HorizontalStackLayout Spacing="8">
 					<Label Text="カクヨムジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name}"
+					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
                             SelectedItem="{Binding SelectedKakuyomuGenre}" />
 				</HorizontalStackLayout>
 				<Button Text="ジャンル別取得" Command="{Binding FetchGenreCommand}" />
@@ -131,4 +132,4 @@
 			</CollectionView>
 		</Grid>
 	</Grid>
-</ContentPage>
+</ContentPage>
