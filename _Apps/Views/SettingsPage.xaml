@@ -11,7 +11,7 @@
 
             <!-- Cache settings -->
             <VerticalStackLayout Spacing="8">
-                <Label Text="キャッシュ設定" FontSize="18" FontAttributes="Bold" />
+                <Label Text="キャッシュ設定" Style="{StaticResource SectionHeaderLabel}" />
 
                 <Label FontSize="14">
                     <Label.Text>
@@ -19,7 +19,7 @@
                     </Label.Text>
                 </Label>
                 <Slider Minimum="1" Maximum="24" Value="{Binding CacheMonths}"
-                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+                        Style="{StaticResource ThemedSlider}" />
 
                 <Button Text="キャッシュをすべてクリア" Command="{Binding ClearCacheCommand}"
                         BackgroundColor="#F44336" TextColor="White" />
@@ -29,7 +29,7 @@
 
             <!-- Update settings -->
             <VerticalStackLayout Spacing="8">
-                <Label Text="更新設定" FontSize="18" FontAttributes="Bold" />
+                <Label Text="更新設定" Style="{StaticResource SectionHeaderLabel}" />
 
                 <Label FontSize="14">
                     <Label.Text>
@@ -37,14 +37,14 @@
                     </Label.Text>
                 </Label>
                 <Slider Minimum="1" Maximum="24" Value="{Binding UpdateIntervalHours}"
-                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+                        Style="{StaticResource ThemedSlider}" />
             </VerticalStackLayout>
 
             <BoxView HeightRequest="1" Color="LightGray" />
 
             <!-- Reading settings -->
             <VerticalStackLayout Spacing="8">
-                <Label Text="読書設定" FontSize="18" FontAttributes="Bold" />
+                <Label Text="読書設定" Style="{StaticResource SectionHeaderLabel}" />
 
                 <!-- Font size -->
                 <Label FontSize="14">
@@ -53,7 +53,7 @@
                     </Label.Text>
                 </Label>
                 <Slider Minimum="12" Maximum="24" Value="{Binding FontSizeSp}"
-                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+                        Style="{StaticResource ThemedSlider}" />
 
                 <!-- Preview -->
                 <Frame Padding="12" CornerRadius="8" HasShadow="True">
@@ -93,7 +93,7 @@
 
             <!-- Network / Prefetch settings -->
             <VerticalStackLayout Spacing="8">
-                <Label Text="通信設定" FontSize="18" FontAttributes="Bold" />
+                <Label Text="通信設定" Style="{StaticResource SectionHeaderLabel}" />
 
                 <HorizontalStackLayout Spacing="8">
                     <Switch IsToggled="{Binding PrefetchEnabled}" />
@@ -108,14 +108,14 @@
                     </Label.Text>
                 </Label>
                 <Slider Minimum="500" Maximum="2000" Value="{Binding RequestDelayMs}"
-                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+                        Style="{StaticResource ThemedSlider}" />
             </VerticalStackLayout>
 
             <BoxView HeightRequest="1" Color="LightGray" />
 
             <!-- Paging settings -->
             <VerticalStackLayout Spacing="8">
-                <Label Text="目次ページ設定" FontSize="18" FontAttributes="Bold" />
+                <Label Text="目次ページ設定" Style="{StaticResource SectionHeaderLabel}" />
 
                 <Label FontSize="14">
                     <Label.Text>
@@ -123,7 +123,7 @@
                     </Label.Text>
                 </Label>
                 <Slider Minimum="10" Maximum="100" Value="{Binding EpisodesPerPage}"
-                        ThumbColor="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+                        Style="{StaticResource ThemedSlider}" />
             </VerticalStackLayout>
 
         </VerticalStackLayout>

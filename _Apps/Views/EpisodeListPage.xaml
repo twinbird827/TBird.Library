@@ -2,18 +2,10 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:LanobeReader.ViewModels"
-             xmlns:converters="clr-namespace:LanobeReader.Converters"
              x:Class="LanobeReader.Views.EpisodeListPage"
              x:DataType="vm:EpisodeListViewModel"
              Title="{Binding NovelTitle}"
              Shell.TabBarIsVisible="False">
-
-	<ContentPage.Resources>
-		<converters:BoolToVisibilityConverter x:Key="BoolToVis" />
-		<converters:InverseBoolConverter x:Key="InverseBool" />
-		<converters:BoolToGrayConverter x:Key="BoolToGrayConverter" />
-		<converters:BoolToGoldConverter x:Key="BoolToGoldConverter" />
-	</ContentPage.Resources>
 
 	<ContentPage.ToolbarItems>
 		<ToolbarItem Text="続きから読む" Command="{Binding ReadContinueCommand}" />
@@ -60,7 +52,7 @@
 						<!-- Chapter + Title -->
 						<VerticalStackLayout Grid.Column="1">
 							<Label Text="{Binding ChapterName}" FontSize="10" TextColor="Gray"
-                                   IsVisible="{Binding ChapterName, Converter={StaticResource BoolToVis}}" />
+                                   IsVisible="{Binding ChapterName, Converter={StaticResource HasValue}}" />
 							<Label Text="{Binding Title}" FontSize="14"
                                    TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
 						</VerticalStackLayout>
