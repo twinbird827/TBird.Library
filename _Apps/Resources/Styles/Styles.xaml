@@ -15,4 +15,53 @@
         <Setter Property="Shell.TabBarUnselectedColor" Value="{StaticResource Gray500}" />
     </Style>
 
+    <!-- Shared card-style Border (shadow + rounded corners) -->
+    <Style x:Key="CardBorder" TargetType="Border">
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#66000000" Offset="0,6" Radius="14" Opacity="1" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="8" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Section header label -->
+    <Style x:Key="SectionHeaderLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+
+    <!-- Status labels (completed / ongoing) -->
+    <Style x:Key="StatusCompletedLabel" TargetType="Label">
+        <Setter Property="Text" Value="完結" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="TextColor" Value="Green" />
+    </Style>
+    <Style x:Key="StatusOngoingLabel" TargetType="Label">
+        <Setter Property="Text" Value="連載中" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="TextColor" Value="Orange" />
+    </Style>
+
+    <!-- Meta (gray) label -->
+    <Style x:Key="MetaLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="Gray" />
+    </Style>
+
+    <!-- Themed slider (thumb color follows AppTheme) -->
+    <Style x:Key="ThemedSlider" TargetType="Slider">
+        <Setter Property="ThumbColor" Value="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />
+    </Style>
+
+    <!-- Transparent overlay button (used for header/footer over content) -->
+    <Style x:Key="OverlayButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="White" />
+    </Style>
+
 </ResourceDictionary>
