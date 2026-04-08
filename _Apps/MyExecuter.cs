@@ -95,6 +95,14 @@ namespace EBook2PDF
 				.ToArray()
 			);
 
+			// ruby/rb内のimg/imageﾀｸﾞのclassを"gaiji"に置換
+			var outer = new Regex(@"<(?:ruby|rb)\b[^>]*>[\s\S]*?</(?:ruby|rb)>", RegexOptions.IgnoreCase);
+			var inner = new Regex(@"(<(?:img|image)\b[^>]*?)class=""[^""]*""([^>]*?>)", RegexOptions.IgnoreCase);
+			var indexHtml = Path.Combine(src, "index.html");
+			var html = File.ReadAllText(indexHtml, Encoding.UTF8);
+			html = outer.Replace(html, m => inner.Replace(m.Value, @"$1class=""gaiji""$2"));
+			File.WriteAllText(indexHtml, html, Encoding.UTF8);
+
 			// HTMLをPDFに変換
 			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
 			var srcpdf = Path.Combine(src, "index.html");
