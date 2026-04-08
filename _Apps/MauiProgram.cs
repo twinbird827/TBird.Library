@@ -1,7 +1,9 @@
 using LanobeReader.Services;
+using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
 using LanobeReader.Services.Kakuyomu;
 using LanobeReader.Services.Narou;
+using LanobeReader.Services.Network;
 using LanobeReader.ViewModels;
 using LanobeReader.Views;
 using Microsoft.Extensions.Logging;
@@ -34,6 +36,11 @@ public static class MauiProgram
 
         // HttpClient
         builder.Services.AddSingleton<HttpClient>();
+
+        // Network / Background
+        builder.Services.AddSingleton<NetworkPolicyService>();
+        builder.Services.AddSingleton<BackgroundJobQueue>();
+        builder.Services.AddSingleton<PrefetchService>();
 
         // API Services
         builder.Services.AddSingleton<NarouApiService>();

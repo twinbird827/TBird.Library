@@ -30,4 +30,10 @@ public class Episode
 
     [Column("published_at")]
     public string? PublishedAt { get; set; }
+
+    [Column("is_favorite")]
+    public int IsFavorite { get; set; }
+
+    [Column("favorited_at")]
+    public string? FavoritedAt { get; set; }
 }

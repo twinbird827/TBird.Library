@@ -1,5 +1,6 @@
 using LanobeReader.Helpers;
 using LanobeReader.Models;
+using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
 
 namespace LanobeReader.Services;
@@ -11,15 +12,18 @@ public class UpdateCheckService
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
     private readonly INovelServiceFactory _serviceFactory;
+    private readonly BackgroundJobQueue? _jobQueue;
 
     public UpdateCheckService(
         NovelRepository novelRepo,
         EpisodeRepository episodeRepo,
-        INovelServiceFactory serviceFactory)
+        INovelServiceFactory serviceFactory,
+        BackgroundJobQueue? jobQueue = null)
     {
         _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
         _serviceFactory = serviceFactory;
+        _jobQueue = jobQueue;
     }
 
     public async Task<List<(Novel novel, int newEpisodeCount)>> CheckAllAsync(CancellationToken ct = default)
@@ -69,6 +73,24 @@ public class UpdateCheckService
                             await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
 
                             updates.Add((novel, newEpisodes.Count));
+
+                            // Enqueue newly-added episodes for background prefetch (Wi-Fi gated)
+                            if (_jobQueue is not null)
+                            {
+                                var inserted = await _episodeRepo.GetByNovelIdAsync(novel.Id).ConfigureAwait(false);
+                                foreach (var ep in inserted.Where(e => e.EpisodeNo > currentMaxEpisode))
+                                {
+                                    _jobQueue.Enqueue(new PrefetchEpisodeJob
+                                    {
+                                        NovelDbId = novel.Id,
+                                        EpisodeDbId = ep.Id,
+                                        EpisodeNo = ep.EpisodeNo,
+                                        SiteType = novel.SiteType,
+                                        SiteNovelId = novel.NovelId,
+                                        Priority = novel.IsFavorite == 1 ? 1 : 0,
+                                    });
+                                }
+                            }
                         }
                     }
                 }

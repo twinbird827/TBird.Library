@@ -12,23 +12,40 @@
 		<converters:BoolToVisibilityConverter x:Key="BoolToVis" />
 		<converters:InverseBoolConverter x:Key="InverseBool" />
 		<converters:BoolToGrayConverter x:Key="BoolToGrayConverter" />
+		<converters:BoolToGoldConverter x:Key="BoolToGoldConverter" />
 	</ContentPage.Resources>
 
 	<ContentPage.ToolbarItems>
 		<ToolbarItem Text="続きから読む" Command="{Binding ReadContinueCommand}" />
+		<ToolbarItem Text="★作品" Command="{Binding ToggleNovelFavoriteCommand}" />
+		<ToolbarItem Text="一括DL" Command="{Binding DownloadAllCommand}" />
 	</ContentPage.ToolbarItems>
 
-	<Grid RowDefinitions="*,Auto">
+	<Grid RowDefinitions="Auto,*,Auto">
+		<!-- Filter row -->
+		<HorizontalStackLayout Grid.Row="0" Padding="8,4" Spacing="16">
+			<HorizontalStackLayout Spacing="4">
+				<CheckBox IsChecked="{Binding ShowUnreadOnly}" />
+				<Label Text="未読のみ" VerticalOptions="Center" />
+			</HorizontalStackLayout>
+			<HorizontalStackLayout Spacing="4">
+				<CheckBox IsChecked="{Binding ShowFavoritesOnly}" />
+				<Label Text="★のみ" VerticalOptions="Center" />
+			</HorizontalStackLayout>
+			<Label Text="★" FontSize="16" VerticalOptions="Center"
+                   TextColor="{Binding IsNovelFavorite, Converter={StaticResource BoolToGoldConverter}}" />
+		</HorizontalStackLayout>
+
 		<!-- Loading -->
-		<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+		<ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Episode list -->
-		<CollectionView Grid.Row="0" ItemsSource="{Binding Episodes}" SelectionMode="None"
+		<CollectionView Grid.Row="1" ItemsSource="{Binding Episodes}" SelectionMode="None"
                          IsGrouped="False">
 			<CollectionView.ItemTemplate>
 				<DataTemplate x:DataType="vm:EpisodeViewModel">
-					<Grid Padding="16,10" ColumnDefinitions="Auto,*">
+					<Grid Padding="16,10" ColumnDefinitions="Auto,*,Auto,Auto">
 						<Grid.GestureRecognizers>
 							<TapGestureRecognizer
 									Command="{Binding Source={RelativeSource AncestorType={x:Type vm:EpisodeListViewModel}}, Path=NavigateToEpisodeCommand, x:DataType=vm:EpisodeListViewModel}"
@@ -47,13 +64,28 @@
 							<Label Text="{Binding Title}" FontSize="14"
                                    TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
 						</VerticalStackLayout>
+
+						<!-- Cached indicator -->
+						<Label Grid.Column="2" Text="●" FontSize="10" TextColor="#4CAF50"
+                               VerticalOptions="Center" Margin="0,0,8,0"
+                               IsVisible="{Binding IsCached}" />
+
+						<!-- Favorite star (tap to toggle) -->
+						<Label Grid.Column="3" Text="★" FontSize="18" VerticalOptions="Center"
+                               TextColor="{Binding IsFavorite, Converter={StaticResource BoolToGoldConverter}}">
+							<Label.GestureRecognizers>
+								<TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:EpisodeListViewModel}}, Path=ToggleEpisodeFavoriteCommand, x:DataType=vm:EpisodeListViewModel}"
+                                    CommandParameter="{Binding}" />
+							</Label.GestureRecognizers>
+						</Label>
 					</Grid>
 				</DataTemplate>
 			</CollectionView.ItemTemplate>
 		</CollectionView>
 
 		<!-- Paging buttons (hidden when has chapters) -->
-		<Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" Padding="8"
+		<Grid Grid.Row="2" ColumnDefinitions="*,Auto,*" Padding="8"
               IsVisible="{Binding HasChapters, Converter={StaticResource InverseBool}}">
 			<Button Grid.Column="0" Text="◀ 前へ" Command="{Binding PrevPageCommand}"
                     HorizontalOptions="Start" />

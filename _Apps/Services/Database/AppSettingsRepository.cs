@@ -6,14 +6,17 @@ namespace LanobeReader.Services.Database;
 public class AppSettingsRepository
 {
     private readonly SQLiteAsyncConnection _db;
+    private readonly DatabaseService _dbService;
 
     public AppSettingsRepository(DatabaseService dbService)
     {
+        _dbService = dbService;
         _db = dbService.Connection;
     }
 
     public async Task<string> GetValueAsync(string key, string defaultValue = "")
     {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
         var setting = await _db.FindAsync<AppSetting>(key).ConfigureAwait(false);
         return setting?.Value ?? defaultValue;
     }
@@ -26,6 +29,7 @@ public class AppSettingsRepository
 
     public async Task SetValueAsync(string key, string value)
     {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
         var setting = await _db.FindAsync<AppSetting>(key).ConfigureAwait(false);
         if (setting is not null)
         {

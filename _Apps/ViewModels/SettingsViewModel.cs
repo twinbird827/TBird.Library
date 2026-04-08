@@ -37,6 +37,15 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _previewText = "サンプルテキストです。フォントサイズと行間のプレビューを表示しています。";
 
+    [ObservableProperty]
+    private bool _verticalWriting;
+
+    [ObservableProperty]
+    private bool _prefetchEnabled = true;
+
+    [ObservableProperty]
+    private int _requestDelayMs = 800;
+
     public async Task InitializeAsync()
     {
         CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3);
@@ -45,6 +54,9 @@ public partial class SettingsViewModel : ObservableObject
         BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
         LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1);
         EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
+        VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, 0) == 1;
+        PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, 1) == 1;
+        RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, 800);
     }
 
     partial void OnCacheMonthsChanged(int value) =>
@@ -64,6 +76,15 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnEpisodesPerPageChanged(int value) =>
         _ = _settingsRepo.SetValueAsync(SettingsKeys.EPISODES_PER_PAGE, value.ToString());
+
+    partial void OnVerticalWritingChanged(bool value) =>
+        _ = _settingsRepo.SetValueAsync(SettingsKeys.VERTICAL_WRITING, value ? "1" : "0");
+
+    partial void OnPrefetchEnabledChanged(bool value) =>
+        _ = _settingsRepo.SetValueAsync(SettingsKeys.PREFETCH_ENABLED, value ? "1" : "0");
+
+    partial void OnRequestDelayMsChanged(int value) =>
+        _ = _settingsRepo.SetValueAsync(SettingsKeys.REQUEST_DELAY_MS, Math.Clamp(value, 500, 2000).ToString());
 
     [RelayCommand]
     private async Task ClearCacheAsync()

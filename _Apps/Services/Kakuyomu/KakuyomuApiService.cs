@@ -1,8 +1,8 @@
 using System.Text.Json;
 using AngleSharp;
 using AngleSharp.Dom;
-using LanobeReader.Helpers;
 using LanobeReader.Models;
+using LanobeReader.Services.Network;
 
 namespace LanobeReader.Services.Kakuyomu;
 
@@ -12,11 +12,16 @@ public class KakuyomuApiService : INovelService
     private const string USER_AGENT = "Mozilla/5.0 (compatible; LanobeReader/1.0)";
 
     private readonly HttpClient _httpClient;
+    private readonly NetworkPolicyService _network;
 
-    public KakuyomuApiService(HttpClient httpClient)
+    public KakuyomuApiService(HttpClient httpClient, NetworkPolicyService network)
     {
         _httpClient = httpClient;
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+        _network = network;
+        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
+        {
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
+        }
     }
 
     public SiteType SiteType => SiteType.Kakuyomu;
@@ -24,12 +29,11 @@ public class KakuyomuApiService : INovelService
     public async Task<List<SearchResult>> SearchAsync(string keyword, string searchTarget, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
 
-        // Kakuyomu search via HTML scraping (public API is undocumented)
         var encoded = Uri.EscapeDataString(keyword);
         var url = $"{BASE_URL}/search?q={encoded}";
-        var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
+        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         var config = Configuration.Default;
         var context = BrowsingContext.New(config);
@@ -38,7 +42,6 @@ public class KakuyomuApiService : INovelService
         var results = new List<SearchResult>();
         var seen = new HashSet<string>();
 
-        // New structure: <a title="タイトル" href="https://kakuyomu.jp/works/ID" class="...">タイトル</a>
         var titleLinks = document.QuerySelectorAll("a[title][href*='/works/']");
         foreach (var link in titleLinks)
         {
@@ -56,7 +59,7 @@ public class KakuyomuApiService : INovelService
                 NovelId = workId,
                 Title = title,
                 Author = "",
-                TotalEpisodes = 0,  // Will be fetched on registration
+                TotalEpisodes = 0,
                 IsCompleted = false,
             });
 
@@ -69,10 +72,10 @@ public class KakuyomuApiService : INovelService
     public async Task<List<Episode>> FetchEpisodeListAsync(string novelId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(10));
+        cts.CancelAfter(TimeSpan.FromSeconds(15));
 
         var url = $"{BASE_URL}/works/{novelId}";
-        var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
+        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         return ParseEpisodesFromApolloState(html);
     }
@@ -103,7 +106,6 @@ public class KakuyomuApiService : INovelService
                 if (!union.TryGetProperty("__ref", out var refProp)) continue;
                 var refKey = refProp.GetString();
                 if (string.IsNullOrEmpty(refKey)) continue;
-                // refKey looks like "Episode:16816927862837791426"
                 var colonIdx = refKey.IndexOf(':');
                 if (colonIdx < 0) continue;
                 ids.Add(refKey.Substring(colonIdx + 1));
@@ -127,7 +129,6 @@ public class KakuyomuApiService : INovelService
         if (!doc.RootElement.TryGetProperty("props", out var props)) return null;
         if (!props.TryGetProperty("pageProps", out var pageProps)) return null;
         if (!pageProps.TryGetProperty("__APOLLO_STATE__", out var apolloState)) return null;
-        // Clone so the JsonDocument can be disposed safely
         return apolloState.Clone();
     }
 
@@ -190,11 +191,11 @@ public class KakuyomuApiService : INovelService
     public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(10));
+        cts.CancelAfter(TimeSpan.FromSeconds(20));
 
         // Fetch TOC and extract episode IDs from Apollo State
         var tocUrl = $"{BASE_URL}/works/{novelId}";
-        var tocHtml = await _httpClient.GetStringAsync(tocUrl, cts.Token).ConfigureAwait(false);
+        var tocHtml = await _network.GetStringAsync(SiteType.Kakuyomu, tocUrl, cts.Token).ConfigureAwait(false);
         var episodeIds = ParseEpisodeIdsFromApolloState(tocHtml);
 
         if (episodeNo < 1 || episodeNo > episodeIds.Count)
@@ -205,7 +206,7 @@ public class KakuyomuApiService : INovelService
         var episodeId = episodeIds[episodeNo - 1];
         var episodeHref = $"{BASE_URL}/works/{novelId}/episodes/{episodeId}";
 
-        var episodeHtml = await _httpClient.GetStringAsync(episodeHref, cts.Token).ConfigureAwait(false);
+        var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, cts.Token).ConfigureAwait(false);
 
         var config = Configuration.Default;
         var context = BrowsingContext.New(config);
@@ -233,7 +234,7 @@ public class KakuyomuApiService : INovelService
         cts.CancelAfter(TimeSpan.FromSeconds(30));
 
         var url = $"{BASE_URL}/works/{novelId}";
-        var html = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
+        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         var totalEpisodes = ParseEpisodeIdsFromApolloState(html).Count;
 
@@ -253,9 +254,68 @@ public class KakuyomuApiService : INovelService
         return (totalEpisodes, DateTime.UtcNow.ToString("o"), isCompleted);
     }
 
+    /// <summary>
+    /// ランキングページをスクレイピングして作品一覧を返す。
+    /// </summary>
+    public async Task<List<SearchResult>> FetchRankingAsync(string genreSlug, string periodSlug, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(20));
+
+        var url = $"{BASE_URL}/rankings/{genreSlug}/{periodSlug}";
+        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
+
+        var config = Configuration.Default;
+        var context = BrowsingContext.New(config);
+        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+
+        var results = new List<SearchResult>();
+        var seen = new HashSet<string>();
+
+        var links = document.QuerySelectorAll("a[href^='/works/']");
+        foreach (var link in links)
+        {
+            var href = link.GetAttribute("href") ?? "";
+            if (href.Contains("/reviews") || href.Contains("/episodes/")) continue;
+
+            var workId = ExtractWorkId(href);
+            if (string.IsNullOrEmpty(workId) || !seen.Add(workId)) continue;
+
+            var title = (link.GetAttribute("title") ?? link.TextContent).Trim();
+            if (string.IsNullOrEmpty(title)) continue;
+
+            // 作者名抽出: 親要素から /users/ アンカーを探す
+            var author = "";
+            var parent = link.ParentElement;
+            for (int i = 0; i < 4 && parent is not null; i++)
+            {
+                var userLink = parent.QuerySelector("a[href^='/users/']");
+                if (userLink is not null)
+                {
+                    author = userLink.TextContent.Trim();
+                    break;
+                }
+                parent = parent.ParentElement;
+            }
+
+            results.Add(new SearchResult
+            {
+                SiteType = SiteType.Kakuyomu,
+                NovelId = workId,
+                Title = title,
+                Author = author,
+                TotalEpisodes = 0,
+                IsCompleted = false,
+            });
+
+            if (results.Count >= 30) break;
+        }
+
+        return results;
+    }
+
     private static string ExtractWorkId(string href)
     {
-        // Extract work ID from href like "/works/1234567890"
         var parts = href.Split('/');
         for (int i = 0; i < parts.Length - 1; i++)
         {

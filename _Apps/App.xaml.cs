@@ -1,5 +1,6 @@
 using LanobeReader.Helpers;
 using LanobeReader.Services;
+using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
 
 namespace LanobeReader;
@@ -11,13 +12,15 @@ public partial class App : Application
     private readonly EpisodeCacheRepository _cacheRepo;
     private readonly NovelRepository _novelRepo;
     private readonly UpdateCheckService _updateCheckService;
+    private readonly PrefetchService _prefetchService;
 
     public App(
         DatabaseService dbService,
         AppSettingsRepository settingsRepo,
         EpisodeCacheRepository cacheRepo,
         NovelRepository novelRepo,
-        UpdateCheckService updateCheckService)
+        UpdateCheckService updateCheckService,
+        PrefetchService prefetchService)
     {
         InitializeComponent();
 
@@ -26,6 +29,7 @@ public partial class App : Application
         _cacheRepo = cacheRepo;
         _novelRepo = novelRepo;
         _updateCheckService = updateCheckService;
+        _prefetchService = prefetchService;
 
         // Global exception handler
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
@@ -81,6 +85,19 @@ public partial class App : Application
                     catch (Exception ex)
                     {
                         LogHelper.Warn("App", $"Background update check failed: {ex.Message}");
+                    }
+                });
+
+                // 5. Scan unread+uncached episodes and enqueue for prefetch (Wi-Fi only)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _prefetchService.EnqueueAllUnreadAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Warn("App", $"Prefetch scan failed: {ex.Message}");
                     }
                 });
             }
