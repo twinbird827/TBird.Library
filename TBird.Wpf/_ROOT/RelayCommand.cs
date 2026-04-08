@@ -78,7 +78,7 @@ namespace TBird.Wpf
 		{
 			_action = async x =>
 			{
-				using (await Locker.LockAsync(Lock))
+				using (await LockAsync().ConfigureAwait(false))
 				{
 					RaiseCanExecuteChanged();
 
@@ -86,7 +86,7 @@ namespace TBird.Wpf
 					if (!CanExecute(x)) return;
 
 					// 複数の処理が待機されていた場合、最後の処理だけ実行する
-					if (1 < Locker.Count(Lock)) return;
+					if (1 < WaitingCount) return;
 
 					try
 					{
@@ -94,7 +94,7 @@ namespace TBird.Wpf
 						ChangeExecuting(true);
 
 						// 処理実行
-						await WpfUtil.ExecuteOnBACK(() => func(x).Cts(_cts));
+						await WpfUtil.ExecuteOnBACK(() => func(x).Cts(_cts)).ConfigureAwait(false);
 					}
 					catch (TimeoutException)
 					{

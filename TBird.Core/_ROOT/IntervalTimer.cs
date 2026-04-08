@@ -41,7 +41,7 @@ namespace TBird.Core
 		private async void Tick(object sender)
 		{
 			// 処理の重複禁止
-			using (await Locker.LockAsync(Lock))
+			using (await LockAsync().ConfigureAwait(false))
 			{
 				// ﾀｲﾏｰ停止
 				_timer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -49,7 +49,7 @@ namespace TBird.Core
 				try
 				{
 					// 非同期処理を実行
-					await _func().Cts(_cts);
+					await _func().Cts(_cts).ConfigureAwait(false);
 				}
 				catch (TimeoutException)
 				{
@@ -84,13 +84,20 @@ namespace TBird.Core
 		/// </summary>
 		public void Start()
 		{
-			ThrowIfDisposed();
-			// 処理開始ﾌﾗｸﾞ
-			_isprocessing = true;
-			// 処理開始時間設定
-			_starttime = DateTime.Now;
-			// ﾀｲﾏｰを1回だけ即時実行
-			_timer.Change(0, Timeout.Infinite);
+			try
+			{
+				ThrowIfDisposed();
+				// 処理開始ﾌﾗｸﾞ
+				_isprocessing = true;
+				// 処理開始時間設定
+				_starttime = DateTime.Now;
+				// ﾀｲﾏｰを1回だけ即時実行
+				_timer.Change(0, Timeout.Infinite);
+			}
+			catch (ObjectDisposedException)
+			{
+
+			}
 		}
 
 		/// <summary>
@@ -98,11 +105,18 @@ namespace TBird.Core
 		/// </summary>
 		public void Stop()
 		{
-			ThrowIfDisposed();
-			// 処理開始ﾌﾗｸﾞ
-			_isprocessing = false;
-			// ﾀｲﾏｰ停止
-			_timer.Change(Timeout.Infinite, Timeout.Infinite);
+			try
+			{
+				ThrowIfDisposed();
+				// 処理開始ﾌﾗｸﾞ
+				_isprocessing = false;
+				// ﾀｲﾏｰ停止
+				_timer.Change(Timeout.Infinite, Timeout.Infinite);
+			}
+			catch (ObjectDisposedException)
+			{
+
+			}
 		}
 
 		protected override void DisposeManagedResource()
