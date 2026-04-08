@@ -3,8 +3,16 @@ using SQLite;
 
 namespace LanobeReader.Services.Database;
 
+public sealed record NovelWithUnread(Novel Novel, int UnreadCount);
+
 public class NovelRepository
 {
+    private sealed class NovelWithUnreadRow : Novel
+    {
+        [SQLite.Column("unread_count")]
+        public int UnreadCount { get; set; }
+    }
+
     private readonly SQLiteAsyncConnection _db;
     private readonly DatabaseService _dbService;
 
@@ -38,6 +46,73 @@ public class NovelRepository
             ).ConfigureAwait(false),
             _ => await _db.Table<Novel>().OrderByDescending(n => n.LastUpdatedAt).ToListAsync().ConfigureAwait(false),
         };
+    }
+
+    public async Task<List<NovelWithUnread>> GetAllWithUnreadCountAsync(string sortKey)
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+
+        const string baseSql =
+            "SELECT " +
+            "  n.id, " +
+            "  n.site_type, " +
+            "  n.novel_id, " +
+            "  n.title, " +
+            "  n.author, " +
+            "  n.total_episodes, " +
+            "  n.is_completed, " +
+            "  n.last_updated_at, " +
+            "  n.registered_at, " +
+            "  n.has_unconfirmed_update, " +
+            "  n.has_check_error, " +
+            "  n.is_favorite, " +
+            "  n.favorited_at, " +
+            "  COALESCE(u.cnt, 0) AS unread_count " +
+            "FROM novels n " +
+            "LEFT JOIN (" +
+            "    SELECT novel_id, COUNT(*) AS cnt " +
+            "    FROM episodes " +
+            "    WHERE is_read = 0 " +
+            "    GROUP BY novel_id" +
+            ") u ON u.novel_id = n.id ";
+
+        string orderBy = sortKey switch
+        {
+            "updated_asc"     => "ORDER BY n.last_updated_at ASC",
+            "title_asc"       => "ORDER BY n.title ASC",
+            "title_desc"      => "ORDER BY n.title DESC",
+            "author_asc"      => "ORDER BY n.author ASC",
+            "registered_desc" => "ORDER BY n.registered_at DESC",
+            "unread_desc"     => "ORDER BY unread_count DESC, n.last_updated_at DESC",
+            "favorite_first"  => "ORDER BY n.is_favorite DESC, n.last_updated_at DESC",
+            _                 => "ORDER BY n.last_updated_at DESC",
+        };
+
+        var rows = await _db.QueryAsync<NovelWithUnreadRow>(baseSql + orderBy)
+            .ConfigureAwait(false);
+
+        var result = new List<NovelWithUnread>(rows.Count);
+        foreach (var r in rows)
+        {
+            var novel = new Novel
+            {
+                Id = r.Id,
+                SiteType = r.SiteType,
+                NovelId = r.NovelId,
+                Title = r.Title,
+                Author = r.Author,
+                TotalEpisodes = r.TotalEpisodes,
+                IsCompleted = r.IsCompleted,
+                LastUpdatedAt = r.LastUpdatedAt,
+                RegisteredAt = r.RegisteredAt,
+                HasUnconfirmedUpdate = r.HasUnconfirmedUpdate,
+                HasCheckError = r.HasCheckError,
+                IsFavorite = r.IsFavorite,
+                FavoritedAt = r.FavoritedAt,
+            };
+            result.Add(new NovelWithUnread(novel, r.UnreadCount));
+        }
+        return result;
     }
 
     public async Task<Novel?> GetByIdAsync(int id)
