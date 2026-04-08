@@ -19,6 +19,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
     private int _novelDbId;
     private List<Episode> _allEpisodes = new();
     private HashSet<int> _cachedIds = new();
+    private List<Episode> _filteredCache = new();
 
     public EpisodeListViewModel(
         NovelRepository novelRepo,
@@ -92,6 +93,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 
             _allEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
             _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+            RebuildFilterCache();
 
             var hasChapters = _allEpisodes.Any(e => e.ChapterName is not null);
             var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId);
@@ -122,30 +124,30 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         }
     }
 
-    private IEnumerable<Episode> FilteredEpisodes()
+    private void RebuildFilterCache()
     {
         IEnumerable<Episode> src = _allEpisodes;
         if (ShowUnreadOnly) src = src.Where(e => e.IsRead == 0);
         if (ShowFavoritesOnly) src = src.Where(e => e.IsFavorite == 1);
-        return src;
+        _filteredCache = src.ToList();
     }
 
     private void ApplyFilterAndShow()
     {
         Episodes = new ObservableCollection<EpisodeViewModel>(
-            FilteredEpisodes().Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id))));
+            _filteredCache.Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id))));
     }
 
     private void RecalcPaging()
     {
-        var totalCount = FilteredEpisodes().Count();
+        var totalCount = _filteredCache.Count;
         MaxPage = Math.Max(1, (int)Math.Ceiling((double)totalCount / _episodesPerPage));
         if (CurrentPage > MaxPage) CurrentPage = MaxPage;
     }
 
     private Task LoadPageAsync()
     {
-        var list = FilteredEpisodes()
+        var list = _filteredCache
             .Skip((CurrentPage - 1) * _episodesPerPage)
             .Take(_episodesPerPage)
             .Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)))
@@ -159,6 +161,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 
     private async Task ReloadListAsync()
     {
+        RebuildFilterCache();
         if (HasChapters)
         {
             ApplyFilterAndShow();
@@ -202,6 +205,20 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 
         var source = _allEpisodes.FirstOrDefault(e => e.Id == ep.Id);
         if (source is not null) source.IsFavorite = newValue ? 1 : 0;
+
+        if (ShowFavoritesOnly)
+        {
+            RebuildFilterCache();
+            if (HasChapters)
+            {
+                ApplyFilterAndShow();
+            }
+            else
+            {
+                RecalcPaging();
+                await LoadPageAsync();
+            }
+        }
     }
 
     [RelayCommand]
