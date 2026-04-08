@@ -4,7 +4,10 @@ using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services;
+using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
+using LanobeReader.Services.Kakuyomu;
+using LanobeReader.Services.Narou;
 
 namespace LanobeReader.ViewModels;
 
@@ -13,15 +16,47 @@ public partial class SearchViewModel : ObservableObject
     private readonly INovelServiceFactory _serviceFactory;
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
+    private readonly NarouApiService _narou;
+    private readonly KakuyomuApiService _kakuyomu;
+    private readonly PrefetchService _prefetch;
 
     public SearchViewModel(
         INovelServiceFactory serviceFactory,
         NovelRepository novelRepo,
-        EpisodeRepository episodeRepo)
+        EpisodeRepository episodeRepo,
+        NarouApiService narou,
+        KakuyomuApiService kakuyomu,
+        PrefetchService prefetch)
     {
         _serviceFactory = serviceFactory;
         _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
+        _narou = narou;
+        _kakuyomu = kakuyomu;
+        _prefetch = prefetch;
+
+        NarouBigGenres = new ObservableCollection<GenreInfo>(NarouGenres.BigGenres);
+        KakuyomuGenreList = new ObservableCollection<GenreInfo>(KakuyomuGenres.Genres);
+        KakuyomuPeriodList = new ObservableCollection<GenreInfo>(KakuyomuGenres.Periods);
+
+        SelectedNarouBigGenre = NarouBigGenres.First();
+        SelectedKakuyomuGenre = KakuyomuGenreList.First();
+        SelectedKakuyomuPeriod = KakuyomuPeriodList.First();
+    }
+
+    // Mode: 0=Keyword, 1=Ranking, 2=Genre browse
+    [ObservableProperty]
+    private int _mode;
+
+    public bool IsKeywordMode => Mode == 0;
+    public bool IsRankingMode => Mode == 1;
+    public bool IsGenreMode => Mode == 2;
+
+    partial void OnModeChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsKeywordMode));
+        OnPropertyChanged(nameof(IsRankingMode));
+        OnPropertyChanged(nameof(IsGenreMode));
     }
 
     [ObservableProperty]
@@ -50,6 +85,32 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
+    // Ranking/Genre browse
+    public ObservableCollection<GenreInfo> NarouBigGenres { get; }
+    public ObservableCollection<GenreInfo> KakuyomuGenreList { get; }
+    public ObservableCollection<GenreInfo> KakuyomuPeriodList { get; }
+
+    [ObservableProperty]
+    private GenreInfo? _selectedNarouBigGenre;
+
+    [ObservableProperty]
+    private GenreInfo? _selectedKakuyomuGenre;
+
+    [ObservableProperty]
+    private GenreInfo? _selectedKakuyomuPeriod;
+
+    [ObservableProperty]
+    private int _rankingPeriodIndex; // 0=Daily 1=Weekly 2=Monthly 3=Quarterly
+
+    [RelayCommand]
+    private void SetModeKeyword() => Mode = 0;
+
+    [RelayCommand]
+    private void SetModeRanking() => Mode = 1;
+
+    [RelayCommand]
+    private void SetModeGenre() => Mode = 2;
+
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private async Task SearchAsync()
     {
@@ -66,8 +127,7 @@ public partial class SearchViewModel : ObservableObject
             {
                 try
                 {
-                    var narouService = _serviceFactory.GetService(SiteType.Narou);
-                    var narouResults = await narouService.SearchAsync(SearchKeyword, searchTarget);
+                    var narouResults = await _narou.SearchAsync(SearchKeyword, searchTarget);
                     results.AddRange(narouResults);
                 }
                 catch (TaskCanceledException)
@@ -86,8 +146,7 @@ public partial class SearchViewModel : ObservableObject
             {
                 try
                 {
-                    var kakuyomuService = _serviceFactory.GetService(SiteType.Kakuyomu);
-                    var kakuyomuResults = await kakuyomuService.SearchAsync(SearchKeyword, searchTarget);
+                    var kakuyomuResults = await _kakuyomu.SearchAsync(SearchKeyword, searchTarget);
                     results.AddRange(kakuyomuResults);
                 }
                 catch (TaskCanceledException)
@@ -100,16 +159,7 @@ public partial class SearchViewModel : ObservableObject
                 }
             }
 
-            // Check registration status
-            var viewModels = new List<SearchResultViewModel>();
-            foreach (var result in results)
-            {
-                var existing = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
-                viewModels.Add(SearchResultViewModel.FromModel(result, existing is not null));
-            }
-
-            SearchResults = new ObservableCollection<SearchResultViewModel>(viewModels);
-            HasSearched = true;
+            await ShowResultsAsync(results);
         }
         catch (Exception ex)
         {
@@ -124,6 +174,111 @@ public partial class SearchViewModel : ObservableObject
     }
 
     private bool CanSearch() => !string.IsNullOrWhiteSpace(SearchKeyword) && !IsLoading;
+
+    [RelayCommand]
+    private async Task FetchRankingAsync()
+    {
+        IsLoading = true;
+        HasError = false;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var results = new List<SearchResult>();
+            var period = (RankingPeriod)Math.Clamp(RankingPeriodIndex, 0, 3);
+
+            if (SearchNarou)
+            {
+                try
+                {
+                    int? bg = null;
+                    if (SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bgv)) bg = bgv;
+                    var narouList = await _narou.FetchRankingAsync(period, bg, 30);
+                    results.AddRange(narouList);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Warn(nameof(SearchViewModel), $"Narou ranking failed: {ex.Message}");
+                }
+            }
+
+            if (SearchKakuyomu)
+            {
+                try
+                {
+                    var periodSlug = period switch
+                    {
+                        RankingPeriod.Daily => "daily",
+                        RankingPeriod.Weekly => "weekly",
+                        RankingPeriod.Monthly => "monthly",
+                        _ => "weekly",
+                    };
+                    var kakuyomuList = await _kakuyomu.FetchRankingAsync(
+                        SelectedKakuyomuGenre?.Id ?? "all", periodSlug);
+                    results.AddRange(kakuyomuList);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Warn(nameof(SearchViewModel), $"Kakuyomu ranking failed: {ex.Message}");
+                }
+            }
+
+            await ShowResultsAsync(results);
+        }
+        finally { IsLoading = false; }
+    }
+
+    [RelayCommand]
+    private async Task FetchGenreAsync()
+    {
+        IsLoading = true;
+        HasError = false;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var results = new List<SearchResult>();
+
+            if (SearchNarou && SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bg))
+            {
+                try
+                {
+                    var narouList = await _narou.FetchByGenreAsync(bg, "weeklypoint", 30);
+                    results.AddRange(narouList);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Warn(nameof(SearchViewModel), $"Narou genre failed: {ex.Message}");
+                }
+            }
+
+            if (SearchKakuyomu && SelectedKakuyomuGenre is not null)
+            {
+                try
+                {
+                    var kakuyomuList = await _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly");
+                    results.AddRange(kakuyomuList);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Warn(nameof(SearchViewModel), $"Kakuyomu genre failed: {ex.Message}");
+                }
+            }
+
+            await ShowResultsAsync(results);
+        }
+        finally { IsLoading = false; }
+    }
+
+    private async Task ShowResultsAsync(List<SearchResult> results)
+    {
+        var viewModels = new List<SearchResultViewModel>();
+        foreach (var result in results)
+        {
+            var existing = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
+            viewModels.Add(SearchResultViewModel.FromModel(result, existing is not null));
+        }
+        SearchResults = new ObservableCollection<SearchResultViewModel>(viewModels);
+        HasSearched = true;
+    }
 
     [RelayCommand]
     private async Task RegisterAsync(SearchResultViewModel result)
@@ -147,11 +302,9 @@ public partial class SearchViewModel : ObservableObject
 
             await _novelRepo.InsertAsync(novel);
 
-            // Fetch episode list
             var service = _serviceFactory.GetService(result.SiteType);
             var episodes = await service.FetchEpisodeListAsync(result.NovelId);
 
-            // Set novel_id for each episode
             var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
             if (dbNovel is not null)
             {
@@ -161,9 +314,11 @@ public partial class SearchViewModel : ObservableObject
                 }
                 await _episodeRepo.InsertAllAsync(episodes);
 
-                // Update total episodes
                 dbNovel.TotalEpisodes = episodes.Count;
                 await _novelRepo.UpdateAsync(dbNovel);
+
+                // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)
+                _ = Task.Run(() => _prefetch.EnqueueNovelAsync(dbNovel.Id));
             }
 
             result.IsRegistered = true;

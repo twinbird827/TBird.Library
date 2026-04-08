@@ -35,6 +35,9 @@ public partial class NovelCardViewModel : ObservableObject
     [ObservableProperty]
     private string _novelId = string.Empty;
 
+    [ObservableProperty]
+    private bool _isFavorite;
+
     public static NovelCardViewModel FromModel(Novel novel, int unreadCount)
     {
         return new NovelCardViewModel
@@ -49,6 +52,7 @@ public partial class NovelCardViewModel : ObservableObject
             LastUpdatedAt = novel.LastUpdatedAt ?? "",
             IsCompleted = novel.IsCompleted == 1,
             HasUnconfirmedUpdate = novel.HasUnconfirmedUpdate == 1,
+            IsFavorite = novel.IsFavorite == 1,
         };
     }
 }

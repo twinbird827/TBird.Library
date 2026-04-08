@@ -23,15 +23,13 @@ public class UpdateCheckWorker : Worker
             var dbService = IPlatformApplication.Current?.Services.GetService<DatabaseService>();
             var novelRepo = IPlatformApplication.Current?.Services.GetService<NovelRepository>();
             var episodeRepo = IPlatformApplication.Current?.Services.GetService<EpisodeRepository>();
-            var serviceFactory = IPlatformApplication.Current?.Services.GetService<INovelServiceFactory>();
+            var updateCheckService = IPlatformApplication.Current?.Services.GetService<UpdateCheckService>();
 
-            if (dbService is null || novelRepo is null || episodeRepo is null || serviceFactory is null)
+            if (dbService is null || novelRepo is null || episodeRepo is null || updateCheckService is null)
             {
                 LogHelper.Error(nameof(UpdateCheckWorker), "Failed to resolve services");
                 return Result.InvokeFailure();
             }
-
-            var updateCheckService = new UpdateCheckService(novelRepo, episodeRepo, serviceFactory);
 
             var updates = Task.Run(() => updateCheckService.CheckAllAsync()).GetAwaiter().GetResult();
 

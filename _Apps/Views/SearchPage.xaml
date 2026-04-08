@@ -12,16 +12,67 @@
 		<converters:InverseBoolConverter x:Key="InverseBool" />
 	</ContentPage.Resources>
 
-	<Grid RowDefinitions="Auto,Auto,*">
-		<!-- Search bar -->
-		<Grid Grid.Row="0" Padding="8" ColumnDefinitions="*,Auto">
-			<Entry Grid.Column="0" Placeholder="タイトル・作者名で検索"
-                   Text="{Binding SearchKeyword}" ReturnCommand="{Binding SearchCommand}" />
-			<Button Grid.Column="1" Text="検索" Command="{Binding SearchCommand}" Margin="4,0,0,0" />
+	<Grid RowDefinitions="Auto,Auto,Auto,*">
+		<!-- Mode tabs -->
+		<HorizontalStackLayout Grid.Row="0" Padding="8,4" Spacing="6">
+			<Button Text="検索" Command="{Binding SetModeKeywordCommand}" FontSize="12" HeightRequest="36" />
+			<Button Text="ランキング" Command="{Binding SetModeRankingCommand}" FontSize="12" HeightRequest="36" />
+			<Button Text="ジャンル" Command="{Binding SetModeGenreCommand}" FontSize="12" HeightRequest="36" />
+		</HorizontalStackLayout>
+
+		<!-- Mode-specific inputs -->
+		<Grid Grid.Row="1" Padding="8,0">
+			<!-- Keyword mode -->
+			<Grid IsVisible="{Binding IsKeywordMode}" ColumnDefinitions="*,Auto">
+				<Entry Grid.Column="0" Placeholder="タイトル・作者名で検索"
+                       Text="{Binding SearchKeyword}" ReturnCommand="{Binding SearchCommand}" />
+				<Button Grid.Column="1" Text="検索" Command="{Binding SearchCommand}" Margin="4,0,0,0" />
+			</Grid>
+
+			<!-- Ranking mode -->
+			<VerticalStackLayout IsVisible="{Binding IsRankingMode}" Spacing="6">
+				<HorizontalStackLayout Spacing="8">
+					<Label Text="期間:" VerticalOptions="Center" />
+					<Picker SelectedIndex="{Binding RankingPeriodIndex}">
+						<Picker.Items>
+							<x:String>日間</x:String>
+							<x:String>週間</x:String>
+							<x:String>月間</x:String>
+							<x:String>四半期</x:String>
+						</Picker.Items>
+					</Picker>
+				</HorizontalStackLayout>
+				<HorizontalStackLayout Spacing="8">
+					<Label Text="なろう大ジャンル:" VerticalOptions="Center" />
+					<Picker ItemsSource="{Binding NarouBigGenres, x:DataType=vm:SearchViewModel}" ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding SelectedNarouBigGenre}" />
+				</HorizontalStackLayout>
+				<HorizontalStackLayout Spacing="8">
+					<Label Text="カクヨムジャンル:" VerticalOptions="Center" />
+					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding SelectedKakuyomuGenre}" />
+				</HorizontalStackLayout>
+				<Button Text="ランキング取得" Command="{Binding FetchRankingCommand}" />
+			</VerticalStackLayout>
+
+			<!-- Genre mode -->
+			<VerticalStackLayout IsVisible="{Binding IsGenreMode}" Spacing="6">
+				<HorizontalStackLayout Spacing="8">
+					<Label Text="なろう大ジャンル:" VerticalOptions="Center" />
+					<Picker ItemsSource="{Binding NarouBigGenres}" ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding SelectedNarouBigGenre}" />
+				</HorizontalStackLayout>
+				<HorizontalStackLayout Spacing="8">
+					<Label Text="カクヨムジャンル:" VerticalOptions="Center" />
+					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding SelectedKakuyomuGenre}" />
+				</HorizontalStackLayout>
+				<Button Text="ジャンル別取得" Command="{Binding FetchGenreCommand}" />
+			</VerticalStackLayout>
 		</Grid>
 
 		<!-- Site filters -->
-		<HorizontalStackLayout Grid.Row="1" Padding="8,0" Spacing="16">
+		<HorizontalStackLayout Grid.Row="2" Padding="8,0" Spacing="16">
 			<HorizontalStackLayout Spacing="4">
 				<CheckBox IsChecked="{Binding SearchNarou}" />
 				<Label Text="なろう" VerticalOptions="Center" />
@@ -32,21 +83,13 @@
 			</HorizontalStackLayout>
 		</HorizontalStackLayout>
 
-		<Grid Grid.Row="2">
-			<!-- Loading indicator -->
+		<Grid Grid.Row="3">
 			<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
 
-			<!-- Error message -->
 			<Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
                    TextColor="Red" Padding="16" FontSize="14" />
 
-			<!-- Empty state -->
-			<Label Text="見つかりませんでした" FontSize="16"
-                   HorizontalOptions="Center" VerticalOptions="Center"
-                   IsVisible="False" x:Name="EmptyLabel" />
-
-			<!-- Search results -->
 			<CollectionView ItemsSource="{Binding SearchResults}" SelectionMode="None">
 				<CollectionView.ItemTemplate>
 					<DataTemplate x:DataType="vm:SearchResultViewModel">
@@ -58,19 +101,12 @@
 								<RoundRectangle CornerRadius="10" />
 							</Border.StrokeShape>
 							<Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-								<!-- Title -->
 								<Label Grid.Row="0" Grid.Column="0" Text="{Binding Title}"
                                        FontSize="15" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-
-								<!-- Site badge -->
 								<Label Grid.Row="0" Grid.Column="1" Text="{Binding SiteTypeLabel}"
                                        FontSize="11" TextColor="Gray" VerticalOptions="Center" />
-
-								<!-- Author -->
 								<Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                        Text="{Binding Author}" FontSize="12" TextColor="Gray" />
-
-								<!-- Info row -->
 								<HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="12">
 									<Label Text="{Binding TotalEpisodes, StringFormat='{0}話'}" FontSize="12" />
 									<Label Text="完結" FontSize="11" TextColor="Green"
@@ -78,8 +114,6 @@
 									<Label Text="連載中" FontSize="11" TextColor="Orange"
                                            IsVisible="{Binding IsCompleted, Converter={StaticResource InverseBool}}" />
 								</HorizontalStackLayout>
-
-								<!-- Register button -->
 								<Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,0">
 									<Button Text="登録"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SearchViewModel}}, Path=RegisterCommand, x:DataType=vm:SearchViewModel}"

@@ -2,49 +2,63 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:converters="clr-namespace:LanobeReader.Converters"
              x:Class="LanobeReader.Views.ReaderPage"
              x:DataType="vm:ReaderViewModel"
              Shell.TabBarIsVisible="False"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{Binding BackgroundColor}">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+	<ContentPage.Resources>
+		<converters:BoolToGoldConverter x:Key="BoolToGoldConverter" />
+	</ContentPage.Resources>
 
-        <!-- Header -->
-        <Grid Grid.Row="0" Padding="8" BackgroundColor="#80000000"
-              ColumnDefinitions="Auto,*,Auto"
+	<Grid RowDefinitions="Auto,*,Auto">
+
+		<!-- Header -->
+		<Grid Grid.Row="0" Padding="8" BackgroundColor="#80000000"
+              ColumnDefinitions="Auto,*,Auto,Auto"
               IsVisible="{Binding IsHeaderVisible}">
-            <Button Grid.Column="0" Text="◀" Command="{Binding PrevEpisodeCommand}"
+			<Button Grid.Column="0" Text="◀" Command="{Binding PrevEpisodeCommand}"
                     BackgroundColor="Transparent" TextColor="White" />
-            <Label Grid.Column="1" Text="{Binding EpisodeTitle}" TextColor="White"
+			<Label Grid.Column="1" Text="{Binding EpisodeTitle}" TextColor="White"
                    FontSize="14" VerticalOptions="Center" HorizontalTextAlignment="Center"
                    LineBreakMode="TailTruncation" />
-            <Button Grid.Column="2" Text="目次" Command="{Binding NavigateToTocCommand}"
+			<Button Grid.Column="2" Text="★" Command="{Binding ToggleFavoriteCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{Binding IsCurrentEpisodeFavorite, Converter={StaticResource BoolToGoldConverter}}" />
+			<Button Grid.Column="3" Text="目次" Command="{Binding NavigateToTocCommand}"
                     BackgroundColor="Transparent" TextColor="White" />
-        </Grid>
+		</Grid>
 
-        <!-- Loading -->
-        <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+		<!-- Loading -->
+		<ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
-        <!-- Content -->
-        <ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled">
-            <Label Text="{Binding EpisodeContent}" Padding="16"
+		<!-- Content (horizontal - Label) -->
+		<ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled"
+                    IsVisible="{Binding IsHorizontal}">
+			<Label Text="{Binding EpisodeContent}" Padding="16"
                    FontSize="{Binding FontSize}"
                    LineHeight="{Binding LineHeight}"
                    TextColor="{Binding TextColor}" />
-        </ScrollView>
+		</ScrollView>
 
-        <!-- Footer -->
-        <Grid Grid.Row="2" Padding="8" BackgroundColor="#80000000"
+		<!-- Content (vertical writing - WebView) -->
+		<WebView Grid.Row="1" x:Name="VerticalWebView"
+                 IsVisible="{Binding IsVerticalWriting}"
+                 Navigating="OnWebViewNavigating" />
+
+		<!-- Footer -->
+		<Grid Grid.Row="2" Padding="8" BackgroundColor="#80000000"
               ColumnDefinitions="*,*,*"
               IsVisible="{Binding IsFooterVisible}">
-            <Button Grid.Column="0" Text="目次" Command="{Binding NavigateToTocCommand}"
+			<Button Grid.Column="0" Text="目次" Command="{Binding NavigateToTocCommand}"
                     BackgroundColor="Transparent" TextColor="White" />
-            <Button Grid.Column="1" Text="◀ 前へ" Command="{Binding PrevEpisodeCommand}"
+			<Button Grid.Column="1" Text="◀ 前へ" Command="{Binding PrevEpisodeCommand}"
                     BackgroundColor="Transparent" TextColor="White" />
-            <Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextEpisodeCommand}"
+			<Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextEpisodeCommand}"
                     BackgroundColor="Transparent" TextColor="White" />
-        </Grid>
-    </Grid>
+		</Grid>
+	</Grid>
 </ContentPage>

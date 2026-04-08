@@ -11,9 +11,11 @@
 		<converters:BoolToVisibilityConverter x:Key="BoolToVis" />
 		<converters:InverseBoolConverter x:Key="InverseBool" />
 		<converters:IntToBoolConverter x:Key="IntToBool" />
+		<converters:BoolToGoldConverter x:Key="BoolToGoldConverter" />
 	</ContentPage.Resources>
 
 	<ContentPage.ToolbarItems>
+		<ToolbarItem Text="並び替え" Command="{Binding ChangeSortCommand}" />
 		<ToolbarItem Text="更新" Command="{Binding RefreshCommand}"
                      IsEnabled="{Binding HasCheckError}" />
 	</ContentPage.ToolbarItems>
@@ -37,6 +39,9 @@
 					<SwipeView Margin="8,4">
 						<SwipeView.RightItems>
 							<SwipeItems Mode="Reveal">
+								<SwipeItem Text="★お気に入り" BackgroundColor="#FFC107"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=ToggleFavoriteCommand, x:DataType=vm:NovelListViewModel}"
+                                    CommandParameter="{Binding}" />
 								<SwipeItem Text="キャッシュ削除" BackgroundColor="Orange"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=DeleteCacheCommand, x:DataType=vm:NovelListViewModel}"
                                     CommandParameter="{Binding}" />
@@ -59,13 +64,17 @@
                                     CommandParameter="{Binding}" />
 							</Border.GestureRecognizers>
 
-							<Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+							<Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
+								<!-- Favorite star -->
+								<Label Grid.Row="0" Grid.Column="0" Grid.RowSpan="3"
+                                       Text="★" FontSize="20" VerticalOptions="Center" Margin="0,0,6,0"
+                                       TextColor="{Binding IsFavorite, Converter={StaticResource BoolToGoldConverter}}" />
 								<!-- Title -->
-								<Label Grid.Row="0" Grid.Column="0" Text="{Binding Title}"
+								<Label Grid.Row="0" Grid.Column="1" Text="{Binding Title}"
                                        FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
 
 								<!-- Site badge -->
-								<Border Grid.Row="0" Grid.Column="1" Padding="4,2"
+								<Border Grid.Row="0" Grid.Column="2" Padding="4,2"
                                         BackgroundColor="#6200EE">
 									<Border.StrokeShape>
 										<RoundRectangle CornerRadius="8" />
@@ -74,7 +83,7 @@
 								</Border>
 
 								<!-- Author + Status -->
-								<HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="8">
+								<HorizontalStackLayout Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Spacing="8">
 									<Label Text="{Binding Author}" FontSize="12" TextColor="Gray" />
 									<Label Text="完結" FontSize="11" TextColor="Green"
                                            IsVisible="{Binding IsCompleted}" />
@@ -83,7 +92,7 @@
 								</HorizontalStackLayout>
 
 								<!-- Unread + Updated -->
-								<HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="12">
+								<HorizontalStackLayout Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="12">
 									<Border Padding="6,2" BackgroundColor="#FF5722"
                                            IsVisible="{Binding UnreadCount, Converter={StaticResource IntToBool}}">
 										<Border.StrokeShape>

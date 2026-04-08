@@ -12,17 +12,20 @@ public partial class NovelListViewModel : ObservableObject
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
+    private readonly AppSettingsRepository _settingsRepo;
     private readonly UpdateCheckService _updateCheckService;
 
     public NovelListViewModel(
         NovelRepository novelRepo,
         EpisodeRepository episodeRepo,
         EpisodeCacheRepository cacheRepo,
+        AppSettingsRepository settingsRepo,
         UpdateCheckService updateCheckService)
     {
         _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
         _cacheRepo = cacheRepo;
+        _settingsRepo = settingsRepo;
         _updateCheckService = updateCheckService;
     }
 
@@ -36,8 +39,12 @@ public partial class NovelListViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasCheckError;
 
+    [ObservableProperty]
+    private string _sortKey = "updated_desc";
+
     public async Task InitializeAsync()
     {
+        SortKey = await _settingsRepo.GetValueAsync(SettingsKeys.NOVEL_SORT_KEY, "updated_desc");
         await LoadNovelsAsync();
     }
 
@@ -45,7 +52,7 @@ public partial class NovelListViewModel : ObservableObject
     {
         try
         {
-            var novels = await _novelRepo.GetAllAsync();
+            var novels = await _novelRepo.GetAllAsync(SortKey);
             var cards = new List<NovelCardViewModel>();
 
             foreach (var novel in novels)
@@ -61,6 +68,43 @@ public partial class NovelListViewModel : ObservableObject
         {
             LogHelper.Error(nameof(NovelListViewModel), $"LoadNovelsAsync failed: {ex.Message}");
         }
+    }
+
+    partial void OnSortKeyChanged(string value)
+    {
+        _ = _settingsRepo.SetValueAsync(SettingsKeys.NOVEL_SORT_KEY, value);
+        _ = LoadNovelsAsync();
+    }
+
+    [RelayCommand]
+    private async Task ChangeSortAsync()
+    {
+        var options = new[]
+        {
+            "更新日時（新しい順）",
+            "更新日時（古い順）",
+            "タイトル昇順",
+            "タイトル降順",
+            "作者昇順",
+            "登録日時（新しい順）",
+            "未読話数（多い順）",
+            "お気に入り優先",
+        };
+        var selected = await Shell.Current.DisplayActionSheet("並び順", "キャンセル", null, options);
+        if (string.IsNullOrEmpty(selected) || selected == "キャンセル") return;
+
+        SortKey = selected switch
+        {
+            "更新日時（新しい順）" => "updated_desc",
+            "更新日時（古い順）" => "updated_asc",
+            "タイトル昇順" => "title_asc",
+            "タイトル降順" => "title_desc",
+            "作者昇順" => "author_asc",
+            "登録日時（新しい順）" => "registered_desc",
+            "未読話数（多い順）" => "unread_desc",
+            "お気に入り優先" => "favorite_first",
+            _ => SortKey,
+        };
     }
 
     [RelayCommand(CanExecute = nameof(CanRefresh))]
@@ -88,7 +132,6 @@ public partial class NovelListViewModel : ObservableObject
     [RelayCommand]
     private async Task NavigateToDetail(NovelCardViewModel card)
     {
-        // Confirm unconfirmed update
         var novel = await _novelRepo.GetByIdAsync(card.Id);
         if (novel is not null && novel.HasUnconfirmedUpdate == 1)
         {
@@ -98,6 +141,18 @@ public partial class NovelListViewModel : ObservableObject
         }
 
         await Shell.Current.GoToAsync($"episodes?novelId={card.Id}");
+    }
+
+    [RelayCommand]
+    private async Task ToggleFavoriteAsync(NovelCardViewModel card)
+    {
+        var newValue = !card.IsFavorite;
+        await _novelRepo.SetFavoriteAsync(card.Id, newValue);
+        card.IsFavorite = newValue;
+        if (SortKey == "favorite_first")
+        {
+            await LoadNovelsAsync();
+        }
     }
 
     [RelayCommand]

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
+using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
@@ -11,18 +12,26 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 {
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
+    private readonly EpisodeCacheRepository _cacheRepo;
     private readonly AppSettingsRepository _settingsRepo;
+    private readonly PrefetchService _prefetch;
 
     private int _novelDbId;
+    private List<Episode> _allEpisodes = new();
+    private HashSet<int> _cachedIds = new();
 
     public EpisodeListViewModel(
         NovelRepository novelRepo,
         EpisodeRepository episodeRepo,
-        AppSettingsRepository settingsRepo)
+        EpisodeCacheRepository cacheRepo,
+        AppSettingsRepository settingsRepo,
+        PrefetchService prefetch)
     {
         _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
+        _cacheRepo = cacheRepo;
         _settingsRepo = settingsRepo;
+        _prefetch = prefetch;
     }
 
     [ObservableProperty]
@@ -50,6 +59,15 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
     [ObservableProperty]
     private bool _isLoading;
 
+    [ObservableProperty]
+    private bool _isNovelFavorite;
+
+    [ObservableProperty]
+    private bool _showUnreadOnly;
+
+    [ObservableProperty]
+    private bool _showFavoritesOnly;
+
     private int _episodesPerPage = 50;
     private Novel? _novel;
 
@@ -72,28 +90,25 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 
             _episodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
 
-            // Check if episodes have chapters
-            var allEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-            var hasChapters = allEpisodes.Any(e => e.ChapterName is not null);
+            _allEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+            _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
 
-            // Check last read
+            var hasChapters = _allEpisodes.Any(e => e.ChapterName is not null);
             var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId);
 
             NovelTitle = _novel.Title;
             HasChapters = hasChapters;
             HasLastRead = lastRead is not null;
+            IsNovelFavorite = _novel.IsFavorite == 1;
 
             if (hasChapters)
             {
-                // Show all episodes grouped by chapter (no paging)
-                Episodes = new ObservableCollection<EpisodeViewModel>(
-                    allEpisodes.Select(EpisodeViewModel.FromModel));
+                ApplyFilterAndShow();
                 MaxPage = 1;
             }
             else
             {
-                var totalCount = allEpisodes.Count;
-                MaxPage = Math.Max(1, (int)Math.Ceiling((double)totalCount / _episodesPerPage));
+                RecalcPaging();
                 await LoadPageAsync();
             }
         }
@@ -107,11 +122,53 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         }
     }
 
-    private async Task LoadPageAsync()
+    private IEnumerable<Episode> FilteredEpisodes()
     {
-        var episodes = await _episodeRepo.GetPagedByNovelIdAsync(_novelDbId, CurrentPage, _episodesPerPage);
+        IEnumerable<Episode> src = _allEpisodes;
+        if (ShowUnreadOnly) src = src.Where(e => e.IsRead == 0);
+        if (ShowFavoritesOnly) src = src.Where(e => e.IsFavorite == 1);
+        return src;
+    }
+
+    private void ApplyFilterAndShow()
+    {
         Episodes = new ObservableCollection<EpisodeViewModel>(
-            episodes.Select(EpisodeViewModel.FromModel));
+            FilteredEpisodes().Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id))));
+    }
+
+    private void RecalcPaging()
+    {
+        var totalCount = FilteredEpisodes().Count();
+        MaxPage = Math.Max(1, (int)Math.Ceiling((double)totalCount / _episodesPerPage));
+        if (CurrentPage > MaxPage) CurrentPage = MaxPage;
+    }
+
+    private Task LoadPageAsync()
+    {
+        var list = FilteredEpisodes()
+            .Skip((CurrentPage - 1) * _episodesPerPage)
+            .Take(_episodesPerPage)
+            .Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)))
+            .ToList();
+        Episodes = new ObservableCollection<EpisodeViewModel>(list);
+        return Task.CompletedTask;
+    }
+
+    partial void OnShowUnreadOnlyChanged(bool value) => _ = ReloadListAsync();
+    partial void OnShowFavoritesOnlyChanged(bool value) => _ = ReloadListAsync();
+
+    private async Task ReloadListAsync()
+    {
+        if (HasChapters)
+        {
+            ApplyFilterAndShow();
+        }
+        else
+        {
+            CurrentPage = 1;
+            RecalcPaging();
+            await LoadPageAsync();
+        }
     }
 
     [RelayCommand]
@@ -134,6 +191,39 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         if (_novel is null) return;
         await Shell.Current.GoToAsync(
             $"reader?novelId={_novelDbId}&episodeId={episode.Id}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+    }
+
+    [RelayCommand]
+    private async Task ToggleEpisodeFavoriteAsync(EpisodeViewModel ep)
+    {
+        var newValue = !ep.IsFavorite;
+        await _episodeRepo.SetFavoriteAsync(ep.Id, newValue);
+        ep.IsFavorite = newValue;
+
+        var source = _allEpisodes.FirstOrDefault(e => e.Id == ep.Id);
+        if (source is not null) source.IsFavorite = newValue ? 1 : 0;
+    }
+
+    [RelayCommand]
+    private async Task ToggleNovelFavoriteAsync()
+    {
+        if (_novel is null) return;
+        var newValue = !IsNovelFavorite;
+        await _novelRepo.SetFavoriteAsync(_novel.Id, newValue);
+        IsNovelFavorite = newValue;
+        _novel.IsFavorite = newValue ? 1 : 0;
+    }
+
+    [RelayCommand]
+    private async Task DownloadAllAsync()
+    {
+        if (_novel is null) return;
+        var enqueued = await _prefetch.EnqueueNovelAsync(_novelDbId, highPriority: true);
+        await Shell.Current.DisplayAlert("一括ダウンロード",
+            enqueued > 0
+                ? $"{enqueued}話をバックグラウンドで取得します（Wi-Fi接続時のみ）"
+                : "新規取得する話はありません",
+            "OK");
     }
 
     [RelayCommand(CanExecute = nameof(CanGoPrev))]

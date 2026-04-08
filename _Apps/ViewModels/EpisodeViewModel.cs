@@ -20,7 +20,13 @@ public partial class EpisodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRead;
 
-    public static EpisodeViewModel FromModel(Episode episode)
+    [ObservableProperty]
+    private bool _isFavorite;
+
+    [ObservableProperty]
+    private bool _isCached;
+
+    public static EpisodeViewModel FromModel(Episode episode, bool isCached = false)
     {
         return new EpisodeViewModel
         {
@@ -29,6 +35,8 @@ public partial class EpisodeViewModel : ObservableObject
             Title = episode.Title,
             ChapterName = episode.ChapterName,
             IsRead = episode.IsRead == 1,
+            IsFavorite = episode.IsFavorite == 1,
+            IsCached = isCached,
         };
     }
 }

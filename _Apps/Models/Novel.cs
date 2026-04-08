@@ -39,6 +39,12 @@ public class Novel
     [Column("has_check_error")]
     public int HasCheckError { get; set; }
 
+    [Column("is_favorite")]
+    public int IsFavorite { get; set; }
+
+    [Column("favorited_at")]
+    public string? FavoritedAt { get; set; }
+
     [Ignore]
     public SiteType SiteTypeEnum
     {

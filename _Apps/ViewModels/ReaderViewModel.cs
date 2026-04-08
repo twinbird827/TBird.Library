@@ -19,6 +19,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private int _currentEpisodeId;
     private int _siteType;
     private string _siteNovelId = string.Empty;
+    private int _backgroundThemeIndex;
 
     public ReaderViewModel(
         EpisodeRepository episodeRepo,
@@ -39,6 +40,9 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     [ObservableProperty]
     private string _episodeContent = string.Empty;
+
+    [ObservableProperty]
+    private string _episodeHtml = string.Empty;
 
     [ObservableProperty]
     private bool _isLoading = true;
@@ -62,6 +66,15 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private Color _textColor = Color.FromArgb("#212121");
 
     [ObservableProperty]
+    private bool _isVerticalWriting;
+
+    [ObservableProperty]
+    private bool _isHorizontal = true;
+
+    [ObservableProperty]
+    private bool _isCurrentEpisodeFavorite;
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrevEpisodeCommand))]
     private bool _hasPrevEpisode;
 
@@ -70,6 +83,15 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private bool _hasNextEpisode;
 
     private Episode? _episode;
+
+    partial void OnIsVerticalWritingChanged(bool value)
+    {
+        IsHorizontal = !value;
+        if (value && !string.IsNullOrEmpty(EpisodeContent))
+        {
+            RefreshHtml();
+        }
+    }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -90,16 +112,24 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task LoadSettingsAsync()
     {
         var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16);
-        var backgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
+        _backgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
         var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1);
+        var vertical = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, 0);
 
-        var (bg, text) = ThemeHelper.GetThemeColors(backgroundTheme);
+        var (bg, text) = ThemeHelper.GetThemeColors(_backgroundThemeIndex);
         var lh = ThemeHelper.GetLineHeight(lineSpacing);
 
         FontSize = fontSizeSp;
         BackgroundColor = bg;
         TextColor = text;
         LineHeight = lh;
+        IsVerticalWriting = vertical == 1;
+        IsHorizontal = !IsVerticalWriting;
+    }
+
+    private void RefreshHtml()
+    {
+        EpisodeHtml = ReaderHtmlBuilder.Build(EpisodeContent, FontSize, LineHeight, _backgroundThemeIndex);
     }
 
     private async Task LoadEpisodeAsync(int episodeId)
@@ -110,11 +140,9 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
             _episode = await _episodeRepo.GetByIdAsync(episodeId);
             if (_episode is null) return;
 
-            // Check for prev/next
             var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1);
             var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1);
 
-            // Get content (cache first)
             string content;
             var cache = await _cacheRepo.GetByEpisodeIdAsync(episodeId);
             if (cache is not null)
@@ -123,7 +151,6 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
             }
             else
             {
-                // Check connectivity
                 var connectivity = Connectivity.Current.NetworkAccess;
                 if (connectivity != NetworkAccess.Internet)
                 {
@@ -134,7 +161,6 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
                 var service = _serviceFactory.GetService((SiteType)_siteType);
                 content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo);
 
-                // Save to cache
                 await _cacheRepo.InsertAsync(new EpisodeCache
                 {
                     EpisodeId = episodeId,
@@ -145,10 +171,13 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
             EpisodeTitle = _episode.Title;
             EpisodeContent = content;
+            IsCurrentEpisodeFavorite = _episode.IsFavorite == 1;
             HasPrevEpisode = prev is not null;
             HasNextEpisode = next is not null;
             IsHeaderVisible = true;
             IsFooterVisible = true;
+
+            if (IsVerticalWriting) RefreshHtml();
         }
         catch (TaskCanceledException)
         {
@@ -210,6 +239,16 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     }
 
     [RelayCommand]
+    private async Task ToggleFavoriteAsync()
+    {
+        if (_episode is null) return;
+        var newValue = !IsCurrentEpisodeFavorite;
+        await _episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
+        _episode.IsFavorite = newValue ? 1 : 0;
+        IsCurrentEpisodeFavorite = newValue;
+    }
+
+    [RelayCommand]
     private async Task MarkAsReadAsync()
     {
         if (_episode is null || _episode.IsRead == 1) return;
@@ -217,7 +256,6 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         await _episodeRepo.MarkAsReadAsync(_episode.Id);
         _episode.IsRead = 1;
 
-        // Check if all episodes are read
         var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId);
         if (allRead)
         {
