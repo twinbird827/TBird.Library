@@ -10,20 +10,17 @@ namespace LanobeReader.ViewModels;
 public partial class NovelListViewModel : ObservableObject
 {
     private readonly NovelRepository _novelRepo;
-    private readonly EpisodeRepository _episodeRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
     private readonly AppSettingsRepository _settingsRepo;
     private readonly UpdateCheckService _updateCheckService;
 
     public NovelListViewModel(
         NovelRepository novelRepo,
-        EpisodeRepository episodeRepo,
         EpisodeCacheRepository cacheRepo,
         AppSettingsRepository settingsRepo,
         UpdateCheckService updateCheckService)
     {
         _novelRepo = novelRepo;
-        _episodeRepo = episodeRepo;
         _cacheRepo = cacheRepo;
         _settingsRepo = settingsRepo;
         _updateCheckService = updateCheckService;
@@ -52,17 +49,10 @@ public partial class NovelListViewModel : ObservableObject
     {
         try
         {
-            var novels = await _novelRepo.GetAllAsync(SortKey);
-            var cards = new List<NovelCardViewModel>();
-
-            foreach (var novel in novels)
-            {
-                var unread = await _episodeRepo.CountUnreadByNovelIdAsync(novel.Id);
-                cards.Add(NovelCardViewModel.FromModel(novel, unread));
-            }
-
-            Novels = new ObservableCollection<NovelCardViewModel>(cards);
-            HasCheckError = novels.Any(n => n.HasCheckError == 1);
+            var rows = await _novelRepo.GetAllWithUnreadCountAsync(SortKey);
+            Novels = new ObservableCollection<NovelCardViewModel>(
+                rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount)));
+            HasCheckError = rows.Any(r => r.Novel.HasCheckError == 1);
         }
         catch (Exception ex)
         {
