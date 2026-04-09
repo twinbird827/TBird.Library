@@ -4,24 +4,10 @@ namespace LanobeReader.Views;
 
 public partial class ReaderPage : ContentPage
 {
-    private readonly ReaderViewModel _viewModel;
-
     public ReaderPage(ReaderViewModel viewModel)
     {
         InitializeComponent();
-        BindingContext = _viewModel = viewModel;
-        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-    }
-
-    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(ReaderViewModel.EpisodeHtml) or nameof(ReaderViewModel.IsVerticalWriting))
-        {
-            if (_viewModel.IsVerticalWriting && !string.IsNullOrEmpty(_viewModel.EpisodeHtml))
-            {
-                VerticalWebView.Source = new HtmlWebViewSource { Html = _viewModel.EpisodeHtml };
-            }
-        }
+        BindingContext = viewModel;
     }
 
     private async void OnScrolled(object? sender, ScrolledEventArgs e)
@@ -30,7 +16,10 @@ public partial class ReaderPage : ContentPage
 
         if (scrollView.ScrollY + scrollView.Height >= scrollView.ContentSize.Height - 10)
         {
-            await _viewModel.MarkAsReadCommand.ExecuteAsync(null);
+            if (BindingContext is ReaderViewModel vm)
+            {
+                await vm.MarkAsReadCommand.ExecuteAsync(null);
+            }
         }
     }
 
@@ -39,7 +28,10 @@ public partial class ReaderPage : ContentPage
         if (e.Url?.StartsWith("lanobe://read-end", StringComparison.OrdinalIgnoreCase) == true)
         {
             e.Cancel = true;
-            await _viewModel.MarkAsReadCommand.ExecuteAsync(null);
+            if (BindingContext is ReaderViewModel vm)
+            {
+                await vm.MarkAsReadCommand.ExecuteAsync(null);
+            }
         }
     }
 }
