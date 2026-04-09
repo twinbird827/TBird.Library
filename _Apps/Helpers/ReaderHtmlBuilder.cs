@@ -1,32 +1,39 @@
+using System.Globalization;
 using System.Text;
 
 namespace LanobeReader.Helpers;
 
 /// <summary>
-/// 縦書き WebView 用の HTML 文字列を生成するビルダー。
+/// 縦書き WebView 用の HTML を生成するビルダー。
+/// スタイル値は CSS カスタムプロパティ（--reader-fs 等）に切り出してあり、
+/// 将来 JS から :root の値を書き換えることでライブ反映が可能な構造。
 /// </summary>
 public static class ReaderHtmlBuilder
 {
-    public static string Build(string content, double fontSizePx, double lineHeight, int backgroundTheme)
+    public static string Build(string content, ReaderCssState state)
     {
-        var (bg, fg) = backgroundTheme switch
-        {
-            1 => ("#121212", "#E0E0E0"),
-            2 => ("#F5E6C8", "#3E2C1C"),
-            _ => ("#FFFFFF", "#212121"),
-        };
+        var inv = CultureInfo.InvariantCulture;
+        var sb = new StringBuilder(content.Length + 1024);
 
-        var sb = new StringBuilder();
         sb.Append("<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\">");
         sb.Append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
         sb.Append("<style>");
+        sb.Append(":root{");
+        sb.Append($"--reader-fs:{state.FontSizePx.ToString("0.##", inv)}px;");
+        sb.Append($"--reader-lh:{state.LineHeight.ToString("0.##", inv)};");
+        sb.Append($"--reader-bg:{state.BackgroundHex};");
+        sb.Append($"--reader-fg:{state.ForegroundHex};");
+        sb.Append("}");
         sb.Append("html,body{margin:0;padding:0;height:100%;}");
-        sb.Append($"body{{background:{bg};color:{fg};font-family:serif;");
-        sb.Append($"writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;");
-        sb.Append($"font-size:{fontSizePx.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}px;");
-        sb.Append($"line-height:{lineHeight.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)};");
+        sb.Append("body{");
+        sb.Append("background:var(--reader-bg);color:var(--reader-fg);");
+        sb.Append("font-family:serif;");
+        sb.Append("writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;");
+        sb.Append("font-size:var(--reader-fs);");
+        sb.Append("line-height:var(--reader-lh);");
         sb.Append("padding:16px;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;");
-        sb.Append("-webkit-tap-highlight-color:transparent;}");
+        sb.Append("-webkit-tap-highlight-color:transparent;");
+        sb.Append("}");
         sb.Append("p{margin:0 0 1em 0;text-indent:1em;}");
         sb.Append("</style></head><body>");
 
@@ -37,6 +44,8 @@ public static class ReaderHtmlBuilder
             sb.Append("</p>");
         }
 
+        // 既存の read-end 検知 JS（lanobe://read-end URI 発火）。
+        // OnWebViewNavigating 側と連動しているため変更禁止。
         sb.Append("<script>");
         sb.Append("(function(){var fired=false;function check(){if(fired)return;");
         sb.Append("var el=document.scrollingElement||document.documentElement;");

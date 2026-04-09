@@ -129,8 +129,16 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     private void RefreshHtml()
     {
-        EpisodeHtml = ReaderHtmlBuilder.Build(EpisodeContent, FontSize, LineHeight, _backgroundThemeIndex);
+        var state = new ReaderCssState(
+            FontSizePx: FontSize,
+            LineHeight: LineHeight,
+            BackgroundHex: ColorToHex(BackgroundColor),
+            ForegroundHex: ColorToHex(TextColor));
+        EpisodeHtml = ReaderHtmlBuilder.Build(EpisodeContent, state);
     }
+
+    private static string ColorToHex(Color c) =>
+        $"#{(int)(c.Red * 255):X2}{(int)(c.Green * 255):X2}{(int)(c.Blue * 255):X2}";
 
     private async Task LoadEpisodeAsync(int episodeId)
     {
