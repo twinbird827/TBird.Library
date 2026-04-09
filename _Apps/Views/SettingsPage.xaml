@@ -62,24 +62,34 @@
 
                 <!-- Background theme -->
                 <Label Text="背景色テーマ" FontSize="14" Margin="0,8,0,0" />
-                <HorizontalStackLayout Spacing="8">
-                    <RadioButton Content="白" IsChecked="True" GroupName="Theme"
-                                 CheckedChanged="OnThemeChanged" x:Name="ThemeWhite" />
-                    <RadioButton Content="黒" GroupName="Theme"
-                                 CheckedChanged="OnThemeChanged" x:Name="ThemeBlack" />
-                    <RadioButton Content="セピア" GroupName="Theme"
-                                 CheckedChanged="OnThemeChanged" x:Name="ThemeSepia" />
+                <HorizontalStackLayout Spacing="8"
+                                       RadioButtonGroup.GroupName="Theme"
+                                       RadioButtonGroup.SelectedValue="{Binding BackgroundTheme, Mode=TwoWay}">
+                    <RadioButton Content="白">
+                        <RadioButton.Value><x:Int32>0</x:Int32></RadioButton.Value>
+                    </RadioButton>
+                    <RadioButton Content="黒">
+                        <RadioButton.Value><x:Int32>1</x:Int32></RadioButton.Value>
+                    </RadioButton>
+                    <RadioButton Content="セピア">
+                        <RadioButton.Value><x:Int32>2</x:Int32></RadioButton.Value>
+                    </RadioButton>
                 </HorizontalStackLayout>
 
                 <!-- Line spacing -->
                 <Label Text="行間" FontSize="14" Margin="0,8,0,0" />
-                <HorizontalStackLayout Spacing="8">
-                    <RadioButton Content="狭" GroupName="Spacing"
-                                 CheckedChanged="OnSpacingChanged" x:Name="SpacingNarrow" />
-                    <RadioButton Content="普通" IsChecked="True" GroupName="Spacing"
-                                 CheckedChanged="OnSpacingChanged" x:Name="SpacingNormal" />
-                    <RadioButton Content="広" GroupName="Spacing"
-                                 CheckedChanged="OnSpacingChanged" x:Name="SpacingWide" />
+                <HorizontalStackLayout Spacing="8"
+                                       RadioButtonGroup.GroupName="Spacing"
+                                       RadioButtonGroup.SelectedValue="{Binding LineSpacing, Mode=TwoWay}">
+                    <RadioButton Content="狭">
+                        <RadioButton.Value><x:Int32>0</x:Int32></RadioButton.Value>
+                    </RadioButton>
+                    <RadioButton Content="普通">
+                        <RadioButton.Value><x:Int32>1</x:Int32></RadioButton.Value>
+                    </RadioButton>
+                    <RadioButton Content="広">
+                        <RadioButton.Value><x:Int32>2</x:Int32></RadioButton.Value>
+                    </RadioButton>
                 </HorizontalStackLayout>
 
                 <!-- Vertical writing -->
