@@ -72,6 +72,9 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private bool _isHorizontal = true;
 
     [ObservableProperty]
+    private ReaderCssState? _readerCss;
+
+    [ObservableProperty]
     private bool _isCurrentEpisodeFavorite;
 
     [ObservableProperty]
@@ -90,6 +93,19 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         if (value && !string.IsNullOrEmpty(EpisodeContent))
         {
             RefreshHtml();
+        }
+    }
+
+    partial void OnFontSizeChanged(double value) => UpdateCssStateIfReady();
+    partial void OnLineHeightChanged(double value) => UpdateCssStateIfReady();
+    partial void OnBackgroundColorChanged(Color value) => UpdateCssStateIfReady();
+    partial void OnTextColorChanged(Color value) => UpdateCssStateIfReady();
+
+    private void UpdateCssStateIfReady()
+    {
+        if (ReaderCss is not null)
+        {
+            ReaderCss = BuildCssState();
         }
     }
 
@@ -125,17 +141,24 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         LineHeight = lh;
         IsVerticalWriting = vertical == 1;
         IsHorizontal = !IsVerticalWriting;
+        ReaderCss = BuildCssState();
     }
+
+    public Task ReloadSettingsAsync() => LoadSettingsAsync();
 
     private void RefreshHtml()
     {
-        var state = new ReaderCssState(
-            FontSizePx: FontSize,
-            LineHeight: LineHeight,
-            BackgroundHex: ColorToHex(BackgroundColor),
-            ForegroundHex: ColorToHex(TextColor));
+        var state = BuildCssState();
+        // EpisodeHtml 先・ReaderCss 後: 古い document への無駄な JS 適用を防ぐ
         EpisodeHtml = ReaderHtmlBuilder.Build(EpisodeContent, state);
+        ReaderCss = state;
     }
+
+    private ReaderCssState BuildCssState() => new(
+        FontSizePx: FontSize,
+        LineHeight: LineHeight,
+        BackgroundHex: ColorToHex(BackgroundColor),
+        ForegroundHex: ColorToHex(TextColor));
 
     private static string ColorToHex(Color c) =>
         $"#{(int)(c.Red * 255):X2}{(int)(c.Green * 255):X2}{(int)(c.Blue * 255):X2}";

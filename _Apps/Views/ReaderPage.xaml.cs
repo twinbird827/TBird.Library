@@ -10,6 +10,15 @@ public partial class ReaderPage : ContentPage
         BindingContext = viewModel;
     }
 
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is ReaderViewModel vm)
+        {
+            _ = vm.ReloadSettingsAsync();
+        }
+    }
+
     private async void OnScrolled(object? sender, ScrolledEventArgs e)
     {
         if (sender is not ScrollView scrollView) return;
