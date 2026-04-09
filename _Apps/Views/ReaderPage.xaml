@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:controls="clr-namespace:LanobeReader.Controls"
              x:Class="LanobeReader.Views.ReaderPage"
              x:DataType="vm:ReaderViewModel"
              Shell.TabBarIsVisible="False"
@@ -40,9 +41,10 @@
 		</ScrollView>
 
 		<!-- Content (vertical writing - WebView) -->
-		<WebView Grid.Row="1" x:Name="VerticalWebView"
-                 IsVisible="{Binding IsVerticalWriting}"
-                 Navigating="OnWebViewNavigating" />
+		<controls:ReaderWebView Grid.Row="1"
+                                IsVisible="{Binding IsVerticalWriting}"
+                                HtmlSource="{Binding EpisodeHtml}"
+                                Navigating="OnWebViewNavigating" />
 
 		<!-- Footer -->
 		<Grid Grid.Row="2" Padding="8" BackgroundColor="#80000000"
