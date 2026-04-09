@@ -111,6 +111,27 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand]
     private void SetModeGenre() => Mode = 2;
 
+    private static async Task<(List<SearchResult> hits, string? error)> RunSiteSearchAsync(
+        Func<Task<List<SearchResult>>> search, string siteName)
+    {
+        try
+        {
+            return (await search(), null);
+        }
+        catch (TaskCanceledException)
+        {
+            return ([], $"{siteName}の検索がタイムアウトしました");
+        }
+        catch (HttpRequestException ex)
+        {
+            return ([], $"{siteName}の通信エラー: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return ([], $"{siteName}のエラー: {ex.Message}");
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private async Task SearchAsync()
     {
@@ -120,46 +141,29 @@ public partial class SearchViewModel : ObservableObject
 
         try
         {
-            var results = new List<SearchResult>();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var ct = cts.Token;
             var searchTarget = "Both";
 
-            if (SearchNarou)
+            var narouTask = SearchNarou
+                ? RunSiteSearchAsync(() => _narou.SearchAsync(SearchKeyword, searchTarget, ct), "なろう")
+                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
+            var kakuyomuTask = SearchKakuyomu
+                ? RunSiteSearchAsync(() => _kakuyomu.SearchAsync(SearchKeyword, searchTarget, ct), "カクヨム")
+                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
+
+            var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
+
+            var allHits = siteResults.SelectMany(r => r.hits).ToList();
+            var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
+
+            if (errors.Count > 0)
             {
-                try
-                {
-                    var narouResults = await _narou.SearchAsync(SearchKeyword, searchTarget);
-                    results.AddRange(narouResults);
-                }
-                catch (TaskCanceledException)
-                {
-                    HasError = true;
-                    ErrorMessage = "なろうの検索がタイムアウトしました";
-                }
-                catch (HttpRequestException)
-                {
-                    HasError = true;
-                    ErrorMessage = "通信エラーが発生しました";
-                }
+                HasError = true;
+                ErrorMessage = string.Join("\n", errors);
             }
 
-            if (SearchKakuyomu)
-            {
-                try
-                {
-                    var kakuyomuResults = await _kakuyomu.SearchAsync(SearchKeyword, searchTarget);
-                    results.AddRange(kakuyomuResults);
-                }
-                catch (TaskCanceledException)
-                {
-                    if (!HasError) { HasError = true; ErrorMessage = "カクヨムの検索がタイムアウトしました"; }
-                }
-                catch (HttpRequestException)
-                {
-                    if (!HasError) { HasError = true; ErrorMessage = "通信エラーが発生しました"; }
-                }
-            }
-
-            await ShowResultsAsync(results);
+            await ShowResultsAsync(allHits);
         }
         catch (Exception ex)
         {
@@ -183,27 +187,21 @@ public partial class SearchViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            var results = new List<SearchResult>();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var ct = cts.Token;
             var period = (RankingPeriod)Math.Clamp(RankingPeriodIndex, 0, 3);
 
-            if (SearchNarou)
-            {
-                try
+            var narouTask = SearchNarou
+                ? RunSiteSearchAsync(() =>
                 {
                     int? bg = null;
                     if (SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bgv)) bg = bgv;
-                    var narouList = await _narou.FetchRankingAsync(period, bg, 30);
-                    results.AddRange(narouList);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Warn(nameof(SearchViewModel), $"Narou ranking failed: {ex.Message}");
-                }
-            }
+                    return _narou.FetchRankingAsync(period, bg, 30, ct);
+                }, "なろう")
+                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
 
-            if (SearchKakuyomu)
-            {
-                try
+            var kakuyomuTask = SearchKakuyomu
+                ? RunSiteSearchAsync(() =>
                 {
                     var periodSlug = period switch
                     {
@@ -212,17 +210,21 @@ public partial class SearchViewModel : ObservableObject
                         RankingPeriod.Monthly => "monthly",
                         _ => "weekly",
                     };
-                    var kakuyomuList = await _kakuyomu.FetchRankingAsync(
-                        SelectedKakuyomuGenre?.Id ?? "all", periodSlug);
-                    results.AddRange(kakuyomuList);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Warn(nameof(SearchViewModel), $"Kakuyomu ranking failed: {ex.Message}");
-                }
+                    return _kakuyomu.FetchRankingAsync(
+                        SelectedKakuyomuGenre?.Id ?? "all", periodSlug, ct);
+                }, "カクヨム")
+                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
+
+            var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
+
+            var allHits = siteResults.SelectMany(r => r.hits).ToList();
+            foreach (var r in siteResults)
+            {
+                if (r.error is not null)
+                    LogHelper.Warn(nameof(SearchViewModel), r.error);
             }
 
-            await ShowResultsAsync(results);
+            await ShowResultsAsync(allHits);
         }
         finally { IsLoading = false; }
     }
@@ -235,35 +237,27 @@ public partial class SearchViewModel : ObservableObject
         ErrorMessage = string.Empty;
         try
         {
-            var results = new List<SearchResult>();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var ct = cts.Token;
 
-            if (SearchNarou && SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bg))
+            var narouTask = SearchNarou && SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bg)
+                ? RunSiteSearchAsync(() => _narou.FetchByGenreAsync(bg, "weeklypoint", 30, ct), "なろう")
+                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
+
+            var kakuyomuTask = SearchKakuyomu && SelectedKakuyomuGenre is not null
+                ? RunSiteSearchAsync(() => _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly", ct), "カクヨム")
+                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
+
+            var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
+
+            var allHits = siteResults.SelectMany(r => r.hits).ToList();
+            foreach (var r in siteResults)
             {
-                try
-                {
-                    var narouList = await _narou.FetchByGenreAsync(bg, "weeklypoint", 30);
-                    results.AddRange(narouList);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Warn(nameof(SearchViewModel), $"Narou genre failed: {ex.Message}");
-                }
+                if (r.error is not null)
+                    LogHelper.Warn(nameof(SearchViewModel), r.error);
             }
 
-            if (SearchKakuyomu && SelectedKakuyomuGenre is not null)
-            {
-                try
-                {
-                    var kakuyomuList = await _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly");
-                    results.AddRange(kakuyomuList);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Warn(nameof(SearchViewModel), $"Kakuyomu genre failed: {ex.Message}");
-                }
-            }
-
-            await ShowResultsAsync(results);
+            await ShowResultsAsync(allHits);
         }
         finally { IsLoading = false; }
     }
@@ -318,7 +312,7 @@ public partial class SearchViewModel : ObservableObject
                 await _novelRepo.UpdateAsync(dbNovel);
 
                 // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)
-                _ = Task.Run(() => _prefetch.EnqueueNovelAsync(dbNovel.Id));
+                _ = _prefetch.EnqueueNovelAsync(dbNovel.Id);
             }
 
             result.IsRegistered = true;
