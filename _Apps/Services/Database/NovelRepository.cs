@@ -121,6 +121,13 @@ public class NovelRepository
         return await _db.Table<Novel>().FirstOrDefaultAsync(n => n.Id == id).ConfigureAwait(false);
     }
 
+    public async Task<HashSet<(int SiteType, string NovelId)>> GetExistingSiteNovelIdsAsync()
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        var novels = await _db.Table<Novel>().ToListAsync().ConfigureAwait(false);
+        return new HashSet<(int, string)>(novels.Select(n => (n.SiteType, n.NovelId)));
+    }
+
     public async Task<Novel?> GetBySiteAndNovelIdAsync(int siteType, string novelId)
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);

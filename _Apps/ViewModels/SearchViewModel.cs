@@ -218,13 +218,20 @@ public partial class SearchViewModel : ObservableObject
             var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
 
             var allHits = siteResults.SelectMany(r => r.hits).ToList();
-            foreach (var r in siteResults)
+            var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
+            if (errors.Count > 0)
             {
-                if (r.error is not null)
-                    LogHelper.Warn(nameof(SearchViewModel), r.error);
+                HasError = true;
+                ErrorMessage = string.Join("\n", errors);
             }
 
             await ShowResultsAsync(allHits);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Error(nameof(SearchViewModel), $"Ranking fetch failed: {ex.Message}");
+            HasError = true;
+            ErrorMessage = "通信エラーが発生しました";
         }
         finally { IsLoading = false; }
     }
@@ -251,25 +258,30 @@ public partial class SearchViewModel : ObservableObject
             var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
 
             var allHits = siteResults.SelectMany(r => r.hits).ToList();
-            foreach (var r in siteResults)
+            var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
+            if (errors.Count > 0)
             {
-                if (r.error is not null)
-                    LogHelper.Warn(nameof(SearchViewModel), r.error);
+                HasError = true;
+                ErrorMessage = string.Join("\n", errors);
             }
 
             await ShowResultsAsync(allHits);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Error(nameof(SearchViewModel), $"Genre fetch failed: {ex.Message}");
+            HasError = true;
+            ErrorMessage = "通信エラーが発生しました";
         }
         finally { IsLoading = false; }
     }
 
     private async Task ShowResultsAsync(List<SearchResult> results)
     {
-        var viewModels = new List<SearchResultViewModel>();
-        foreach (var result in results)
-        {
-            var existing = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
-            viewModels.Add(SearchResultViewModel.FromModel(result, existing is not null));
-        }
+        var existingIds = await _novelRepo.GetExistingSiteNovelIdsAsync();
+        var viewModels = results.Select(r =>
+            SearchResultViewModel.FromModel(r, existingIds.Contains(((int)r.SiteType, r.NovelId)))
+        ).ToList();
         SearchResults = new ObservableCollection<SearchResultViewModel>(viewModels);
         HasSearched = true;
     }
