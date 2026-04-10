@@ -46,6 +46,12 @@
 - **改善案**: `Task.WhenAll` で並列化、結果を `(hits, errors)` の構造体に集約、エラーは改行連結。
 - **担当 PR**: PR4 予定
 
+### H8. SearchViewModel.ShowResultsAsync の N+1 クエリ
+- **箇所**: [SearchViewModel.cs:271-278](../ViewModels/SearchViewModel.cs#L271-L278)
+- **現状**: 検索結果ごとに `_novelRepo.GetBySiteAndNovelIdAsync` を個別 await。結果 N 件に対し SQL が N 回発行される。PR4 の並列化で両サイトのヒットが合算されるため、件数増加 → 体感劣化が顕在化しやすい。
+- **改善案**: Repository に `GetBySiteAndNovelIdsAsync(List<(int siteType, string novelId)>)` を追加し、`WHERE (SiteType, NovelId) IN (...)` で 1 クエリ化。
+- **担当 PR**: 未定（PR4 スコープ外）
+
 ### H7. BackgroundJobQueue の重複抑止の競合余地
 - **箇所**: [BackgroundJobQueue.cs:51-62](../Services/Background/BackgroundJobQueue.cs#L51-L62)
 - **現状**: HashSet + lock。処理中例外で `_enqueuedEpisodeIds` から Remove されない経路の懸念。
@@ -76,6 +82,12 @@
 - **箇所**: `_Apps/Services/Database/*Repository.cs` 各メソッド冒頭の `await EnsureAsync()`
 - **改善案**: `RepositoryBase` に初期化ゲートを実装、派生側は本体処理のみに。
 - **関連**: この整理に合わせて `EpisodeRepository.CountUnreadByNovelIdAsync`（H1 対応後に dead code 化）の削除を検討。
+
+### M7. FetchRankingAsync / FetchGenreAsync のエラー不可視
+- **箇所**: [SearchViewModel.cs](../ViewModels/SearchViewModel.cs) — `FetchRankingAsync`, `FetchGenreAsync`
+- **現状**: 両メソッドはエラー発生時に `LogHelper.Warn` のみで `HasError` / `ErrorMessage` を設定しない。両サイト失敗時、ユーザーには空結果だけが表示されエラーの存在を認知できない。PR4 の並列化で両サイト同時失敗のケースが起きやすくなる。
+- **改善案**: `SearchAsync` と同様に `HasError` + `ErrorMessage` でエラーを UI 表示するか、空結果時に「結果がありません」のフォールバック表示を追加。
+- **担当 PR**: 未定（PR4 スコープ外 — UI デザインの検討が必要）
 
 ### M6. IQueryAttributable の型安全性
 - **箇所**: [ReaderViewModel.cs:96-104](../ViewModels/ReaderViewModel.cs#L96-L104), [EpisodeListViewModel.cs:74-81](../ViewModels/EpisodeListViewModel.cs#L74-L81)
@@ -117,7 +129,7 @@
 | PR | 対応項目 | プランファイル |
 |---|---|---|
 | PR1 | Converter 土台整理（完了） | - |
-| PR2 | H1, H5 | plan_2026-04-08_pr2-data-performance.md |
-| PR3（予定） | H2, H4 | 未作成 |
-| PR4（予定） | H3, H6 | 未作成 |
+| PR2 | H1, H5（完了） | plan_2026-04-08_pr2-data-performance.md |
+| PR3 | H2, H4（完了） | plan_2026-04-09_pr3-reader-refactor.md |
+| PR4 | H3, H6（完了） | plan_2026-04-09_pr4-settings-search-refactor.md |
 | 未定 | H7, M*, L* | 上記 PR 後に必要性を再評価 |
