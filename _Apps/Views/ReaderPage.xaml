@@ -6,8 +6,19 @@
              x:Class="LanobeReader.Views.ReaderPage"
              x:DataType="vm:ReaderViewModel"
              Shell.TabBarIsVisible="False"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{Binding BackgroundColor}">
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Triggers>
+        <DataTrigger TargetType="ContentPage" Binding="{Binding BackgroundThemeIndex}" Value="0">
+            <Setter Property="BackgroundColor" Value="{StaticResource ThemeWhiteBg}" />
+        </DataTrigger>
+        <DataTrigger TargetType="ContentPage" Binding="{Binding BackgroundThemeIndex}" Value="1">
+            <Setter Property="BackgroundColor" Value="{StaticResource ThemeDarkBg}" />
+        </DataTrigger>
+        <DataTrigger TargetType="ContentPage" Binding="{Binding BackgroundThemeIndex}" Value="2">
+            <Setter Property="BackgroundColor" Value="{StaticResource ThemeSepiaBg}" />
+        </DataTrigger>
+    </ContentPage.Triggers>
 
 	<Grid RowDefinitions="Auto,*,Auto">
 
@@ -35,9 +46,28 @@
 		<ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled"
                     IsVisible="{Binding IsHorizontal}">
 			<Label Text="{Binding EpisodeContent}" Padding="16"
-                   FontSize="{Binding FontSize}"
-                   LineHeight="{Binding LineHeight}"
-                   TextColor="{Binding TextColor}" />
+                   FontSize="{Binding FontSize}">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="0">
+                        <Setter Property="TextColor" Value="{StaticResource ThemeWhiteText}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="1">
+                        <Setter Property="TextColor" Value="{StaticResource ThemeDarkText}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="2">
+                        <Setter Property="TextColor" Value="{StaticResource ThemeSepiaText}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Label" Binding="{Binding LineSpacingIndex}" Value="0">
+                        <Setter Property="LineHeight" Value="1.4" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Label" Binding="{Binding LineSpacingIndex}" Value="1">
+                        <Setter Property="LineHeight" Value="1.7" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Label" Binding="{Binding LineSpacingIndex}" Value="2">
+                        <Setter Property="LineHeight" Value="2.1" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
 		</ScrollView>
 
 		<!-- Content (vertical writing - WebView) -->
