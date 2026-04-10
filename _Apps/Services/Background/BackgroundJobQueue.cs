@@ -23,6 +23,10 @@ public class BackgroundJobQueue
     private readonly EpisodeRepository _episodeRepo;
     private readonly INovelServiceFactory _serviceFactory;
 
+    private const int BatchCooldownThreshold = 200;
+    private const int CooldownDelayMs = 5000;
+    private const int MaxConsecutiveFailures = 5;
+
     private readonly object _startLock = new();
     private CancellationTokenSource? _workerCts;
     private Task? _workerTask;
@@ -117,10 +121,9 @@ public class BackgroundJobQueue
                     _consecutiveFailures = 0;
                     batchCount++;
 
-                    // 200件ごとに 5秒クールダウン
-                    if (batchCount % 200 == 0)
+                    if (batchCount % BatchCooldownThreshold == 0)
                     {
-                        await Task.Delay(5000, ct).ConfigureAwait(false);
+                        await Task.Delay(CooldownDelayMs, ct).ConfigureAwait(false);
                     }
                 }
                 catch (OperationCanceledException) { break; }
@@ -128,7 +131,7 @@ public class BackgroundJobQueue
                 {
                     _consecutiveFailures++;
                     LogHelper.Warn(nameof(BackgroundJobQueue), $"Job failed ({_consecutiveFailures}): {ex.Message}");
-                    if (_consecutiveFailures >= 5)
+                    if (_consecutiveFailures >= MaxConsecutiveFailures)
                     {
                         LogHelper.Warn(nameof(BackgroundJobQueue), "Too many consecutive failures, aborting");
                         break;

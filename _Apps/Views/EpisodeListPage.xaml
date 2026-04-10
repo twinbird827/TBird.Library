@@ -46,19 +46,19 @@
 
 						<!-- Episode number -->
 						<Label Grid.Column="0" Text="{Binding EpisodeNo, StringFormat='{0}.'}"
-                               FontSize="14" WidthRequest="40"
+                               Style="{StaticResource BodyLabel}" WidthRequest="40"
                                TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
 
 						<!-- Chapter + Title -->
 						<VerticalStackLayout Grid.Column="1">
 							<Label Text="{Binding ChapterName}" FontSize="10" TextColor="Gray"
                                    IsVisible="{Binding ChapterName, Converter={StaticResource HasValue}}" />
-							<Label Text="{Binding Title}" FontSize="14"
+							<Label Text="{Binding Title}" Style="{StaticResource BodyLabel}"
                                    TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
 						</VerticalStackLayout>
 
 						<!-- Cached indicator -->
-						<Label Grid.Column="2" Text="●" FontSize="10" TextColor="#4CAF50"
+						<Label Grid.Column="2" Text="●" FontSize="10" TextColor="{StaticResource CachedGreen}"
                                VerticalOptions="Center" Margin="0,0,8,0"
                                IsVisible="{Binding IsCached}" />
 
@@ -82,7 +82,7 @@
 			<Button Grid.Column="0" Text="◀ 前へ" Command="{Binding PrevPageCommand}"
                     HorizontalOptions="Start" />
 			<Label Grid.Column="1" VerticalOptions="Center" HorizontalOptions="Center"
-                   FontSize="14">
+                   Style="{StaticResource BodyLabel}">
 				<Label.Text>
 					<MultiBinding StringFormat="{}{0} / {1}">
 						<Binding Path="CurrentPage" />

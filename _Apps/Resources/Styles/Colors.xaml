@@ -17,4 +17,11 @@
     <Color x:Key="Gray900">#212121</Color>
     <Color x:Key="Gray950">#141414</Color>
 
+    <!-- Semantic colors -->
+    <Color x:Key="FavoriteGold">#FFC107</Color>
+    <Color x:Key="UnreadBadge">#FF5722</Color>
+    <Color x:Key="CachedGreen">#4CAF50</Color>
+    <Color x:Key="DestructiveRed">#F44336</Color>
+    <Color x:Key="Overlay">#80000000</Color>
+
 </ResourceDictionary>

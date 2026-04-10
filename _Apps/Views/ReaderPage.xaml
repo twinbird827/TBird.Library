@@ -12,13 +12,13 @@
 	<Grid RowDefinitions="Auto,*,Auto">
 
 		<!-- Header -->
-		<Grid Grid.Row="0" Padding="8" BackgroundColor="#80000000"
+		<Grid Grid.Row="0" Padding="8" BackgroundColor="{StaticResource Overlay}"
               ColumnDefinitions="Auto,*,Auto,Auto"
               IsVisible="{Binding IsHeaderVisible}">
 			<Button Grid.Column="0" Text="◀" Command="{Binding PrevEpisodeCommand}"
                     Style="{StaticResource OverlayButton}" />
 			<Label Grid.Column="1" Text="{Binding EpisodeTitle}" TextColor="White"
-                   FontSize="14" VerticalOptions="Center" HorizontalTextAlignment="Center"
+                   Style="{StaticResource BodyLabel}" VerticalOptions="Center" HorizontalTextAlignment="Center"
                    LineBreakMode="TailTruncation" />
 			<Button Grid.Column="2" Text="★" Command="{Binding ToggleFavoriteCommand}"
                     Style="{StaticResource OverlayButton}"
@@ -48,7 +48,7 @@
                                 Navigating="OnWebViewNavigating" />
 
 		<!-- Footer -->
-		<Grid Grid.Row="2" Padding="8" BackgroundColor="#80000000"
+		<Grid Grid.Row="2" Padding="8" BackgroundColor="{StaticResource Overlay}"
               ColumnDefinitions="*,*,*"
               IsVisible="{Binding IsFooterVisible}">
 			<Button Grid.Column="0" Text="目次" Command="{Binding NavigateToTocCommand}"

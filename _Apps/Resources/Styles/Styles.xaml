@@ -53,6 +53,23 @@
         <Setter Property="TextColor" Value="Gray" />
     </Style>
 
+    <!-- Standard body text size -->
+    <Style x:Key="BodyLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <!-- Small meta (gray) label - supplementary info -->
+    <Style x:Key="SmallMetaLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="TextColor" Value="Gray" />
+    </Style>
+
+    <!-- Badge label (white on colored background) -->
+    <Style x:Key="BadgeLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="TextColor" Value="White" />
+    </Style>
+
     <!-- Themed slider (thumb color follows AppTheme) -->
     <Style x:Key="ThemedSlider" TargetType="Slider">
         <Setter Property="ThumbColor" Value="{AppThemeBinding Light=#6200EE, Dark=#BB86FC}" />

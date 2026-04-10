@@ -30,7 +30,9 @@ public class EpisodeRepository
         await EnsureAsync().ConfigureAwait(false);
         int offset = (page - 1) * pageSize;
         return await _db.QueryAsync<Episode>(
-            "SELECT * FROM episodes WHERE novel_id = ? ORDER BY episode_no LIMIT ? OFFSET ?",
+            "SELECT id, novel_id, episode_no, chapter_name, title, " +
+            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            "FROM episodes WHERE novel_id = ? ORDER BY episode_no LIMIT ? OFFSET ?",
             novelId, pageSize, offset).ConfigureAwait(false);
     }
 

@@ -31,7 +31,7 @@
 					<SwipeView Margin="8,4">
 						<SwipeView.RightItems>
 							<SwipeItems Mode="Reveal">
-								<SwipeItem Text="★お気に入り" BackgroundColor="#FFC107"
+								<SwipeItem Text="★お気に入り" BackgroundColor="{StaticResource FavoriteGold}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=ToggleFavoriteCommand, x:DataType=vm:NovelListViewModel}"
                                     CommandParameter="{Binding}" />
 								<SwipeItem Text="キャッシュ削除" BackgroundColor="Orange"
@@ -61,11 +61,11 @@
 
 								<!-- Site badge -->
 								<Border Grid.Row="0" Grid.Column="2" Padding="4,2"
-                                        BackgroundColor="#6200EE">
+                                        BackgroundColor="{StaticResource Primary}">
 									<Border.StrokeShape>
 										<RoundRectangle CornerRadius="8" />
 									</Border.StrokeShape>
-									<Label Text="{Binding SiteTypeLabel}" FontSize="11" TextColor="White" />
+									<Label Text="{Binding SiteTypeLabel}" Style="{StaticResource BadgeLabel}" />
 								</Border>
 
 								<!-- Author + Status -->
@@ -79,15 +79,15 @@
 
 								<!-- Unread + Updated -->
 								<HorizontalStackLayout Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="12">
-									<Border Padding="6,2" BackgroundColor="#FF5722"
+									<Border Padding="6,2" BackgroundColor="{StaticResource UnreadBadge}"
                                            IsVisible="{Binding UnreadCount, Converter={StaticResource IntToBool}}">
 										<Border.StrokeShape>
 											<RoundRectangle CornerRadius="10" />
 										</Border.StrokeShape>
 										<Label Text="{Binding UnreadCount, StringFormat='{0}話未読'}"
-                                               FontSize="11" TextColor="White" />
+                                               Style="{StaticResource BadgeLabel}" />
 									</Border>
-									<Label Text="{Binding LastUpdatedAt}" FontSize="11" TextColor="Gray"
+									<Label Text="{Binding LastUpdatedAt}" Style="{StaticResource SmallMetaLabel}"
                                            VerticalOptions="Center" />
 								</HorizontalStackLayout>
 							</Grid>

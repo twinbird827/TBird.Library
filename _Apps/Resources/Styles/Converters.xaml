@@ -6,8 +6,10 @@
 
     <converters:HasValueConverter x:Key="HasValue" />
     <converters:InverseBoolConverter x:Key="InverseBool" />
-    <converters:BoolToGrayConverter x:Key="BoolToGrayConverter" />
-    <converters:BoolToGoldConverter x:Key="BoolToGoldConverter" />
+    <converters:BoolToColorConverter x:Key="BoolToGrayConverter"
+        TrueColor="Gray" FalseColor="Black" />
+    <converters:BoolToColorConverter x:Key="BoolToGoldConverter"
+        TrueColor="{StaticResource FavoriteGold}" FalseColor="{StaticResource Gray200}" />
     <converters:IntToBoolConverter x:Key="IntToBool" />
 
 </ResourceDictionary>

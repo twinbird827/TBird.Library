@@ -38,11 +38,19 @@ public class NovelRepository
             "author_asc" => await _db.Table<Novel>().OrderBy(n => n.Author).ToListAsync().ConfigureAwait(false),
             "registered_desc" => await _db.Table<Novel>().OrderByDescending(n => n.RegisteredAt).ToListAsync().ConfigureAwait(false),
             "unread_desc" => await _db.QueryAsync<Novel>(
-                "SELECT n.* FROM novels n " +
+                "SELECT n.id, n.site_type, n.novel_id, n.title, n.author, " +
+                "n.total_episodes, n.is_completed, n.last_updated_at, " +
+                "n.registered_at, n.has_unconfirmed_update, n.has_check_error, " +
+                "n.is_favorite, n.favorited_at " +
+                "FROM novels n " +
                 "ORDER BY (SELECT COUNT(*) FROM episodes e WHERE e.novel_id = n.id AND e.is_read = 0) DESC, n.last_updated_at DESC"
             ).ConfigureAwait(false),
             "favorite_first" => await _db.QueryAsync<Novel>(
-                "SELECT * FROM novels ORDER BY is_favorite DESC, last_updated_at DESC"
+                "SELECT id, site_type, novel_id, title, author, " +
+                "total_episodes, is_completed, last_updated_at, " +
+                "registered_at, has_unconfirmed_update, has_check_error, " +
+                "is_favorite, favorited_at " +
+                "FROM novels ORDER BY is_favorite DESC, last_updated_at DESC"
             ).ConfigureAwait(false),
             _ => await _db.Table<Novel>().OrderByDescending(n => n.LastUpdatedAt).ToListAsync().ConfigureAwait(false),
         };
