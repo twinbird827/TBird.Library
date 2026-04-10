@@ -17,22 +17,22 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private int _cacheMonths = 3;
+    private int _cacheMonths = SettingsKeys.DEFAULT_CACHE_MONTHS;
 
     [ObservableProperty]
-    private int _updateIntervalHours = 6;
+    private int _updateIntervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS;
 
     [ObservableProperty]
-    private int _fontSizeSp = 16;
+    private int _fontSizeSp = SettingsKeys.DEFAULT_FONT_SIZE_SP;
 
     [ObservableProperty]
     private int _backgroundTheme;
 
     [ObservableProperty]
-    private int _lineSpacing = 1;
+    private int _lineSpacing = SettingsKeys.DEFAULT_LINE_SPACING;
 
     [ObservableProperty]
-    private int _episodesPerPage = 50;
+    private int _episodesPerPage = SettingsKeys.DEFAULT_EPISODES_PER_PAGE;
 
     [ObservableProperty]
     private string _previewText = "サンプルテキストです。フォントサイズと行間のプレビューを表示しています。";
@@ -44,19 +44,19 @@ public partial class SettingsViewModel : ObservableObject
     private bool _prefetchEnabled = true;
 
     [ObservableProperty]
-    private int _requestDelayMs = 800;
+    private int _requestDelayMs = SettingsKeys.DEFAULT_REQUEST_DELAY_MS;
 
     public async Task InitializeAsync()
     {
-        CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3);
-        UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, 6);
-        FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16);
-        BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
-        LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1);
-        EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
-        VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, 0) == 1;
-        PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, 1) == 1;
-        RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, 800);
+        CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, SettingsKeys.DEFAULT_CACHE_MONTHS);
+        UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
+        FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
+        BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
+        LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
+        EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, SettingsKeys.DEFAULT_EPISODES_PER_PAGE);
+        VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING) == 1;
+        PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, SettingsKeys.DEFAULT_PREFETCH_ENABLED) == 1;
+        RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
     }
 
     partial void OnCacheMonthsChanged(int value) =>
@@ -84,7 +84,7 @@ public partial class SettingsViewModel : ObservableObject
         _ = _settingsRepo.SetValueAsync(SettingsKeys.PREFETCH_ENABLED, value ? "1" : "0");
 
     partial void OnRequestDelayMsChanged(int value) =>
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.REQUEST_DELAY_MS, Math.Clamp(value, 500, 2000).ToString());
+        _ = _settingsRepo.SetValueAsync(SettingsKeys.REQUEST_DELAY_MS, Math.Clamp(value, SettingsKeys.MIN_REQUEST_DELAY_MS, SettingsKeys.MAX_REQUEST_DELAY_MS).ToString());
 
     [RelayCommand]
     private async Task ClearCacheAsync()

@@ -127,10 +127,10 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     private async Task LoadSettingsAsync()
     {
-        var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, 16);
-        _backgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, 0);
-        var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, 1);
-        var vertical = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, 0);
+        var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
+        _backgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
+        var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
+        var vertical = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING);
 
         var (bg, text) = ThemeHelper.GetThemeColors(_backgroundThemeIndex);
         var lh = ThemeHelper.GetLineHeight(lineSpacing);

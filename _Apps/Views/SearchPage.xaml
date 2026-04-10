@@ -93,7 +93,7 @@
 								<Label Grid.Row="0" Grid.Column="0" Text="{Binding Title}"
                                        FontSize="15" FontAttributes="Bold" LineBreakMode="TailTruncation" />
 								<Label Grid.Row="0" Grid.Column="1" Text="{Binding SiteTypeLabel}"
-                                       FontSize="11" TextColor="Gray" VerticalOptions="Center" />
+                                       Style="{StaticResource SmallMetaLabel}" VerticalOptions="Center" />
 								<Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                        Text="{Binding Author}" Style="{StaticResource MetaLabel}" />
 								<HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="12">
@@ -132,4 +132,4 @@
 			</CollectionView>
 		</Grid>
 	</Grid>
-</ContentPage>
+</ContentPage>

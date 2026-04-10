@@ -2,16 +2,14 @@ using System.Globalization;
 
 namespace LanobeReader.Converters;
 
-public class BoolToGrayConverter : IValueConverter
+public class BoolToColorConverter : IValueConverter
 {
+    public Color TrueColor { get; set; } = Colors.Black;
+    public Color FalseColor { get; set; } = Colors.Gray;
+
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        // IsRead == true → Gray text, IsRead == false → normal text
-        return value is true ? Colors.Gray : Colors.Black;
-    }
+        => value is true ? TrueColor : FalseColor;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        throw new NotSupportedException();
-    }
+        => throw new NotSupportedException();
 }
