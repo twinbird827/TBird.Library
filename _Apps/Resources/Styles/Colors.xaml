@@ -24,4 +24,12 @@
     <Color x:Key="DestructiveRed">#F44336</Color>
     <Color x:Key="Overlay">#80000000</Color>
 
+    <!-- Reader theme colors -->
+    <Color x:Key="ThemeWhiteBg">#FFFFFF</Color>
+    <Color x:Key="ThemeWhiteText">#212121</Color>
+    <Color x:Key="ThemeDarkBg">#121212</Color>
+    <Color x:Key="ThemeDarkText">#E0E0E0</Color>
+    <Color x:Key="ThemeSepiaBg">#F5E6C8</Color>
+    <Color x:Key="ThemeSepiaText">#3E2C1C</Color>
+
 </ResourceDictionary>

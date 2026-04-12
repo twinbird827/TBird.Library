@@ -18,11 +18,13 @@ public static class ReaderHtmlBuilder
         sb.Append("<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\">");
         sb.Append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
         sb.Append("<style>");
+        var (bgHex, fgHex) = ReaderStyleResolver.ResolveThemeColors(state.BackgroundThemeIndex);
+        var lh = ReaderStyleResolver.ResolveLineHeight(state.LineSpacingIndex);
         sb.Append(":root{");
         sb.Append($"--reader-fs:{state.FontSizePx.ToString("0.##", inv)}px;");
-        sb.Append($"--reader-lh:{state.LineHeight.ToString("0.##", inv)};");
-        sb.Append($"--reader-bg:{state.BackgroundHex};");
-        sb.Append($"--reader-fg:{state.ForegroundHex};");
+        sb.Append($"--reader-lh:{lh.ToString("0.##", inv)};");
+        sb.Append($"--reader-bg:{bgHex};");
+        sb.Append($"--reader-fg:{fgHex};");
         sb.Append("}");
         sb.Append("html,body{margin:0;padding:0;height:100%;}");
         sb.Append("body{");

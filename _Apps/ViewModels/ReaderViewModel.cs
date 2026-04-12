@@ -19,8 +19,6 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private int _currentEpisodeId;
     private int _siteType;
     private string _siteNovelId = string.Empty;
-    private int _backgroundThemeIndex;
-
     public ReaderViewModel(
         EpisodeRepository episodeRepo,
         EpisodeCacheRepository cacheRepo,
@@ -57,13 +55,10 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private double _fontSize = 16;
 
     [ObservableProperty]
-    private double _lineHeight = 1.7;
+    private int _backgroundThemeIndex;
 
     [ObservableProperty]
-    private Color _backgroundColor = Color.FromArgb("#FFFFFF");
-
-    [ObservableProperty]
-    private Color _textColor = Color.FromArgb("#212121");
+    private int _lineSpacingIndex = SettingsKeys.DEFAULT_LINE_SPACING;
 
     [ObservableProperty]
     private bool _isVerticalWriting;
@@ -97,9 +92,8 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     }
 
     partial void OnFontSizeChanged(double value) => UpdateCssStateIfReady();
-    partial void OnLineHeightChanged(double value) => UpdateCssStateIfReady();
-    partial void OnBackgroundColorChanged(Color value) => UpdateCssStateIfReady();
-    partial void OnTextColorChanged(Color value) => UpdateCssStateIfReady();
+    partial void OnBackgroundThemeIndexChanged(int value) => UpdateCssStateIfReady();
+    partial void OnLineSpacingIndexChanged(int value) => UpdateCssStateIfReady();
 
     private void UpdateCssStateIfReady()
     {
@@ -127,18 +121,11 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     private async Task LoadSettingsAsync()
     {
-        var fontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
-        _backgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
-        var lineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
+        FontSize = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
+        BackgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
+        LineSpacingIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
         var vertical = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING);
 
-        var (bg, text) = ThemeHelper.GetThemeColors(_backgroundThemeIndex);
-        var lh = ThemeHelper.GetLineHeight(lineSpacing);
-
-        FontSize = fontSizeSp;
-        BackgroundColor = bg;
-        TextColor = text;
-        LineHeight = lh;
         IsVerticalWriting = vertical == 1;
         IsHorizontal = !IsVerticalWriting;
         ReaderCss = BuildCssState();
@@ -156,12 +143,8 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     private ReaderCssState BuildCssState() => new(
         FontSizePx: FontSize,
-        LineHeight: LineHeight,
-        BackgroundHex: ColorToHex(BackgroundColor),
-        ForegroundHex: ColorToHex(TextColor));
-
-    private static string ColorToHex(Color c) =>
-        $"#{(int)(c.Red * 255):X2}{(int)(c.Green * 255):X2}{(int)(c.Blue * 255):X2}";
+        LineSpacingIndex: LineSpacingIndex,
+        BackgroundThemeIndex: BackgroundThemeIndex);
 
     private async Task LoadEpisodeAsync(int episodeId)
     {

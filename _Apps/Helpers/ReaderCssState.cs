@@ -7,6 +7,5 @@ namespace LanobeReader.Helpers;
 /// </summary>
 public sealed record ReaderCssState(
     double FontSizePx,
-    double LineHeight,
-    string BackgroundHex,
-    string ForegroundHex);
+    int LineSpacingIndex,
+    int BackgroundThemeIndex);

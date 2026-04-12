@@ -87,12 +87,14 @@ public sealed class ReaderWebView : WebView
     private async Task ApplyCssAsync(ReaderCssState state)
     {
         var inv = CultureInfo.InvariantCulture;
+        var (bgHex, fgHex) = ReaderStyleResolver.ResolveThemeColors(state.BackgroundThemeIndex);
+        var lh = ReaderStyleResolver.ResolveLineHeight(state.LineSpacingIndex);
         var js =
             "(function(){var s=document.documentElement.style;" +
             $"s.setProperty('--reader-fs','{state.FontSizePx.ToString("0.##", inv)}px');" +
-            $"s.setProperty('--reader-lh','{state.LineHeight.ToString("0.##", inv)}');" +
-            $"s.setProperty('--reader-bg','{state.BackgroundHex}');" +
-            $"s.setProperty('--reader-fg','{state.ForegroundHex}');" +
+            $"s.setProperty('--reader-lh','{lh.ToString("0.##", inv)}');" +
+            $"s.setProperty('--reader-bg','{bgHex}');" +
+            $"s.setProperty('--reader-fg','{fgHex}');" +
             "})();";
         try
         {
