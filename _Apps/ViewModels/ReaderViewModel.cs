@@ -82,6 +82,8 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
     private Episode? _episode;
 
+    public Action? ScrollToTop { get; set; }
+
     partial void OnIsVerticalWritingChanged(bool value)
     {
         IsHorizontal = !value;
@@ -208,6 +210,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         finally
         {
             IsLoading = false;
+            ScrollToTop?.Invoke();
         }
     }
 

@@ -9,4 +9,13 @@ public partial class EpisodeListPage : ContentPage
         InitializeComponent();
         BindingContext = viewModel;
     }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is EpisodeListViewModel vm)
+        {
+            _ = vm.RefreshReadStatusAsync();
+        }
+    }
 }

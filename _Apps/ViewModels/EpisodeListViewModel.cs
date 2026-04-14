@@ -103,16 +103,8 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
             HasLastRead = lastRead is not null;
             IsNovelFavorite = _novel.IsFavorite == 1;
 
-            if (hasChapters)
-            {
-                ApplyFilterAndShow();
-                MaxPage = 1;
-            }
-            else
-            {
-                RecalcPaging();
-                await LoadPageAsync();
-            }
+            RecalcPaging();
+            await LoadPageAsync();
         }
         catch (Exception ex)
         {
@@ -130,12 +122,6 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         if (ShowUnreadOnly) src = src.Where(e => e.IsRead == 0);
         if (ShowFavoritesOnly) src = src.Where(e => e.IsFavorite == 1);
         _filteredCache = src.ToList();
-    }
-
-    private void ApplyFilterAndShow()
-    {
-        Episodes = new ObservableCollection<EpisodeViewModel>(
-            _filteredCache.Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id))));
     }
 
     private void RecalcPaging()
@@ -156,22 +142,35 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         return Task.CompletedTask;
     }
 
+    public async Task RefreshReadStatusAsync()
+    {
+        if (_allEpisodes.Count == 0) return;
+
+        var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+        var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead == 1);
+
+        foreach (var ep in _allEpisodes)
+        {
+            if (readMap.TryGetValue(ep.Id, out var isRead))
+                ep.IsRead = isRead ? 1 : 0;
+        }
+
+        foreach (var vm in Episodes)
+        {
+            if (readMap.TryGetValue(vm.Id, out var isRead))
+                vm.IsRead = isRead;
+        }
+    }
+
     partial void OnShowUnreadOnlyChanged(bool value) => _ = ReloadListAsync();
     partial void OnShowFavoritesOnlyChanged(bool value) => _ = ReloadListAsync();
 
     private async Task ReloadListAsync()
     {
         RebuildFilterCache();
-        if (HasChapters)
-        {
-            ApplyFilterAndShow();
-        }
-        else
-        {
-            CurrentPage = 1;
-            RecalcPaging();
-            await LoadPageAsync();
-        }
+        CurrentPage = 1;
+        RecalcPaging();
+        await LoadPageAsync();
     }
 
     [RelayCommand]
@@ -209,15 +208,8 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         if (ShowFavoritesOnly)
         {
             RebuildFilterCache();
-            if (HasChapters)
-            {
-                ApplyFilterAndShow();
-            }
-            else
-            {
-                RecalcPaging();
-                await LoadPageAsync();
-            }
+            RecalcPaging();
+            await LoadPageAsync();
         }
     }
 

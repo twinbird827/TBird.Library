@@ -166,12 +166,12 @@ public class NarouApiService : INovelService
         return string.Join("\n", lines).Trim();
     }
 
-    public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
+    public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted, string? author)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(30));
 
-        var url = $"{API_BASE}?out=json&ncode={novelId}&of=ga-gl-e";
+        var url = $"{API_BASE}?out=json&ncode={novelId}&of=ga-gl-e-w";
         var response = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
         var jsonArray = JsonSerializer.Deserialize<JsonElement[]>(response);
 
@@ -184,8 +184,9 @@ public class NarouApiService : INovelService
         var totalEpisodes = item.GetProperty("general_all_no").GetInt32();
         var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null;
         var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0;
+        var author = item.TryGetProperty("writer", out var writerProp) ? writerProp.GetString() : null;
 
-        return (totalEpisodes, lastUpdatedAt, isCompleted);
+        return (totalEpisodes, lastUpdatedAt, isCompleted, author);
     }
 
     /// <summary>

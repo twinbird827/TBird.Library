@@ -49,7 +49,7 @@ public class UpdateCheckService
                 try
                 {
                     var service = _serviceFactory.GetService((SiteType)novel.SiteType);
-                    var (totalEpisodes, lastUpdatedAt, isCompleted) = await service.FetchNovelInfoAsync(novel.NovelId, ct).ConfigureAwait(false);
+                    var (totalEpisodes, lastUpdatedAt, isCompleted, author) = await service.FetchNovelInfoAsync(novel.NovelId, ct).ConfigureAwait(false);
 
                     var currentMaxEpisode = await _episodeRepo.GetMaxEpisodeNoAsync(novel.Id).ConfigureAwait(false);
 
@@ -70,6 +70,10 @@ public class UpdateCheckService
                             novel.LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow.ToString("o");
                             novel.HasUnconfirmedUpdate = 1;
                             novel.IsCompleted = isCompleted ? 1 : 0;
+                            if (!string.IsNullOrEmpty(author) && string.IsNullOrEmpty(novel.Author))
+                            {
+                                novel.Author = author;
+                            }
                             await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
 
                             updates.Add((novel, newEpisodes.Count));

@@ -321,6 +321,21 @@ public partial class SearchViewModel : ObservableObject
                 await _episodeRepo.InsertAllAsync(episodes);
 
                 dbNovel.TotalEpisodes = episodes.Count;
+
+                // 作者名が空の場合、FetchNovelInfoAsync で補完
+                if (string.IsNullOrEmpty(dbNovel.Author))
+                {
+                    try
+                    {
+                        var (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId);
+                        if (!string.IsNullOrEmpty(fetchedAuthor))
+                        {
+                            dbNovel.Author = fetchedAuthor;
+                        }
+                    }
+                    catch { /* 作者名取得失敗は無視 */ }
+                }
+
                 await _novelRepo.UpdateAsync(dbNovel);
 
                 // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)
