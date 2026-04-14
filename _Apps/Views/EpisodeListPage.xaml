@@ -7,15 +7,9 @@
              Title="{Binding NovelTitle}"
              Shell.TabBarIsVisible="False">
 
-	<ContentPage.ToolbarItems>
-		<ToolbarItem Text="続きから読む" Command="{Binding ReadContinueCommand}" />
-		<ToolbarItem Text="★作品" Command="{Binding ToggleNovelFavoriteCommand}" />
-		<ToolbarItem Text="一括DL" Command="{Binding DownloadAllCommand}" />
-	</ContentPage.ToolbarItems>
-
 	<Grid RowDefinitions="Auto,*,Auto">
-		<!-- Filter row -->
-		<HorizontalStackLayout Grid.Row="0" Padding="8,4" Spacing="16">
+		<!-- Row 0: Filter + Action row -->
+		<HorizontalStackLayout Grid.Row="0" Padding="8,4" Spacing="8">
 			<HorizontalStackLayout Spacing="4">
 				<CheckBox IsChecked="{Binding ShowUnreadOnly}" />
 				<Label Text="未読のみ" VerticalOptions="Center" />
@@ -24,8 +18,10 @@
 				<CheckBox IsChecked="{Binding ShowFavoritesOnly}" />
 				<Label Text="★のみ" VerticalOptions="Center" />
 			</HorizontalStackLayout>
-			<Label Text="★" FontSize="16" VerticalOptions="Center"
-                   TextColor="{Binding IsNovelFavorite, Converter={StaticResource BoolToGoldConverter}}" />
+			<Button Text="★作品" Command="{Binding ToggleNovelFavoriteCommand}"
+			        FontSize="13" Padding="10,4" VerticalOptions="Center" />
+			<Button Text="一括DL" Command="{Binding DownloadAllCommand}"
+			        FontSize="13" Padding="10,4" VerticalOptions="Center" />
 		</HorizontalStackLayout>
 
 		<!-- Loading -->
@@ -76,22 +72,27 @@
 			</CollectionView.ItemTemplate>
 		</CollectionView>
 
-		<!-- Paging buttons (hidden when has chapters) -->
-		<Grid Grid.Row="2" ColumnDefinitions="*,Auto,*" Padding="8"
-              IsVisible="{Binding HasChapters, Converter={StaticResource InverseBool}}">
-			<Button Grid.Column="0" Text="◀ 前へ" Command="{Binding PrevPageCommand}"
-                    HorizontalOptions="Start" />
-			<Label Grid.Column="1" VerticalOptions="Center" HorizontalOptions="Center"
-                   Style="{StaticResource BodyLabel}">
-				<Label.Text>
-					<MultiBinding StringFormat="{}{0} / {1}">
-						<Binding Path="CurrentPage" />
-						<Binding Path="MaxPage" />
-					</MultiBinding>
-				</Label.Text>
-			</Label>
-			<Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextPageCommand}"
-                    HorizontalOptions="End" />
+		<!-- Footer: Continue + Paging -->
+		<Grid Grid.Row="2" RowDefinitions="Auto,Auto" Padding="8,4">
+			<!-- Continue reading -->
+			<Button Grid.Row="0" Text="続きから読む" Command="{Binding ReadContinueCommand}"
+			        HorizontalOptions="Fill" Margin="0,0,0,4" />
+			<!-- Paging -->
+			<Grid Grid.Row="1" ColumnDefinitions="*,Auto,*">
+				<Button Grid.Column="0" Text="◀ 前へ" Command="{Binding PrevPageCommand}"
+				        HorizontalOptions="Start" />
+				<Label Grid.Column="1" VerticalOptions="Center" HorizontalOptions="Center"
+				       Style="{StaticResource BodyLabel}">
+					<Label.Text>
+						<MultiBinding StringFormat="{}{0} / {1}">
+							<Binding Path="CurrentPage" />
+							<Binding Path="MaxPage" />
+						</MultiBinding>
+					</Label.Text>
+				</Label>
+				<Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextPageCommand}"
+				        HorizontalOptions="End" />
+			</Grid>
 		</Grid>
 	</Grid>
 </ContentPage>

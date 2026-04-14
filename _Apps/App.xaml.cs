@@ -42,9 +42,10 @@ public partial class App : Application
     {
         var window = new Window(new AppShell());
 
-        window.Created += async (s, e) =>
+        window.Created += (s, e) =>
         {
-            await InitializeAppAsync();
+            // Fire-and-forget: DB初期化をバックグラウンドで実行しUIスレッドをブロックしない
+            _ = Task.Run(InitializeAppAsync);
         };
 
         return window;
@@ -54,18 +55,15 @@ public partial class App : Application
     {
         try
         {
-            // 1. Initialize database
-            await _dbService.InitializeAsync();
+            // 1. Initialize database (background thread)
+            await _dbService.InitializeAsync().ConfigureAwait(false);
 
-            // 2. Delete expired cache in background
-            _ = Task.Run(async () =>
-            {
-                var cacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3);
-                await _cacheRepo.DeleteExpiredAsync(cacheMonths);
-            });
+            // 2. Delete expired cache
+            var cacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3).ConfigureAwait(false);
+            _ = _cacheRepo.DeleteExpiredAsync(cacheMonths);
 
             // 3. Check novel count for navigation
-            var novelCount = await _novelRepo.CountAsync();
+            var novelCount = await _novelRepo.CountAsync().ConfigureAwait(false);
             if (novelCount == 0)
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
@@ -75,7 +73,7 @@ public partial class App : Application
             }
             else
             {
-                // 4. Run update check in background
+                // 4. Run update check (already on background thread)
                 _ = Task.Run(async () =>
                 {
                     try
@@ -88,7 +86,7 @@ public partial class App : Application
                     }
                 });
 
-                // 5. Scan unread+uncached episodes and enqueue for prefetch (Wi-Fi only)
+                // 5. Scan unread+uncached episodes and enqueue for prefetch
                 _ = Task.Run(async () =>
                 {
                     try

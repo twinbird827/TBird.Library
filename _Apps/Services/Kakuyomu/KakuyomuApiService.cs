@@ -53,12 +53,26 @@ public class KakuyomuApiService : INovelService
 
             var title = link.GetAttribute("title")?.Trim() ?? link.TextContent.Trim();
 
+            // 作者名抽出: 親要素から /users/ アンカーを探す
+            var author = "";
+            var parentEl = link.ParentElement;
+            for (int i = 0; i < 4 && parentEl is not null; i++)
+            {
+                var userLink = parentEl.QuerySelector("a[href*='/users/']");
+                if (userLink is not null)
+                {
+                    author = userLink.TextContent.Trim();
+                    break;
+                }
+                parentEl = parentEl.ParentElement;
+            }
+
             results.Add(new SearchResult
             {
                 SiteType = SiteType.Kakuyomu,
                 NovelId = workId,
                 Title = title,
-                Author = "",
+                Author = author,
                 TotalEpisodes = 0,
                 IsCompleted = false,
             });
@@ -228,7 +242,7 @@ public class KakuyomuApiService : INovelService
         return contentEl.TextContent.Trim();
     }
 
-    public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
+    public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted, string? author)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(30));
@@ -239,19 +253,35 @@ public class KakuyomuApiService : INovelService
         var totalEpisodes = ParseEpisodeIdsFromApolloState(html).Count;
 
         bool isCompleted = false;
+        string? author = null;
         var apolloState = ExtractApolloState(html);
         if (apolloState is not null)
         {
             var workKey = $"Work:{novelId}";
-            if (apolloState.Value.TryGetProperty(workKey, out var work)
-                && work.TryGetProperty("serialStatus", out var status)
-                && status.ValueKind == JsonValueKind.String)
+            if (apolloState.Value.TryGetProperty(workKey, out var work))
             {
-                isCompleted = status.GetString() == "COMPLETED";
+                if (work.TryGetProperty("serialStatus", out var status)
+                    && status.ValueKind == JsonValueKind.String)
+                {
+                    isCompleted = status.GetString() == "COMPLETED";
+                }
+
+                if (work.TryGetProperty("author", out var authorRef)
+                    && authorRef.TryGetProperty("__ref", out var refProp))
+                {
+                    var userKey = refProp.GetString();
+                    if (!string.IsNullOrEmpty(userKey)
+                        && apolloState.Value.TryGetProperty(userKey, out var userAccount)
+                        && userAccount.TryGetProperty("activityName", out var activityName)
+                        && activityName.ValueKind == JsonValueKind.String)
+                    {
+                        author = activityName.GetString();
+                    }
+                }
             }
         }
 
-        return (totalEpisodes, DateTime.UtcNow.ToString("o"), isCompleted);
+        return (totalEpisodes, DateTime.UtcNow.ToString("o"), isCompleted, author);
     }
 
     /// <summary>
@@ -272,7 +302,7 @@ public class KakuyomuApiService : INovelService
         var results = new List<SearchResult>();
         var seen = new HashSet<string>();
 
-        var links = document.QuerySelectorAll("a[href^='/works/']");
+        var links = document.QuerySelectorAll("a[href*='/works/']");
         foreach (var link in links)
         {
             var href = link.GetAttribute("href") ?? "";
@@ -281,7 +311,9 @@ public class KakuyomuApiService : INovelService
             var workId = ExtractWorkId(href);
             if (string.IsNullOrEmpty(workId) || !seen.Add(workId)) continue;
 
-            var title = (link.GetAttribute("title") ?? link.TextContent).Trim();
+            var title = link.TextContent.Trim();
+            if (string.IsNullOrEmpty(title))
+                title = link.GetAttribute("title")?.Trim() ?? "";
             if (string.IsNullOrEmpty(title)) continue;
 
             // 作者名抽出: 親要素から /users/ アンカーを探す
@@ -289,7 +321,7 @@ public class KakuyomuApiService : INovelService
             var parent = link.ParentElement;
             for (int i = 0; i < 4 && parent is not null; i++)
             {
-                var userLink = parent.QuerySelector("a[href^='/users/']");
+                var userLink = parent.QuerySelector("a[href*='/users/']");
                 if (userLink is not null)
                 {
                     author = userLink.TextContent.Trim();

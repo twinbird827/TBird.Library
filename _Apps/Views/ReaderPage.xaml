@@ -24,18 +24,14 @@
 
 		<!-- Header -->
 		<Grid Grid.Row="0" Padding="8" BackgroundColor="{StaticResource Overlay}"
-              ColumnDefinitions="Auto,*,Auto,Auto"
+              ColumnDefinitions="*,Auto"
               IsVisible="{Binding IsHeaderVisible}">
-			<Button Grid.Column="0" Text="◀" Command="{Binding PrevEpisodeCommand}"
-                    Style="{StaticResource OverlayButton}" />
-			<Label Grid.Column="1" Text="{Binding EpisodeTitle}" TextColor="White"
+			<Label Grid.Column="0" Text="{Binding EpisodeTitle}" TextColor="White"
                    Style="{StaticResource BodyLabel}" VerticalOptions="Center" HorizontalTextAlignment="Center"
                    LineBreakMode="TailTruncation" />
-			<Button Grid.Column="2" Text="★" Command="{Binding ToggleFavoriteCommand}"
+			<Button Grid.Column="1" Text="★" Command="{Binding ToggleFavoriteCommand}"
                     Style="{StaticResource OverlayButton}"
                     TextColor="{Binding IsCurrentEpisodeFavorite, Converter={StaticResource BoolToGoldConverter}}" />
-			<Button Grid.Column="3" Text="目次" Command="{Binding NavigateToTocCommand}"
-                    Style="{StaticResource OverlayButton}" />
 		</Grid>
 
 		<!-- Loading -->
@@ -46,7 +42,11 @@
 		<ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled"
                     IsVisible="{Binding IsHorizontal}">
 			<Label Text="{Binding EpisodeContent}" Padding="16"
-                   FontSize="{Binding FontSize}">
+                   FontSize="{Binding FontSize}" FontFamily="serif">
+				<Label.GestureRecognizers>
+					<SwipeGestureRecognizer Direction="Left" Command="{Binding NextEpisodeCommand}" />
+					<SwipeGestureRecognizer Direction="Right" Command="{Binding PrevEpisodeCommand}" />
+				</Label.GestureRecognizers>
                 <Label.Triggers>
                     <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="0">
                         <Setter Property="TextColor" Value="{StaticResource ThemeWhiteText}" />

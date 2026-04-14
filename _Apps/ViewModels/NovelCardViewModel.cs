@@ -49,7 +49,10 @@ public partial class NovelCardViewModel : ObservableObject
             SiteType = (SiteType)novel.SiteType,
             NovelId = novel.NovelId,
             UnreadCount = unreadCount,
-            LastUpdatedAt = novel.LastUpdatedAt ?? "",
+            LastUpdatedAt = DateTime.TryParse(novel.LastUpdatedAt, null,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
+                ? dt.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss")
+                : novel.LastUpdatedAt ?? "",
             IsCompleted = novel.IsCompleted == 1,
             HasUnconfirmedUpdate = novel.HasUnconfirmedUpdate == 1,
             IsFavorite = novel.IsFavorite == 1,

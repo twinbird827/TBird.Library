@@ -26,14 +26,14 @@ public static class ReaderHtmlBuilder
         sb.Append($"--reader-bg:{bgHex};");
         sb.Append($"--reader-fg:{fgHex};");
         sb.Append("}");
-        sb.Append("html,body{margin:0;padding:0;height:100%;}");
+        sb.Append("html,body{margin:0;padding:0;height:100%;overflow-y:hidden;}");
         sb.Append("body{");
         sb.Append("background:var(--reader-bg);color:var(--reader-fg);");
         sb.Append("font-family:serif;");
         sb.Append("writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;");
         sb.Append("font-size:var(--reader-fs);");
         sb.Append("line-height:var(--reader-lh);");
-        sb.Append("padding:16px;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;");
+        sb.Append("padding:16px;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;overscroll-behavior-y:none;");
         sb.Append("-webkit-tap-highlight-color:transparent;");
         sb.Append("}");
         sb.Append("p{margin:0 0 1em 0;text-indent:1em;}");
@@ -54,6 +54,20 @@ public static class ReaderHtmlBuilder
         sb.Append("var maxNeg=-(el.scrollWidth-el.clientWidth);");
         sb.Append("if(el.scrollLeft<=maxNeg+10){fired=true;location.href='lanobe://read-end';}}");
         sb.Append("window.addEventListener('scroll',check,{passive:true});setTimeout(check,100);})();");
+        // Swipe detection for vertical writing: up/down swipe to navigate episodes
+        sb.Append("(function(){var sx,sy,st;");
+        sb.Append("document.addEventListener('touchstart',function(e){");
+        sb.Append("sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now();");
+        sb.Append("},{passive:true});");
+        sb.Append("document.addEventListener('touchend',function(e){");
+        sb.Append("var dx=e.changedTouches[0].clientX-sx;");
+        sb.Append("var dy=e.changedTouches[0].clientY-sy;");
+        sb.Append("var dt=Date.now()-st;");
+        sb.Append("if(dt>300)return;");
+        sb.Append("if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>80){");
+        sb.Append("if(dy<0)location.href='lanobe://next-episode';");
+        sb.Append("else location.href='lanobe://prev-episode';}");
+        sb.Append("},{passive:true});})();");
         sb.Append("</script>");
         sb.Append("</body></html>");
 
