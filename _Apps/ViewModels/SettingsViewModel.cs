@@ -9,6 +9,7 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly AppSettingsRepository _settingsRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
+    private bool _isInitializing;
 
     public SettingsViewModel(AppSettingsRepository settingsRepo, EpisodeCacheRepository cacheRepo)
     {
@@ -48,43 +49,78 @@ public partial class SettingsViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
-        CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, SettingsKeys.DEFAULT_CACHE_MONTHS);
-        UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
-        FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
-        BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
-        LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
-        EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, SettingsKeys.DEFAULT_EPISODES_PER_PAGE);
-        VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING) == 1;
-        PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, SettingsKeys.DEFAULT_PREFETCH_ENABLED) == 1;
-        RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
+        _isInitializing = true;
+        try
+        {
+            CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, SettingsKeys.DEFAULT_CACHE_MONTHS);
+            UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
+            FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
+            BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
+            LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
+            EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, SettingsKeys.DEFAULT_EPISODES_PER_PAGE);
+            VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING) == 1;
+            PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, SettingsKeys.DEFAULT_PREFETCH_ENABLED) == 1;
+            RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
+        }
+        finally
+        {
+            _isInitializing = false;
+        }
     }
 
-    partial void OnCacheMonthsChanged(int value) =>
+    partial void OnCacheMonthsChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.CACHE_MONTHS, value.ToString());
+    }
 
-    partial void OnUpdateIntervalHoursChanged(int value) =>
+    partial void OnUpdateIntervalHoursChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString());
+    }
 
-    partial void OnFontSizeSpChanged(int value) =>
+    partial void OnFontSizeSpChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.FONT_SIZE_SP, value.ToString());
+    }
 
-    partial void OnBackgroundThemeChanged(int value) =>
+    partial void OnBackgroundThemeChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.BACKGROUND_THEME, value.ToString());
+    }
 
-    partial void OnLineSpacingChanged(int value) =>
+    partial void OnLineSpacingChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.LINE_SPACING, value.ToString());
+    }
 
-    partial void OnEpisodesPerPageChanged(int value) =>
+    partial void OnEpisodesPerPageChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.EPISODES_PER_PAGE, value.ToString());
+    }
 
-    partial void OnVerticalWritingChanged(bool value) =>
+    partial void OnVerticalWritingChanged(bool value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.VERTICAL_WRITING, value ? "1" : "0");
+    }
 
-    partial void OnPrefetchEnabledChanged(bool value) =>
+    partial void OnPrefetchEnabledChanged(bool value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.PREFETCH_ENABLED, value ? "1" : "0");
+    }
 
-    partial void OnRequestDelayMsChanged(int value) =>
+    partial void OnRequestDelayMsChanged(int value)
+    {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.REQUEST_DELAY_MS, Math.Clamp(value, SettingsKeys.MIN_REQUEST_DELAY_MS, SettingsKeys.MAX_REQUEST_DELAY_MS).ToString());
+    }
 
     [RelayCommand]
     private async Task ClearCacheAsync()

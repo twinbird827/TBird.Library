@@ -257,7 +257,7 @@ public class NarouApiService : INovelService
             RankingPeriod.Weekly => $"{NearestTuesday(today):yyyyMMdd}-w",
             RankingPeriod.Monthly => $"{new DateTime(today.Year, today.Month, 1):yyyyMMdd}-m",
             RankingPeriod.Quarterly => $"{new DateTime(today.Year, today.Month, 1):yyyyMMdd}-q",
-            _ => $"{dailyTarget:yyyyMMdd}-d",
+            _ => throw new ArgumentOutOfRangeException(nameof(period), period, null),
         };
     }
 

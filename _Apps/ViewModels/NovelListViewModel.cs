@@ -13,17 +13,20 @@ public partial class NovelListViewModel : ObservableObject
     private readonly EpisodeCacheRepository _cacheRepo;
     private readonly AppSettingsRepository _settingsRepo;
     private readonly UpdateCheckService _updateCheckService;
+    private readonly NotificationPermissionService _notificationPermission;
 
     public NovelListViewModel(
         NovelRepository novelRepo,
         EpisodeCacheRepository cacheRepo,
         AppSettingsRepository settingsRepo,
-        UpdateCheckService updateCheckService)
+        UpdateCheckService updateCheckService,
+        NotificationPermissionService notificationPermission)
     {
         _novelRepo = novelRepo;
         _cacheRepo = cacheRepo;
         _settingsRepo = settingsRepo;
         _updateCheckService = updateCheckService;
+        _notificationPermission = notificationPermission;
     }
 
     [ObservableProperty]
@@ -41,13 +44,23 @@ public partial class NovelListViewModel : ObservableObject
 
     private bool _sortKeyLoaded;
     private bool _needsReload = true;
+    private bool _isInitializing;
 
     public async Task InitializeAsync()
     {
         if (!_sortKeyLoaded)
         {
-            SortKey = await _settingsRepo.GetValueAsync(SettingsKeys.NOVEL_SORT_KEY, "updated_desc");
+            _isInitializing = true;
+            try
+            {
+                SortKey = await _settingsRepo.GetValueAsync(SettingsKeys.NOVEL_SORT_KEY, "updated_desc");
+            }
+            finally
+            {
+                _isInitializing = false;
+            }
             _sortKeyLoaded = true;
+            await _notificationPermission.EnsureRequestedAsync();
         }
         if (!_needsReload)
         {
@@ -77,6 +90,7 @@ public partial class NovelListViewModel : ObservableObject
 
     partial void OnSortKeyChanged(string value)
     {
+        if (_isInitializing) return;
         _ = _settingsRepo.SetValueAsync(SettingsKeys.NOVEL_SORT_KEY, value);
         _ = LoadNovelsAsync();
     }

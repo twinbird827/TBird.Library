@@ -73,6 +73,7 @@ public class BackgroundJobQueue
             if (!_network.IsWifiConnected) return;
             if (PendingCount == 0) return;
 
+            _workerCts?.Dispose();
             _workerCts = new CancellationTokenSource();
             var ct = _workerCts.Token;
             _workerTask = Task.Run(() => WorkerLoopAsync(ct));
@@ -81,9 +82,25 @@ public class BackgroundJobQueue
 
     public void StopWorker()
     {
+        CancellationTokenSource? oldCts;
+        Task? oldTask;
         lock (_startLock)
         {
-            try { _workerCts?.Cancel(); } catch { }
+            oldCts = _workerCts;
+            oldTask = _workerTask;
+            _workerCts = null;
+            _workerTask = null;
+        }
+        if (oldCts is null) return;
+        try { oldCts.Cancel(); }
+        catch (ObjectDisposedException) { return; }
+        if (oldTask is not null)
+        {
+            _ = oldTask.ContinueWith(_ => oldCts.Dispose(), TaskScheduler.Default);
+        }
+        else
+        {
+            oldCts.Dispose();
         }
     }
 
