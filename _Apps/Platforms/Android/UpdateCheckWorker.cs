@@ -31,6 +31,10 @@ public class UpdateCheckWorker : Worker
                 return Result.InvokeFailure();
             }
 
+            // Ensure DB is initialized (Worker may run before app startup completes)
+            dbService.EnsureInitializedAsync().GetAwaiter().GetResult();
+
+            // Worker threads have no SynchronizationContext, so blocking on Task.Run is safe here
             var updates = Task.Run(() => updateCheckService.CheckAllAsync()).GetAwaiter().GetResult();
 
             foreach (var (novel, newCount) in updates)
@@ -51,12 +55,6 @@ public class UpdateCheckWorker : Worker
             }
 
             return Result.InvokeSuccess();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            LogHelper.Warn(nameof(UpdateCheckWorker), $"Update check failed: {ex.Message}");
-            NotificationHelper.ShowErrorNotification(ApplicationContext, "更新チェックに失敗しました");
-            return Result.InvokeFailure();
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using AngleSharp;
 using AngleSharp.Dom;
@@ -13,6 +14,8 @@ public class KakuyomuApiService : INovelService
 
     private readonly HttpClient _httpClient;
     private readonly NetworkPolicyService _network;
+    private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)> _episodeIdCache = new();
+    private static readonly TimeSpan EpisodeIdCacheTtl = TimeSpan.FromMinutes(5);
 
     public KakuyomuApiService(HttpClient httpClient, NetworkPolicyService network)
     {
@@ -129,6 +132,21 @@ public class KakuyomuApiService : INovelService
         return ids;
     }
 
+    private async Task<List<string>> GetEpisodeIdsAsync(string novelId, CancellationToken ct)
+    {
+        if (_episodeIdCache.TryGetValue(novelId, out var cached)
+            && DateTime.UtcNow - cached.cachedAt < EpisodeIdCacheTtl)
+        {
+            return cached.episodeIds;
+        }
+
+        var tocUrl = $"{BASE_URL}/works/{novelId}";
+        var tocHtml = await _network.GetStringAsync(SiteType.Kakuyomu, tocUrl, ct).ConfigureAwait(false);
+        var ids = ParseEpisodeIdsFromApolloState(tocHtml);
+        _episodeIdCache[novelId] = (DateTime.UtcNow, ids);
+        return ids;
+    }
+
     private static JsonElement? ExtractApolloState(string html)
     {
         const string marker = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
@@ -207,10 +225,7 @@ public class KakuyomuApiService : INovelService
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-        // Fetch TOC and extract episode IDs from Apollo State
-        var tocUrl = $"{BASE_URL}/works/{novelId}";
-        var tocHtml = await _network.GetStringAsync(SiteType.Kakuyomu, tocUrl, cts.Token).ConfigureAwait(false);
-        var episodeIds = ParseEpisodeIdsFromApolloState(tocHtml);
+        var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
 
         if (episodeNo < 1 || episodeNo > episodeIds.Count)
         {
@@ -250,7 +265,11 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        var totalEpisodes = ParseEpisodeIdsFromApolloState(html).Count;
+        // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。
+        // これにより直後の Prefetch が古いエピソードIDリストを使うリスクを防ぐ。
+        var episodeIds = ParseEpisodeIdsFromApolloState(html);
+        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
+        var totalEpisodes = episodeIds.Count;
 
         bool isCompleted = false;
         string? author = null;

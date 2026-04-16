@@ -6,6 +6,4 @@ public enum RankingPeriod
     Weekly,
     Monthly,
     Quarterly,
-    Yearly,
-    All,
 }

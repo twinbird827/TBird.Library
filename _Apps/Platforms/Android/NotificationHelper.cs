@@ -8,7 +8,6 @@ namespace LanobeReader.Platforms.Android;
 public static class NotificationHelper
 {
 	public const string UPDATE_CHANNEL_ID = "update_notification";
-	public const string ERROR_CHANNEL_ID = "error_notification";
 
 	public static void CreateNotificationChannels(Activity activity)
 	{
@@ -20,21 +19,24 @@ public static class NotificationHelper
 				Description = "小説の更新通知"
 			};
 
-			var errorChannel = new NotificationChannel(
-				ERROR_CHANNEL_ID, "エラー通知", NotificationImportance.Default)
-			{
-				Description = "エラー通知"
-			};
-
 			var manager = activity.GetSystemService(Context.NotificationService) as NotificationManager;
 			manager?.CreateNotificationChannel(updateChannel);
-			manager?.CreateNotificationChannel(errorChannel);
 		}
+	}
+
+	public static bool HasNotificationPermission(Context context)
+	{
+		if (Build.VERSION.SdkInt < BuildVersionCodes.Tiramisu) return true;
+		return AndroidX.Core.Content.ContextCompat.CheckSelfPermission(
+			context, global::Android.Manifest.Permission.PostNotifications)
+			== global::Android.Content.PM.Permission.Granted;
 	}
 
 	public static void ShowUpdateNotification(Context context, int notificationId, string title, string body,
 		int novelId, int episodeId, int siteType, string siteNovelId)
 	{
+		if (!HasNotificationPermission(context)) return;
+
 		var intent = new Intent(context, typeof(MainActivity));
 		intent.SetFlags(ActivityFlags.ClearTop | ActivityFlags.SingleTop);
 		intent.PutExtra("novelId", novelId);
@@ -57,17 +59,4 @@ public static class NotificationHelper
 
 		NotificationManagerCompat.From(context)?.Notify(notificationId, notification!);
 	}
-
-	public static void ShowErrorNotification(Context context, string message)
-	{
-		var notification = new NotificationCompat.Builder(context, ERROR_CHANNEL_ID)!
-			.SetSmallIcon(global::Android.Resource.Drawable.IcDialogAlert)!
-			.SetContentTitle("ラノベリーダ")!
-			.SetContentText(message)!
-			.SetAutoCancel(true)!
-			.SetPriority(NotificationCompat.PriorityDefault)!
-			.Build();
-
-		NotificationManagerCompat.From(context)?.Notify(9999, notification!);
-	}
-}
+}

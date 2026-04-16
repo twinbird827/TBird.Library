@@ -47,6 +47,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<KakuyomuApiService>();
         builder.Services.AddSingleton<INovelServiceFactory, NovelServiceFactory>();
         builder.Services.AddSingleton<UpdateCheckService>();
+        builder.Services.AddSingleton<NotificationPermissionService>();
 
         // ViewModels
         builder.Services.AddTransient<NovelListViewModel>();

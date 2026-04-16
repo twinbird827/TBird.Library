@@ -96,26 +96,6 @@ public class NetworkPolicyService
         }
     }
 
-    /// <summary>
-    /// 指定サイトに対して HTTP GET（ストリーム）を発行（gzip 等の解凍用）。
-    /// </summary>
-    public async Task<Stream> GetStreamAsync(SiteType site, string url, CancellationToken ct = default)
-    {
-        var gate = _siteGates[site];
-        await gate.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            await EnforceDelayAsync(site, ct).ConfigureAwait(false);
-            var result = await _httpClient.GetStreamAsync(url, ct).ConfigureAwait(false);
-            _lastRequestAt[site] = DateTime.UtcNow;
-            return result;
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
-
     private async Task EnforceDelayAsync(SiteType site, CancellationToken ct)
     {
         var delayMs = await GetDelayMsAsync().ConfigureAwait(false);

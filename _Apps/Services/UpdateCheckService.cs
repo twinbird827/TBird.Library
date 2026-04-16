@@ -38,6 +38,7 @@ public class UpdateCheckService
         {
             var novels = await _novelRepo.GetAllAsync().ConfigureAwait(false);
             var updates = new List<(Novel, int)>();
+            var failedIds = new HashSet<int>();
 
             foreach (var novel in novels)
             {
@@ -103,12 +104,13 @@ public class UpdateCheckService
                     LogHelper.Warn(nameof(UpdateCheckService), $"Failed to check {novel.Title}: {ex.Message}");
                     novel.HasCheckError = 1;
                     await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
-                    throw; // Rethrow to notify caller
+                    failedIds.Add(novel.Id);
+                    continue;
                 }
             }
 
             // Reset error flags on success
-            foreach (var novel in novels.Where(n => n.HasCheckError == 1))
+            foreach (var novel in novels.Where(n => n.HasCheckError == 1 && !failedIds.Contains(n.Id)))
             {
                 novel.HasCheckError = 0;
                 await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
