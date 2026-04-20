@@ -60,7 +60,7 @@ public partial class App : Application
 
             // 2. Delete expired cache
             var cacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3).ConfigureAwait(false);
-            _ = _cacheRepo.DeleteExpiredAsync(cacheMonths);
+            await _cacheRepo.DeleteExpiredAsync(cacheMonths).ConfigureAwait(false);
 
             // 3. Check novel count for navigation
             var novelCount = await _novelRepo.CountAsync().ConfigureAwait(false);
@@ -68,7 +68,15 @@ public partial class App : Application
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.GoToAsync("//search");
+                    try
+                    {
+                        if (Shell.Current is not null)
+                            await Shell.Current.GoToAsync("//search");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Warn("App", $"Navigation to search failed: {ex.Message}");
+                    }
                 });
             }
             else

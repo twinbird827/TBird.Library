@@ -55,6 +55,30 @@ public class EpisodeRepository
             .FirstOrDefaultAsync(e => e.NovelId == novelId && e.EpisodeNo == episodeNo).ConfigureAwait(false);
     }
 
+    public async Task<Episode?> GetPreviousEpisodeAsync(int novelId, int currentEpisodeNo)
+    {
+        await EnsureAsync().ConfigureAwait(false);
+        var results = await _db.QueryAsync<Episode>(
+            "SELECT id, novel_id, episode_no, chapter_name, title, " +
+            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            "FROM episodes WHERE novel_id = ? AND episode_no < ? " +
+            "ORDER BY episode_no DESC LIMIT 1",
+            novelId, currentEpisodeNo).ConfigureAwait(false);
+        return results.FirstOrDefault();
+    }
+
+    public async Task<Episode?> GetNextEpisodeAsync(int novelId, int currentEpisodeNo)
+    {
+        await EnsureAsync().ConfigureAwait(false);
+        var results = await _db.QueryAsync<Episode>(
+            "SELECT id, novel_id, episode_no, chapter_name, title, " +
+            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            "FROM episodes WHERE novel_id = ? AND episode_no > ? " +
+            "ORDER BY episode_no ASC LIMIT 1",
+            novelId, currentEpisodeNo).ConfigureAwait(false);
+        return results.FirstOrDefault();
+    }
+
     public async Task<Episode?> GetByIdAsync(int id)
     {
         await EnsureAsync().ConfigureAwait(false);

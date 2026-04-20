@@ -156,8 +156,8 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
             _episode = await _episodeRepo.GetByIdAsync(episodeId);
             if (_episode is null) return;
 
-            var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1);
-            var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1);
+            var prev = await _episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
+            var next = await _episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
 
             string content;
             var cache = await _cacheRepo.GetByEpisodeIdAsync(episodeId);
@@ -194,6 +194,8 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
             IsFooterVisible = true;
 
             if (IsVerticalWriting) RefreshHtml();
+
+            ScrollToTop?.Invoke();
         }
         catch (TaskCanceledException)
         {
@@ -210,7 +212,6 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         finally
         {
             IsLoading = false;
-            ScrollToTop?.Invoke();
         }
     }
 
@@ -218,7 +219,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task PrevEpisodeAsync()
     {
         if (_episode is null) return;
-        var prev = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo - 1);
+        var prev = await _episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
         if (prev is not null)
         {
             _currentEpisodeId = prev.Id;
@@ -232,7 +233,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task NextEpisodeAsync()
     {
         if (_episode is null) return;
-        var next = await _episodeRepo.GetByNovelAndEpisodeNoAsync(_novelDbId, _episode.EpisodeNo + 1);
+        var next = await _episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
         if (next is not null)
         {
             _currentEpisodeId = next.Id;

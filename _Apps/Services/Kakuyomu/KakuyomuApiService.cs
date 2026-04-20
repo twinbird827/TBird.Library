@@ -94,42 +94,7 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        return ParseEpisodesFromApolloState(html);
-    }
-
-    private static List<string> ParseEpisodeIdsFromApolloState(string html)
-    {
-        var ids = new List<string>();
-        var apolloState = ExtractApolloState(html);
-        if (apolloState is null) return ids;
-
-        var state = apolloState.Value;
-        var chapters = new List<JsonElement>();
-        foreach (var prop in state.EnumerateObject())
-        {
-            if (prop.Name.StartsWith("TableOfContentsChapter:", StringComparison.Ordinal))
-            {
-                chapters.Add(prop.Value);
-            }
-        }
-
-        foreach (var chapter in chapters)
-        {
-            if (!chapter.TryGetProperty("episodeUnions", out var episodeUnions)) continue;
-            if (episodeUnions.ValueKind != JsonValueKind.Array) continue;
-
-            foreach (var union in episodeUnions.EnumerateArray())
-            {
-                if (!union.TryGetProperty("__ref", out var refProp)) continue;
-                var refKey = refProp.GetString();
-                if (string.IsNullOrEmpty(refKey)) continue;
-                var colonIdx = refKey.IndexOf(':');
-                if (colonIdx < 0) continue;
-                ids.Add(refKey.Substring(colonIdx + 1));
-            }
-        }
-
-        return ids;
+        return ParseApolloState(html).episodes;
     }
 
     private async Task<List<string>> GetEpisodeIdsAsync(string novelId, CancellationToken ct)
@@ -142,7 +107,7 @@ public class KakuyomuApiService : INovelService
 
         var tocUrl = $"{BASE_URL}/works/{novelId}";
         var tocHtml = await _network.GetStringAsync(SiteType.Kakuyomu, tocUrl, ct).ConfigureAwait(false);
-        var ids = ParseEpisodeIdsFromApolloState(tocHtml);
+        var ids = ParseApolloState(tocHtml).episodeIds;
         _episodeIdCache[novelId] = (DateTime.UtcNow, ids);
         return ids;
     }
@@ -157,18 +122,19 @@ public class KakuyomuApiService : INovelService
         if (end < 0) return null;
 
         var json = html.Substring(start, end - start);
-        var doc = JsonDocument.Parse(json);
+        using var doc = JsonDocument.Parse(json);
         if (!doc.RootElement.TryGetProperty("props", out var props)) return null;
         if (!props.TryGetProperty("pageProps", out var pageProps)) return null;
         if (!pageProps.TryGetProperty("__APOLLO_STATE__", out var apolloState)) return null;
         return apolloState.Clone();
     }
 
-    private static List<Episode> ParseEpisodesFromApolloState(string html)
+    private static (List<string> episodeIds, List<Episode> episodes) ParseApolloState(string html)
     {
+        var ids = new List<string>();
         var episodes = new List<Episode>();
         var apolloState = ExtractApolloState(html);
-        if (apolloState is null) return episodes;
+        if (apolloState is null) return (ids, episodes);
 
         var state = apolloState.Value;
         var chapters = new List<JsonElement>();
@@ -198,6 +164,9 @@ public class KakuyomuApiService : INovelService
                 if (!union.TryGetProperty("__ref", out var refProp)) continue;
                 var refKey = refProp.GetString();
                 if (string.IsNullOrEmpty(refKey)) continue;
+                var colonIdx = refKey.IndexOf(':');
+                if (colonIdx < 0) continue;
+                ids.Add(refKey.Substring(colonIdx + 1));
 
                 if (!state.TryGetProperty(refKey, out var episodeEntry)) continue;
                 if (!episodeEntry.TryGetProperty("__typename", out var typename)) continue;
@@ -217,7 +186,7 @@ public class KakuyomuApiService : INovelService
             }
         }
 
-        return episodes;
+        return (ids, episodes);
     }
 
     public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
@@ -267,7 +236,7 @@ public class KakuyomuApiService : INovelService
 
         // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。
         // これにより直後の Prefetch が古いエピソードIDリストを使うリスクを防ぐ。
-        var episodeIds = ParseEpisodeIdsFromApolloState(html);
+        var (episodeIds, _) = ParseApolloState(html);
         _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
         var totalEpisodes = episodeIds.Count;
 

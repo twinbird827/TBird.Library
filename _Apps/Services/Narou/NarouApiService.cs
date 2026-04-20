@@ -247,9 +247,11 @@ public class NarouApiService : INovelService
 
     private static string BuildRtype(RankingPeriod period)
     {
-        var today = DateTime.Today;
+        var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, jst);
+        var today = now.Date;
         // 4:00-7:00頃集計のため、当日朝8時以前は2日前、それ以外は前日を採用
-        var dailyTarget = DateTime.Now.Hour < 8 ? today.AddDays(-2) : today.AddDays(-1);
+        var dailyTarget = now.Hour < 8 ? today.AddDays(-2) : today.AddDays(-1);
 
         return period switch
         {
