@@ -167,14 +167,14 @@ public class NovelRepository
     public async Task DeleteAsync(int novelId)
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        // CASCADE: episode_cache → episodes → novels
-        var episodes = await _db.Table<Episode>().Where(e => e.NovelId == novelId).ToListAsync().ConfigureAwait(false);
-        foreach (var ep in episodes)
+        await _db.RunInTransactionAsync(conn =>
         {
-            await _db.ExecuteAsync("DELETE FROM episode_cache WHERE episode_id = ?", ep.Id).ConfigureAwait(false);
-        }
-        await _db.ExecuteAsync("DELETE FROM episodes WHERE novel_id = ?", novelId).ConfigureAwait(false);
-        await _db.DeleteAsync<Novel>(novelId).ConfigureAwait(false);
+            conn.Execute(
+                "DELETE FROM episode_cache WHERE episode_id IN (SELECT id FROM episodes WHERE novel_id = ?)",
+                novelId);
+            conn.Execute("DELETE FROM episodes WHERE novel_id = ?", novelId);
+            conn.Execute("DELETE FROM novels WHERE id = ?", novelId);
+        }).ConfigureAwait(false);
     }
 
     public async Task<int> CountAsync()

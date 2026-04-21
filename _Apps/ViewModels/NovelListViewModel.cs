@@ -43,7 +43,6 @@ public partial class NovelListViewModel : ObservableObject
     private string _sortKey = "updated_desc";
 
     private bool _sortKeyLoaded;
-    private bool _needsReload = true;
     private bool _isInitializing;
 
     public async Task InitializeAsync()
@@ -62,14 +61,7 @@ public partial class NovelListViewModel : ObservableObject
             _sortKeyLoaded = true;
             await _notificationPermission.EnsureRequestedAsync();
         }
-        if (!_needsReload)
-        {
-            // 登録・削除でDB件数が変わった場合はリロード
-            var dbCount = await _novelRepo.CountAsync();
-            if (dbCount == Novels.Count) return;
-        }
         await LoadNovelsAsync();
-        _needsReload = false;
     }
 
 
@@ -133,9 +125,7 @@ public partial class NovelListViewModel : ObservableObject
         try
         {
             await _updateCheckService.CheckAllAsync();
-            _needsReload = true;
             await LoadNovelsAsync();
-            _needsReload = false;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
@@ -198,7 +188,6 @@ public partial class NovelListViewModel : ObservableObject
         {
             await _novelRepo.DeleteAsync(card.Id);
             Novels.Remove(card);
-            _needsReload = true;
         }
     }
 }

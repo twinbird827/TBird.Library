@@ -39,7 +39,7 @@ public static class ReaderHtmlBuilder
         sb.Append("p{margin:0 0 1em 0;text-indent:1em;}");
         sb.Append("</style></head><body>");
 
-        foreach (var line in content.Split('\n'))
+        foreach (var line in content.ReplaceLineEndings("\n").Split('\n'))
         {
             sb.Append("<p>");
             sb.Append(System.Net.WebUtility.HtmlEncode(line));

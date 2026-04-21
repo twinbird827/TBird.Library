@@ -294,6 +294,8 @@ public partial class SearchViewModel : ObservableObject
         result.IsRegistering = true;
         try
         {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
             var novel = new Novel
             {
                 SiteType = (int)result.SiteType,
@@ -309,7 +311,7 @@ public partial class SearchViewModel : ObservableObject
             await _novelRepo.InsertAsync(novel);
 
             var service = _serviceFactory.GetService(result.SiteType);
-            var episodes = await service.FetchEpisodeListAsync(result.NovelId);
+            var episodes = await service.FetchEpisodeListAsync(result.NovelId, cts.Token);
 
             var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
             if (dbNovel is not null)
@@ -327,7 +329,7 @@ public partial class SearchViewModel : ObservableObject
                 {
                     try
                     {
-                        var (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId);
+                        var (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId, cts.Token);
                         if (!string.IsNullOrEmpty(fetchedAuthor))
                         {
                             dbNovel.Author = fetchedAuthor;

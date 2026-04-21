@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Database;
@@ -22,7 +23,7 @@ public class NetworkPolicyService
         [SiteType.Kakuyomu] = new SemaphoreSlim(1, 1),
     };
 
-    private readonly Dictionary<SiteType, DateTime> _lastRequestAt = new()
+    private readonly ConcurrentDictionary<SiteType, DateTime> _lastRequestAt = new()
     {
         [SiteType.Narou] = DateTime.MinValue,
         [SiteType.Kakuyomu] = DateTime.MinValue,

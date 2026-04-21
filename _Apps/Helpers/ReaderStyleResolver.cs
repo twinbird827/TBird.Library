@@ -12,9 +12,9 @@ public static class ReaderStyleResolver
         var bgKey = themeIndex switch { 1 => "ThemeDarkBg", 2 => "ThemeSepiaBg", _ => "ThemeWhiteBg" };
         var fgKey = themeIndex switch { 1 => "ThemeDarkText", 2 => "ThemeSepiaText", _ => "ThemeWhiteText" };
 
-        var bg = Application.Current!.Resources.TryGetValue(bgKey, out var b) && b is Color bc
+        var bg = Application.Current?.Resources.TryGetValue(bgKey, out var b) == true && b is Color bc
             ? ColorToHex(bc) : "#FFFFFF";
-        var fg = Application.Current!.Resources.TryGetValue(fgKey, out var f) && f is Color fc
+        var fg = Application.Current?.Resources.TryGetValue(fgKey, out var f) == true && f is Color fc
             ? ColorToHex(fc) : "#212121";
         return (bg, fg);
     }
