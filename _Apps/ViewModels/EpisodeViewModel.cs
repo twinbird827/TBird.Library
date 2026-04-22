@@ -34,8 +34,8 @@ public partial class EpisodeViewModel : ObservableObject
             EpisodeNo = episode.EpisodeNo,
             Title = episode.Title,
             ChapterName = episode.ChapterName,
-            IsRead = episode.IsRead == 1,
-            IsFavorite = episode.IsFavorite == 1,
+            IsRead = episode.IsRead,
+            IsFavorite = episode.IsFavorite,
             IsCached = isCached,
         };
     }

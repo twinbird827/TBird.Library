@@ -56,9 +56,9 @@
                         Style="{StaticResource ThemedSlider}" />
 
                 <!-- Preview -->
-                <Frame Padding="12" CornerRadius="8" HasShadow="True">
+                <Border Padding="12" Style="{StaticResource CardBorder}">
                     <Label Text="{Binding PreviewText}" FontSize="{Binding FontSizeSp}" />
-                </Frame>
+                </Border>
 
                 <!-- Background theme -->
                 <Label Text="背景色テーマ" Style="{StaticResource BodyLabel}" Margin="0,8,0,0" />

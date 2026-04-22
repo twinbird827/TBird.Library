@@ -2,10 +2,25 @@ using System.Globalization;
 
 namespace LanobeReader.Converters;
 
-public class BoolToColorConverter : IValueConverter
+public class BoolToColorConverter : BindableObject, IValueConverter
 {
-    public Color TrueColor { get; set; } = Colors.Black;
-    public Color FalseColor { get; set; } = Colors.Gray;
+    public static readonly BindableProperty TrueColorProperty =
+        BindableProperty.Create(nameof(TrueColor), typeof(Color), typeof(BoolToColorConverter), Colors.Black);
+
+    public static readonly BindableProperty FalseColorProperty =
+        BindableProperty.Create(nameof(FalseColor), typeof(Color), typeof(BoolToColorConverter), Colors.Gray);
+
+    public Color TrueColor
+    {
+        get => (Color)GetValue(TrueColorProperty);
+        set => SetValue(TrueColorProperty, value);
+    }
+
+    public Color FalseColor
+    {
+        get => (Color)GetValue(FalseColorProperty);
+        set => SetValue(FalseColorProperty, value);
+    }
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         => value is true ? TrueColor : FalseColor;

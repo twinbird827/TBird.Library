@@ -57,6 +57,7 @@ public partial class App : Application
         {
             // 1. Initialize database (background thread)
             await _dbService.InitializeAsync().ConfigureAwait(false);
+            await _settingsRepo.LoadAllAsync().ConfigureAwait(false);
 
             // 2. Delete expired cache
             var cacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3).ConfigureAwait(false);
@@ -81,36 +82,40 @@ public partial class App : Application
             }
             else
             {
-                // 4. Run update check (already on background thread)
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _updateCheckService.CheckAllAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Warn("App", $"Background update check failed: {ex.Message}");
-                    }
-                });
+                // 4. Run update check (fire-and-forget, already on background thread)
+                _ = RunUpdateCheckAsync();
 
                 // 5. Scan unread+uncached episodes and enqueue for prefetch
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _prefetchService.EnqueueAllUnreadAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Warn("App", $"Prefetch scan failed: {ex.Message}");
-                    }
-                });
+                _ = RunPrefetchAsync();
             }
         }
         catch (Exception ex)
         {
             LogHelper.Error("App", $"InitializeAppAsync failed: {ex.Message}");
+        }
+    }
+
+    private async Task RunUpdateCheckAsync()
+    {
+        try
+        {
+            await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Warn("App", $"Background update check failed: {ex.Message}");
+        }
+    }
+
+    private async Task RunPrefetchAsync()
+    {
+        try
+        {
+            await _prefetchService.EnqueueAllUnreadAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Warn("App", $"Prefetch scan failed: {ex.Message}");
         }
     }
 }

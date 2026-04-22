@@ -44,7 +44,9 @@ public static class MauiProgram
 
         // API Services
         builder.Services.AddSingleton<NarouApiService>();
+        builder.Services.AddSingleton<INovelService>(sp => sp.GetRequiredService<NarouApiService>());
         builder.Services.AddSingleton<KakuyomuApiService>();
+        builder.Services.AddSingleton<INovelService>(sp => sp.GetRequiredService<KakuyomuApiService>());
         builder.Services.AddSingleton<INovelServiceFactory, NovelServiceFactory>();
         builder.Services.AddSingleton<UpdateCheckService>();
         builder.Services.AddSingleton<NotificationPermissionService>();

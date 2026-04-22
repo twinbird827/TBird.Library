@@ -45,7 +45,7 @@ public class UpdateCheckService
                 if (ct.IsCancellationRequested) break;
 
                 // Skip novels with unconfirmed updates
-                if (novel.HasUnconfirmedUpdate == 1) continue;
+                if (novel.HasUnconfirmedUpdate) continue;
 
                 try
                 {
@@ -69,8 +69,8 @@ public class UpdateCheckService
 
                             novel.TotalEpisodes = totalEpisodes;
                             novel.LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow.ToString("o");
-                            novel.HasUnconfirmedUpdate = 1;
-                            novel.IsCompleted = isCompleted ? 1 : 0;
+                            novel.HasUnconfirmedUpdate = true;
+                            novel.IsCompleted = isCompleted;
                             if (!string.IsNullOrEmpty(author) && string.IsNullOrEmpty(novel.Author))
                             {
                                 novel.Author = author;
@@ -92,7 +92,7 @@ public class UpdateCheckService
                                         EpisodeNo = ep.EpisodeNo,
                                         SiteType = novel.SiteType,
                                         SiteNovelId = novel.NovelId,
-                                        Priority = novel.IsFavorite == 1 ? 1 : 0,
+                                        Priority = novel.IsFavorite ? 1 : 0,
                                     });
                                 }
                             }
@@ -102,7 +102,7 @@ public class UpdateCheckService
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
                 {
                     LogHelper.Warn(nameof(UpdateCheckService), $"Failed to check {novel.Title}: {ex.Message}");
-                    novel.HasCheckError = 1;
+                    novel.HasCheckError = true;
                     await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
                     failedIds.Add(novel.Id);
                     continue;
@@ -110,9 +110,9 @@ public class UpdateCheckService
             }
 
             // Reset error flags on success
-            foreach (var novel in novels.Where(n => n.HasCheckError == 1 && !failedIds.Contains(n.Id)))
+            foreach (var novel in novels.Where(n => n.HasCheckError && !failedIds.Contains(n.Id)))
             {
-                novel.HasCheckError = 0;
+                novel.HasCheckError = false;
                 await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
             }
 

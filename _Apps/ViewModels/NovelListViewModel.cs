@@ -72,7 +72,7 @@ public partial class NovelListViewModel : ObservableObject
             var rows = await _novelRepo.GetAllWithUnreadCountAsync(SortKey);
             Novels = new ObservableCollection<NovelCardViewModel>(
                 rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount)));
-            HasCheckError = rows.Any(r => r.Novel.HasCheckError == 1);
+            HasCheckError = rows.Any(r => r.Novel.HasCheckError);
         }
         catch (Exception ex)
         {
@@ -144,9 +144,9 @@ public partial class NovelListViewModel : ObservableObject
     private async Task NavigateToDetail(NovelCardViewModel card)
     {
         var novel = await _novelRepo.GetByIdAsync(card.Id);
-        if (novel is not null && novel.HasUnconfirmedUpdate == 1)
+        if (novel is not null && novel.HasUnconfirmedUpdate)
         {
-            novel.HasUnconfirmedUpdate = 0;
+            novel.HasUnconfirmedUpdate = false;
             await _novelRepo.UpdateAsync(novel);
             card.HasUnconfirmedUpdate = false;
         }

@@ -40,7 +40,7 @@ public partial class SearchResultViewModel : ObservableObject
             Author = result.Author,
             TotalEpisodes = result.TotalEpisodes,
             IsCompleted = result.IsCompleted,
-            SiteTypeLabel = result.SiteType == SiteType.Narou ? "なろう" : "カクヨム",
+            SiteTypeLabel = result.SiteType.GetLabel(),
             SiteType = result.SiteType,
             NovelId = result.NovelId,
             IsRegistered = isRegistered,

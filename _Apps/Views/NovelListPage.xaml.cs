@@ -17,9 +17,4 @@ public partial class NovelListPage : ContentPage
         base.OnAppearing();
         await _viewModel.InitializeAsync();
     }
-
-    private async void OnGoToSearchClicked(object? sender, EventArgs e)
-    {
-        await Shell.Current.GoToAsync("//search");
-    }
 }

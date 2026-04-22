@@ -101,7 +101,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
             NovelTitle = _novel.Title;
             HasChapters = hasChapters;
             HasLastRead = lastRead is not null;
-            IsNovelFavorite = _novel.IsFavorite == 1;
+            IsNovelFavorite = _novel.IsFavorite;
 
             RecalcPaging();
             await LoadPageAsync();
@@ -119,8 +119,8 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
     private void RebuildFilterCache()
     {
         IEnumerable<Episode> src = _allEpisodes;
-        if (ShowUnreadOnly) src = src.Where(e => e.IsRead == 0);
-        if (ShowFavoritesOnly) src = src.Where(e => e.IsFavorite == 1);
+        if (ShowUnreadOnly) src = src.Where(e => !e.IsRead);
+        if (ShowFavoritesOnly) src = src.Where(e => e.IsFavorite);
         _filteredCache = src.ToList();
     }
 
@@ -147,12 +147,12 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         if (_allEpisodes.Count == 0) return;
 
         var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-        var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead == 1);
+        var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
 
         foreach (var ep in _allEpisodes)
         {
             if (readMap.TryGetValue(ep.Id, out var isRead))
-                ep.IsRead = isRead ? 1 : 0;
+                ep.IsRead = isRead;
         }
 
         foreach (var vm in Episodes)
@@ -203,7 +203,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         ep.IsFavorite = newValue;
 
         var source = _allEpisodes.FirstOrDefault(e => e.Id == ep.Id);
-        if (source is not null) source.IsFavorite = newValue ? 1 : 0;
+        if (source is not null) source.IsFavorite = newValue;
 
         if (ShowFavoritesOnly)
         {
@@ -220,7 +220,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         var newValue = !IsNovelFavorite;
         await _novelRepo.SetFavoriteAsync(_novel.Id, newValue);
         IsNovelFavorite = newValue;
-        _novel.IsFavorite = newValue ? 1 : 0;
+        _novel.IsFavorite = newValue;
     }
 
     [RelayCommand]

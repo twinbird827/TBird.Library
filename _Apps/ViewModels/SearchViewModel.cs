@@ -303,7 +303,7 @@ public partial class SearchViewModel : ObservableObject
                 Title = result.Title,
                 Author = result.Author,
                 TotalEpisodes = result.TotalEpisodes,
-                IsCompleted = result.IsCompleted ? 1 : 0,
+                IsCompleted = result.IsCompleted,
                 RegisteredAt = DateTime.UtcNow.ToString("o"),
                 LastUpdatedAt = DateTime.UtcNow.ToString("o"),
             };

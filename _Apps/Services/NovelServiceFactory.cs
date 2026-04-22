@@ -1,24 +1,19 @@
 using LanobeReader.Models;
-using LanobeReader.Services.Kakuyomu;
-using LanobeReader.Services.Narou;
 
 namespace LanobeReader.Services;
 
 public class NovelServiceFactory : INovelServiceFactory
 {
-    private readonly NarouApiService _narouService;
-    private readonly KakuyomuApiService _kakuyomuService;
+    private readonly Dictionary<SiteType, INovelService> _services;
 
-    public NovelServiceFactory(NarouApiService narouService, KakuyomuApiService kakuyomuService)
+    public NovelServiceFactory(IEnumerable<INovelService> services)
     {
-        _narouService = narouService;
-        _kakuyomuService = kakuyomuService;
+        _services = services.ToDictionary(s => s.SiteType);
     }
 
-    public INovelService GetService(SiteType siteType) => siteType switch
+    public INovelService GetService(SiteType siteType)
     {
-        SiteType.Narou => _narouService,
-        SiteType.Kakuyomu => _kakuyomuService,
-        _ => throw new ArgumentOutOfRangeException(nameof(siteType), siteType, "Unknown site type"),
-    };
+        if (_services.TryGetValue(siteType, out var service)) return service;
+        throw new ArgumentOutOfRangeException(nameof(siteType), siteType, "Unknown site type");
+    }
 }
