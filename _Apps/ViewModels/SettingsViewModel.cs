@@ -68,59 +68,44 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    partial void OnCacheMonthsChanged(int value)
+    private readonly Dictionary<string, CancellationTokenSource> _debounceCts = new();
+    private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(400);
+
+    private void DebounceSave(string key, string value)
     {
         if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.CACHE_MONTHS, value.ToString());
+        if (_debounceCts.TryGetValue(key, out var oldCts))
+        {
+            oldCts.Cancel();
+            oldCts.Dispose();
+        }
+        var cts = new CancellationTokenSource();
+        _debounceCts[key] = cts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(DebounceDelay, cts.Token).ConfigureAwait(false);
+                await _settingsRepo.SetValueAsync(key, value).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException) { /* 新しい変更が来た */ }
+            catch (Exception ex) { LogHelper.Warn(nameof(SettingsViewModel), $"DebounceSave failed: {ex.Message}"); }
+        });
     }
 
-    partial void OnUpdateIntervalHoursChanged(int value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString());
-    }
+    partial void OnCacheMonthsChanged(int value)       => DebounceSave(SettingsKeys.CACHE_MONTHS, value.ToString());
+    partial void OnUpdateIntervalHoursChanged(int value) => DebounceSave(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString());
+    partial void OnFontSizeSpChanged(int value)        => DebounceSave(SettingsKeys.FONT_SIZE_SP, value.ToString());
+    partial void OnBackgroundThemeChanged(int value)   => DebounceSave(SettingsKeys.BACKGROUND_THEME, value.ToString());
+    partial void OnLineSpacingChanged(int value)       => DebounceSave(SettingsKeys.LINE_SPACING, value.ToString());
+    partial void OnEpisodesPerPageChanged(int value)   => DebounceSave(SettingsKeys.EPISODES_PER_PAGE, value.ToString());
 
-    partial void OnFontSizeSpChanged(int value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.FONT_SIZE_SP, value.ToString());
-    }
+    partial void OnRequestDelayMsChanged(int value) =>
+        DebounceSave(SettingsKeys.REQUEST_DELAY_MS,
+            Math.Clamp(value, SettingsKeys.MIN_REQUEST_DELAY_MS, SettingsKeys.MAX_REQUEST_DELAY_MS).ToString());
 
-    partial void OnBackgroundThemeChanged(int value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.BACKGROUND_THEME, value.ToString());
-    }
-
-    partial void OnLineSpacingChanged(int value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.LINE_SPACING, value.ToString());
-    }
-
-    partial void OnEpisodesPerPageChanged(int value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.EPISODES_PER_PAGE, value.ToString());
-    }
-
-    partial void OnVerticalWritingChanged(bool value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.VERTICAL_WRITING, value ? "1" : "0");
-    }
-
-    partial void OnPrefetchEnabledChanged(bool value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.PREFETCH_ENABLED, value ? "1" : "0");
-    }
-
-    partial void OnRequestDelayMsChanged(int value)
-    {
-        if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.REQUEST_DELAY_MS, Math.Clamp(value, SettingsKeys.MIN_REQUEST_DELAY_MS, SettingsKeys.MAX_REQUEST_DELAY_MS).ToString());
-    }
+    partial void OnVerticalWritingChanged(bool value)  => DebounceSave(SettingsKeys.VERTICAL_WRITING, value ? "1" : "0");
+    partial void OnPrefetchEnabledChanged(bool value)  => DebounceSave(SettingsKeys.PREFETCH_ENABLED, value ? "1" : "0");
 
     [RelayCommand]
     private async Task ClearCacheAsync()
