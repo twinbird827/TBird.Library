@@ -38,6 +38,13 @@ public class EpisodeCacheRepository
         ).ConfigureAwait(false);
     }
 
+    internal void DeleteByNovelIdSync(SQLiteConnection conn, int novelId)
+    {
+        conn.Execute(
+            "DELETE FROM episode_cache WHERE episode_id IN (SELECT id FROM episodes WHERE novel_id = ?)",
+            novelId);
+    }
+
     public async Task DeleteAllAsync()
     {
         await EnsureAsync().ConfigureAwait(false);

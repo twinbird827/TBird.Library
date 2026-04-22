@@ -15,11 +15,13 @@ public class NovelRepository
 
     private readonly SQLiteAsyncConnection _db;
     private readonly DatabaseService _dbService;
+    private readonly EpisodeCacheRepository _cacheRepo;
 
-    public NovelRepository(DatabaseService dbService)
+    public NovelRepository(DatabaseService dbService, EpisodeCacheRepository cacheRepo)
     {
         _dbService = dbService;
         _db = dbService.Connection;
+        _cacheRepo = cacheRepo;
     }
 
     public Task<List<Novel>> GetAllAsync()
@@ -169,9 +171,7 @@ public class NovelRepository
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
         await _db.RunInTransactionAsync(conn =>
         {
-            conn.Execute(
-                "DELETE FROM episode_cache WHERE episode_id IN (SELECT id FROM episodes WHERE novel_id = ?)",
-                novelId);
+            _cacheRepo.DeleteByNovelIdSync(conn, novelId);
             conn.Execute("DELETE FROM episodes WHERE novel_id = ?", novelId);
             conn.Execute("DELETE FROM novels WHERE id = ?", novelId);
         }).ConfigureAwait(false);
