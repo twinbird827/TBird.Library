@@ -163,7 +163,7 @@ public class NovelRepository
         var now = favorite ? DateTime.UtcNow.ToString("o") : null;
         await _db.ExecuteAsync(
             "UPDATE novels SET is_favorite = ?, favorited_at = ? WHERE id = ?",
-            favorite ? 1 : 0, now, novelId).ConfigureAwait(false);
+            favorite, now, novelId).ConfigureAwait(false);
     }
 
     public async Task DeleteAsync(int novelId)

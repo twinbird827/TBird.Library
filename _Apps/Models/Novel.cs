@@ -25,7 +25,7 @@ public class Novel
     public int TotalEpisodes { get; set; }
 
     [Column("is_completed")]
-    public int IsCompleted { get; set; }
+    public bool IsCompleted { get; set; }
 
     [Column("last_updated_at")]
     public string? LastUpdatedAt { get; set; }
@@ -34,13 +34,13 @@ public class Novel
     public string RegisteredAt { get; set; } = string.Empty;
 
     [Column("has_unconfirmed_update")]
-    public int HasUnconfirmedUpdate { get; set; }
+    public bool HasUnconfirmedUpdate { get; set; }
 
     [Column("has_check_error")]
-    public int HasCheckError { get; set; }
+    public bool HasCheckError { get; set; }
 
     [Column("is_favorite")]
-    public int IsFavorite { get; set; }
+    public bool IsFavorite { get; set; }
 
     [Column("favorited_at")]
     public string? FavoritedAt { get; set; }

@@ -53,9 +53,9 @@ public partial class NovelCardViewModel : ObservableObject
                 System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
                 ? dt.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss")
                 : novel.LastUpdatedAt ?? "",
-            IsCompleted = novel.IsCompleted == 1,
-            HasUnconfirmedUpdate = novel.HasUnconfirmedUpdate == 1,
-            IsFavorite = novel.IsFavorite == 1,
+            IsCompleted = novel.IsCompleted,
+            HasUnconfirmedUpdate = novel.HasUnconfirmedUpdate,
+            IsFavorite = novel.IsFavorite,
         };
     }
 }

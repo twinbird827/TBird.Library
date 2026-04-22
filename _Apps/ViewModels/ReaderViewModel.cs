@@ -187,7 +187,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
 
             EpisodeTitle = _episode.Title;
             EpisodeContent = content;
-            IsCurrentEpisodeFavorite = _episode.IsFavorite == 1;
+            IsCurrentEpisodeFavorite = _episode.IsFavorite;
             HasPrevEpisode = prev is not null;
             HasNextEpisode = next is not null;
             IsHeaderVisible = true;
@@ -262,25 +262,25 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         if (_episode is null) return;
         var newValue = !IsCurrentEpisodeFavorite;
         await _episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
-        _episode.IsFavorite = newValue ? 1 : 0;
+        _episode.IsFavorite = newValue;
         IsCurrentEpisodeFavorite = newValue;
     }
 
     [RelayCommand]
     private async Task MarkAsReadAsync()
     {
-        if (_episode is null || _episode.IsRead == 1) return;
+        if (_episode is null || _episode.IsRead) return;
 
         await _episodeRepo.MarkAsReadAsync(_episode.Id);
-        _episode.IsRead = 1;
+        _episode.IsRead = true;
 
         var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId);
         if (allRead)
         {
             var novel = await _novelRepo.GetByIdAsync(_novelDbId);
-            if (novel is not null && novel.HasUnconfirmedUpdate == 1)
+            if (novel is not null && novel.HasUnconfirmedUpdate)
             {
-                novel.HasUnconfirmedUpdate = 0;
+                novel.HasUnconfirmedUpdate = false;
                 await _novelRepo.UpdateAsync(novel);
             }
         }

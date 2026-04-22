@@ -23,7 +23,7 @@ public class Episode
     public string Title { get; set; } = string.Empty;
 
     [Column("is_read")]
-    public int IsRead { get; set; }
+    public bool IsRead { get; set; }
 
     [Column("read_at")]
     public string? ReadAt { get; set; }
@@ -32,7 +32,7 @@ public class Episode
     public string? PublishedAt { get; set; }
 
     [Column("is_favorite")]
-    public int IsFavorite { get; set; }
+    public bool IsFavorite { get; set; }
 
     [Column("favorited_at")]
     public string? FavoritedAt { get; set; }

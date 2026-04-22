@@ -45,7 +45,7 @@ public class EpisodeRepository
     public async Task<int> CountUnreadByNovelIdAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>().Where(e => e.NovelId == novelId && e.IsRead == 0).CountAsync().ConfigureAwait(false);
+        return await _db.Table<Episode>().Where(e => e.NovelId == novelId && !e.IsRead).CountAsync().ConfigureAwait(false);
     }
 
     public async Task<Episode?> GetByNovelAndEpisodeNoAsync(int novelId, int episodeNo)
@@ -96,7 +96,7 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && e.IsRead == 1)
+            .Where(e => e.NovelId == novelId && e.IsRead)
             .OrderByDescending(e => e.EpisodeNo)
             .FirstOrDefaultAsync().ConfigureAwait(false);
     }
@@ -105,7 +105,7 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && e.IsRead == 0)
+            .Where(e => e.NovelId == novelId && !e.IsRead)
             .OrderBy(e => e.EpisodeNo)
             .FirstOrDefaultAsync().ConfigureAwait(false);
     }
@@ -127,7 +127,7 @@ public class EpisodeRepository
         await EnsureAsync().ConfigureAwait(false);
         var now = DateTime.UtcNow.ToString("o");
         await _db.ExecuteAsync(
-            "UPDATE episodes SET is_read = 1, read_at = ? WHERE id = ?", now, episodeId
+            "UPDATE episodes SET is_read = ?, read_at = ? WHERE id = ?", true, now, episodeId
         ).ConfigureAwait(false);
     }
 
@@ -135,7 +135,7 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         var count = await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && e.IsRead == 0)
+            .Where(e => e.NovelId == novelId && !e.IsRead)
             .CountAsync().ConfigureAwait(false);
         return count == 0;
     }
@@ -146,14 +146,14 @@ public class EpisodeRepository
         var now = favorite ? DateTime.UtcNow.ToString("o") : null;
         await _db.ExecuteAsync(
             "UPDATE episodes SET is_favorite = ?, favorited_at = ? WHERE id = ?",
-            favorite ? 1 : 0, now, episodeId).ConfigureAwait(false);
+            favorite, now, episodeId).ConfigureAwait(false);
     }
 
     public async Task<List<Episode>> GetFavoritesByNovelIdAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
         return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && e.IsFavorite == 1)
+            .Where(e => e.NovelId == novelId && e.IsFavorite)
             .OrderBy(e => e.EpisodeNo)
             .ToListAsync().ConfigureAwait(false);
     }

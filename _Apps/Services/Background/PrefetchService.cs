@@ -48,7 +48,7 @@ public class PrefetchService
                 EpisodeNo = ep.EpisodeNo,
                 SiteType = novel.SiteType,
                 SiteNovelId = novel.NovelId,
-                Priority = (highPriority || novel.IsFavorite == 1) ? 1 : 0,
+                Priority = (highPriority || novel.IsFavorite) ? 1 : 0,
             });
             enqueued++;
         }
@@ -69,7 +69,7 @@ public class PrefetchService
             var episodes = await _episodeRepo.GetByNovelIdAsync(novel.Id).ConfigureAwait(false);
             var cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(novel.Id).ConfigureAwait(false);
 
-            foreach (var ep in episodes.Where(e => e.IsRead == 0))
+            foreach (var ep in episodes.Where(e => !e.IsRead))
             {
                 if (cachedIds.Contains(ep.Id)) continue;
                 _queue.Enqueue(new PrefetchEpisodeJob
@@ -79,7 +79,7 @@ public class PrefetchService
                     EpisodeNo = ep.EpisodeNo,
                     SiteType = novel.SiteType,
                     SiteNovelId = novel.NovelId,
-                    Priority = novel.IsFavorite == 1 ? 1 : 0,
+                    Priority = novel.IsFavorite ? 1 : 0,
                 });
             }
         }
