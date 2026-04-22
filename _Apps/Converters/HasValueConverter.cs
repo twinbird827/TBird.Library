@@ -13,7 +13,7 @@ public class HasValueConverter : IValueConverter
             bool b => b,
             string s => !string.IsNullOrEmpty(s),
             ICollection c => c.Count > 0,
-            IEnumerable e => e.GetEnumerator().MoveNext(),
+            IEnumerable e => HasAny(e),
             int i => i != 0,
             long l => l != 0,
             double d => d != 0,
@@ -21,6 +21,19 @@ public class HasValueConverter : IValueConverter
             decimal m => m != 0,
             _ => true,
         };
+    }
+
+    private static bool HasAny(IEnumerable source)
+    {
+        var enumerator = source.GetEnumerator();
+        try
+        {
+            return enumerator.MoveNext();
+        }
+        finally
+        {
+            (enumerator as IDisposable)?.Dispose();
+        }
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
