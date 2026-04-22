@@ -17,8 +17,8 @@ public static class SettingsKeys
     public const int DEFAULT_CACHE_MONTHS = 3;
     public const int DEFAULT_UPDATE_INTERVAL_HOURS = 6;
     public const int DEFAULT_FONT_SIZE_SP = 16;
-    public const int DEFAULT_BACKGROUND_THEME = 0;
-    public const int DEFAULT_LINE_SPACING = 1;
+    public const int DEFAULT_BACKGROUND_THEME = BackgroundTheme.Light;
+    public const int DEFAULT_LINE_SPACING = LineSpacing.Normal;
     public const int DEFAULT_EPISODES_PER_PAGE = 50;
     public const int DEFAULT_PREFETCH_ENABLED = 1;
     public const int DEFAULT_REQUEST_DELAY_MS = 800;

@@ -9,8 +9,18 @@ public static class ReaderStyleResolver
 {
     public static (string bg, string fg) ResolveThemeColors(int themeIndex)
     {
-        var bgKey = themeIndex switch { 1 => "ThemeDarkBg", 2 => "ThemeSepiaBg", _ => "ThemeWhiteBg" };
-        var fgKey = themeIndex switch { 1 => "ThemeDarkText", 2 => "ThemeSepiaText", _ => "ThemeWhiteText" };
+        var bgKey = themeIndex switch
+        {
+            BackgroundTheme.Dark => "ThemeDarkBg",
+            BackgroundTheme.Sepia => "ThemeSepiaBg",
+            _ => "ThemeWhiteBg",
+        };
+        var fgKey = themeIndex switch
+        {
+            BackgroundTheme.Dark => "ThemeDarkText",
+            BackgroundTheme.Sepia => "ThemeSepiaText",
+            _ => "ThemeWhiteText",
+        };
 
         var bg = Application.Current?.Resources.TryGetValue(bgKey, out var b) == true && b is Color bc
             ? ColorToHex(bc) : "#FFFFFF";
@@ -21,8 +31,8 @@ public static class ReaderStyleResolver
 
     public static double ResolveLineHeight(int lineSpacingIndex) => lineSpacingIndex switch
     {
-        0 => 1.4,
-        2 => 2.1,
+        LineSpacing.Compact => 1.4,
+        LineSpacing.Relaxed => 2.1,
         _ => 1.7,
     };
 
