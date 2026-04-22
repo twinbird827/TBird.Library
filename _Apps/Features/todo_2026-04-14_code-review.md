@@ -42,21 +42,21 @@ _Apps フォルダ全57ファイルの徹底レビュー結果。
 
 ## 🟠 SMELL（コード品質・保守性の問題）— 15件
 
-- [ ] **S1** `Episode.cs`, `Novel.cs` — boolean 値が `int` 型。`SearchResult.IsCompleted`(bool) との型不整合
-- [ ] **S2** `Episode.cs`, `Novel.cs`, `EpisodeCache.cs` — 日時フィールドが全て `string` 型。フォーマット依存のソートバグリスク
-- [ ] **S3** `Novel.cs:49-53` — `SiteType` が型名(enum)とプロパティ名(int)の両方で使用。可読性低下
-- [ ] **S4** `LogHelper.cs` — `Debug.WriteLine` はリリースビルドで除去。本番ログ不可
-- [ ] **S5** `NovelRepository.cs:171-175` — episode_cache 削除が N+1 クエリ。`EpisodeCacheRepository.DeleteByNovelIdAsync` の一括削除を使うべき
-- [ ] **S6** `NetworkPolicyService.cs:53-55` — `IsOnline` が例外時に `true` 返却。楽観的すぎ
-- [ ] **S7** `NetworkPolicyService.cs:120-131` — `EnforceDelayAsync` がリクエスト毎にDB読取。キャッシュすべき
-- [ ] **S8** `NovelCardViewModel.cs:48`, `SearchResultViewModel.cs:43` — `SiteTypeLabel` が三項演算子ハードコード。新サイトで "カクヨム" 固定
-- [ ] **S9** `NovelServiceFactory.cs` — ファクトリが具象クラスに依存。新サイト追加にファクトリ変更が必要
-- [ ] **S10** `SettingsViewModel.cs:62-87` — 全 `OnXxxChanged` が fire-and-forget DB 保存。スライダー高速操作で並列書き込み
-- [ ] **S11** `Converters.xaml:9-10` — `BoolToGrayConverter` の `FalseColor="Black"` がダークモード非対応
-- [ ] **S12** `SettingsPage.xaml:59` — 非推奨 `Frame` を使用。`Border` に移行すべき
-- [ ] **S13** `NovelListPage.xaml:21-25` — `x:Name="EmptyView"` が未使用デッドコード
-- [ ] **S14** `MauiProgram.cs:38` — `HttpClient` 直接シングルトン登録。`IHttpClientFactory` 未使用
-- [ ] **S15** `App.xaml.cs:77-100` — 既にバックグラウンドスレッドなのに `Task.Run` ラップ
+- [x] **S1** `Episode.cs`, `Novel.cs` — boolean 値が `int` 型。`SearchResult.IsCompleted`(bool) との型不整合
+- [ ] **S2** `Episode.cs`, `Novel.cs`, `EpisodeCache.cs` — 日時フィールドが全て `string` 型。フォーマット依存のソートバグリスク → 別PR `feature/refactor-datetime-types` に分離
+- [ ] **S3** `Novel.cs:49-53` — `SiteType` が型名(enum)とプロパティ名(int)の両方で使用。可読性低下 → S8 で実用上の読みやすさは改善されたためスキップ
+- [x] **S4** `LogHelper.cs` — `Debug.WriteLine` はリリースビルドで除去。本番ログ不可
+- [x] **S5** `NovelRepository.cs:171-175` — episode_cache 削除が N+1 クエリ。`EpisodeCacheRepository.DeleteByNovelIdAsync` の一括削除を使うべき
+- [x] **S6** `NetworkPolicyService.cs:53-55` — `IsOnline` が例外時に `true` 返却。楽観的すぎ
+- [x] **S7** `NetworkPolicyService.cs:120-131` — `EnforceDelayAsync` がリクエスト毎にDB読取。キャッシュすべき
+- [x] **S8** `NovelCardViewModel.cs:48`, `SearchResultViewModel.cs:43` — `SiteTypeLabel` が三項演算子ハードコード。新サイトで "カクヨム" 固定
+- [x] **S9** `NovelServiceFactory.cs` — ファクトリが具象クラスに依存。新サイト追加にファクトリ変更が必要
+- [x] **S10** `SettingsViewModel.cs:62-87` — 全 `OnXxxChanged` が fire-and-forget DB 保存。スライダー高速操作で並列書き込み
+- [x] **S11** `Converters.xaml:9-10` — `BoolToGrayConverter` の `FalseColor="Black"` がダークモード非対応
+- [x] **S12** `SettingsPage.xaml:59` — 非推奨 `Frame` を使用。`Border` に移行すべき
+- [x] **S13** `NovelListPage.xaml:21-25` — `x:Name="EmptyView"` が未使用デッドコード
+- [ ] **S14** `MauiProgram.cs:38` — `HttpClient` 直接シングルトン登録。`IHttpClientFactory` 未使用 → 別PR `feature/refactor-http-factory` に分離
+- [x] **S15** `App.xaml.cs:77-100` — 既にバックグラウンドスレッドなのに `Task.Run` ラップ
 
 ---
 
