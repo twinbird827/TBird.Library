@@ -45,7 +45,7 @@ public partial class NovelCardViewModel : ObservableObject
             Id = novel.Id,
             Title = novel.Title,
             Author = novel.Author,
-            SiteTypeLabel = ((SiteType)novel.SiteType) == SiteType.Narou ? "なろう" : "カクヨム",
+            SiteTypeLabel = ((SiteType)novel.SiteType).GetLabel(),
             SiteType = (SiteType)novel.SiteType,
             NovelId = novel.NovelId,
             UnreadCount = unreadCount,
