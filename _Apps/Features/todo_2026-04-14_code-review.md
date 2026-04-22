@@ -62,11 +62,11 @@ _Apps フォルダ全57ファイルの徹底レビュー結果。
 
 ## 🔵 REFACTOR（リファクタリング提案）— 8件
 
-- [ ] **F1** `SearchViewModel.cs:136-277` — `SearchAsync`/`FetchRankingAsync`/`FetchGenreAsync` の重複をテンプレートメソッドに抽出
-- [ ] **F2** `KakuyomuApiService.cs` — `ParseEpisodeIds` と `ParseEpisodes` のApollo State走査ロジック重複を統合
-- [ ] **F3** `ReaderHtmlBuilder.cs:13-75` — HTML/CSS/JS の `sb.Append()` 連鎖をテンプレート or raw string literal に分離
-- [ ] **F4** `Episode.cs`, `Novel.cs` — 複合ユニーク制約(`NovelId+EpisodeNo`, `NovelId+SiteType`)の欠如
-- [ ] **F5** `ReaderCssState.cs` — `BackgroundThemeIndex`/`LineSpacingIndex` のマジックナンバーを enum 化
-- [ ] **F6** `ReaderPage.xaml` — テーマ Trigger が ContentPage/Label で同一パターン重複。Style に集約
-- [ ] **F7** Views code-behind — ViewModel 参照方法がフィールド保持 / `BindingContext is` キャストで不統一
-- [ ] **F8** `HasValueConverter.cs:16` — `IEnumerable.GetEnumerator()` が Dispose されない
+- [x] **F1** `SearchViewModel.cs:136-277` — `SearchAsync`/`FetchRankingAsync`/`FetchGenreAsync` の重複をテンプレートメソッドに抽出
+- [x] **F2** `KakuyomuApiService.cs` — `ParseEpisodeIds` と `ParseEpisodes` のApollo State走査ロジック重複を統合 → R4 修正時に実装済み
+- [x] **F3** `ReaderHtmlBuilder.cs:13-75` — HTML/CSS/JS の `sb.Append()` 連鎖をテンプレート or raw string literal に分離
+- [x] **F4** `Episode.cs`, `Novel.cs` — 複合ユニーク制約(`NovelId+EpisodeNo`, `NovelId+SiteType`)の欠如
+- [x] **F5** `ReaderCssState.cs` — `BackgroundThemeIndex`/`LineSpacingIndex` のマジックナンバーを enum 化
+- [ ] **F6** `ReaderPage.xaml` — テーマ Trigger が ContentPage/Label で同一パターン重複。Style に集約 → skip: ContentPage と Label は型が異なるため単一 Style に集約不可。再利用箇所もない
+- [ ] **F7** Views code-behind — ViewModel 参照方法がフィールド保持 / `BindingContext is` キャストで不統一 → skip: 効果小（削減行数10未満）・どちらも安全・is キャストは防御的で可読性は悪くない
+- [x] **F8** `HasValueConverter.cs:16` — `IEnumerable.GetEnumerator()` が Dispose されない
