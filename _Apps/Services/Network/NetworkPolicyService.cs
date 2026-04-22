@@ -52,7 +52,11 @@ public class NetworkPolicyService
         get
         {
             try { return Connectivity.Current.NetworkAccess == NetworkAccess.Internet; }
-            catch { return true; }
+            catch (Exception ex)
+            {
+                LogHelper.Warn(nameof(NetworkPolicyService), $"IsOnline check failed: {ex.Message}");
+                return false;
+            }
         }
     }
 
@@ -113,11 +117,7 @@ public class NetworkPolicyService
 
     private async Task<int> GetDelayMsAsync()
     {
-        try
-        {
-            var v = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, 800).ConfigureAwait(false);
-            return Math.Clamp(v, 100, 5000);
-        }
-        catch { return 800; }
+        var v = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS).ConfigureAwait(false);
+        return Math.Clamp(v, 100, 5000);
     }
 }

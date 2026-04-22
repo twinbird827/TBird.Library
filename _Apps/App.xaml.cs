@@ -57,6 +57,7 @@ public partial class App : Application
         {
             // 1. Initialize database (background thread)
             await _dbService.InitializeAsync().ConfigureAwait(false);
+            await _settingsRepo.LoadAllAsync().ConfigureAwait(false);
 
             // 2. Delete expired cache
             var cacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, 3).ConfigureAwait(false);
