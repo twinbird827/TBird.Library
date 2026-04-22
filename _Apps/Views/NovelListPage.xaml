@@ -17,13 +17,6 @@
 		<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
-		<!-- Empty state -->
-		<VerticalStackLayout IsVisible="False" x:Name="EmptyView"
-                             HorizontalOptions="Center" VerticalOptions="Center" Spacing="16">
-			<Label Text="タイトルを登録してください" FontSize="18" HorizontalTextAlignment="Center" />
-			<Button Text="検索画面へ" Clicked="OnGoToSearchClicked" />
-		</VerticalStackLayout>
-
 		<!-- Novel list -->
 		<CollectionView ItemsSource="{Binding Novels}" SelectionMode="None">
 			<CollectionView.ItemTemplate>
