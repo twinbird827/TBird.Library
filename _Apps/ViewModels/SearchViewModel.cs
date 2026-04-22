@@ -132,31 +132,30 @@ public partial class SearchViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanSearch))]
-    private async Task SearchAsync()
+    private async Task ExecuteSiteQueryAsync(
+        string operationName,
+        Func<CancellationToken, Task<List<SearchResult>>>? narouFetch,
+        Func<CancellationToken, Task<List<SearchResult>>>? kakuyomuFetch)
     {
         IsLoading = true;
         HasError = false;
         ErrorMessage = string.Empty;
-
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             var ct = cts.Token;
-            var searchTarget = "Both";
 
-            var narouTask = SearchNarou
-                ? RunSiteSearchAsync(() => _narou.SearchAsync(SearchKeyword, searchTarget, ct), "なろう")
+            var narouTask = narouFetch is not null
+                ? RunSiteSearchAsync(() => narouFetch(ct), "なろう")
                 : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
-            var kakuyomuTask = SearchKakuyomu
-                ? RunSiteSearchAsync(() => _kakuyomu.SearchAsync(SearchKeyword, searchTarget, ct), "カクヨム")
+            var kakuyomuTask = kakuyomuFetch is not null
+                ? RunSiteSearchAsync(() => kakuyomuFetch(ct), "カクヨム")
                 : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
 
             var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
 
             var allHits = siteResults.SelectMany(r => r.hits).ToList();
             var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
-
             if (errors.Count > 0)
             {
                 HasError = true;
@@ -167,7 +166,7 @@ public partial class SearchViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(SearchViewModel), $"Search failed: {ex.Message}");
+            LogHelper.Error(nameof(SearchViewModel), $"{operationName} failed: {ex.Message}");
             HasError = true;
             ErrorMessage = "通信エラーが発生しました";
         }
@@ -177,31 +176,35 @@ public partial class SearchViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanSearch))]
+    private Task SearchAsync()
+    {
+        var searchTarget = "Both";
+        return ExecuteSiteQueryAsync(
+            "Search",
+            SearchNarou ? ct => _narou.SearchAsync(SearchKeyword, searchTarget, ct) : null,
+            SearchKakuyomu ? ct => _kakuyomu.SearchAsync(SearchKeyword, searchTarget, ct) : null);
+    }
+
     private bool CanSearch() => !string.IsNullOrWhiteSpace(SearchKeyword) && !IsLoading;
 
     [RelayCommand]
-    private async Task FetchRankingAsync()
+    private Task FetchRankingAsync()
     {
-        IsLoading = true;
-        HasError = false;
-        ErrorMessage = string.Empty;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var ct = cts.Token;
-            var period = (RankingPeriod)Math.Clamp(RankingPeriodIndex, 0, 3);
-
-            var narouTask = SearchNarou
-                ? RunSiteSearchAsync(() =>
+        var period = (RankingPeriod)Math.Clamp(RankingPeriodIndex, 0, 3);
+        return ExecuteSiteQueryAsync(
+            "Ranking fetch",
+            SearchNarou
+                ? ct =>
                 {
                     int? bg = null;
-                    if (SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bgv)) bg = bgv;
+                    if (SelectedNarouBigGenre is not null
+                        && int.TryParse(SelectedNarouBigGenre.Id, out var bgv)) bg = bgv;
                     return _narou.FetchRankingAsync(period, bg, 30, ct);
-                }, "なろう")
-                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
-
-            var kakuyomuTask = SearchKakuyomu
-                ? RunSiteSearchAsync(() =>
+                }
+                : null,
+            SearchKakuyomu
+                ? ct =>
                 {
                     var periodSlug = period switch
                     {
@@ -210,70 +213,24 @@ public partial class SearchViewModel : ObservableObject
                         RankingPeriod.Monthly => "monthly",
                         _ => "weekly",
                     };
-                    return _kakuyomu.FetchRankingAsync(
-                        SelectedKakuyomuGenre?.Id ?? "all", periodSlug, ct);
-                }, "カクヨム")
-                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
-
-            var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
-
-            var allHits = siteResults.SelectMany(r => r.hits).ToList();
-            var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
-            if (errors.Count > 0)
-            {
-                HasError = true;
-                ErrorMessage = string.Join("\n", errors);
-            }
-
-            await ShowResultsAsync(allHits);
-        }
-        catch (Exception ex)
-        {
-            LogHelper.Error(nameof(SearchViewModel), $"Ranking fetch failed: {ex.Message}");
-            HasError = true;
-            ErrorMessage = "通信エラーが発生しました";
-        }
-        finally { IsLoading = false; }
+                    return _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre?.Id ?? "all", periodSlug, ct);
+                }
+                : null);
     }
 
     [RelayCommand]
-    private async Task FetchGenreAsync()
+    private Task FetchGenreAsync()
     {
-        IsLoading = true;
-        HasError = false;
-        ErrorMessage = string.Empty;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var ct = cts.Token;
+        int? narouBg = (SearchNarou
+            && SelectedNarouBigGenre is not null
+            && int.TryParse(SelectedNarouBigGenre.Id, out var bg)) ? bg : null;
 
-            var narouTask = SearchNarou && SelectedNarouBigGenre is not null && int.TryParse(SelectedNarouBigGenre.Id, out var bg)
-                ? RunSiteSearchAsync(() => _narou.FetchByGenreAsync(bg, "weeklypoint", 30, ct), "なろう")
-                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
-
-            var kakuyomuTask = SearchKakuyomu && SelectedKakuyomuGenre is not null
-                ? RunSiteSearchAsync(() => _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly", ct), "カクヨム")
-                : Task.FromResult<(List<SearchResult> hits, string? error)>(([], null));
-
-            var siteResults = await Task.WhenAll(narouTask, kakuyomuTask);
-
-            var allHits = siteResults.SelectMany(r => r.hits).ToList();
-            var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
-            if (errors.Count > 0)
-            {
-                HasError = true;
-                ErrorMessage = string.Join("\n", errors);
-            }
-
-            await ShowResultsAsync(allHits);
-        }
-        catch (Exception ex)
-        {
-            LogHelper.Error(nameof(SearchViewModel), $"Genre fetch failed: {ex.Message}");
-            HasError = true;
-            ErrorMessage = "通信エラーが発生しました";
-        }
-        finally { IsLoading = false; }
+        return ExecuteSiteQueryAsync(
+            "Genre fetch",
+            narouBg is int bgv ? ct => _narou.FetchByGenreAsync(bgv, "weeklypoint", 30, ct) : null,
+            (SearchKakuyomu && SelectedKakuyomuGenre is not null)
+                ? ct => _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly", ct)
+                : null);
     }
 
     private async Task ShowResultsAsync(List<SearchResult> results)
