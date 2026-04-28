@@ -1,6 +1,7 @@
 ﻿using Moviewer.Core.Windows;
 using System;
 using System.Web;
+using TBird.Core;
 using TBird.Wpf.Collections;
 
 namespace Moviewer.Core.Controls
@@ -39,7 +40,7 @@ namespace Moviewer.Core.Controls
 		public string Description
 		{
 			get => _Description;
-			set => SetProperty(ref _Description, HttpUtility.HtmlDecode(value));
+			set => SetProperty(ref _Description, HttpUtility.HtmlDecode(value).StripHtml());
 		}
 		private string _Description;
 
@@ -106,4 +107,4 @@ namespace Moviewer.Core.Controls
 				: VideoStatus.None;
 		}
 	}
-}
+}

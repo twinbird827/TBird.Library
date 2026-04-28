@@ -66,14 +66,15 @@ namespace Moviewer.Nico.Workspaces
 
 		private async Task Reload()
 		{
-			await NicoUtil.GetVideosByRanking(Genre.SelectedItem.Value, "all", Period.SelectedItem.Value).ContinueWith(x =>
+			try
 			{
 				Sources.Clear();
-				foreach (var item in x.Result)
+				await foreach (var item in NicoUtil.GetVideosByRanking(Genre.SelectedItem.Value, "all", Period.SelectedItem.Value))
 				{
 					Sources.Add(item);
 				}
-			}).TryCatch();
+			}
+			catch { }
 		}
 	}
-}
+}

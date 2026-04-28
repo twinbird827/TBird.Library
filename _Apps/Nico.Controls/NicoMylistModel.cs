@@ -1,35 +1,73 @@
-﻿using Moviewer.Core;
+using Moviewer.Core;
 using Moviewer.Core.Controls;
 using Moviewer.Nico.Core;
 using System;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using TBird.Core;
 
 namespace Moviewer.Nico.Controls
 {
 	public class NicoMylistModel : ControlModel, IThumbnailUrl
 	{
-		public static async Task<XElement> GetNicoMylistXml(string id)
+		public static async Task<dynamic> GetNicoMylistData(string id)
 		{
-			var xml = await NicoUtil.GetXmlChannelAsync($"http://www.nicovideo.jp/mylist/{NicoUtil.Url2Id(id)}?rss=2.0&numbers=1&sort=0");
-			return xml;
+			var cleanId = NicoUtil.Url2Id(id);
+			// 最新 addedAt を MylistDate に使うため、addedAt降順で1件取得
+			return await NicoUtil.GetNvapiJsonAsync(
+				$"https://nvapi.nicovideo.jp/v2/mylists/{cleanId}?sortKey=addedAt&sortOrder=desc&pageSize=1&page=1");
 		}
 
-		public NicoMylistModel(string id, XElement xml)
+		public NicoMylistModel(string id, dynamic json)
 		{
+			// json 非 null でも data または mylist が null/未定義のケース (権限不足時に
+			// meta だけ返るレスポンス等) をガード。
+			dynamic ml = null;
+			try
+			{
+				if (json != null && json.IsDefined("data") && json.data != null
+					&& json.data.IsDefined("mylist") && json.data.mylist != null)
+				{
+					ml = json.data.mylist;
+				}
+			}
+			catch { ml = null; }
+
+			if (ml == null)
+			{
+				MylistId = id;
+				MylistTitle = "";
+				MylistDate = DateTime.MinValue;
+				MylistDescription = "";
+				UserInfo = new NicoUserModel();
+				return;
+			}
+
 			MylistId = id;
-			MylistTitle = GetMylistTitle(xml.ElementS("title"));
-			MylistDate = DateTime.Parse(xml.ElementS("lastBuildDate"));
-			MylistDescription = xml.ElementS("description");
+			MylistTitle = GetMylistTitle(DynamicUtil.S(ml, "name") ?? "");
+			MylistDescription = DynamicUtil.S(ml, "description");
+
+			// RSS lastBuildDate 相当: 最新追加アイテムの addedAt を採用
+			// (nvapi v2 mylist には createdAt/updatedAt フィールドが存在しない)
+			string addedAt = null;
+			if (ml.IsDefined("items"))
+			{
+				foreach (var it in ml.items)
+				{
+					addedAt = DynamicUtil.S(it, "addedAt");
+					break;
+				}
+			}
+			MylistDate = string.IsNullOrEmpty(addedAt)
+				? DateTime.MinValue
+				: DateTimeOffset.Parse(addedAt).DateTime;
 
 			UserInfo = new NicoUserModel();
+			// owner は essential の owner と同形 (ownerType, id, name, iconUrl)。
+			// owner.id がチャンネル形式 "ch..." でも SetUserInfo が正しく分岐する。
 			UserInfo.SetUserInfo(
-				Regex.Match(xml.ElementS("link"), @"(?<=user\/)[\d]+").Value,          // user id
-				xml.ElementS(XName.Get("creator", "http://purl.org/dc/elements/1.1/")) // creator name
-			);
+				DynamicUtil.S(ml, "owner.id"),
+				DynamicUtil.S(ml, "owner.name"));
 
 			UserInfo.AddOnPropertyChanged(this, (sender, e) =>
 			{

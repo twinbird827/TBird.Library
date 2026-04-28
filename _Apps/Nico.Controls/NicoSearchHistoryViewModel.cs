@@ -91,7 +91,11 @@ namespace Moviewer.Nico.Controls
 				case NicoSearchType.User:
 					return new NicoUserViewModel().SetUserInfo(await NicoUserModel.GetUserInfo(Word));
 				case NicoSearchType.Mylist:
-					return new NicoMylistViewModel(new NicoMylistModel(Word, await NicoMylistModel.GetNicoMylistXml(Word)));
+					// GetNicoMylistData はネットワーク例外時 ArgumentNullException を再投する
+					// (TryCatch<string> 経由)。null 戻りはコンストラクタが空モデルで吸収する。
+					dynamic json = null;
+					try { json = await NicoMylistModel.GetNicoMylistData(Word); } catch { }
+					return new NicoMylistViewModel(new NicoMylistModel(Word, json));
 				default:
 					return Word;
 			}
@@ -131,4 +135,4 @@ namespace Moviewer.Nico.Controls
 		private ICommand _OnFavoriteDel;
 
 	}
-}
+}

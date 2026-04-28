@@ -1,10 +1,29 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace TBird.Core
 {
 	public static class StringExtension
 	{
+		/// <summary>
+		/// HTML文字列からタグを除去し、ﾌﾞﾛｯｸ系/改行系ﾀｸﾞは改行に置換します。
+		/// HtmlDecode は呼び出し側で別途行ってください。
+		/// </summary>
+		public static string StripHtml(this string s)
+		{
+			if (string.IsNullOrEmpty(s)) return s;
+			// <br>, <p>, <div>, <li>, <tr>, <h1>～<h6> 開きﾀｸﾞを改行に
+			var t = Regex.Replace(s, @"<\s*(br|p|div|li|tr|h[1-6])\b[^>]*/?>", "\n", RegexOptions.IgnoreCase);
+			// 同種の閉じﾀｸﾞも改行に
+			t = Regex.Replace(t, @"</\s*(p|div|li|tr|h[1-6])\s*>", "\n", RegexOptions.IgnoreCase);
+			// 残りの全ﾀｸﾞを除去
+			t = Regex.Replace(t, @"<[^>]+>", "");
+			// 3行以上の連続改行を2行に正規化
+			t = Regex.Replace(t, @"(\r?\n){3,}", "\n\n");
+			return t.Trim();
+		}
+
 		/// <summary>
 		/// 左辺から指定した長さの文字を取得します。
 		/// </summary>
@@ -104,4 +123,4 @@ namespace TBird.Core
 			return "".Left(count, c);
 		}
 	}
-}
+}

@@ -2,6 +2,7 @@
 using Moviewer.Core.Windows;
 using Moviewer.Nico.Controls;
 using Moviewer.Nico.Core;
+using System.Threading;
 using System.Windows.Input;
 using TBird.Core;
 using TBird.Wpf;
@@ -47,13 +48,22 @@ namespace Moviewer.Nico.Workspaces
 
 		public BindableContextCollection<NicoSearchHistoryViewModel> Favorites { get; private set; }
 
+		// 連続発火対策: NicoSearch と同パターン (§3.7 / 確定事項 #30, #33)
+		private int _searchGen;
+
 		public ICommand OnSearch => _OnSearch = _OnSearch ?? RelayCommand.Create<NicoSearchHistoryViewModel>(async vm =>
 		{
-			await NicoUtil.GetVideoBySearchType(vm.Word, vm.Type, Orderby.SelectedItem.Value).ContinueWith(x =>
+			var myGen = Interlocked.Increment(ref _searchGen);
+			Sources.Clear();
+			try
 			{
-				Sources.Clear();
-				Sources.AddRange(x.Result);
-			}).TryCatch();
+				await foreach (var item in NicoUtil.GetVideoBySearchType(vm.Word, vm.Type, Orderby.SelectedItem.Value))
+				{
+					if (Volatile.Read(ref _searchGen) != myGen) return;
+					Sources.Add(item);
+				}
+			}
+			catch { }
 		});
 		private ICommand _OnSearch;
 
@@ -67,4 +77,4 @@ namespace Moviewer.Nico.Workspaces
 			NicoModel.DelFavorite(vm.Word, vm.Type);
 		}
 	}
-}
+}

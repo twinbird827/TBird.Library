@@ -1,9 +1,8 @@
 ﻿using Moviewer.Core.Controls;
+using Moviewer.Nico.Core;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using TBird.Core;
-using TBird.Web;
 
 namespace Moviewer.Nico.Controls
 {
@@ -45,29 +44,25 @@ namespace Moviewer.Nico.Controls
 
 				try
 				{
-					var url = $"https://seiga.nicovideo.jp/api/user/info?id={userid}";
-					var xml = await WebUtil.GetXmlAsync(url);
-					return _nicknames[userid] = (string)xml.Descendants("user")
-						.SelectMany(x => x.Descendants("nickname"))
-						.FirstOrDefault();
+					var json = await NicoUtil.GetNvapiJsonAsync(
+						$"https://nvapi.nicovideo.jp/v1/users/{userid}");
+					if (json == null) return userid;
+
+					var nickname = DynamicUtil.S(json, "data.user.nickname");
+
+					// 毒キャッシュ防止: nickname が null/空の場合は _nicknames に保存しない。
+					// 保存してしまうと次回以降ずっと null/空が返り続ける。
+					if (string.IsNullOrEmpty(nickname)) return userid;
+					return _nicknames[userid] = nickname;
 				}
 				catch
 				{
 					return userid;
 				}
 			}
-			/*
-            <?xml version="1.0" encoding="UTF-8"?>
-            <response>
-                <user>
-                    <id>1</id>
-                    <nickname>しんの</nickname>
-                </user>
-            </response>
-            */
 		}
 
 		private static Dictionary<string, string> _nicknames = new Dictionary<string, string>();
 		private static string _nicknamelock = typeof(NicoUserModel).FullName;
 	}
-}
+}

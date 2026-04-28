@@ -1,10 +1,9 @@
-﻿using Moviewer.Core;
+using Moviewer.Core;
 using Moviewer.Core.Controls;
 using Moviewer.Nico.Core;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using TBird.Core;
 
 namespace Moviewer.Nico.Controls
@@ -50,127 +49,105 @@ namespace Moviewer.Nico.Controls
 			}
 		}
 
-		//public NicoVideoModel(dynamic json)
-		//{
-		//    ContentId = (string)json.data.video.id;
-		//    Title = (string)json.data.video.title;
-		//    Description = (string)json.data.video.description;
-		//    ThumbnailUrl = (string)json.data.video.thumbnail.url;
-		//    ViewCount = (long)json.data.video.count.view;
-		//    CommentCount = (long)json.data.video.count.comment;
-		//    MylistCount = (long)json.data.video.count.mylist;
-		//    StartTime = DateTime.Parse((string)json.data.video.registeredAt);
-		//    Duration = TimeSpan.FromSeconds((long)json.data.video.duration);
-		//    Tags.AddRange(string.Join(' ', ((IEnumerable<object>)json.data.tag.items).Select(x => ((dynamic)x).name))));
-		//    UserInfo = json.data.channel == null
-		//        ? new NicoUserModel($"{json.data.owner.id}", (string)json.data.owner.nickname)
-		//        : new NicoUserModel((string)json.data.channel.id, (string)json.data.channel.name);
-
-		//    RefreshStatus();
-
-		//    _beforedisplay = false;
-		//}
-
-		public NicoVideoModel(XElement xml) : this()
+		public static NicoVideoModel FromEssential(dynamic essential)
 		{
-			xml = xml.Descendants("thumb").First();
-			ContentId = NicoUtil.Url2Id(xml.ElementS("watch_url"));
-			Title = xml.ElementS("title");
-			Description = xml.ElementS("description");
-			ThumbnailUrl = xml.ElementS("thumbnail_url");
-			ViewCount = xml.ElementL("view_counter");
-			CommentCount = xml.ElementL("comment_num");
-			MylistCount = xml.ElementL("mylist_counter");
-			StartTime = DateTime.Parse(xml.ElementS("first_retrieve"));
-			Duration = ToDuration(xml.ElementS("length"));
-			Tags.AddRange(xml.Descendants("tags").First().Descendants("tag").Select(tag => (string)tag));
-			UserInfo.SetUserInfo(
-				CoreUtil.Nvl(xml.ElementS("user_id"), "ch" + xml.ElementS("ch_id")),
-				CoreUtil.Nvl(xml.ElementS("user_nickname"), xml.ElementS("ch_name"))
-			);
-			RefreshStatus();
-
-			_beforedisplay = false;
-		}
-
-		public NicoVideoModel(XElement item, string view, string mylist, string comment) : this()
-		{
+			var m = new NicoVideoModel();
 			try
 			{
-				// 明細部読み込み
-				var descriptionString = item.Element("description").Value;
-				descriptionString = descriptionString.Replace("&nbsp;", "&#x20;");
-				//descriptionString = HttpUtility.HtmlDecode(descriptionString);
-				descriptionString = descriptionString.Replace("&", "&amp;");
-				descriptionString = descriptionString.Replace("'", "&apos;");
-				var descriptionXml = XmlUtil.ToXml($"<root>{descriptionString}</root>");
+				m.ContentId = DynamicUtil.S(essential, "id");
+				m.Title = DynamicUtil.S(essential, "title");
+				m.Description = DynamicUtil.S(essential, "shortDescription");
+				m.ThumbnailUrl = DynamicUtil.S(essential, "thumbnail.url");
+				m.ViewCount = DynamicUtil.L(essential, "count.view");
+				m.CommentCount = DynamicUtil.L(essential, "count.comment");
+				m.MylistCount = DynamicUtil.L(essential, "count.mylist");
+				m.StartTime = DateTimeOffset.Parse(DynamicUtil.S(essential, "registeredAt")).DateTime;
+				m.Duration = TimeSpan.FromSeconds(DynamicUtil.L(essential, "duration"));
 
-				ContentId = NicoUtil.Url2Id(item.ElementS("link"));
-				Title = item.Element("title").Value;
-				Description = (string)descriptionXml.Descendants("p").FirstOrDefault(x => x.AttributeS("class") == "nico-description");
-				ThumbnailUrl = descriptionXml.Descendants("img").First().AttributeS("src");
-				ViewCount = ToCounter(descriptionXml, view);
-				CommentCount = ToCounter(descriptionXml, comment);
-				MylistCount = ToCounter(descriptionXml, mylist);
-				StartTime = ToRankingDatetime(descriptionXml, "nico-info-date");
-				Duration = ToDuration(descriptionXml);
-				RefreshStatus();
+				if (essential.IsDefined("owner") && essential.owner != null)
+				{
+					var ownerId = DynamicUtil.S(essential.owner, "id");
+					var ownerName = DynamicUtil.S(essential.owner, "name");
+					if (!string.IsNullOrEmpty(ownerId))
+					{
+						m.UserInfo.SetUserInfo(ownerId, ownerName);
+					}
+				}
 
-				_beforedisplay = true;
+				m.RefreshStatus();
+				m._beforedisplay = true;
 			}
-			catch
+			catch (Exception ex)
 			{
-				Status = VideoStatus.Delete;
+				MessageService.Exception(ex);
+				m.Status = VideoStatus.Delete;
 			}
+			return m;
 		}
 
-		private TimeSpan ToDuration(string lengthSecondsStr)
+		public static NicoVideoModel FromMylistItem(dynamic item)
 		{
-			var lengthSecondsIndex = 0;
-			var lengthSeconds = lengthSecondsStr
-					.Split(':')
-					.Reverse()
-					.Sum(s => int.Parse(s) * Math.Pow(60, lengthSecondsIndex++));
-			return TimeSpan.FromSeconds((long)lengthSeconds);
+			var m = FromEssential(item.video);
+			if (m.Status == VideoStatus.Delete) return m;
+			try
+			{
+				var addedAt = DynamicUtil.S(item, "addedAt");
+				if (!string.IsNullOrEmpty(addedAt))
+				{
+					m.MylistAddedAt = DateTimeOffset.Parse(addedAt).DateTime;
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageService.Exception(ex);
+			}
+			return m;
 		}
 
-		private TimeSpan ToDuration(XElement xml)
+		public static NicoVideoModel FromWatchData(dynamic data)
 		{
-			var lengthSecondsStr = (string)xml
-				.Descendants("strong")
-				.Where(x => (string)x.Attribute("class") == "nico-info-length")
-				.First();
+			var m = new NicoVideoModel();
+			try
+			{
+				m.ContentId = DynamicUtil.S(data, "video.id");
+				m.Title = DynamicUtil.S(data, "video.title");
+				m.Description = DynamicUtil.S(data, "video.description");
+				m.ThumbnailUrl = DynamicUtil.S(data, "video.thumbnail.url");
+				m.ViewCount = DynamicUtil.L(data, "video.count.view");
+				m.CommentCount = DynamicUtil.L(data, "video.count.comment");
+				m.MylistCount = DynamicUtil.L(data, "video.count.mylist");
+				m.StartTime = DateTimeOffset.Parse(DynamicUtil.S(data, "video.registeredAt")).DateTime;
+				m.Duration = TimeSpan.FromSeconds(DynamicUtil.L(data, "video.duration"));
 
-			return ToDuration(lengthSecondsStr);
-		}
+				if (data.IsDefined("tag") && data.tag != null)
+				{
+					foreach (var t in data.tag.items)
+						m.Tags.Add(DynamicUtil.S(t, "name"));
+				}
 
-		private string GetData(XElement e, string name)
-		{
-			return (string)e
-				.Descendants("strong")
-				.Where(x => (string)x.Attribute("class") == name)
-				.FirstOrDefault();
-		}
+				// data.channel が非null → チャンネル動画 (id は既に "ch..." 形式)
+				if (data.IsDefined("channel") && data.channel != null)
+				{
+					m.UserInfo.SetUserInfo(
+						DynamicUtil.S(data.channel, "id"),
+						DynamicUtil.S(data.channel, "name"));
+				}
+				else if (data.IsDefined("owner") && data.owner != null)
+				{
+					m.UserInfo.SetUserInfo(
+						DynamicUtil.S(data.owner, "id"),
+						DynamicUtil.S(data.owner, "nickname"));
+				}
 
-		private long ToCounter(XElement e, string name)
-		{
-			var s = string.IsNullOrEmpty(name) ? null : GetData(e, name);
-
-			return string.IsNullOrEmpty(s)
-				? 0
-				: long.Parse(s.Replace(",", ""));
-		}
-
-		private DateTime ToRankingDatetime(XElement e, string name)
-		{
-			// 2018年02月27日 20：00：00
-			var s = GetData(e, name);
-
-			return DateTime.ParseExact(s,
-				"yyyy年MM月dd日 HH：mm：ss",
-				System.Globalization.DateTimeFormatInfo.InvariantInfo,
-				System.Globalization.DateTimeStyles.None
-			);
+				m.RefreshStatus();
+				m._beforedisplay = false;
+			}
+			catch (Exception ex)
+			{
+				MessageService.Exception(ex);
+				m.Status = VideoStatus.Delete;
+			}
+			return m;
 		}
 
 		public override MenuMode Mode { get; } = MenuMode.Niconico;
@@ -195,6 +172,10 @@ namespace Moviewer.Nico.Controls
 			set => _CommentCount.Count = value;
 		}
 		private CounterModel _CommentCount = new CounterModel(CounterType.Comment, 0);
+
+		// Mylist 経由で取得した場合の追加日時。お気に入り巡回(PatrolFavorites)で
+		// addedAt 順ソートと整合させるため。それ以外の経路では null。
+		public DateTime? MylistAddedAt { get; set; }
 
 		protected override UserModel CreateUserInfo()
 		{
