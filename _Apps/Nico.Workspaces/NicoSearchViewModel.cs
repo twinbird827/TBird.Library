@@ -2,6 +2,7 @@
 using Moviewer.Core.Windows;
 using Moviewer.Nico.Controls;
 using Moviewer.Nico.Core;
+using System.Threading;
 using System.Windows.Input;
 using TBird.Core;
 using TBird.Wpf;
@@ -60,15 +61,25 @@ namespace Moviewer.Nico.Workspaces
 
 		public BindableContextCollection<NicoSearchHistoryViewModel> Histories { get; private set; }
 
+		// 連続発火対策: 後発の OnSearch が走り出したら前回のループは離脱する。
+		// HTTP 自体はキャンセルしない (既存と同等の握り潰し方針)。
+		private int _searchGen;
+
 		public ICommand OnSearch => _OnSearch = _OnSearch ?? RelayCommand.Create<NicoSearchType>(async t =>
 		{
-			await NicoUtil.GetVideoBySearchType(Word, t, Orderby.SelectedItem.Value).ContinueWith(x =>
+			var myGen = Interlocked.Increment(ref _searchGen);
+			Sources.Clear();
+			try
 			{
-				Sources.Clear();
-				Sources.AddRange(x.Result);
-			}).TryCatch();
+				await foreach (var item in NicoUtil.GetVideoBySearchType(Word, t, Orderby.SelectedItem.Value))
+				{
+					if (Volatile.Read(ref _searchGen) != myGen) return;
+					Sources.Add(item);
+				}
+			}
+			catch { }
 
-			NicoModel.AddSearch(Word, t);
+			if (Volatile.Read(ref _searchGen) == myGen) NicoModel.AddSearch(Word, t);
 		});
 		private ICommand _OnSearch;
 
@@ -83,4 +94,4 @@ namespace Moviewer.Nico.Workspaces
 			NicoModel.DelSearch(vm.Word, vm.Type);
 		}
 	}
-}
+}

@@ -73,15 +73,22 @@ namespace Moviewer.Core.Windows
 		{
 			foreach (var m in NicoModel.Favorites)
 			{
-				var enumerable = await NicoUtil.GetVideoBySearchType(m.Word, m.Type, "regdate-");
-				var arr = enumerable.Where(x => m.Date < x.StartTime).ToArray();
-
-				foreach (var video in arr)
+				// IAsyncEnumerable は逐次評価。ループ内で m.Date を更新すると次の判定値が変わってしまうため
+				// 開始時点のしきい値を固定する。
+				var initialDate = m.Date;
+				try
 				{
-					VideoUtil.AddTemporary(MenuMode.Niconico, video.ContentId, false);
-
-					m.Date = Arr(m.Date, video.StartTime).Max();
+					await foreach (var video in NicoUtil.GetVideoBySearchType(m.Word, m.Type, "regdate-"))
+					{
+						// 比較フィールドの整合: nvapi `regdate-` は種別ごとに並びが異なる。
+						// User/Word/Tag は registeredAt 降順 (= StartTime)、Mylist は addedAt 降順 (= MylistAddedAt)。
+						var compareDate = video.MylistAddedAt ?? video.StartTime;
+						if (compareDate <= initialDate) break;
+						VideoUtil.AddTemporary(MenuMode.Niconico, video.ContentId, false);
+						m.Date = Arr(m.Date, compareDate).Max();
+					}
 				}
+				catch { }
 				VideoUtil.Save();
 			}
 		}
@@ -177,4 +184,4 @@ namespace Moviewer.Core.Windows
 		};
 
 	}
-}
+}

@@ -127,7 +127,27 @@ namespace TBird.Web
 		/// <param name="url">URL</param>
 		public static async Task<dynamic> GetJsonAsync(string url)
 		{
-			return DynamicJson.Parse(await GetStringAsync(url).TryCatch().ConfigureAwait(false));
+			var body = await GetStringAsync(url).TryCatch().ConfigureAwait(false);
+			return string.IsNullOrEmpty(body) ? null : DynamicJson.Parse(body);
+		}
+
+		/// <summary>
+		/// 任意ヘッダ付きでURLの内容を取得します。
+		/// </summary>
+		public static async Task<string> GetStringAsync(string url, IDictionary<string, string> headers)
+		{
+			var req = new HttpRequestMessage(HttpMethod.Get, url);
+			foreach (var kv in headers) req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+			return await SendStringAsync(req).ConfigureAwait(false);
+		}
+
+		/// <summary>
+		/// 任意ヘッダ付きでURLの内容をJson形式で取得します。
+		/// </summary>
+		public static async Task<dynamic> GetJsonAsync(string url, IDictionary<string, string> headers)
+		{
+			var body = await GetStringAsync(url, headers).TryCatch().ConfigureAwait(false);
+			return string.IsNullOrEmpty(body) ? null : DynamicJson.Parse(body);
 		}
 
 		/// <summary>
@@ -139,4 +159,4 @@ namespace TBird.Web
 			return XmlUtil.ToXml(await GetStringAsync(url).ConfigureAwait(false));
 		}
 	}
-}
+}
