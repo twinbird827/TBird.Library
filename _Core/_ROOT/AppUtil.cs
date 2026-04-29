@@ -20,7 +20,7 @@ namespace Netkeiba
 {
 	public static class AppUtil
 	{
-		public static string Sqlitepath { get; } = Path.Combine(Path.Combine(PathSetting.Instance.RootDirectory, @"database"), "database.sqlite3");
+		public static string Sqlitepath { get; } = PathSetting.GetPath(@"database", "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
 

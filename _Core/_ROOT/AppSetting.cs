@@ -18,7 +18,7 @@ namespace Netkeiba
 			}
 		}
 
-		public AppSetting() : this(Path.Combine(PathSetting.Instance.RootDirectory, @"lib\app-setting.json"))
+		public AppSetting() : this(PathSetting.GetPath(@"lib\app-setting.json"))
 		{
 
 		}
