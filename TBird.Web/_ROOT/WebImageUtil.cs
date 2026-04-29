@@ -8,7 +8,7 @@ namespace TBird.Web
 {
 	public static class WebImageUtil
 	{
-		private const string SaveDir = @"cache\bytes";
+		private readonly static string SaveDir = PathSetting.GetPath(@"cache\bytes");
 
 		static WebImageUtil()
 		{

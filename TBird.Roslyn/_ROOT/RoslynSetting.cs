@@ -12,7 +12,7 @@ namespace TBird.Roslyn
 		}
 		private static RoslynSetting _Instance;
 
-		public RoslynSetting() : base(_path)
+		public RoslynSetting() : base(PathSetting.GetPath(_path))
 		{
 			if (!Load())
 			{
