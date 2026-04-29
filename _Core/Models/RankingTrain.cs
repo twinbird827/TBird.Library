@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TBird.Core;
 
 namespace Netkeiba.Models
 {
@@ -24,7 +25,7 @@ namespace Netkeiba.Models
 		public RankingTrain(DateTime date, string grade, double ndcg1, double ndcg3, double ndcg5, double temperature = 1.0)
 		{
 			Date = date;
-			Path = $@"model\Ranking_{grade}_{date.ToString("yyyyMMdd-HHmmss")}.model";
+			Path = PathSetting.GetPath($@"model\Ranking_{grade}_{date.ToString("yyyyMMdd-HHmmss")}.model");
 			Grade = grade;
 			NDCG1 = ndcg1;
 			NDCG3 = ndcg3;

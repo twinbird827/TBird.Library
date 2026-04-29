@@ -106,7 +106,7 @@ namespace Netkeiba.Models
 
 		private static ITransformer LoadModel(MLContext ml, RankingTrain train)
 		{
-			using var stream = new FileStream(Path.Combine(PathSetting.Instance.RootDirectory, train.Path), FileMode.Open, FileAccess.Read, FileShare.Read);
+			using var stream = new FileStream(train.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
 			return ml.Model.Load(stream, out var schema);
 		}
 
