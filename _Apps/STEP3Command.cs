@@ -423,6 +423,7 @@ namespace Netkeiba
 						AppSetting.Instance.UpdateRankingTrains(result);
 
 						// ML.NET 4.0.2でのモデル保存方法
+						DirectoryUtil.Create(Path.GetDirectoryName(result.Path));
 						using var fileStream = new FileStream(result.Path, FileMode.Create, FileAccess.Write, FileShare.Write);
 						_ml.Model.Save(model, null, fileStream);
 						message2.Add($"モデルを保存しました: {result.Path}");
