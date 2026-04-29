@@ -15,6 +15,7 @@ namespace TBird.Wpf.Collections
 
 		protected virtual void OnCollectionChanged(bool isnotifycount, bool isnotifyitem, NotifyCollectionChangedEventArgs e)
 		{
+			if (IsDisposed) return;
 			if (isnotifycount) OnPropertyChanged("Count");
 			if (isnotifyitem) OnPropertyChanged("Item[]");
 			if (BindableCollectionChanged != null) BindableCollectionChanged(this, e);
@@ -62,6 +63,7 @@ namespace TBird.Wpf.Collections
 
 		protected virtual void Action(Action action)
 		{
+			if (IsDisposed) return;
 			lock (LockObject)
 			{
 				if (!IsDisposed)
@@ -73,6 +75,7 @@ namespace TBird.Wpf.Collections
 
 		protected virtual TResult Action<TResult>(Func<TResult> action)
 		{
+			if (IsDisposed) return default;
 			lock (LockObject)
 			{
 				if (!IsDisposed)
@@ -110,9 +113,9 @@ namespace TBird.Wpf.Collections
 			Action(() =>
 			{
 				_list.Add(item);
-				count = Count;
+				count = _list.Count - 1;
 			});
-			OnCollectionChanged(NotifyCollectionChangedAction.Add, item, count - 1);
+			OnCollectionChanged(NotifyCollectionChangedAction.Add, item, count);
 		}
 
 		public virtual void AddRange(IEnumerable<T> items)
@@ -123,19 +126,20 @@ namespace TBird.Wpf.Collections
 			Action(() =>
 			{
 				_list.AddRange(itemlist);
-				count = Count;
+				count = _list.Count - itemlist.Count;
 			});
-			OnCollectionChanged(true, true, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, itemlist, count - itemlist.Count));
+			OnCollectionChanged(true, true, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, itemlist, count));
 		}
 
 		public virtual void Clear()
 		{
-			var arr = _list.ToArray();
+			T[] arr = default;
 			Action(() =>
 			{
+				arr = _list.ToArray();
 				_list.Clear();
 			});
-			OnCollectionChanged(arr.Length > 0);
+			if (arr != null) OnCollectionChanged(arr.Length > 0);
 			if (_disposedsource) WpfUtil.Post(() => arr.ForParallel(x => x.TryDispose()));
 		}
 
@@ -195,8 +199,19 @@ namespace TBird.Wpf.Collections
 
 		public virtual void RemoveAt(int index)
 		{
-			if (index < 0 || Count <= index) return;
-			Remove(this[index]);
+			T item = default;
+			var action = Action(() =>
+			{
+				if (index < 0 || _list.Count <= index) return false;
+				item = _list[index];
+				_list.RemoveAt(index);
+				return true;
+			});
+			if (action)
+			{
+				OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
+				if (_disposedsource) WpfUtil.Post(val => val.TryDispose(), item);
+			}
 		}
 
 		IEnumerator IEnumerable.GetEnumerator()

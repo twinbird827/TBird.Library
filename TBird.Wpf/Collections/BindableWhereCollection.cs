@@ -11,12 +11,12 @@ namespace TBird.Wpf.Collections
 	{
 		private Func<T, bool> _func;
 
-		private string[] _names;
+		private HashSet<string> _names;
 
 		internal BindableWhereCollection(BindableCollection<T> collection, Func<T, bool> func, string[] names) : base(collection, false)
 		{
 			_func = func;
-			_names = names;
+			_names = new HashSet<string>(names);
 
 			collection.ForEach(item =>
 			{
@@ -39,8 +39,8 @@ namespace TBird.Wpf.Collections
 						e.OldItems.OfType<T>().ForEach(item => Remove(item));
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = (T)e.NewItems[0];
-						break;
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
+						goto case NotifyCollectionChangedAction.Add;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
 						break;
@@ -73,16 +73,17 @@ namespace TBird.Wpf.Collections
 			{
 				if (Parent is IList<T> parent)
 				{
-					for (var i = parent.IndexOf(item) + 1; i < parent.Count; i++)
-					{
-						var index = IndexOf(parent[i]);
-						if (0 <= index)
-						{
-							base.Insert(index, item);
-							return;
-						}
-					}
+					// 親ﾘｽﾄから挿入位置を確認
+					var index = parent.Skip(parent.IndexOf(item) + 1)
+						.Select(IndexOf)
+						.FirstOrDefault(i => 0 <= i, -1);
 
+					// 挿入位置を取得出来たら挿入
+					if (0 <= index)
+					{
+						base.Insert(index, item);
+						return;
+					}
 				}
 				base.Add(item);
 			}
@@ -90,7 +91,7 @@ namespace TBird.Wpf.Collections
 
 		public override bool Remove(T item)
 		{
-			if (!_func(item) && Contains(item))
+			if (Contains(item))
 			{
 				return base.Remove(item);
 			}
@@ -99,7 +100,7 @@ namespace TBird.Wpf.Collections
 
 		public override void AddRange(IEnumerable<T> items)
 		{
-			items.ForEach(item => Add(item));
+			items.ForEach(Add);
 		}
 
 		public override void Insert(int index, T item)
@@ -115,9 +116,10 @@ namespace TBird.Wpf.Collections
 
 				if (Parent is BindableCollection<T> parent)
 				{
-					var newitems = parent.Where(x => _func(x)).ToArray();
-					var delarr = this.Where(x => !newitems.Contains(x)).ToArray();
-					var addarr = newitems.Where(x => !Contains(x)).ToArray();
+					var newitems = new HashSet<T>(parent.Where(x => _func(x)));
+					var current = new HashSet<T>(this);
+					var delarr = current.Where(x => !newitems.Contains(x)).ToArray();
+					var addarr = newitems.Where(x => !current.Contains(x)).ToArray();
 
 					foreach (var item in delarr)
 					{
