@@ -21,7 +21,7 @@ public static class UpdateCheckScheduler
 
         WorkManager.GetInstance(context)!.EnqueueUniquePeriodicWork(
             UpdateCheckWorker.WORK_TAG,
-            ExistingPeriodicWorkPolicy.Keep!,
+            ExistingPeriodicWorkPolicy.Update!,
             workRequest);
 
         LogHelper.Info(nameof(UpdateCheckScheduler), $"Scheduled periodic check every {intervalHours} hours");

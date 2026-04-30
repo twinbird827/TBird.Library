@@ -19,11 +19,19 @@ public class UpdateCheckWorker : Worker
     {
         try
         {
-            // Resolve services from DI - we need to create instances manually for WorkManager
-            var dbService = IPlatformApplication.Current?.Services.GetService<DatabaseService>();
-            var novelRepo = IPlatformApplication.Current?.Services.GetService<NovelRepository>();
-            var episodeRepo = IPlatformApplication.Current?.Services.GetService<EpisodeRepository>();
-            var updateCheckService = IPlatformApplication.Current?.Services.GetService<UpdateCheckService>();
+            var services = IPlatformApplication.Current?.Services;
+            if (services is null)
+            {
+                // MainApplication 初期化完了前に Worker が起動した可能性。
+                // Retry で WorkManager のバックオフに任せる（次回はプロセスが暖まっている見込み）。
+                LogHelper.Warn(nameof(UpdateCheckWorker), "IPlatformApplication.Current is null, retry later");
+                return Result.InvokeRetry();
+            }
+
+            var dbService = services.GetService<DatabaseService>();
+            var novelRepo = services.GetService<NovelRepository>();
+            var episodeRepo = services.GetService<EpisodeRepository>();
+            var updateCheckService = services.GetService<UpdateCheckService>();
 
             if (dbService is null || novelRepo is null || episodeRepo is null || updateCheckService is null)
             {
