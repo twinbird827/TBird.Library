@@ -118,6 +118,6 @@ public class NetworkPolicyService
     private async Task<int> GetDelayMsAsync()
     {
         var v = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS).ConfigureAwait(false);
-        return Math.Clamp(v, 100, 5000);
+        return Math.Clamp(v, SettingsKeys.MIN_REQUEST_DELAY_MS, SettingsKeys.MAX_REQUEST_DELAY_MS);
     }
 }

@@ -94,6 +94,11 @@ public class BackgroundJobQueue
         if (oldCts is null) return;
         try { oldCts.Cancel(); }
         catch (ObjectDisposedException) { return; }
+
+        // キューに残っている job の dedup HashSet を再開可能な状態に戻す。
+        // キュー本体は消さない（Wi-Fi 復帰時にそのまま再消費される）。
+        SyncEnqueuedIdsFromQueues();
+
         if (oldTask is not null)
         {
             _ = oldTask.ContinueWith(_ => oldCts.Dispose(), TaskScheduler.Default);
@@ -101,6 +106,21 @@ public class BackgroundJobQueue
         else
         {
             oldCts.Dispose();
+        }
+    }
+
+    private void SyncEnqueuedIdsFromQueues()
+    {
+        // ConcurrentQueue.GetEnumerator はスナップショットを返すため列挙中の変更で例外にはならない。
+        // 旧 Enqueue が HashSet.Add 後に lock を抜けてから Queue.Enqueue する race window が
+        // 残るが、PR-3 (M-2) で Enqueue を async 化して同一 lock 内に統合し恒久解消する。
+        lock (_enqueuedEpisodeIds)
+        {
+            var live = new HashSet<int>();
+            foreach (var j in _highPriority) live.Add(j.EpisodeDbId);
+            foreach (var j in _normalPriority) live.Add(j.EpisodeDbId);
+            _enqueuedEpisodeIds.Clear();
+            foreach (var id in live) _enqueuedEpisodeIds.Add(id);
         }
     }
 

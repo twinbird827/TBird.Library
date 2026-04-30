@@ -44,8 +44,9 @@ public class UpdateCheckService
             {
                 if (ct.IsCancellationRequested) break;
 
-                // Skip novels with unconfirmed updates
-                if (novel.HasUnconfirmedUpdate) continue;
+                // 取得自体は常に行う。HasUnconfirmedUpdate=true の小説をスキップすると、
+                // ユーザがアプリを開かない限り更新追跡から脱落する問題があったため (H-2)。
+                // 通知は notificationId=novel.Id で上書き表示されるため重複通知にはならない。
 
                 try
                 {

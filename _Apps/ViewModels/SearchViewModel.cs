@@ -249,6 +249,7 @@ public partial class SearchViewModel : ObservableObject
         if (result.IsRegistered || result.IsRegistering) return;
 
         result.IsRegistering = true;
+        bool novelInserted = false;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -266,47 +267,63 @@ public partial class SearchViewModel : ObservableObject
             };
 
             await _novelRepo.InsertAsync(novel);
+            novelInserted = true;
 
             var service = _serviceFactory.GetService(result.SiteType);
             var episodes = await service.FetchEpisodeListAsync(result.NovelId, cts.Token);
 
-            var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
-            if (dbNovel is not null)
+            var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId)
+                ?? throw new InvalidOperationException("登録レコードを取得できませんでした");
+
+            foreach (var ep in episodes)
             {
-                foreach (var ep in episodes)
-                {
-                    ep.NovelId = dbNovel.Id;
-                }
-                await _episodeRepo.InsertAllAsync(episodes);
-
-                dbNovel.TotalEpisodes = episodes.Count;
-
-                // 作者名が空の場合、FetchNovelInfoAsync で補完
-                if (string.IsNullOrEmpty(dbNovel.Author))
-                {
-                    try
-                    {
-                        var (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId, cts.Token);
-                        if (!string.IsNullOrEmpty(fetchedAuthor))
-                        {
-                            dbNovel.Author = fetchedAuthor;
-                        }
-                    }
-                    catch { /* 作者名取得失敗は無視 */ }
-                }
-
-                await _novelRepo.UpdateAsync(dbNovel);
-
-                // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)
-                _ = _prefetch.EnqueueNovelAsync(dbNovel.Id);
+                ep.NovelId = dbNovel.Id;
             }
+            await _episodeRepo.InsertAllAsync(episodes);
+
+            dbNovel.TotalEpisodes = episodes.Count;
+
+            // 作者名が空の場合、FetchNovelInfoAsync で補完
+            if (string.IsNullOrEmpty(dbNovel.Author))
+            {
+                try
+                {
+                    var (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId, cts.Token);
+                    if (!string.IsNullOrEmpty(fetchedAuthor))
+                    {
+                        dbNovel.Author = fetchedAuthor;
+                    }
+                }
+                catch { /* 作者名取得失敗は無視 */ }
+            }
+
+            await _novelRepo.UpdateAsync(dbNovel);
+
+            // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)
+            _ = _prefetch.EnqueueNovelAsync(dbNovel.Id);
 
             result.IsRegistered = true;
             result.TotalEpisodes = episodes.Count;
+
+            // rollback スコープを「Insert 〜 全 await 完了」までに広げる意図でフラグを最後に下ろす。
+            // 途中の FetchEpisodeList / InsertAll / UpdateAsync 等で例外が出た場合は catch で補償削除に到達する。
+            novelInserted = false;
         }
         catch (Exception ex)
         {
             LogHelper.Error(nameof(SearchViewModel), $"Register failed: {ex.Message}");
+            if (novelInserted)
+            {
+                try
+                {
+                    await _novelRepo.DeleteBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId);
+                }
+                catch (Exception rbEx)
+                {
+                    LogHelper.Warn(nameof(SearchViewModel),
+                        $"Rollback delete failed for ({result.SiteType}, {result.NovelId}): {rbEx.Message}");
+                }
+            }
             await Shell.Current.DisplayAlert("エラー", $"登録に失敗しました: {ex.Message}", "OK");
         }
         finally

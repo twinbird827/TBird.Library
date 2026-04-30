@@ -155,10 +155,21 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
                 ep.IsRead = isRead;
         }
 
-        foreach (var vm in Episodes)
+        if (ShowUnreadOnly)
         {
-            if (readMap.TryGetValue(vm.Id, out var isRead))
-                vm.IsRead = isRead;
+            // 未読フィルタ ON のときは既読化した話をリストから外す必要がある
+            RebuildFilterCache();
+            RecalcPaging();
+            await LoadPageAsync();
+        }
+        else
+        {
+            // フィルタが OFF なら現在表示中のアイテムだけ in-place 更新
+            foreach (var vm in Episodes)
+            {
+                if (readMap.TryGetValue(vm.Id, out var isRead))
+                    vm.IsRead = isRead;
+            }
         }
     }
 
