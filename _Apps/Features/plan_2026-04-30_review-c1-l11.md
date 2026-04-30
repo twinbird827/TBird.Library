@@ -914,6 +914,7 @@ await _jobQueue.EnqueueAsync(new PrefetchEpisodeJob { /* ... */ }).ConfigureAwai
 - Enqueue 1 件ごとに `GetIntValueAsync` を await するが、`_cache` はメモリ ConcurrentDictionary。**初回の 1 件目のみ** `LoadAllAsync` 経由で DB 初期化と全設定ロードを行うため数百 ms オーダーの遅延が発生し得る。**2 件目以降**は cache hit でマイクロ秒オーダー。`EnqueueAllUnreadAsync` で 200 話を一括投入する場合、初回 1 回 + cache hit 199 回 ≒ 数百 ms の遅延に収まる想定。
 - **race window の完全抑止が成立する根拠**: `GetIntValueAsync`（[AppSettingsRepository.cs:43-47](../Services/Database/AppSettingsRepository.cs#L43-L47)）は内部で `GetValueAsync` を呼び、その冒頭（[:39](../Services/Database/AppSettingsRepository.cs#L39)）で `if (!_loaded) await LoadAllAsync()` を実行する。`LoadAllAsync`（[:22-35](../Services/Database/AppSettingsRepository.cs#L22-L35)）は `_loadGate` SemaphoreSlim でガードされ、二重チェックロックパターンで複数同時呼び出しを 1 回に集約する。さらに `_dbService.EnsureInitializedAsync`（[:29](../Services/Database/AppSettingsRepository.cs#L29)）を内部で呼ぶため DB 初期化前でも安全。よって Worker 早期起動時でも、最初の `EnqueueAsync` が DB 初期化 + 設定ロードを完了させてから判定を返す。
 - **呼び出し側のパフォーマンス**: PrefetchService.EnqueueNovelAsync が直列に await することになるが、これは元から DB クエリを直列実行する設計（line 34, 37, 38）と同質で、新規ボトルネックは生まない。
+- **PR-6 への follow-up**: [SearchViewModel.cs:324](../ViewModels/SearchViewModel.cs#L324) の `_ = _prefetch.EnqueueNovelAsync(dbNovel.Id);` は M-2 以前から fire-and-forget だが、M-2 で `EnqueueAsync` 内に `GetIntValueAsync` の await が入ったため、理論上の例外発生経路が増えた（実際にはキャッシュヒット後 μs オーダーで例外もほぼ起きない）。PR-6 のエラー UI 統一作業時に `_prefetch.EnqueueNovelAsync` 呼び出しを `try/catch + LogHelper.Warn` で wrap することを検討する。本 PR (PR-3) では対応不要 — fire-and-forget の安全性は M-2 単体で変わっていない。
 
 ---
 
