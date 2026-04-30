@@ -16,6 +16,7 @@ public class KakuyomuApiService : INovelService
     private readonly NetworkPolicyService _network;
     private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)> _episodeIdCache = new();
     private static readonly TimeSpan EpisodeIdCacheTtl = TimeSpan.FromMinutes(5);
+    private const int EpisodeIdCacheMaxEntries = 100;
 
     public KakuyomuApiService(HttpClient httpClient, NetworkPolicyService network)
     {
@@ -97,8 +98,30 @@ public class KakuyomuApiService : INovelService
         return ParseApolloState(html).episodes;
     }
 
+    private void SweepExpiredEpisodeIdCache()
+    {
+        var now = DateTime.UtcNow;
+        var expired = _episodeIdCache
+            .Where(kv => now - kv.Value.cachedAt >= EpisodeIdCacheTtl)
+            .Select(kv => kv.Key)
+            .ToList();
+        foreach (var k in expired) _episodeIdCache.TryRemove(k, out _);
+
+        if (_episodeIdCache.Count > EpisodeIdCacheMaxEntries)
+        {
+            var oldest = _episodeIdCache
+                .OrderBy(kv => kv.Value.cachedAt)
+                .Take(_episodeIdCache.Count - EpisodeIdCacheMaxEntries)
+                .Select(kv => kv.Key)
+                .ToList();
+            foreach (var k in oldest) _episodeIdCache.TryRemove(k, out _);
+        }
+    }
+
     private async Task<List<string>> GetEpisodeIdsAsync(string novelId, CancellationToken ct)
     {
+        SweepExpiredEpisodeIdCache();
+
         if (_episodeIdCache.TryGetValue(novelId, out var cached)
             && DateTime.UtcNow - cached.cachedAt < EpisodeIdCacheTtl)
         {
@@ -210,7 +233,12 @@ public class KakuyomuApiService : INovelService
         var context = BrowsingContext.New(config);
         var episodeDoc = await context.OpenAsync(req => req.Content(episodeHtml), cts.Token).ConfigureAwait(false);
 
-        var contentEl = episodeDoc.QuerySelector(".widget-episodeBody, [class*='EpisodeBody']");
+        // CSS3 の [class~='X'] は「スペース区切り単語の完全一致」のため、
+        // EpisodeBodyHeader 等の連結クラス名にはマッチしない（過剰マッチ回避）。
+        var contentEl =
+            episodeDoc.QuerySelector(".widget-episodeBody") ??
+            episodeDoc.QuerySelector("[class~='EpisodeBody']");
+
         if (contentEl is null)
         {
             throw new InvalidOperationException("本文の取得に失敗しました（サイト構造が変わった可能性があります）");
