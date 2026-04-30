@@ -177,6 +177,27 @@ public class NovelRepository
         }).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// (site_type, novel_id) で Novel を補償削除。
+    /// SearchViewModel.RegisterAsync の Insert 成功後ネットワーク失敗時に使用。
+    /// </summary>
+    public async Task DeleteBySiteAndNovelIdAsync(int siteType, string novelId)
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await _db.RunInTransactionAsync(conn =>
+        {
+            var rows = conn.Query<Novel>(
+                "SELECT * FROM novels WHERE site_type = ? AND novel_id = ?",
+                siteType, novelId);
+            foreach (var n in rows)
+            {
+                _cacheRepo.DeleteByNovelIdSync(conn, n.Id);
+                conn.Execute("DELETE FROM episodes WHERE novel_id = ?", n.Id);
+                conn.Execute("DELETE FROM novels WHERE id = ?", n.Id);
+            }
+        }).ConfigureAwait(false);
+    }
+
     public async Task<int> CountAsync()
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
