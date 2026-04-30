@@ -36,6 +36,13 @@ public partial class App : Application
         {
             LogHelper.Error("App", $"Unhandled exception: {args.ExceptionObject}");
         };
+
+        // fire-and-forget Task の未観測例外を捕捉してプロセス終了を抑止する
+        TaskScheduler.UnobservedTaskException += (sender, args) =>
+        {
+            LogHelper.Error("App", $"Unobserved task exception: {args.Exception}");
+            args.SetObserved();
+        };
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
