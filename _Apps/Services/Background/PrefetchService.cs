@@ -41,7 +41,7 @@ public class PrefetchService
         foreach (var ep in episodes)
         {
             if (cachedIds.Contains(ep.Id)) continue;
-            _queue.Enqueue(new PrefetchEpisodeJob
+            await _queue.EnqueueAsync(new PrefetchEpisodeJob
             {
                 NovelDbId = novel.Id,
                 EpisodeDbId = ep.Id,
@@ -49,7 +49,7 @@ public class PrefetchService
                 SiteType = novel.SiteType,
                 SiteNovelId = novel.NovelId,
                 Priority = (highPriority || novel.IsFavorite) ? 1 : 0,
-            });
+            }).ConfigureAwait(false);
             enqueued++;
         }
         LogHelper.Info(nameof(PrefetchService), $"Enqueued {enqueued} episodes for novel {novelDbId}");
@@ -72,7 +72,7 @@ public class PrefetchService
             foreach (var ep in episodes.Where(e => !e.IsRead))
             {
                 if (cachedIds.Contains(ep.Id)) continue;
-                _queue.Enqueue(new PrefetchEpisodeJob
+                await _queue.EnqueueAsync(new PrefetchEpisodeJob
                 {
                     NovelDbId = novel.Id,
                     EpisodeDbId = ep.Id,
@@ -80,7 +80,7 @@ public class PrefetchService
                     SiteType = novel.SiteType,
                     SiteNovelId = novel.NovelId,
                     Priority = novel.IsFavorite ? 1 : 0,
-                });
+                }).ConfigureAwait(false);
             }
         }
     }

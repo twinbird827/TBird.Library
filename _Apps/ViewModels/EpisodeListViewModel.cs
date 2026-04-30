@@ -71,15 +71,18 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
 
     private int _episodesPerPage = 50;
     private Novel? _novel;
+    private Task? _initTask;
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("novelId", out var novelIdObj) && int.TryParse(novelIdObj?.ToString(), out var novelId))
         {
             _novelDbId = novelId;
-            _ = InitializeAsync();
+            _initTask = InitializeAsync();
         }
     }
+
+    public Task EnsureInitializedAsync() => _initTask ?? Task.CompletedTask;
 
     public async Task InitializeAsync()
     {

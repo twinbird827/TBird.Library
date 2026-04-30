@@ -52,15 +52,23 @@ public class BackgroundJobQueue
 
     public int PendingCount => _highPriority.Count + _normalPriority.Count;
 
-    public void Enqueue(PrefetchEpisodeJob job)
+    public async Task EnqueueAsync(PrefetchEpisodeJob job)
     {
+        // 設定 OFF なら drop。GetIntValueAsync は内部で LoadAllAsync 完了を保証するため race なし。
+        var enabled = await _settingsRepo.GetIntValueAsync(
+            SettingsKeys.PREFETCH_ENABLED,
+            SettingsKeys.DEFAULT_PREFETCH_ENABLED).ConfigureAwait(false);
+        if (enabled == 0) return;
+
+        // HashSet.Add と Queue.Enqueue を同一 lock 内で完結させる。
+        // 旧 Enqueue は Add 後 lock を抜けてから Enqueue していたため、StopWorker →
+        // SyncEnqueuedIdsFromQueues が割り込むと「HashSet にも Queue にもない job」が発生する race があった。
         lock (_enqueuedEpisodeIds)
         {
             if (!_enqueuedEpisodeIds.Add(job.EpisodeDbId)) return;
+            if (job.Priority > 0) _highPriority.Enqueue(job);
+            else _normalPriority.Enqueue(job);
         }
-
-        if (job.Priority > 0) _highPriority.Enqueue(job);
-        else _normalPriority.Enqueue(job);
 
         EnsureWorkerStarted();
     }
@@ -111,9 +119,10 @@ public class BackgroundJobQueue
 
     private void SyncEnqueuedIdsFromQueues()
     {
-        // ConcurrentQueue.GetEnumerator はスナップショットを返すため列挙中の変更で例外にはならない。
-        // 旧 Enqueue が HashSet.Add 後に lock を抜けてから Queue.Enqueue する race window が
-        // 残るが、PR-3 (M-2) で Enqueue を async 化して同一 lock 内に統合し恒久解消する。
+        // ConcurrentQueue.GetEnumerator はスナップショットを返す。
+        // EnqueueAsync が HashSet.Add と Queue.Enqueue を同一 lock 内で完結させているため、
+        // 本メソッドが lock を取った時点で Queue 列挙の結果は HashSet と整合している
+        // (HashSet に居るが Queue に未追加という中間状態は存在しない)。
         lock (_enqueuedEpisodeIds)
         {
             var live = new HashSet<int>();
