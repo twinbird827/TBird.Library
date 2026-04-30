@@ -104,17 +104,17 @@ public class DatabaseService
     {
         var defaults = new Dictionary<string, string>
         {
-            ["cache_months"] = "3",
-            ["update_interval_hours"] = "6",
-            ["font_size_sp"] = "16",
-            ["background_theme"] = "0",
-            ["line_spacing"] = "1",
-            ["episodes_per_page"] = "50",
-            ["prefetch_enabled"] = "1",
-            ["request_delay_ms"] = "800",
-            ["vertical_writing"] = "0",
-            ["novel_sort_key"] = "updated_desc",
-            ["last_scheduled_hours"] = "6",
+            [SettingsKeys.CACHE_MONTHS]          = SettingsKeys.DEFAULT_CACHE_MONTHS.ToString(),
+            [SettingsKeys.UPDATE_INTERVAL_HOURS] = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS.ToString(),
+            [SettingsKeys.FONT_SIZE_SP]          = SettingsKeys.DEFAULT_FONT_SIZE_SP.ToString(),
+            [SettingsKeys.BACKGROUND_THEME]      = SettingsKeys.DEFAULT_BACKGROUND_THEME.ToString(),
+            [SettingsKeys.LINE_SPACING]          = SettingsKeys.DEFAULT_LINE_SPACING.ToString(),
+            [SettingsKeys.EPISODES_PER_PAGE]     = SettingsKeys.DEFAULT_EPISODES_PER_PAGE.ToString(),
+            [SettingsKeys.PREFETCH_ENABLED]      = SettingsKeys.DEFAULT_PREFETCH_ENABLED.ToString(),
+            [SettingsKeys.REQUEST_DELAY_MS]      = SettingsKeys.DEFAULT_REQUEST_DELAY_MS.ToString(),
+            [SettingsKeys.VERTICAL_WRITING]      = SettingsKeys.DEFAULT_VERTICAL_WRITING.ToString(),
+            [SettingsKeys.NOVEL_SORT_KEY]        = SettingsKeys.DEFAULT_NOVEL_SORT_KEY,
+            [SettingsKeys.LAST_SCHEDULED_HOURS]  = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS.ToString(),
         };
 
         foreach (var (key, value) in defaults)
