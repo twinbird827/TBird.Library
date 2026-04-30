@@ -162,7 +162,7 @@ public partial class SearchViewModel : ObservableObject
             // サイト fetch 失敗の errors の前に連結表示する。
             var combined = new List<string>();
             if (!string.IsNullOrEmpty(prefixMessage)) combined.Add(prefixMessage);
-            combined.AddRange(errors!);
+            combined.AddRange(errors.Select(e => e!));
             if (combined.Count > 0)
             {
                 HasError = true;

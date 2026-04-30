@@ -1,3 +1,4 @@
+using LanobeReader.Helpers;
 using LanobeReader.ViewModels;
 
 namespace LanobeReader.Views;
@@ -26,7 +27,7 @@ public partial class EpisodeListPage : ContentPage
             {
                 // async void の例外は TaskScheduler.UnobservedTaskException で拾えないため、
                 // ここで握り潰してプロセスクラッシュを防ぐ。
-                LanobeReader.Helpers.LogHelper.Warn(nameof(EpisodeListPage),
+                LogHelper.Warn(nameof(EpisodeListPage),
                     $"OnAppearing failed: {ex.Message}");
             }
         }
