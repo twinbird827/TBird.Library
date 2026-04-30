@@ -135,7 +135,8 @@ public partial class SearchViewModel : ObservableObject
     private async Task ExecuteSiteQueryAsync(
         string operationName,
         Func<CancellationToken, Task<List<SearchResult>>>? narouFetch,
-        Func<CancellationToken, Task<List<SearchResult>>>? kakuyomuFetch)
+        Func<CancellationToken, Task<List<SearchResult>>>? kakuyomuFetch,
+        string? prefixMessage = null)
     {
         IsLoading = true;
         HasError = false;
@@ -156,10 +157,16 @@ public partial class SearchViewModel : ObservableObject
 
             var allHits = siteResults.SelectMany(r => r.hits).ToList();
             var errors = siteResults.Select(r => r.error).Where(e => e is not null).ToList();
-            if (errors.Count > 0)
+
+            // prefixMessage はユーザに告知すべき制限（例: Quarterly カクヨム非対応）の専用ルート。
+            // サイト fetch 失敗の errors の前に連結表示する。
+            var combined = new List<string>();
+            if (!string.IsNullOrEmpty(prefixMessage)) combined.Add(prefixMessage);
+            combined.AddRange(errors!);
+            if (combined.Count > 0)
             {
                 HasError = true;
-                ErrorMessage = string.Join("\n", errors);
+                ErrorMessage = string.Join("\n", combined);
             }
 
             await ShowResultsAsync(allHits);
@@ -191,6 +198,15 @@ public partial class SearchViewModel : ObservableObject
     private Task FetchRankingAsync()
     {
         var period = (RankingPeriod)Math.Clamp(RankingPeriodIndex, 0, 3);
+        var kakuyomuSupported = period != RankingPeriod.Quarterly;
+        // カクヨムは四半期ランキング非対応。silently fallback ではなくバナー通知する。
+        // 文言はなろう側の選択状況で出し分け。
+        string? prefixMessage = (!kakuyomuSupported && SearchKakuyomu)
+            ? (SearchNarou
+                ? "カクヨムは四半期ランキング非対応のため、なろうのみ取得します"
+                : "カクヨムは四半期ランキング非対応です。取得対象がありません")
+            : null;
+
         return ExecuteSiteQueryAsync(
             "Ranking fetch",
             SearchNarou
@@ -202,7 +218,7 @@ public partial class SearchViewModel : ObservableObject
                     return _narou.FetchRankingAsync(period, bg, 30, ct);
                 }
                 : null,
-            SearchKakuyomu
+            (SearchKakuyomu && kakuyomuSupported)
                 ? ct =>
                 {
                     var periodSlug = period switch
@@ -210,11 +226,12 @@ public partial class SearchViewModel : ObservableObject
                         RankingPeriod.Daily => "daily",
                         RankingPeriod.Weekly => "weekly",
                         RankingPeriod.Monthly => "monthly",
-                        _ => "weekly",
+                        _ => "weekly", // 到達しない (kakuyomuSupported で gate 済み)
                     };
                     return _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre?.Id ?? "all", periodSlug, ct);
                 }
-                : null);
+                : null,
+            prefixMessage);
     }
 
     [RelayCommand]
