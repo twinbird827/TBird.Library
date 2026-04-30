@@ -30,17 +30,12 @@ public class NarouApiService : INovelService
 
     public SiteType SiteType => SiteType.Narou;
 
-    public async Task<List<SearchResult>> SearchAsync(string keyword, string searchTarget, CancellationToken ct = default)
+    public async Task<List<SearchResult>> SearchAsync(string keyword, CancellationToken ct = default)
     {
-        var wordParam = searchTarget switch
-        {
-            "Title" => "title",
-            "Author" => "wname",
-            _ => "word", // Both
-        };
-
         var encoded = Uri.EscapeDataString(keyword);
-        var url = $"{API_BASE}?out=json&lim=20&{wordParam}={encoded}";
+        // title=1 + wname=1 で「タイトル or 作者名」にマッチする作品のみ取得。
+        // word 単独だとあらすじ・キーワード・作者名まで全文検索され、無関係な作品が大量にヒットする。
+        var url = $"{API_BASE}?out=json&lim=20&word={encoded}&title=1&wname=1";
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));

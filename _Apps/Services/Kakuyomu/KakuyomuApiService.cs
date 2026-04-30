@@ -30,7 +30,7 @@ public class KakuyomuApiService : INovelService
 
     public SiteType SiteType => SiteType.Kakuyomu;
 
-    public async Task<List<SearchResult>> SearchAsync(string keyword, string searchTarget, CancellationToken ct = default)
+    public async Task<List<SearchResult>> SearchAsync(string keyword, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));

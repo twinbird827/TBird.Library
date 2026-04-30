@@ -179,11 +179,10 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private Task SearchAsync()
     {
-        var searchTarget = "Both";
         return ExecuteSiteQueryAsync(
             "Search",
-            SearchNarou ? ct => _narou.SearchAsync(SearchKeyword, searchTarget, ct) : null,
-            SearchKakuyomu ? ct => _kakuyomu.SearchAsync(SearchKeyword, searchTarget, ct) : null);
+            SearchNarou    ? ct => _narou.SearchAsync(SearchKeyword, ct)    : null,
+            SearchKakuyomu ? ct => _kakuyomu.SearchAsync(SearchKeyword, ct) : null);
     }
 
     private bool CanSearch() => !string.IsNullOrWhiteSpace(SearchKeyword) && !IsLoading;
