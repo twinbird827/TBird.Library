@@ -12,6 +12,7 @@ public static class SettingsKeys
     public const string REQUEST_DELAY_MS = "request_delay_ms";
     public const string VERTICAL_WRITING = "vertical_writing";
     public const string NOVEL_SORT_KEY = "novel_sort_key";
+    public const string LAST_SCHEDULED_HOURS = "last_scheduled_hours";
 
     // Default values
     public const int DEFAULT_CACHE_MONTHS = 3;

@@ -114,6 +114,7 @@ public class DatabaseService
             ["request_delay_ms"] = "800",
             ["vertical_writing"] = "0",
             ["novel_sort_key"] = "updated_desc",
+            ["last_scheduled_hours"] = "6",
         };
 
         foreach (var (key, value) in defaults)
