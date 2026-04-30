@@ -86,7 +86,7 @@ public class UpdateCheckService
                                 var inserted = await _episodeRepo.GetByNovelIdAsync(novel.Id).ConfigureAwait(false);
                                 foreach (var ep in inserted.Where(e => e.EpisodeNo > currentMaxEpisode))
                                 {
-                                    _jobQueue.Enqueue(new PrefetchEpisodeJob
+                                    await _jobQueue.EnqueueAsync(new PrefetchEpisodeJob
                                     {
                                         NovelDbId = novel.Id,
                                         EpisodeDbId = ep.Id,
@@ -94,7 +94,7 @@ public class UpdateCheckService
                                         SiteType = novel.SiteType,
                                         SiteNovelId = novel.NovelId,
                                         Priority = novel.IsFavorite ? 1 : 0,
-                                    });
+                                    }).ConfigureAwait(false);
                                 }
                             }
                         }
