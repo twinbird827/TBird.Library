@@ -15,13 +15,9 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
-        builder
-            .UseMauiApp<App>()
-            .ConfigureFonts(fonts =>
-            {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-            });
+        builder.UseMauiApp<App>();
+        // OpenSans*.ttf は Resources/Fonts に存在せず、XAML からも参照していないため AddFont を削除。
+        // 縦書き WebView は Reader 側 CSS で font-family:serif を直指定しているため影響なし。
 
 #if DEBUG
         builder.Logging.SetMinimumLevel(LogLevel.Debug);
