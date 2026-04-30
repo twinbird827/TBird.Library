@@ -185,7 +185,14 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
                 var connectivity = Connectivity.Current.NetworkAccess;
                 if (connectivity != NetworkAccess.Internet)
                 {
-                    await Shell.Current.DisplayAlert("エラー", "オフラインのため表示できません。キャッシュがありません", "OK");
+                    // 前話の残り表示を防ぐためコンテンツをクリア（横書き Label / 縦書き WebView 両方）。
+                    // ユーザは目次/戻るボタンで自分で抜ける（自動遷移は採用しない）。
+                    EpisodeContent = string.Empty;
+                    EpisodeTitle = string.Empty;
+                    EpisodeHtml = string.Empty;
+
+                    await Shell.Current.DisplayAlert("オフライン",
+                        "オフラインのため表示できません。キャッシュもありません。", "OK");
                     return;
                 }
 
