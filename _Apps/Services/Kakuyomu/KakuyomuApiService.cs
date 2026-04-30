@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AngleSharp;
 using AngleSharp.Dom;
 using LanobeReader.Models;
@@ -345,7 +346,7 @@ public class KakuyomuApiService : INovelService
             var isCompleted = statusLabel?.TextContent.Trim() == "完結";
 
             var episodeCountText = card.QuerySelector("span.widget-workCard-episodeCount")?.TextContent ?? "";
-            var episodeMatch = System.Text.RegularExpressions.Regex.Match(episodeCountText, @"\d+");
+            var episodeMatch = Regex.Match(episodeCountText, @"\d+");
             var totalEpisodes = episodeMatch.Success && int.TryParse(episodeMatch.Value, out var n) ? n : 0;
 
             results.Add(new SearchResult

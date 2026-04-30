@@ -25,7 +25,7 @@ public static class SettingsKeys
     public const int DEFAULT_PREFETCH_ENABLED = 1;
     public const int DEFAULT_REQUEST_DELAY_MS = 800;
     public const int DEFAULT_VERTICAL_WRITING = 0;
-    public const int DEFAULT_AUTO_MARK_READ_ENABLED = 1;
+    public const int DEFAULT_AUTO_MARK_READ_ENABLED = 0;
     public const string DEFAULT_NOVEL_SORT_KEY = "updated_desc";
     public const int MIN_REQUEST_DELAY_MS = 500;
     public const int MAX_REQUEST_DELAY_MS = 2000;

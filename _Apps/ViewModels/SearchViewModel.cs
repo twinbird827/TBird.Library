@@ -220,15 +220,17 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand]
     private Task FetchGenreAsync()
     {
-        // narouBg=null は「すべて」選択時 (Id="" で int.TryParse 失敗) を表す。
-        // 旧コードは narouBg=null だと fetch 自体を呼ばず 0 件になっていた。
-        int? narouBg = (SelectedNarouBigGenre is not null
-            && int.TryParse(SelectedNarouBigGenre.Id, out var bg)) ? bg : null;
-
         return ExecuteSiteQueryAsync(
             "Genre fetch",
             SearchNarou
-                ? ct => _narou.FetchByGenreAsync(narouBg, "weeklypoint", 30, ct)
+                ? ct =>
+                {
+                    // narouBg=null は「すべて」選択時 (Id="" で int.TryParse 失敗) を表す。
+                    // 旧コードは narouBg=null だと fetch 自体を呼ばず 0 件になっていた。
+                    int? narouBg = (SelectedNarouBigGenre is not null
+                        && int.TryParse(SelectedNarouBigGenre.Id, out var bg)) ? bg : null;
+                    return _narou.FetchByGenreAsync(narouBg, "weeklypoint", 30, ct);
+                }
                 : null,
             (SearchKakuyomu && SelectedKakuyomuGenre is not null)
                 ? ct => _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly", ct)
