@@ -115,6 +115,7 @@ public class DatabaseService
             [SettingsKeys.VERTICAL_WRITING]      = SettingsKeys.DEFAULT_VERTICAL_WRITING.ToString(),
             [SettingsKeys.NOVEL_SORT_KEY]        = SettingsKeys.DEFAULT_NOVEL_SORT_KEY,
             [SettingsKeys.LAST_SCHEDULED_HOURS]  = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS.ToString(),
+            [SettingsKeys.AUTO_MARK_READ_ENABLED] = SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED.ToString(),
         };
 
         foreach (var (key, value) in defaults)

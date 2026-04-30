@@ -80,6 +80,18 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     [NotifyCanExecuteChangedFor(nameof(NextEpisodeCommand))]
     private bool _hasNextEpisode;
 
+    [ObservableProperty]
+    private bool _autoMarkReadEnabled = true;
+
+    public bool IsManualReadButtonOverlayVisible
+        => !AutoMarkReadEnabled && !IsFooterVisible;
+
+    partial void OnAutoMarkReadEnabledChanged(bool value)
+        => OnPropertyChanged(nameof(IsManualReadButtonOverlayVisible));
+
+    partial void OnIsFooterVisibleChanged(bool value)
+        => OnPropertyChanged(nameof(IsManualReadButtonOverlayVisible));
+
     private Episode? _episode;
 
     public Action? ScrollToTop { get; set; }
@@ -127,6 +139,9 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         BackgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
         LineSpacingIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
         var vertical = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING);
+        AutoMarkReadEnabled = await _settingsRepo.GetIntValueAsync(
+            SettingsKeys.AUTO_MARK_READ_ENABLED,
+            SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED) == 1;
 
         IsVerticalWriting = vertical == 1;
         IsHorizontal = !IsVerticalWriting;
@@ -267,11 +282,21 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     }
 
     [RelayCommand]
-    private async Task MarkAsReadAsync()
-    {
-        if (_episode is null || _episode.IsRead) return;
+    private Task MarkAsReadAsync() => ApplyMarkAsReadAsync();
 
-        await _episodeRepo.MarkAsReadAsync(_episode.Id);
+    [RelayCommand]
+    private Task MarkAsReadFromAutoAsync()
+    {
+        // 自動経路 (OnScrolled / WebView read-end)。設定 OFF なら no-op。
+        if (!AutoMarkReadEnabled) return Task.CompletedTask;
+        return ApplyMarkAsReadAsync();
+    }
+
+    private async Task ApplyMarkAsReadAsync()
+    {
+        if (_episode is null) return;
+        // N-2 仕様: 既読でも N+1 以降の未読化を走らせるため IsRead チェックは外す。
+        await _episodeRepo.SetReadStateUpToAsync(_novelDbId, _episode.EpisodeNo);
         _episode.IsRead = true;
 
         var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId);

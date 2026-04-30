@@ -122,13 +122,29 @@ public class EpisodeRepository
         return await _db.UpdateAsync(episode).ConfigureAwait(false);
     }
 
-    public async Task MarkAsReadAsync(int episodeId)
+    /// <summary>
+    /// 読了点 (episode_no) を境に既読状態を一括更新する。
+    /// 1..N: is_read=1（既存 read_at は COALESCE で保持、未設定なら now を入れる）
+    /// N+1..max: is_read=0、read_at=NULL に巻き戻し
+    /// 過去話を再読した場合は意図的に N+1 以降を未読化する仕様（ユーザ承認済み）。
+    /// </summary>
+    public async Task SetReadStateUpToAsync(int novelId, int episodeNo)
     {
         await EnsureAsync().ConfigureAwait(false);
         var now = DateTime.UtcNow.ToString("o");
-        await _db.ExecuteAsync(
-            "UPDATE episodes SET is_read = ?, read_at = ? WHERE id = ?", true, now, episodeId
-        ).ConfigureAwait(false);
+
+        await _db.RunInTransactionAsync(conn =>
+        {
+            conn.Execute(
+                "UPDATE episodes SET is_read = 1, read_at = COALESCE(read_at, ?) " +
+                "WHERE novel_id = ? AND episode_no <= ?",
+                now, novelId, episodeNo);
+
+            conn.Execute(
+                "UPDATE episodes SET is_read = 0, read_at = NULL " +
+                "WHERE novel_id = ? AND episode_no > ?",
+                novelId, episodeNo);
+        }).ConfigureAwait(false);
     }
 
     public async Task<bool> AreAllReadAsync(int novelId)

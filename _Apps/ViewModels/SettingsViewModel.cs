@@ -45,6 +45,9 @@ public partial class SettingsViewModel : ObservableObject
     private bool _prefetchEnabled = true;
 
     [ObservableProperty]
+    private bool _autoMarkReadEnabled = true;
+
+    [ObservableProperty]
     private int _requestDelayMs = SettingsKeys.DEFAULT_REQUEST_DELAY_MS;
 
     public async Task InitializeAsync()
@@ -60,6 +63,7 @@ public partial class SettingsViewModel : ObservableObject
             EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, SettingsKeys.DEFAULT_EPISODES_PER_PAGE);
             VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING) == 1;
             PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, SettingsKeys.DEFAULT_PREFETCH_ENABLED) == 1;
+            AutoMarkReadEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.AUTO_MARK_READ_ENABLED, SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED) == 1;
             RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
         }
         finally
@@ -106,6 +110,7 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnVerticalWritingChanged(bool value)  => DebounceSave(SettingsKeys.VERTICAL_WRITING, value ? "1" : "0");
     partial void OnPrefetchEnabledChanged(bool value)  => DebounceSave(SettingsKeys.PREFETCH_ENABLED, value ? "1" : "0");
+    partial void OnAutoMarkReadEnabledChanged(bool value) => DebounceSave(SettingsKeys.AUTO_MARK_READ_ENABLED, value ? "1" : "0");
 
     [RelayCommand]
     private async Task ClearCacheAsync()

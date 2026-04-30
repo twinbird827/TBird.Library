@@ -29,7 +29,7 @@ public partial class ReaderPage : ContentPage
         {
             if (BindingContext is ReaderViewModel vm)
             {
-                await vm.MarkAsReadCommand.ExecuteAsync(null);
+                await vm.MarkAsReadFromAutoCommand.ExecuteAsync(null);
             }
         }
     }
@@ -43,7 +43,7 @@ public partial class ReaderPage : ContentPage
 
         if (e.Url.Contains("read-end", StringComparison.OrdinalIgnoreCase))
         {
-            await vm.MarkAsReadCommand.ExecuteAsync(null);
+            await vm.MarkAsReadFromAutoCommand.ExecuteAsync(null);
         }
         else if (e.Url.Contains("next-episode", StringComparison.OrdinalIgnoreCase))
         {

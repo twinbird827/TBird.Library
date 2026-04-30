@@ -13,6 +13,7 @@ public static class SettingsKeys
     public const string VERTICAL_WRITING = "vertical_writing";
     public const string NOVEL_SORT_KEY = "novel_sort_key";
     public const string LAST_SCHEDULED_HOURS = "last_scheduled_hours";
+    public const string AUTO_MARK_READ_ENABLED = "auto_mark_read_enabled";
 
     // Default values
     public const int DEFAULT_CACHE_MONTHS = 3;
@@ -24,6 +25,7 @@ public static class SettingsKeys
     public const int DEFAULT_PREFETCH_ENABLED = 1;
     public const int DEFAULT_REQUEST_DELAY_MS = 800;
     public const int DEFAULT_VERTICAL_WRITING = 0;
+    public const int DEFAULT_AUTO_MARK_READ_ENABLED = 1;
     public const string DEFAULT_NOVEL_SORT_KEY = "updated_desc";
     public const int MIN_REQUEST_DELAY_MS = 500;
     public const int MAX_REQUEST_DELAY_MS = 2000;
