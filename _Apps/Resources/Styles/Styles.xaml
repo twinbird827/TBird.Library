@@ -81,4 +81,15 @@
         <Setter Property="TextColor" Value="White" />
     </Style>
 
+    <!-- Inline error banner (red background, white text). Shown above the page content
+         when HasError=true. Used for transient error notifications only;
+         confirmation dialogs (delete confirmation etc.) keep using DisplayAlert. -->
+    <Style x:Key="ErrorBanner" TargetType="Label">
+        <Setter Property="BackgroundColor" Value="{StaticResource DestructiveRed}" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+
 </ResourceDictionary>

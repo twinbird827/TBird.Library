@@ -7,16 +7,20 @@
              x:DataType="vm:SearchViewModel"
              Title="検索">
 
-	<Grid RowDefinitions="Auto,Auto,Auto,*">
+	<Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+		<!-- Error banner (Auto row collapses when HasError=false) -->
+		<Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+		       Style="{StaticResource ErrorBanner}" />
+
 		<!-- Mode tabs -->
-		<HorizontalStackLayout Grid.Row="0" Padding="8,4" Spacing="6">
+		<HorizontalStackLayout Grid.Row="1" Padding="8,4" Spacing="6">
 			<Button Text="検索" Command="{Binding SetModeKeywordCommand}" FontSize="12" HeightRequest="36" />
 			<Button Text="ランキング" Command="{Binding SetModeRankingCommand}" FontSize="12" HeightRequest="36" />
 			<Button Text="ジャンル" Command="{Binding SetModeGenreCommand}" FontSize="12" HeightRequest="36" />
 		</HorizontalStackLayout>
 
 		<!-- Mode-specific inputs -->
-		<Grid Grid.Row="1" Padding="8,0">
+		<Grid Grid.Row="2" Padding="8,0">
 			<!-- Keyword mode -->
 			<Grid IsVisible="{Binding IsKeywordMode}" ColumnDefinitions="*,Auto">
 				<Entry Grid.Column="0" Placeholder="タイトル・作者名で検索"
@@ -67,7 +71,7 @@
 		</Grid>
 
 		<!-- Site filters -->
-		<HorizontalStackLayout Grid.Row="2" Padding="8,0" Spacing="16">
+		<HorizontalStackLayout Grid.Row="3" Padding="8,0" Spacing="16">
 			<HorizontalStackLayout Spacing="4">
 				<CheckBox IsChecked="{Binding SearchNarou}" />
 				<Label Text="なろう" VerticalOptions="Center" />
@@ -78,12 +82,9 @@
 			</HorizontalStackLayout>
 		</HorizontalStackLayout>
 
-		<Grid Grid.Row="3">
+		<Grid Grid.Row="4">
 			<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
-
-			<Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
-                   TextColor="Red" Padding="16" FontSize="14" />
 
 			<CollectionView ItemsSource="{Binding SearchResults}" SelectionMode="None">
 				<CollectionView.ItemTemplate>

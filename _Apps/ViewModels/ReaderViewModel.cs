@@ -7,7 +7,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class ReaderViewModel : ObservableObject, IQueryAttributable
+public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 {
     private readonly EpisodeRepository _episodeRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
@@ -166,6 +166,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task LoadEpisodeAsync(int episodeId)
     {
         IsLoading = true;
+        ClearError();
         try
         {
             _episode = await _episodeRepo.GetByIdAsync(episodeId);
@@ -191,8 +192,7 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
                     EpisodeTitle = string.Empty;
                     EpisodeHtml = string.Empty;
 
-                    await Shell.Current.DisplayAlert("オフライン",
-                        "オフラインのため表示できません。キャッシュもありません。", "OK");
+                    SetError("オフラインのため表示できません。キャッシュもありません");
                     return;
                 }
 
@@ -221,15 +221,15 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         }
         catch (TaskCanceledException)
         {
-            await Shell.Current.DisplayAlert("エラー", "タイムアウトしました", "OK");
+            SetError("タイムアウトしました");
         }
         catch (HttpRequestException ex)
         {
-            await Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（HTTPエラー: {ex.Message}）", "OK");
+            SetError($"本文の取得に失敗しました（HTTPエラー: {ex.Message}）");
         }
         catch (Exception ex)
         {
-            await Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（{ex.Message}）", "OK");
+            SetError($"本文の取得に失敗しました（{ex.Message}）");
         }
         finally
         {

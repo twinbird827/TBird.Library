@@ -8,7 +8,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
+public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributable
 {
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
@@ -87,6 +87,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
     public async Task InitializeAsync()
     {
         IsLoading = true;
+        ClearError();
         try
         {
             _novel = await _novelRepo.GetByIdAsync(_novelDbId);
@@ -112,6 +113,7 @@ public partial class EpisodeListViewModel : ObservableObject, IQueryAttributable
         catch (Exception ex)
         {
             LogHelper.Error(nameof(EpisodeListViewModel), $"InitializeAsync failed: {ex.Message}");
+            SetError($"目次の読み込みに失敗しました: {ex.Message}");
         }
         finally
         {

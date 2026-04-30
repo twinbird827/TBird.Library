@@ -9,16 +9,20 @@
 	<ContentPage.ToolbarItems>
 		<ToolbarItem Text="並び替え" Command="{Binding ChangeSortCommand}" />
 		<ToolbarItem Text="更新" Command="{Binding RefreshCommand}"
-                     IsEnabled="{Binding HasCheckError}" />
+                     IsEnabled="{Binding HasError}" />
 	</ContentPage.ToolbarItems>
 
-	<Grid>
+	<Grid RowDefinitions="Auto,*">
+		<!-- Error banner (Auto row collapses when HasError=false) -->
+		<Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+		       Style="{StaticResource ErrorBanner}" />
+
 		<!-- Loading indicator -->
-		<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+		<ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Novel list -->
-		<CollectionView ItemsSource="{Binding Novels}" SelectionMode="None">
+		<CollectionView Grid.Row="1" ItemsSource="{Binding Novels}" SelectionMode="None">
 			<CollectionView.ItemTemplate>
 				<DataTemplate x:DataType="vm:NovelCardViewModel">
 					<SwipeView Margin="8,4">

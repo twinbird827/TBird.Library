@@ -5,7 +5,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ErrorAwareViewModel
 {
     private readonly AppSettingsRepository _settingsRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
