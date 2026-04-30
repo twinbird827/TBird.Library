@@ -179,11 +179,10 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private Task SearchAsync()
     {
-        var searchTarget = "Both";
         return ExecuteSiteQueryAsync(
             "Search",
-            SearchNarou ? ct => _narou.SearchAsync(SearchKeyword, searchTarget, ct) : null,
-            SearchKakuyomu ? ct => _kakuyomu.SearchAsync(SearchKeyword, searchTarget, ct) : null);
+            SearchNarou    ? ct => _narou.SearchAsync(SearchKeyword, ct)    : null,
+            SearchKakuyomu ? ct => _kakuyomu.SearchAsync(SearchKeyword, ct) : null);
     }
 
     private bool CanSearch() => !string.IsNullOrWhiteSpace(SearchKeyword) && !IsLoading;
@@ -221,13 +220,18 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand]
     private Task FetchGenreAsync()
     {
-        int? narouBg = (SearchNarou
-            && SelectedNarouBigGenre is not null
-            && int.TryParse(SelectedNarouBigGenre.Id, out var bg)) ? bg : null;
-
         return ExecuteSiteQueryAsync(
             "Genre fetch",
-            narouBg is int bgv ? ct => _narou.FetchByGenreAsync(bgv, "weeklypoint", 30, ct) : null,
+            SearchNarou
+                ? ct =>
+                {
+                    // narouBg=null は「すべて」選択時 (Id="" で int.TryParse 失敗) を表す。
+                    // 旧コードは narouBg=null だと fetch 自体を呼ばず 0 件になっていた。
+                    int? narouBg = (SelectedNarouBigGenre is not null
+                        && int.TryParse(SelectedNarouBigGenre.Id, out var bg)) ? bg : null;
+                    return _narou.FetchByGenreAsync(narouBg, "weeklypoint", 30, ct);
+                }
+                : null,
             (SearchKakuyomu && SelectedKakuyomuGenre is not null)
                 ? ct => _kakuyomu.FetchRankingAsync(SelectedKakuyomuGenre.Id, "weekly", ct)
                 : null);

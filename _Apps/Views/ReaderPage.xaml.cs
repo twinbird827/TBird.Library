@@ -27,9 +27,9 @@ public partial class ReaderPage : ContentPage
 
         if (scrollView.ScrollY + scrollView.Height >= scrollView.ContentSize.Height - 10)
         {
-            if (BindingContext is ReaderViewModel vm)
+            if (BindingContext is ReaderViewModel vm && vm.AutoMarkReadEnabled)
             {
-                await vm.MarkAsReadCommand.ExecuteAsync(null);
+                await vm.MarkAsReadFromAutoCommand.ExecuteAsync(null);
             }
         }
     }
@@ -43,7 +43,8 @@ public partial class ReaderPage : ContentPage
 
         if (e.Url.Contains("read-end", StringComparison.OrdinalIgnoreCase))
         {
-            await vm.MarkAsReadCommand.ExecuteAsync(null);
+            if (vm.AutoMarkReadEnabled)
+                await vm.MarkAsReadFromAutoCommand.ExecuteAsync(null);
         }
         else if (e.Url.Contains("next-episode", StringComparison.OrdinalIgnoreCase))
         {

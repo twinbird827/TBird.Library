@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AngleSharp;
 using AngleSharp.Dom;
 using LanobeReader.Models;
@@ -30,7 +31,7 @@ public class KakuyomuApiService : INovelService
 
     public SiteType SiteType => SiteType.Kakuyomu;
 
-    public async Task<List<SearchResult>> SearchAsync(string keyword, string searchTarget, CancellationToken ct = default)
+    public async Task<List<SearchResult>> SearchAsync(string keyword, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -302,6 +303,8 @@ public class KakuyomuApiService : INovelService
 
     /// <summary>
     /// ランキングページをスクレイピングして作品一覧を返す。
+    /// `div.widget-work` のうち `p.widget-work-rank` を持つカードのみを対象とすることで
+    /// 広告/おすすめ枠の混入を排除し、DOM 順 = ランキング順を保つ。
     /// </summary>
     public async Task<List<SearchResult>> FetchRankingAsync(string genreSlug, string periodSlug, CancellationToken ct = default)
     {
@@ -316,35 +319,35 @@ public class KakuyomuApiService : INovelService
         var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
 
         var results = new List<SearchResult>();
-        var seen = new HashSet<string>();
+        var seen = new HashSet<string>(); // サイト構造変化への保険（事前調査では重複なし）
 
-        var links = document.QuerySelectorAll("a[href*='/works/']");
-        foreach (var link in links)
+        var workCards = document.QuerySelectorAll("div.widget-work");
+        foreach (var card in workCards)
         {
-            var href = link.GetAttribute("href") ?? "";
-            if (href.Contains("/reviews") || href.Contains("/episodes/")) continue;
+            // ランキング順位を持つカードに限定（広告/おすすめ枠を除外）
+            var rankEl = card.QuerySelector("p.widget-work-rank");
+            if (rankEl is null) continue;
 
+            var titleLink = card.QuerySelector("a.widget-workCard-titleLabel");
+            if (titleLink is null) continue;
+
+            var href = titleLink.GetAttribute("href") ?? "";
             var workId = ExtractWorkId(href);
-            if (string.IsNullOrEmpty(workId) || !seen.Add(workId)) continue;
+            if (string.IsNullOrEmpty(workId)) continue;
+            if (!seen.Add(workId)) continue;
 
-            var title = link.TextContent.Trim();
-            if (string.IsNullOrEmpty(title))
-                title = link.GetAttribute("title")?.Trim() ?? "";
+            var title = titleLink.TextContent.Trim();
             if (string.IsNullOrEmpty(title)) continue;
 
-            // 作者名抽出: 親要素から /users/ アンカーを探す
-            var author = "";
-            var parent = link.ParentElement;
-            for (int i = 0; i < 4 && parent is not null; i++)
-            {
-                var userLink = parent.QuerySelector("a[href*='/users/']");
-                if (userLink is not null)
-                {
-                    author = userLink.TextContent.Trim();
-                    break;
-                }
-                parent = parent.ParentElement;
-            }
+            var authorLink = card.QuerySelector("a.widget-workCard-authorLabel");
+            var author = authorLink?.TextContent.Trim() ?? "";
+
+            var statusLabel = card.QuerySelector("span.widget-workCard-statusLabel");
+            var isCompleted = statusLabel?.TextContent.Trim() == "完結";
+
+            var episodeCountText = card.QuerySelector("span.widget-workCard-episodeCount")?.TextContent ?? "";
+            var episodeMatch = Regex.Match(episodeCountText, @"\d+");
+            var totalEpisodes = episodeMatch.Success && int.TryParse(episodeMatch.Value, out var n) ? n : 0;
 
             results.Add(new SearchResult
             {
@@ -352,8 +355,8 @@ public class KakuyomuApiService : INovelService
                 NovelId = workId,
                 Title = title,
                 Author = author,
-                TotalEpisodes = 0,
-                IsCompleted = false,
+                TotalEpisodes = totalEpisodes,
+                IsCompleted = isCompleted,
             });
 
             if (results.Count >= 30) break;

@@ -81,14 +81,23 @@
 
 		<!-- Footer -->
 		<Grid Grid.Row="2" Padding="8" BackgroundColor="{StaticResource Overlay}"
-              ColumnDefinitions="*,*,*"
+              ColumnDefinitions="*,*,*,*"
               IsVisible="{Binding IsFooterVisible}">
 			<Button Grid.Column="0" Text="目次" Command="{Binding NavigateToTocCommand}"
                     Style="{StaticResource OverlayButton}" />
-			<Button Grid.Column="1" Text="◀ 前へ" Command="{Binding PrevEpisodeCommand}"
+			<Button Grid.Column="1" Text="既読" Command="{Binding MarkAsReadCommand}"
                     Style="{StaticResource OverlayButton}" />
-			<Button Grid.Column="2" Text="次へ ▶" Command="{Binding NextEpisodeCommand}"
+			<Button Grid.Column="2" Text="◀ 前へ" Command="{Binding PrevEpisodeCommand}"
+                    Style="{StaticResource OverlayButton}" />
+			<Button Grid.Column="3" Text="次へ ▶" Command="{Binding NextEpisodeCommand}"
                     Style="{StaticResource OverlayButton}" />
 		</Grid>
+
+		<!-- 自動 OFF + フッタ非表示時の救済 Overlay (現状 ToggleHeaderFooter 未 binding のため将来導入時の保険) -->
+		<Button Grid.Row="2" Text="既読" Command="{Binding MarkAsReadCommand}"
+                Style="{StaticResource OverlayButton}"
+                HorizontalOptions="Start" VerticalOptions="End"
+                Margin="8,0,0,8" Padding="12,6"
+                IsVisible="{Binding IsManualReadButtonOverlayVisible}" />
 	</Grid>
 </ContentPage>

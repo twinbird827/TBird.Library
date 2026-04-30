@@ -30,17 +30,12 @@ public class NarouApiService : INovelService
 
     public SiteType SiteType => SiteType.Narou;
 
-    public async Task<List<SearchResult>> SearchAsync(string keyword, string searchTarget, CancellationToken ct = default)
+    public async Task<List<SearchResult>> SearchAsync(string keyword, CancellationToken ct = default)
     {
-        var wordParam = searchTarget switch
-        {
-            "Title" => "title",
-            "Author" => "wname",
-            _ => "word", // Both
-        };
-
         var encoded = Uri.EscapeDataString(keyword);
-        var url = $"{API_BASE}?out=json&lim=20&{wordParam}={encoded}";
+        // title=1 + wname=1 で「タイトル or 作者名」にマッチする作品のみ取得。
+        // word 単独だとあらすじ・キーワード・作者名まで全文検索され、無関係な作品が大量にヒットする。
+        var url = $"{API_BASE}?out=json&lim=20&word={encoded}&title=1&wname=1";
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -231,15 +226,18 @@ public class NarouApiService : INovelService
     }
 
     /// <summary>
-    /// ジャンル別の新着・人気作品取得（novelapi）。
+    /// 大ジャンル別の新着・人気作品取得（novelapi）。biggenre=null で全ジャンル。
+    /// 旧シグネチャは `genre=` パラメータ（サブジャンル ID）を渡していたが、
+    /// UI は大ジャンル ID（1=恋愛 等）を扱うため `biggenre=` が正しい。
     /// </summary>
-    public async Task<List<SearchResult>> FetchByGenreAsync(int genre, string order, int limit, CancellationToken ct = default)
+    public async Task<List<SearchResult>> FetchByGenreAsync(int? biggenre, string order, int limit, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
         var lim = Math.Clamp(limit, 1, 100);
-        var url = $"{API_BASE}?out=json&lim={lim}&genre={genre}&order={Uri.EscapeDataString(order)}";
+        var url = $"{API_BASE}?out=json&lim={lim}&order={Uri.EscapeDataString(order)}";
+        if (biggenre.HasValue) url += $"&biggenre={biggenre.Value}";
 
         var json = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
         return ParseNovelApiJson(json);

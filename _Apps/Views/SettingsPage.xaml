@@ -97,6 +97,14 @@
                     <Switch IsToggled="{Binding VerticalWriting}" />
                     <Label Text="縦書き表示" Style="{StaticResource BodyLabel}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
+
+                <!-- Auto mark-as-read -->
+                <HorizontalStackLayout Spacing="8" Margin="0,8,0,0">
+                    <Switch IsToggled="{Binding AutoMarkReadEnabled}" />
+                    <Label Text="スクロール終端で自動的に既読にする" Style="{StaticResource BodyLabel}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Style="{StaticResource SmallMetaLabel}"
+                       Text="OFF にすると手動の「既読」ボタンのみで既読化されます" />
             </VerticalStackLayout>
 
             <BoxView HeightRequest="1" Color="LightGray" />
