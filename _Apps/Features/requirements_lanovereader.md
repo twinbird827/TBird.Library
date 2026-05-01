@@ -4,14 +4,22 @@
 | 項目 | 内容 |
 |---|---|
 | アプリ名 | ラノベリーダ |
-| バージョン | 1.0（初版） |
+| バージョン | 1.1 |
 | 作成日 | 2026-04-03 |
+| 最終改訂日 | 2026-05-01 |
 | ステータス | 確定 |
 | 対象読者 | Claude Code（実装担当AI） |
 
 > **このドキュメントの使い方**
 > Claude Code に対して「このファイルに従ってアプリを実装してください」と渡してください。
 > 追加確認なしに実装着手できる粒度で記述されています。
+
+## 改訂履歴
+
+| バージョン | 改訂日 | 主な変更内容 |
+|---|---|---|
+| 1.1 | 2026-05-01 | PR-1〜PR-7 (`plan_2026-04-30_review-c1-l11.md`) で確定した実装に追従。F-006a / F-009..F-014 の機能追加、`searchTarget` 廃止 + `title=1&wname=1` 検索固定 (F-001)、読了点までの一括既読化と巻き戻し仕様 (F-006)、設定キー 6 個追加 (F-007)、`is_favorite`/`favorited_at` カラムと UNIQUE インデックス v2 マイグレーション (§5)、`ErrorAwareViewModel` + 赤バナー統一 (§6.3)、`biggenre` 採用とカクヨムスクレイピング刷新 (§7)、NetworkPolicyService / BackgroundJobQueue / 縦書きハイブリッド等の実装方針追加 (§8)。実装済み plan / audit / fixes / todo ファイル 16 個を除去。 |
+| 1.0 | 2026-04-03 | 初版。F-001〜F-008 の基本機能、SCR-001〜SCR-005、§5 DB スキーマ v1、§6〜§8 を策定。 |
 
 ---
 
@@ -100,14 +108,21 @@ LanobeReader/
 ### 3.1 機能一覧
 | 機能ID | 機能名 | 優先度 | 概要 |
 |---|---|---|---|
-| F-001 | タイトル検索・登録 | Must | キーワードでなろう・カクヨムを検索し管理リストに登録 |
+| F-001 | タイトル検索・登録 | Must | キーワードでなろう・カクヨムを「タイトル+作者名」検索し管理リストに登録 |
 | F-002 | タイトル一覧表示 | Must | 登録済み小説の一覧・未読話数・更新状況を表示 |
 | F-003 | 更新チェック | Must | n時間毎の自動チェック＋アプリ起動時・手動チェック |
 | F-004 | キャッシュ取得 | Must | 本文閲覧時に1話分をローカルに保存 |
 | F-005 | 小説閲覧 | Must | 本文表示（キャッシュ優先・なければ都度取得） |
-| F-006 | 既読管理 | Must | 既読話の記録・最後に読んだ話の管理 |
-| F-007 | 設定管理 | Must | キャッシュ期間・更新チェック間隔・ページ件数の管理 |
+| F-006 | 既読管理 | Must | 読了点までの一括既読化（読了点を巻き戻すと N+1 以降は未読化） |
+| F-006a | 自動既読化 ON/OFF | Should | 自動既読化を設定でオプトアウト可能にする |
+| F-007 | 設定管理 | Must | キャッシュ期間・更新間隔・ページ件数・通信ポリシー・既読挙動・縦書き等の管理 |
 | F-008 | 読書設定 | Must | フォントサイズ・背景色・行間のカスタマイズ |
+| F-009 | 縦書き表示 | Should | 設定で縦書き ON/OFF を切替。WebView を使うハイブリッド実装 |
+| F-010 | お気に入り（作品/話） | Should | 作品・話ごとに ★ トグル。一覧ソートと連動 |
+| F-011 | ランキング/ジャンルブラウズ | Should | 期間別ランキング・大ジャンル別作品取得（なろう/カクヨム） |
+| F-012 | 一括ダウンロード/先読み | Should | Wi-Fi 接続時のみバックグラウンドで未取得話をプリフェッチ |
+| F-013 | 通信ポリシー | Must | サイト別 SemaphoreSlim 直列化＋設定可能なディレイ |
+| F-014 | 一覧ソート | Should | 更新日時/タイトル/作者/未読数/お気に入り優先 |
 
 ### 3.2 機能詳細
 
@@ -115,27 +130,40 @@ LanobeReader/
 
 #### F-001: タイトル検索・登録
 
-**トリガー:** 検索画面（SCR-002）で検索キーワードを入力し検索ボタンをタップ
+**トリガー:** 検索画面（SCR-002）で検索キーワードを入力し検索ボタンをタップ。
+モードは Keyword / Ranking / Genre browse の 3 種を SetModeXxxCommand で切替。
 
 **入力:**
 | パラメータ | 型 | バリデーション | 必須 |
 |---|---|---|---|
 | keyword | string | 1文字以上100文字以下。空文字は検索ボタンを非活性にする | ○ |
-| searchTarget | enum | Title / Author / Both（デフォルト: Both） | ○ |
 | searchNarou | bool | 検索対象サイト（デフォルト: true） | ○ |
 | searchKakuyomu | bool | 検索対象サイト（デフォルト: true） | ○ |
 
-**処理フロー（正常系）:**
+> 旧版にあった `searchTarget` (Title / Author / Both) パラメータは廃止された (PR-7)。
+> なろう側は常に「タイトル + 作者名」マッチで検索し、あらすじ・タグの全文検索は行わない。
+> あらすじマッチで無関係作品が大量にヒットしていた問題への対処。
+
+**処理フロー（正常系・Keyword モード）:**
 1. 検索ボタンタップでIsLoadingをtrueにしインジケーター表示
 2. searchNarouがtrueの場合、なろうAPIへGETリクエスト送信
-   - エンドポイント: `https://api.syosetu.com/novelapi/api/?out=json&lim=20&word={keyword}`
-   - searchTargetに応じてword/wname/wauthorパラメータを切り替え
-3. searchKakuyomuがtrueの場合、カクヨム公式APIへGETリクエスト送信
-   - エンドポイント: カクヨム公式API（`https://kakuyomu.jp/api/`）の検索エンドポイントを使用
+   - エンドポイント: `https://api.syosetu.com/novelapi/api/?out=json&lim=20&word={keyword}&title=1&wname=1`
+   - `title=1&wname=1` でタイトル + 作者名のいずれかマッチに絞り込む（公式仕様: `title`/`ex`/`keyword`/`wname` のフラグ未指定時のみ全項目検索、1 つでも指定があれば指定項目のみ）
+3. searchKakuyomuがtrueの場合、`https://kakuyomu.jp/search?q={keyword}` の HTML をスクレイピング（タイトルアンカー `a[title][href*='/works/']` を最大 20 件取得）
 4. 結果をSiteTypeを付与してマージし、SearchResultリストに格納
 5. 各検索結果に対してnovelsテーブルを照合し、登録済みフラグ（isRegistered）を付与
 6. 検索結果をSCR-002のリストに表示
 7. IsLoadingをfalseに戻す
+
+**処理フロー（Ranking モード・F-011）:**
+1. 期間 (Daily/Weekly/Monthly/Quarterly) と大ジャンル (なろう側) / ジャンル slug (カクヨム側) を選択
+2. なろう: `https://api.syosetu.com/rank/rankget/?out=json&rtype={yyyyMMdd-period}` で ncode 一覧取得 → `novelapi` で詳細を一括フェッチ → ランキング順に並び替え
+3. カクヨム: `https://kakuyomu.jp/rankings/{genre}/{period}` の HTML をスクレイピング (`div.widget-work` で `p.widget-work-rank` 付きカードのみ列挙)。Quarterly はカクヨム非対応のため、選択時は赤バナーで通知して fetch を skip
+4. 結果は Keyword モードと同じ SearchResults に流す
+
+**処理フロー（Genre browse モード・F-011）:**
+1. なろう: `FetchByGenreAsync(int? biggenre, "weeklypoint", 30)` で大ジャンル別を取得 (`biggenre=null` で全ジャンル、`biggenre={1,2,3,4,98,99}` で大ジャンル絞り込み)
+2. カクヨム: `FetchRankingAsync(genreSlug, "weekly")` を流用
 
 **処理フロー（異常系）:**
 | エラー種別 | 検出条件 | 対処 | ユーザー通知 |
@@ -291,14 +319,52 @@ LanobeReader/
 
 ---
 
-#### F-006: 既読管理
+#### F-006: 既読管理（読了点までの一括既読化）
 
-**トリガー:** SCR-004（閲覧画面）を最後までスクロールした時点で自動発火
+**トリガー:**
+- 手動: SCR-004 フッタの「既読」ボタン (`MarkAsReadCommand`) — 常に発火
+- 自動: 横書きのスクロール終端到達 (`OnScrolled`) または 縦書き WebView の `lanobe://read-end` ナビゲーション受信 (`MarkAsReadFromAutoCommand`) — `auto_mark_read_enabled=1` のときのみ発火
 
 **処理フロー（正常系）:**
-1. episodesテーブルのis_readを1にUPDATE、read_atにNOWをSET
-2. novelsテーブルのhas_unconfirmed_updateをチェックし、全未読話が既読になった場合は0にUPDATE
-3. SCR-001のunread_countを再計算して表示を更新
+1. `EpisodeRepository.SetReadStateUpToAsync(novelId, episodeNo)` を 1 トランザクション 2 SQL で実行
+   - `1..N`: `is_read=1`、`read_at = COALESCE(read_at, NOW)` で既存読了日時を保持
+   - `N+1..max`: `is_read=0`、`read_at = NULL` に巻き戻し
+2. 全話既読時は novels.has_unconfirmed_update を 0 にUPDATE
+3. SCR-001 の unread_count を再計算して表示を更新
+
+**読了点の巻き戻し挙動（仕様承認済み）:**
+- 既読 N=10 状態でユーザが N=3 を再読 → 4..10 が未読化される。
+- これは「読み直したらそれ以降を最後まで読み直したい」というユーザ要望に基づく仕様。再読時は「過去話を改めて読み進める起点」として扱われる。
+- 単調増加既読化 (N+1 以降は触らない) は採用しない。
+
+**異常系:**
+| エラー種別 | 検出条件 | 対処 |
+|---|---|---|
+| 過去話を誤タップして巻き戻し発生 | ユーザの誤操作 | `read_at` は **復元不可**（アンドゥ機構なし、要件範囲外） |
+| 自動既読化の意図しない発火（短編作品で画面遷移直後に終端到達等） | OnScrolled / read-end の即時発火 | 設定で `auto_mark_read_enabled=0` にすると自動経路を抑止可能。手動の「既読」ボタンは引き続き利用可 |
+
+**非同期処理:** async/await
+**排他制御:** 不要（SQL 側で WHERE 条件と is_read 再計算で完結）
+
+---
+
+#### F-006a: 自動既読化 ON/OFF 設定
+
+**トリガー:** SCR-005（設定画面）の「スクロール終端で自動的に既読にする」トグル
+
+**入力:**
+| パラメータ | 型 | デフォルト |
+|---|---|---|
+| auto_mark_read_enabled | int | 0（OFF・誤操作で巻き戻しが起きにくい安全側を既定とする） |
+
+**処理フロー:**
+1. 設定変更で `app_settings.auto_mark_read_enabled` を即時 UPSERT
+2. 次回 SCR-004 を開いたとき (`ReaderViewModel.LoadSettingsAsync`) または `OnAppearing` の `ReloadSettingsAsync` で `AutoMarkReadEnabled` プロパティに反映
+3. `ReaderPage.xaml.cs` の `OnScrolled` / `OnWebViewNavigating` は `MarkAsReadFromAutoCommand` を経由し、ViewModel 側で `AutoMarkReadEnabled=false` なら no-op
+
+**「自動 OFF + フッタ非表示」時の救済 UI:**
+- `IsManualReadButtonOverlayVisible` 算出プロパティ (= `!AutoMarkReadEnabled && !IsFooterVisible`) で SCR-004 左下に既読ボタンを単独 Overlay 表示する。
+- 現状 `ToggleHeaderFooter` コマンドは XAML/コードビハインドから binding されておらず到達不能だが、将来 binding 導入時の保険として先回り投入。
 
 **非同期処理:** async/await
 **排他制御:** 不要
@@ -313,11 +379,21 @@ LanobeReader/
 | キー | 型 | デフォルト値 | 変更時の反映タイミング |
 |---|---|---|---|
 | cache_months | int | 3 | 次回キャッシュ削除時 |
-| update_interval_hours | int | 6 | 次回WorkManagerスケジュール更新時 |
+| update_interval_hours | int | 6 | 次回 MainActivity.OnCreate 時に差分判定して再登録 |
 | font_size_sp | int | 16 | SCR-004を次回開いた時 |
 | background_theme | int | 0（白） | SCR-004を次回開いた時 |
 | line_spacing | int | 1（普通） | SCR-004を次回開いた時 |
 | episodes_per_page | int | 50 | SCR-003を次回開いた時 |
+| vertical_writing | int | 0（横書き） | SCR-004 を次回開いた時。OnAppearing で `ReloadSettingsAsync` 呼び出しによりリーダー復帰時にも反映 |
+| prefetch_enabled | int | 1（ON） | 即時（次回 `BackgroundJobQueue.EnqueueAsync` 呼出で参照） |
+| request_delay_ms | int | 800 | 次回 HTTP リクエスト時。UI スライダーは 500-2000ms、`Math.Clamp` で UI 範囲に強制 |
+| novel_sort_key | string | "updated_desc" | 即時（再ロードして並び替え反映） |
+| auto_mark_read_enabled | int | 0（OFF） | SCR-004 を次回開いた時または OnAppearing で反映 |
+| last_scheduled_hours | int | 6 | C-1 用の内部キー（毎起動でのリセット防止）。値は `update_interval_hours` の既定値と同期する |
+
+> 設定値はすべて文字列で `app_settings` テーブルに UPSERT。`AppSettingsRepository` 起動時の
+> `LoadAllAsync` で `_cache: ConcurrentDictionary<string,string>` に全件読み込み、以後はメモリヒット。
+> `SetValueAsync` で DB 反映 + キャッシュ更新が同時に走る。
 
 **キャッシュ手動クリア処理:**
 1. 「キャッシュをすべてクリア」ボタンタップ
@@ -351,6 +427,106 @@ LanobeReader/
 | 0（狭） | 1.4 |
 | 1（普通） | 1.7 |
 | 2（広） | 2.1 |
+
+---
+
+#### F-009: 縦書き表示
+
+**トリガー:** SCR-005 の「縦書き表示」トグル
+
+**処理フロー:**
+1. 設定変更で `vertical_writing` を 0/1 で UPSERT
+2. SCR-004 を次回開いた時に `IsVerticalWriting` を反映
+3. 横書き = `Label` ベースの `ScrollView` 表示、縦書き = `ReaderWebView` (CSS `writing-mode: vertical-rl`) のハイブリッド構成
+4. 縦書き時は `ReaderHtmlBuilder.Build(content, cssState)` で HTML を組み立て、CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+5. WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉して既読/前後遷移コマンドに連動
+
+**実装上の注意:**
+- `Label` と `ReaderWebView` は同じ `Grid.Row` に重ね、`IsVisible="{Binding IsHorizontal}"` / `"{Binding IsVerticalWriting}"` で切替
+- `OnIsVerticalWritingChanged` で `RefreshHtml` を呼び、縦書き ON 時に既読 HTML を即時再生成
+
+---
+
+#### F-010: お気に入り（作品/話）
+
+**トリガー:**
+- 作品: SCR-001 の SwipeView 「★お気に入り」 / SCR-003 ツールバー「★作品」ボタン
+- 話: SCR-003 の話カード右端 ★ ラベルタップ / SCR-004 ヘッダの ★ ボタン
+
+**処理フロー（作品）:**
+1. `NovelRepository.SetFavoriteAsync(novelId, bool)` で `is_favorite` と `favorited_at` (ON 時 NOW、OFF 時 NULL) を UPDATE
+2. ViewModel 側のカード `IsFavorite` を反転して即時 UI 反映
+3. `SortKey == "favorite_first"` のとき再ロードして並び替え
+
+**処理フロー（話）:**
+1. `EpisodeRepository.SetFavoriteAsync(episodeId, bool)` で同様に UPDATE
+2. `ShowFavoritesOnly == true` のとき `RebuildFilterCache` + `RecalcPaging` でフィルタ更新
+
+---
+
+#### F-011: ランキング/ジャンルブラウズ
+
+詳細は F-001 の Ranking / Genre browse モードに統合。なろう・カクヨムそれぞれの API/スクレイピング仕様は §7.1 / §7.2 を参照。
+
+---
+
+#### F-012: 一括ダウンロード/先読み
+
+**トリガー:**
+- 作品登録時: `SearchViewModel.RegisterAsync` 完了後に `_prefetch.EnqueueNovelAsync(novelId)` を fire-and-forget
+- 起動時: `App.RunPrefetchAsync` で `PrefetchService.EnqueueAllUnreadAsync` (お気に入り優先順)
+- 手動: SCR-003 ツールバー「一括 DL」ボタン (`DownloadAllCommand`) で `EnqueueNovelAsync(novelDbId, highPriority: true)`
+- 更新チェック新着検出時: `UpdateCheckService` 内で各新着話を Enqueue
+
+**処理フロー:**
+1. `BackgroundJobQueue.EnqueueAsync` 入口で `prefetch_enabled=0` なら drop（完全抑止）
+2. HashSet による重複抑止 + `Priority>0` で優先キューへ振り分け（同一 lock 内で完結）
+3. Wi-Fi 接続時のみ Worker を起動。モバイル通信時/切断時は自動停止し、Wi-Fi 復帰時に未消化キューから resume
+4. `NetworkPolicyService` 経由で 1 リクエストごとにディレイを挿入（`request_delay_ms` 設定）
+5. 取得した本文を `episode_cache` に INSERT（`episode_id` UNIQUE）
+6. 連続 5 失敗で同セッションを中断（次の Wi-Fi イベントで再開）
+
+**異常系:**
+| エラー種別 | 対処 |
+|---|---|
+| Wi-Fi 切断 | Worker break。HashSet を live キューに合わせて再構成し、再 Enqueue 可能な状態に戻す |
+| 連続 5 失敗 | 同セッション中断、警告ログ出力 |
+| 設定 OFF | Enqueue 自体を drop し、既存キューも Worker 入口で early return（二重ガード） |
+
+---
+
+#### F-013: 通信ポリシー（NetworkPolicyService）
+
+**目的:** サイトへの過剰負荷を避け、リクエストを直列化してディレイを挿入する。
+
+**設計:**
+- サイト別 `SemaphoreSlim(1, 1)` で同サイトの並列リクエストを禁止
+- リクエスト間隔は `request_delay_ms` 設定で調整 (`Math.Clamp(v, MIN_REQUEST_DELAY_MS=500, MAX_REQUEST_DELAY_MS=2000)`)
+- `Connectivity.ConnectivityChanged` を監視し `WifiConnected` / `WifiDisconnected` イベントを `BackgroundJobQueue` へ通知
+- `IsOnline` / `IsWifiConnected` プロパティを公開
+
+**API:**
+- `Task<string> GetStringAsync(SiteType site, string url, CancellationToken ct)` — gate + delay + GET を一括実行
+
+---
+
+#### F-014: 一覧ソート
+
+**トリガー:** SCR-001 ツールバー「並び替え」 (`ChangeSortCommand`) でアクションシート選択
+
+**ソートキー:**
+| キー | 表示名 | SQL |
+|---|---|---|
+| updated_desc | 更新日時（新しい順） | `ORDER BY last_updated_at DESC` |
+| updated_asc | 更新日時（古い順） | `ORDER BY last_updated_at ASC` |
+| title_asc | タイトル昇順 | `ORDER BY title ASC` |
+| title_desc | タイトル降順 | `ORDER BY title DESC` |
+| author_asc | 作者昇順 | `ORDER BY author ASC` |
+| registered_desc | 登録日時（新しい順） | `ORDER BY registered_at DESC` |
+| unread_desc | 未読話数（多い順） | `ORDER BY unread_count DESC, last_updated_at DESC`（JOIN で算出） |
+| favorite_first | お気に入り優先 | `ORDER BY is_favorite DESC, last_updated_at DESC` |
+
+**保存:** 選択値は `app_settings.novel_sort_key` に即時 UPSERT。次回起動時に復元。
 
 ---
 
@@ -632,8 +808,10 @@ graph TD
 | registered_at | TEXT | NG | | | 登録日時（ISO8601） |
 | has_unconfirmed_update | INTEGER | NG | | 0 | 更新通知未確認フラグ |
 | has_check_error | INTEGER | NG | | 0 | 更新チェックエラーフラグ |
+| is_favorite | INTEGER | NG | | 0 | お気に入りフラグ（F-010） |
+| favorited_at | TEXT | OK | | NULL | お気に入り登録日時（ISO8601） |
 
-ユニーク制約: `(site_type, novel_id)`
+ユニーク制約: `idx_novels_site_novel = UNIQUE (site_type, novel_id)`（v1 から整備）
 
 #### episodesテーブル
 | カラム名 | 型 | NULL | PK | デフォルト | 説明 |
@@ -644,12 +822,13 @@ graph TD
 | chapter_name | TEXT | OK | | NULL | 章タイトル（章なし作品はNULL） |
 | title | TEXT | NG | | | 話タイトル |
 | is_read | INTEGER | NG | | 0 | 既読フラグ（0=未読 / 1=既読） |
-| read_at | TEXT | OK | | NULL | 既読日時（ISO8601） |
+| read_at | TEXT | OK | | NULL | 既読日時（ISO8601）。F-006 の SetReadStateUpToAsync で N+1 以降は NULL に巻き戻される |
 | published_at | TEXT | OK | | NULL | 公開日時（ISO8601） |
+| is_favorite | INTEGER | NG | | 0 | お気に入りフラグ（F-010） |
+| favorited_at | TEXT | OK | | NULL | お気に入り登録日時（ISO8601） |
 
 インデックス:
-- `idx_episodes_novel_id`: (novel_id) - 一覧取得高速化
-- `idx_episodes_novel_episode`: (novel_id, episode_no) - 前後話特定用
+- `idx_episodes_novel_episode`: **UNIQUE** `(novel_id, episode_no)` - 前後話特定 + 重複防止（schema v2 で UNIQUE 化、重複レコードは除去後に再構築）
 
 #### episode_cacheテーブル
 | カラム名 | 型 | NULL | PK | デフォルト | 説明 |
@@ -670,15 +849,34 @@ graph TD
 | key | TEXT | NG | ○ | 設定キー |
 | value | TEXT | NG | | 設定値（文字列で統一） |
 
-初期レコード（アプリ初回起動時INSERT）:
-| key | value |
+初期レコード（アプリ初回起動時 INSERT、`SeedSettingsAsync` が `INSERT OR IGNORE` 相当の missing-only 動作で投入）:
+| key | value | 由来定数 |
+|---|---|---|
+| cache_months | 3 | `SettingsKeys.DEFAULT_CACHE_MONTHS` |
+| update_interval_hours | 6 | `SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS` |
+| font_size_sp | 16 | `SettingsKeys.DEFAULT_FONT_SIZE_SP` |
+| background_theme | 0 | `SettingsKeys.DEFAULT_BACKGROUND_THEME` |
+| line_spacing | 1 | `SettingsKeys.DEFAULT_LINE_SPACING` |
+| episodes_per_page | 50 | `SettingsKeys.DEFAULT_EPISODES_PER_PAGE` |
+| prefetch_enabled | 1 | `SettingsKeys.DEFAULT_PREFETCH_ENABLED` |
+| request_delay_ms | 800 | `SettingsKeys.DEFAULT_REQUEST_DELAY_MS` |
+| vertical_writing | 0 | `SettingsKeys.DEFAULT_VERTICAL_WRITING` |
+| novel_sort_key | "updated_desc" | `SettingsKeys.DEFAULT_NOVEL_SORT_KEY` |
+| last_scheduled_hours | 6 | `SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS` と同期 |
+| auto_mark_read_enabled | 0 | `SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED` |
+
+> 既定値はすべて `SettingsKeys.DEFAULT_*` 定数経由で参照する（`SeedSettingsAsync` のリテラル直書きは PR-4 / L-1 で排除済み）。
+
+#### スキーマバージョン管理
+
+`app_settings.schema_version`（int）でマイグレーションを管理する。`DatabaseService.CURRENT_SCHEMA_VERSION` と比較し、低ければ `MigrateAsync(fromVersion)` を順次適用。
+
+| version | 適用内容 |
 |---|---|
-| cache_months | 3 |
-| update_interval_hours | 6 |
-| font_size_sp | 16 |
-| background_theme | 0 |
-| line_spacing | 1 |
-| episodes_per_page | 50 |
+| v1 | 初版テーブル群 + `idx_novels_site_novel` UNIQUE |
+| v2 | `idx_episodes_novel_episode` を UNIQUE 化（重複レコード除去後にインデックス再作成）、`is_favorite` / `favorited_at` カラム追加 |
+
+マイグレーション失敗時は `schema_version` を上げず、次回起動で再試行する。
 
 ### 5.2 ER図
 ```mermaid
@@ -698,6 +896,8 @@ erDiagram
         text registered_at
         integer has_unconfirmed_update
         integer has_check_error
+        integer is_favorite
+        text favorited_at
     }
 
     episodes {
@@ -709,6 +909,8 @@ erDiagram
         integer is_read
         text read_at
         text published_at
+        integer is_favorite
+        text favorited_at
     }
 
     episode_cache {
@@ -749,11 +951,12 @@ public enum SiteType
 | 項目 | 要件値 |
 |---|---|
 | 通常画面応答時間 | 1秒以内 |
-| 検索結果表示 | 3秒以内（タイムアウト5秒） |
+| 検索結果表示 | 3秒以内（タイムアウト 10 秒） |
 | 本文表示（キャッシュあり） | 0.5秒以内 |
-| 本文表示（キャッシュなし・通信） | 5秒以内（タイムアウト5秒） |
-| 更新チェック（全タイトル） | タイムアウト30秒 |
-| HttpClientタイムアウト | 5秒（更新チェックは30秒） |
+| 本文表示（キャッシュなし・通信） | 5秒以内 |
+| 更新チェック（全タイトル） | タイムアウト 30 秒 |
+| HttpClient タイムアウト（実装値） | 検索 10s / TOC 取得 15s / 本文 10〜20s / 更新チェック 30s（各 Service の `CancellationTokenSource.CreateLinkedTokenSource` + `CancelAfter` で個別設定） |
+| サイト別リクエストディレイ | `request_delay_ms`（既定 800ms、UI 範囲 500-2000ms）。`NetworkPolicyService` がサイト別 `SemaphoreSlim` でゲート |
 
 ### 6.2 起動・終了処理
 
@@ -770,13 +973,31 @@ public enum SiteType
 - 特別な後処理なし（HttpClientは都度使用・SQLite接続はusing管理）
 
 ### 6.3 例外・エラーハンドリング
+
+**エラー UI 統一規約 (PR-6 / L-9):**
+- 全 ViewModel は `ErrorAwareViewModel` 基底クラスを継承し、`HasError` / `ErrorMessage` プロパティを通じて**赤バナー**でエラーを通知する。
+- `Resources/Styles/Styles.xaml` の `ErrorBanner` Style (DestructiveRed 背景 + 白文字) で各 ContentPage の Row 0 に共通配置。
+- `protected void SetError(string message)` / `protected void ClearError()` を経由して状態を更新する。
+- **`DisplayAlert` は確認ダイアログ専用**（削除確認・キャッシュクリア確認等）に限定し、エラー通知用途では使わない。
+
 | 例外種別 | 捕捉箇所 | ログ | ユーザー通知 |
 |---|---|---|---|
-| 未捕捉例外 | App.xaml.cs UnhandledException | Debug.WriteLine (ERROR) | 「予期しないエラーが発生しました」AlertDialog → アプリ継続 |
-| HTTP通信エラー | 各Serviceクラス | Debug.WriteLine (WARN) | 画面インライン or Snackbar表示 |
-| SQLiteエラー | 各Repositoryクラス | Debug.WriteLine (ERROR) | Snackbar「データの操作に失敗しました」 |
-| スクレイピング失敗 | NarouScraperService | Debug.WriteLine (WARN) | AlertDialog「本文の取得に失敗しました」 |
-| タイムアウト | TaskCanceledException捕捉 | Debug.WriteLine (WARN) | 「タイムアウトしました」表示 |
+| 未捕捉例外 | App.xaml.cs `AppDomain.CurrentDomain.UnhandledException` | LogHelper.Error | プロセス継続（AlertDialog なし、ログのみ） |
+| 未観測 Task 例外 | App.xaml.cs `TaskScheduler.UnobservedTaskException` (PR-4 / L-5) | LogHelper.Error | `SetObserved()` でクラッシュ抑止 |
+| HTTP 通信エラー | 各 Service / ViewModel | LogHelper.Warn | 画面赤バナー (`SetError`) |
+| SQLite エラー | 各 Repository / ViewModel | LogHelper.Error | 画面赤バナー |
+| スクレイピング失敗 | NarouApiService / KakuyomuApiService | LogHelper.Warn | 画面赤バナー「本文の取得に失敗しました…」 |
+| タイムアウト | TaskCanceledException 捕捉 | LogHelper.Warn | 画面赤バナー「タイムアウトしました」 |
+| ReaderViewModel オフライン + 未キャッシュ | LoadEpisodeAsync 内 | - | 画面赤バナー「オフラインのため表示できません。キャッシュもありません」+ 前話 EpisodeContent / EpisodeTitle / EpisodeHtml をクリア。ユーザは目次/戻るボタンで自分で退出（自動遷移なし） |
+| Worker DI 解決失敗 | UpdateCheckWorker `IPlatformApplication.Current is null` | LogHelper.Warn | `Result.InvokeRetry()` で WorkManager のバックオフに任せる (PR-1 / C-3) |
+| 検索精度劣化 (補足) | NarouApiService.SearchAsync | - | URL に `&title=1&wname=1` を付与し全文検索を抑制 (PR-7 / N-1) |
+
+**読了点の巻き戻しによる read_at 喪失（F-006 / N-2 仕様）:**
+- 既読 N=10 状態で N=3 を再読すると 4..10 の `read_at` は NULL に戻され、**復元不可**。アンドゥ機構やゴミ箱は要件外。
+- 誤タップ防止のため、`auto_mark_read_enabled=0`（既定 OFF）にすると自動経路の発火を抑止できる。手動の「既読」ボタンは引き続き有効。
+
+**エラー操作仕様 (DisplayAlert 廃止の UX 影響):**
+- ReaderViewModel の `DisplayAlert` 廃止により**モーダル待機がなくなる**。インライン赤バナーで継続的にエラー文言を視認しつつ、戻る/目次ボタンを操作可能なまま保つ。
 
 ### 6.4 ログ要件
 | 項目 | 内容 |
@@ -821,11 +1042,27 @@ public enum SiteType
 主要クエリパラメータ:
 | パラメータ | 説明 |
 |---|---|
-| out | json固定 |
-| lim | 取得件数（検索時: 20） |
-| word | タイトル+作者検索キーワード |
-| ncode | ncode指定（更新チェック時） |
+| out | json 固定 |
+| lim | 取得件数（検索時: 20、ジャンル別: 30、上限 100） |
+| word | 検索キーワード |
+| title | `1` を指定するとタイトルを抽出対象に追加（`title`/`ex`/`keyword`/`wname` のいずれかを 1 つでも指定すると指定範囲のみが対象になる） |
+| wname | `1` を指定すると作者名を抽出対象に追加 |
+| ncode | ncode 指定（更新チェック時、ハイフン区切りで複数可） |
+| biggenre | **大ジャンル** 指定（1=恋愛, 2=ファンタジー, 3=文芸, 4=SF, 98=ノンジャンル, 99=その他）。F-001 ジャンルブラウズで使用 |
+| genre | サブジャンル指定（101=異世界恋愛, 201=ハイファンタジー など 3〜4 桁 ID）。本アプリでは現状未使用 |
+| order | 並び順（`weeklypoint` 等） |
 | of | 取得フィールド絞り込み（t,w,n,ga,gl,noveltype,end） |
+
+> **検索 (F-001) では `&title=1&wname=1` を必ず付ける** (PR-7 / N-1)。フラグ未指定だとあらすじ・タグ・作者名まで全文検索され、無関係作品が大量にヒットする。
+> **ジャンルブラウズ (F-001 Genre browse) では `biggenre=` を使う** (PR-7 / N-3)。旧コードは UI の大ジャンル ID を `genre=` で渡してマッチせず実質 0 件になっていた。
+
+**ランキング API:**
+| 項目 | 内容 |
+|---|---|
+| エンドポイント | `https://api.syosetu.com/rank/rankget/?out=json&rtype={yyyyMMdd-period}` |
+| period | `d`=Daily, `w`=Weekly（火曜日基準）, `m`=Monthly（月初）, `q`=Quarterly（月初） |
+| TZ | JST 基準（朝 8 時前は 2 日前、それ以降は前日を Daily ターゲット）。`TimeZoneNotFoundException` 時は UTC+9h フォールバック (PR-4 / L-7) |
+| ncode 一括フェッチ | ranking 結果の ncode をハイフン結合し novelapi へ `ncode={n1-n2-...}` で再問い合わせ |
 
 取得フィールドマッピング:
 | APIフィールド | テーブルカラム | 説明 |
@@ -855,28 +1092,25 @@ public enum SiteType
 
 ### 7.2 カクヨム
 
-**公式API:**
-| 項目 | 内容 |
-|---|---|
-| ベースURL | `https://kakuyomu.jp/api/` |
-| 通信方式 | HTTPS GET/POST |
-| レスポンス形式 | JSON |
-| 認証 | 不要（公開API） |
-| ライブラリ | HttpClient + System.Text.Json |
+カクヨム公式 API は提供されないため、実装は HTML スクレイピング + Apollo State JSON 抽出のハイブリッド構成。
 
-主要エンドポイント:
-| 用途 | エンドポイント |
-|---|---|
-| 検索 | `GET /search?q={keyword}&type=work` |
-| 作品情報 | `GET /works/{work_id}` |
-| 話一覧 | `GET /works/{work_id}/episodes` |
-| 本文取得 | `GET /works/{work_id}/episodes/{episode_id}` |
+**主要エンドポイント:**
+| 用途 | エンドポイント | 抽出方法 |
+|---|---|---|
+| 検索 | `GET https://kakuyomu.jp/search?q={keyword}` | HTML から `a[title][href*='/works/']` を最大 20 件、親要素から `a[href*='/users/']` で作者名を取得 |
+| 作品 TOC / 話一覧 | `GET https://kakuyomu.jp/works/{workId}` | `<script id="__NEXT_DATA__">` の `__APOLLO_STATE__` から `TableOfContentsChapter:*` と `Episode:*` を抽出 |
+| 本文取得 | `GET https://kakuyomu.jp/works/{workId}/episodes/{episodeId}` | `.widget-episodeBody` (主) / `[class~='EpisodeBody']` (CSS3 word-match の fallback) で本文要素を取得 (PR-4 / L-10) |
+| ランキング | `GET https://kakuyomu.jp/rankings/{genreSlug}/{periodSlug}` | `div.widget-work` のうち `p.widget-work-rank` を持つカードのみ列挙（広告/おすすめ枠除外）。`a.widget-workCard-titleLabel` / `a.widget-workCard-authorLabel` / `span.widget-workCard-statusLabel` / `span.widget-workCard-episodeCount` から各種情報抽出 (PR-7 / N-4) |
 
-> ※カクヨムの正確なAPIエンドポイント・レスポンス形式は実装時に公式ドキュメントを参照すること。上記は参考値。
+**期間 slug:** `daily` / `weekly` / `monthly`。**Quarterly はカクヨム非対応**のため、F-001 Ranking モードで Quarterly + SearchKakuyomu のとき赤バナー通知して fetch を skip (PR-3 / M-1)。
 
-エラー時の挙動:
-- タイムアウト: 5秒でキャンセル → AlertDialog表示
-- HTTPエラー: AlertDialog「カクヨムとの通信に失敗しました（エラー: {message}）」
+**エピソード ID キャッシュ:**
+- `_episodeIdCache: ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)>` で 5 分間キャッシュ
+- `SweepExpiredEpisodeIdCache` で TTL 切れ + 上限 100 件超過分を自動 sweep (PR-4 / L-6)
+
+**エラー時の挙動:**
+- タイムアウト: 各メソッドで個別に `CancelAfter` 設定（検索 10s、TOC 15s、本文 20s、ランキング 20s）
+- HTTP エラー / パース失敗: 画面赤バナー「本文の取得に失敗しました（サイト構造が変わった可能性があります）」
 
 ---
 
@@ -902,19 +1136,50 @@ public enum SiteType
 - ファクトリーパターン（`INovelServiceFactory`）でSiteTypeに応じたサービスを取得する
 
 ### 8.5 更新チェック（WorkManager）
-- Android WorkManagerの`PeriodicWorkRequest`で定期実行を管理する
-- 二重実行防止のためSemaphoreSlim(1,1)を使用し、finallyブロックで必ずRelease()する
-- `has_unconfirmed_update == true`のタイトルは更新チェックをスキップする処理を最初に実行する
+- Android WorkManager の `PeriodicWorkRequest` で定期実行を管理する
+- 二重実行防止のため SemaphoreSlim(1,1) を使用し、finally ブロックで必ず Release() する
+- **`has_unconfirmed_update` でのスキップは行わない** (PR-2 / H-2)。旧仕様はスキップ条件で取得自体をやめていたため、ユーザがアプリを開かない限り更新追跡から脱落する問題があった。再通知は `notificationId=novel.Id` の上書き表示で吸収される
+- `MainActivity.OnCreate` で `update_interval_hours` と `last_scheduled_hours` を比較し、差分があるときだけ `ExistingPeriodicWorkPolicy.Update` で再登録（毎起動でのリセット防止、PR-1 / C-1）
 
 ### 8.6 通知ディープリンク
 - 更新通知タップ時はSCR-004へ遷移するためIntentにnovel_idとepisode_idを埋め込む
 - 通知タップ後に`has_unconfirmed_update`を0にUPDATEする
 
 ### 8.7 閲覧画面の既読マーク
-- ScrollViewのScrolled イベントでスクロール位置を監視し、`ScrollY + Height >= ContentSize.Height - 10` となった時点で既読マークを実行する
+- ScrollView の Scrolled イベントでスクロール位置を監視し、`ScrollY + Height >= ContentSize.Height - 10` となった時点で `MarkAsReadFromAutoCommand` を実行する
+- 縦書き WebView では `lanobe://read-end` 受信時に同コマンドを発火する
+- 自動経路は `auto_mark_read_enabled=1` のときのみ発火し、設定 OFF 時は手動の「既読」ボタン (`MarkAsReadCommand`) のみで既読化する
+- 共通実装は `ApplyMarkAsReadAsync` private ヘルパーに集約し、内部で `EpisodeRepository.SetReadStateUpToAsync` を呼ぶ
 
 ### 8.8 キャッシュ削除
-- 起動時の期限切れキャッシュ削除はバックグラウンドスレッドで実行し、UIの表示をブロックしない
+- 起動時の期限切れキャッシュ削除はバックグラウンドスレッドで実行し、UI の表示をブロックしない
+
+### 8.9 NetworkPolicyService（F-013）
+- サイト別 `SemaphoreSlim(1, 1)` で同サイトの並列リクエストを禁止
+- `request_delay_ms`（既定 800ms、UI 範囲 500-2000ms）で間隔を強制（`Math.Clamp` で UI 範囲に収める、PR-2 / L-2）
+- `Connectivity.ConnectivityChanged` を監視して `WifiConnected` / `WifiDisconnected` イベントを発火
+- `IsOnline` / `IsWifiConnected` プロパティを公開（BackgroundJobQueue / PrefetchService が参照）
+
+### 8.10 BackgroundJobQueue（F-012）
+- Wi-Fi 接続時のみ Worker を起動し、ConcurrentQueue 2 本（高優先度 / 通常）で直列処理
+- `EnqueueAsync` 入口で `prefetch_enabled=0` なら drop（完全抑止）し、HashSet による重複抑止と Queue 投入を**同一 lock 内で完結**させる（race window 抑止、PR-2 / H-4 + PR-3 / M-2）
+- `StopWorker` 時は `SyncEnqueuedIdsFromQueues` で HashSet を live キューに合わせて再構成し、再 Enqueue 可能な状態に戻す
+- 連続 5 失敗で同セッションを中断、200 件処理ごとに 5 秒のクールダウン
+
+### 8.11 縦書きハイブリッド実装（F-009）
+- 横書き = `Label` ベースの `ScrollView` 表示、縦書き = `ReaderWebView` (CSS `writing-mode: vertical-rl`) のハイブリッド構成
+- 同じ `Grid.Row` に重ね、`IsVisible` バインディングで切替（`IsHorizontal` / `IsVerticalWriting`）
+- 縦書き時は `ReaderHtmlBuilder.Build(content, cssState)` で HTML 組み立て。CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+- WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉し、対応コマンドへ連動
+
+### 8.12 グローバル例外ハンドラ
+- `App.xaml.cs` で `AppDomain.CurrentDomain.UnhandledException` と `TaskScheduler.UnobservedTaskException` の両方を購読する (PR-4 / L-5)
+- 後者は `args.SetObserved()` でプロセス終了を抑止（fire-and-forget Task の例外を吸収）
+
+### 8.13 SQLite トランザクション
+- 既読化（F-006）の `SetReadStateUpToAsync` は `_db.RunInTransactionAsync` で 2 SQL（既読化 + 巻き戻し）を atomic に実行
+- 補償削除（H-1）の `NovelRepository.DeleteBySiteAndNovelIdAsync` も同じ仕組みで `episode_cache → episodes → novels` を連鎖削除
+- sqlite-net-pcl の placeholder（`?`）は同一 SQL あたり 3 個までを既存パターンとし、4 個以上必要なら 2 SQL に分割する
 
 ---
 
