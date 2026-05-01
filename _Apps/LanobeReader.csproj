@@ -19,6 +19,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg"
+              ForegroundFile="Resources\AppIcon\appiconfg.svg"
+              ForegroundScale="0.65"
+              Color="#6200EE"
+              BaseSize="456,456" />
+    <MauiSplashScreen Include="Resources\AppIcon\appiconsplash.svg"
+                      Color="#6200EE"
+                      BaseSize="256,256" />
     <MauiImage Include="Resources\Images\*" />
     <MauiFont Include="Resources\Fonts\*" />
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
