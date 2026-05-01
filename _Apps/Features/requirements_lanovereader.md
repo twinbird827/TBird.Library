@@ -943,11 +943,12 @@ public enum SiteType
 | 項目 | 要件値 |
 |---|---|
 | 通常画面応答時間 | 1秒以内 |
-| 検索結果表示 | 3秒以内（タイムアウト5秒） |
+| 検索結果表示 | 3秒以内（タイムアウト 10 秒） |
 | 本文表示（キャッシュあり） | 0.5秒以内 |
-| 本文表示（キャッシュなし・通信） | 5秒以内（タイムアウト5秒） |
-| 更新チェック（全タイトル） | タイムアウト30秒 |
-| HttpClientタイムアウト | 5秒（更新チェックは30秒） |
+| 本文表示（キャッシュなし・通信） | 5秒以内 |
+| 更新チェック（全タイトル） | タイムアウト 30 秒 |
+| HttpClient タイムアウト（実装値） | 検索 10s / TOC 取得 15s / 本文 10〜20s / 更新チェック 30s（各 Service の `CancellationTokenSource.CreateLinkedTokenSource` + `CancelAfter` で個別設定） |
+| サイト別リクエストディレイ | `request_delay_ms`（既定 800ms、UI 範囲 500-2000ms）。`NetworkPolicyService` がサイト別 `SemaphoreSlim` でゲート |
 
 ### 6.2 起動・終了処理
 
@@ -964,13 +965,31 @@ public enum SiteType
 - 特別な後処理なし（HttpClientは都度使用・SQLite接続はusing管理）
 
 ### 6.3 例外・エラーハンドリング
+
+**エラー UI 統一規約 (PR-6 / L-9):**
+- 全 ViewModel は `ErrorAwareViewModel` 基底クラスを継承し、`HasError` / `ErrorMessage` プロパティを通じて**赤バナー**でエラーを通知する。
+- `Resources/Styles/Styles.xaml` の `ErrorBanner` Style (DestructiveRed 背景 + 白文字) で各 ContentPage の Row 0 に共通配置。
+- `protected void SetError(string message)` / `protected void ClearError()` を経由して状態を更新する。
+- **`DisplayAlert` は確認ダイアログ専用**（削除確認・キャッシュクリア確認等）に限定し、エラー通知用途では使わない。
+
 | 例外種別 | 捕捉箇所 | ログ | ユーザー通知 |
 |---|---|---|---|
-| 未捕捉例外 | App.xaml.cs UnhandledException | Debug.WriteLine (ERROR) | 「予期しないエラーが発生しました」AlertDialog → アプリ継続 |
-| HTTP通信エラー | 各Serviceクラス | Debug.WriteLine (WARN) | 画面インライン or Snackbar表示 |
-| SQLiteエラー | 各Repositoryクラス | Debug.WriteLine (ERROR) | Snackbar「データの操作に失敗しました」 |
-| スクレイピング失敗 | NarouScraperService | Debug.WriteLine (WARN) | AlertDialog「本文の取得に失敗しました」 |
-| タイムアウト | TaskCanceledException捕捉 | Debug.WriteLine (WARN) | 「タイムアウトしました」表示 |
+| 未捕捉例外 | App.xaml.cs `AppDomain.CurrentDomain.UnhandledException` | LogHelper.Error | プロセス継続（AlertDialog なし、ログのみ） |
+| 未観測 Task 例外 | App.xaml.cs `TaskScheduler.UnobservedTaskException` (PR-4 / L-5) | LogHelper.Error | `SetObserved()` でクラッシュ抑止 |
+| HTTP 通信エラー | 各 Service / ViewModel | LogHelper.Warn | 画面赤バナー (`SetError`) |
+| SQLite エラー | 各 Repository / ViewModel | LogHelper.Error | 画面赤バナー |
+| スクレイピング失敗 | NarouApiService / KakuyomuApiService | LogHelper.Warn | 画面赤バナー「本文の取得に失敗しました…」 |
+| タイムアウト | TaskCanceledException 捕捉 | LogHelper.Warn | 画面赤バナー「タイムアウトしました」 |
+| ReaderViewModel オフライン + 未キャッシュ | LoadEpisodeAsync 内 | - | 画面赤バナー「オフラインのため表示できません。キャッシュもありません」+ 前話 EpisodeContent / EpisodeTitle / EpisodeHtml をクリア。ユーザは目次/戻るボタンで自分で退出（自動遷移なし） |
+| Worker DI 解決失敗 | UpdateCheckWorker `IPlatformApplication.Current is null` | LogHelper.Warn | `Result.InvokeRetry()` で WorkManager のバックオフに任せる (PR-1 / C-3) |
+| 検索精度劣化 (補足) | NarouApiService.SearchAsync | - | URL に `&title=1&wname=1` を付与し全文検索を抑制 (PR-7 / N-1) |
+
+**読了点の巻き戻しによる read_at 喪失（F-006 / N-2 仕様）:**
+- 既読 N=10 状態で N=3 を再読すると 4..10 の `read_at` は NULL に戻され、**復元不可**。アンドゥ機構やゴミ箱は要件外。
+- 誤タップ防止のため、`auto_mark_read_enabled=0`（既定 OFF）にすると自動経路の発火を抑止できる。手動の「既読」ボタンは引き続き有効。
+
+**エラー操作仕様 (DisplayAlert 廃止の UX 影響):**
+- ReaderViewModel の `DisplayAlert` 廃止により**モーダル待機がなくなる**。インライン赤バナーで継続的にエラー文言を視認しつつ、戻る/目次ボタンを操作可能なまま保つ。
 
 ### 6.4 ログ要件
 | 項目 | 内容 |
@@ -1015,11 +1034,27 @@ public enum SiteType
 主要クエリパラメータ:
 | パラメータ | 説明 |
 |---|---|
-| out | json固定 |
-| lim | 取得件数（検索時: 20） |
-| word | タイトル+作者検索キーワード |
-| ncode | ncode指定（更新チェック時） |
+| out | json 固定 |
+| lim | 取得件数（検索時: 20、ジャンル別: 30、上限 100） |
+| word | 検索キーワード |
+| title | `1` を指定するとタイトルを抽出対象に追加（`title`/`ex`/`keyword`/`wname` のいずれかを 1 つでも指定すると指定範囲のみが対象になる） |
+| wname | `1` を指定すると作者名を抽出対象に追加 |
+| ncode | ncode 指定（更新チェック時、ハイフン区切りで複数可） |
+| biggenre | **大ジャンル** 指定（1=恋愛, 2=ファンタジー, 3=文芸, 4=SF, 98=ノンジャンル, 99=その他）。F-001 ジャンルブラウズで使用 |
+| genre | サブジャンル指定（101=異世界恋愛, 201=ハイファンタジー など 3〜4 桁 ID）。本アプリでは現状未使用 |
+| order | 並び順（`weeklypoint` 等） |
 | of | 取得フィールド絞り込み（t,w,n,ga,gl,noveltype,end） |
+
+> **検索 (F-001) では `&title=1&wname=1` を必ず付ける** (PR-7 / N-1)。フラグ未指定だとあらすじ・タグ・作者名まで全文検索され、無関係作品が大量にヒットする。
+> **ジャンルブラウズ (F-001 Genre browse) では `biggenre=` を使う** (PR-7 / N-3)。旧コードは UI の大ジャンル ID を `genre=` で渡してマッチせず実質 0 件になっていた。
+
+**ランキング API:**
+| 項目 | 内容 |
+|---|---|
+| エンドポイント | `https://api.syosetu.com/rank/rankget/?out=json&rtype={yyyyMMdd-period}` |
+| period | `d`=Daily, `w`=Weekly（火曜日基準）, `m`=Monthly（月初）, `q`=Quarterly（月初） |
+| TZ | JST 基準（朝 8 時前は 2 日前、それ以降は前日を Daily ターゲット）。`TimeZoneNotFoundException` 時は UTC+9h フォールバック (PR-4 / L-7) |
+| ncode 一括フェッチ | ranking 結果の ncode をハイフン結合し novelapi へ `ncode={n1-n2-...}` で再問い合わせ |
 
 取得フィールドマッピング:
 | APIフィールド | テーブルカラム | 説明 |
@@ -1049,28 +1084,25 @@ public enum SiteType
 
 ### 7.2 カクヨム
 
-**公式API:**
-| 項目 | 内容 |
-|---|---|
-| ベースURL | `https://kakuyomu.jp/api/` |
-| 通信方式 | HTTPS GET/POST |
-| レスポンス形式 | JSON |
-| 認証 | 不要（公開API） |
-| ライブラリ | HttpClient + System.Text.Json |
+カクヨム公式 API は提供されないため、実装は HTML スクレイピング + Apollo State JSON 抽出のハイブリッド構成。
 
-主要エンドポイント:
-| 用途 | エンドポイント |
-|---|---|
-| 検索 | `GET /search?q={keyword}&type=work` |
-| 作品情報 | `GET /works/{work_id}` |
-| 話一覧 | `GET /works/{work_id}/episodes` |
-| 本文取得 | `GET /works/{work_id}/episodes/{episode_id}` |
+**主要エンドポイント:**
+| 用途 | エンドポイント | 抽出方法 |
+|---|---|---|
+| 検索 | `GET https://kakuyomu.jp/search?q={keyword}` | HTML から `a[title][href*='/works/']` を最大 20 件、親要素から `a[href*='/users/']` で作者名を取得 |
+| 作品 TOC / 話一覧 | `GET https://kakuyomu.jp/works/{workId}` | `<script id="__NEXT_DATA__">` の `__APOLLO_STATE__` から `TableOfContentsChapter:*` と `Episode:*` を抽出 |
+| 本文取得 | `GET https://kakuyomu.jp/works/{workId}/episodes/{episodeId}` | `.widget-episodeBody` (主) / `[class~='EpisodeBody']` (CSS3 word-match の fallback) で本文要素を取得 (PR-4 / L-10) |
+| ランキング | `GET https://kakuyomu.jp/rankings/{genreSlug}/{periodSlug}` | `div.widget-work` のうち `p.widget-work-rank` を持つカードのみ列挙（広告/おすすめ枠除外）。`a.widget-workCard-titleLabel` / `a.widget-workCard-authorLabel` / `span.widget-workCard-statusLabel` / `span.widget-workCard-episodeCount` から各種情報抽出 (PR-7 / N-4) |
 
-> ※カクヨムの正確なAPIエンドポイント・レスポンス形式は実装時に公式ドキュメントを参照すること。上記は参考値。
+**期間 slug:** `daily` / `weekly` / `monthly`。**Quarterly はカクヨム非対応**のため、F-001 Ranking モードで Quarterly + SearchKakuyomu のとき赤バナー通知して fetch を skip (PR-3 / M-1)。
 
-エラー時の挙動:
-- タイムアウト: 5秒でキャンセル → AlertDialog表示
-- HTTPエラー: AlertDialog「カクヨムとの通信に失敗しました（エラー: {message}）」
+**エピソード ID キャッシュ:**
+- `_episodeIdCache: ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)>` で 5 分間キャッシュ
+- `SweepExpiredEpisodeIdCache` で TTL 切れ + 上限 100 件超過分を自動 sweep (PR-4 / L-6)
+
+**エラー時の挙動:**
+- タイムアウト: 各メソッドで個別に `CancelAfter` 設定（検索 10s、TOC 15s、本文 20s、ランキング 20s）
+- HTTP エラー / パース失敗: 画面赤バナー「本文の取得に失敗しました（サイト構造が変わった可能性があります）」
 
 ---
 
@@ -1096,19 +1128,50 @@ public enum SiteType
 - ファクトリーパターン（`INovelServiceFactory`）でSiteTypeに応じたサービスを取得する
 
 ### 8.5 更新チェック（WorkManager）
-- Android WorkManagerの`PeriodicWorkRequest`で定期実行を管理する
-- 二重実行防止のためSemaphoreSlim(1,1)を使用し、finallyブロックで必ずRelease()する
-- `has_unconfirmed_update == true`のタイトルは更新チェックをスキップする処理を最初に実行する
+- Android WorkManager の `PeriodicWorkRequest` で定期実行を管理する
+- 二重実行防止のため SemaphoreSlim(1,1) を使用し、finally ブロックで必ず Release() する
+- **`has_unconfirmed_update` でのスキップは行わない** (PR-2 / H-2)。旧仕様はスキップ条件で取得自体をやめていたため、ユーザがアプリを開かない限り更新追跡から脱落する問題があった。再通知は `notificationId=novel.Id` の上書き表示で吸収される
+- `MainActivity.OnCreate` で `update_interval_hours` と `last_scheduled_hours` を比較し、差分があるときだけ `ExistingPeriodicWorkPolicy.Update` で再登録（毎起動でのリセット防止、PR-1 / C-1）
 
 ### 8.6 通知ディープリンク
 - 更新通知タップ時はSCR-004へ遷移するためIntentにnovel_idとepisode_idを埋め込む
 - 通知タップ後に`has_unconfirmed_update`を0にUPDATEする
 
 ### 8.7 閲覧画面の既読マーク
-- ScrollViewのScrolled イベントでスクロール位置を監視し、`ScrollY + Height >= ContentSize.Height - 10` となった時点で既読マークを実行する
+- ScrollView の Scrolled イベントでスクロール位置を監視し、`ScrollY + Height >= ContentSize.Height - 10` となった時点で `MarkAsReadFromAutoCommand` を実行する
+- 縦書き WebView では `lanobe://read-end` 受信時に同コマンドを発火する
+- 自動経路は `auto_mark_read_enabled=1` のときのみ発火し、設定 OFF 時は手動の「既読」ボタン (`MarkAsReadCommand`) のみで既読化する
+- 共通実装は `ApplyMarkAsReadAsync` private ヘルパーに集約し、内部で `EpisodeRepository.SetReadStateUpToAsync` を呼ぶ
 
 ### 8.8 キャッシュ削除
-- 起動時の期限切れキャッシュ削除はバックグラウンドスレッドで実行し、UIの表示をブロックしない
+- 起動時の期限切れキャッシュ削除はバックグラウンドスレッドで実行し、UI の表示をブロックしない
+
+### 8.9 NetworkPolicyService（F-013）
+- サイト別 `SemaphoreSlim(1, 1)` で同サイトの並列リクエストを禁止
+- `request_delay_ms`（既定 800ms、UI 範囲 500-2000ms）で間隔を強制（`Math.Clamp` で UI 範囲に収める、PR-2 / L-2）
+- `Connectivity.ConnectivityChanged` を監視して `WifiConnected` / `WifiDisconnected` イベントを発火
+- `IsOnline` / `IsWifiConnected` プロパティを公開（BackgroundJobQueue / PrefetchService が参照）
+
+### 8.10 BackgroundJobQueue（F-012）
+- Wi-Fi 接続時のみ Worker を起動し、ConcurrentQueue 2 本（高優先度 / 通常）で直列処理
+- `EnqueueAsync` 入口で `prefetch_enabled=0` なら drop（完全抑止）し、HashSet による重複抑止と Queue 投入を**同一 lock 内で完結**させる（race window 抑止、PR-2 / H-4 + PR-3 / M-2）
+- `StopWorker` 時は `SyncEnqueuedIdsFromQueues` で HashSet を live キューに合わせて再構成し、再 Enqueue 可能な状態に戻す
+- 連続 5 失敗で同セッションを中断、200 件処理ごとに 5 秒のクールダウン
+
+### 8.11 縦書きハイブリッド実装（F-009）
+- 横書き = `Label` ベースの `ScrollView` 表示、縦書き = `ReaderWebView` (CSS `writing-mode: vertical-rl`) のハイブリッド構成
+- 同じ `Grid.Row` に重ね、`IsVisible` バインディングで切替（`IsHorizontal` / `IsVerticalWriting`）
+- 縦書き時は `ReaderHtmlBuilder.Build(content, cssState)` で HTML 組み立て。CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+- WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉し、対応コマンドへ連動
+
+### 8.12 グローバル例外ハンドラ
+- `App.xaml.cs` で `AppDomain.CurrentDomain.UnhandledException` と `TaskScheduler.UnobservedTaskException` の両方を購読する (PR-4 / L-5)
+- 後者は `args.SetObserved()` でプロセス終了を抑止（fire-and-forget Task の例外を吸収）
+
+### 8.13 SQLite トランザクション
+- 既読化（F-006）の `SetReadStateUpToAsync` は `_db.RunInTransactionAsync` で 2 SQL（既読化 + 巻き戻し）を atomic に実行
+- 補償削除（H-1）の `NovelRepository.DeleteBySiteAndNovelIdAsync` も同じ仕組みで `episode_cache → episodes → novels` を連鎖削除
+- sqlite-net-pcl の placeholder（`?`）は同一 SQL あたり 3 個までを既存パターンとし、4 個以上必要なら 2 SQL に分割する
 
 ---
 
