@@ -15,13 +15,13 @@ public abstract partial class ErrorAwareViewModel : ObservableObject
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
-    protected void SetError(string message)
+    protected virtual void SetError(string message)
     {
         ErrorMessage = message;
         HasError = true;
     }
 
-    protected void ClearError()
+    protected virtual void ClearError()
     {
         ErrorMessage = string.Empty;
         HasError = false;

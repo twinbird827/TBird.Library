@@ -8,6 +8,9 @@
 
 	<ContentPage.ToolbarItems>
 		<ToolbarItem Text="並び替え" Command="{Binding ChangeSortCommand}" />
+		<!-- 旧 HasCheckError 連動から HasError 連動に変更。
+		     個別タイトルの check error に加え LoadNovelsAsync 自体の失敗時も retry 可能となる
+		     (= 活性スコープが広がる方向の意図的な仕様変更)。 -->
 		<ToolbarItem Text="更新" Command="{Binding RefreshCommand}"
                      IsEnabled="{Binding HasError}" />
 	</ContentPage.ToolbarItems>

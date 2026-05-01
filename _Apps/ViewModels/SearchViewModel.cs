@@ -245,6 +245,19 @@ public partial class SearchViewModel : ErrorAwareViewModel
                 : null);
     }
 
+    private async Task TryEnqueuePrefetchAsync(int novelId)
+    {
+        try
+        {
+            await _prefetch.EnqueueNovelAsync(novelId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Warn(nameof(SearchViewModel),
+                $"Prefetch enqueue failed for novelId={novelId}: {ex.Message}");
+        }
+    }
+
     private async Task ShowResultsAsync(List<SearchResult> results)
     {
         var existingIds = await _novelRepo.GetExistingSiteNovelIdsAsync();
@@ -313,18 +326,8 @@ public partial class SearchViewModel : ErrorAwareViewModel
 
             // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)。
             // M-2 で BackgroundJobQueue.EnqueueAsync 内に GetIntValueAsync の await が入ったため
-            // 例外発生面が広がった (キャッシュヒット後はマイクロ秒オーダーで実害は限定的だが) ため、
-            // fire-and-forget は続行しつつ try/catch + LogHelper.Warn でクラッシュ耐性を確保する。
-            var enqueueNovelId = dbNovel.Id;
-            _ = Task.Run(async () =>
-            {
-                try { await _prefetch.EnqueueNovelAsync(enqueueNovelId).ConfigureAwait(false); }
-                catch (Exception prefetchEx)
-                {
-                    LogHelper.Warn(nameof(SearchViewModel),
-                        $"Prefetch enqueue failed for novelId={enqueueNovelId}: {prefetchEx.Message}");
-                }
-            });
+            // 例外発生面が広がった点に対し try/catch + LogHelper.Warn でクラッシュ耐性を確保する。
+            _ = TryEnqueuePrefetchAsync(dbNovel.Id);
 
             result.IsRegistered = true;
             result.TotalEpisodes = episodes.Count;
