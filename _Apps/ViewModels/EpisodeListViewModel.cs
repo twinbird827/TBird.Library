@@ -108,6 +108,31 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             IsNovelFavorite = _novel.IsFavorite;
 
             RecalcPaging();
+
+            // anchor: 直前まで読んだ話 (= firstUnread の 1 つ前) を優先、無ければ最新既読話 (= 全話既読時の最終話)。
+            // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
+            Episode? anchor = null;
+            var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
+            if (firstUnread is not null)
+            {
+                var idx = _allEpisodes.IndexOf(firstUnread);
+                if (idx > 0) anchor = _allEpisodes[idx - 1];
+            }
+            else
+            {
+                anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
+            }
+
+            if (anchor is not null)
+            {
+                var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
+                if (idxInFiltered >= 0)
+                {
+                    CurrentPage = (idxInFiltered / _episodesPerPage) + 1;
+                    PendingInitialScrollIndex = idxInFiltered % _episodesPerPage;
+                }
+            }
+
             await LoadPageAsync();
         }
         catch (Exception ex)
@@ -119,6 +144,24 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         {
             IsLoading = false;
         }
+    }
+
+    /// <summary>
+    /// 初期スクロール対象 (anchor) のページ内インデックス。
+    /// anchor は「直前まで読んだ話 = firstUnread の 1 つ前」、無ければ「最新既読話」。
+    /// InitializeAsync が anchor を見つけた場合に設定され、View 側の OnAppearing で
+    /// TakePendingInitialScrollIndex() により 1 回だけ消費される。null = スクロール不要。
+    /// </summary>
+    public int? PendingInitialScrollIndex { get; private set; }
+
+    /// <summary>
+    /// PendingInitialScrollIndex を読み取って null クリアする。1 回限り消費を保証。
+    /// </summary>
+    public int? TakePendingInitialScrollIndex()
+    {
+        var v = PendingInitialScrollIndex;
+        PendingInitialScrollIndex = null;
+        return v;
     }
 
     private void RebuildFilterCache()
