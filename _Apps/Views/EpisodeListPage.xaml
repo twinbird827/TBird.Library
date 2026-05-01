@@ -33,8 +33,10 @@
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Episode list -->
-		<CollectionView Grid.Row="2" ItemsSource="{Binding Episodes}" SelectionMode="None"
-                         IsGrouped="False">
+		<CollectionView Grid.Row="2" x:Name="EpisodesView"
+		                ItemsSource="{Binding Episodes}" SelectionMode="None"
+		                IsGrouped="False"
+		                SizeChanged="OnEpisodesViewSizeChanged">
 			<CollectionView.ItemTemplate>
 				<DataTemplate x:DataType="vm:EpisodeViewModel">
 					<Grid Padding="16,10" ColumnDefinitions="Auto,*,Auto,Auto">
