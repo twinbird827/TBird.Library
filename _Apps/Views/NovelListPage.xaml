@@ -77,19 +77,25 @@
                                            IsVisible="{Binding IsCompleted, Converter={StaticResource InverseBool}}" />
 								</HorizontalStackLayout>
 
-								<!-- Unread + Updated -->
-								<HorizontalStackLayout Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="12">
-									<Border Padding="6,2" BackgroundColor="{StaticResource UnreadBadge}"
-                                           IsVisible="{Binding UnreadCount, Converter={StaticResource IntToBool}}">
+								<!-- Row 2: 更新日時 (左端) | 未読 (中右) | 既読数/総話数 (右端) -->
+								<Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+								      ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+									<Label Grid.Column="0" Text="{Binding LastUpdatedAt}"
+									       Style="{StaticResource SmallMetaLabel}" VerticalOptions="Center"
+									       LineBreakMode="TailTruncation" />
+									<Border Grid.Column="1" Padding="6,2" BackgroundColor="{StaticResource UnreadBadge}"
+									        VerticalOptions="Center"
+									        IsVisible="{Binding UnreadCount, Converter={StaticResource IntToBool}}">
 										<Border.StrokeShape>
 											<RoundRectangle CornerRadius="10" />
 										</Border.StrokeShape>
 										<Label Text="{Binding UnreadCount, StringFormat='{0}話未読'}"
-                                               Style="{StaticResource BadgeLabel}" />
+										       Style="{StaticResource BadgeLabel}" />
 									</Border>
-									<Label Text="{Binding LastUpdatedAt}" Style="{StaticResource SmallMetaLabel}"
-                                           VerticalOptions="Center" />
-								</HorizontalStackLayout>
+									<Label Grid.Column="2" Text="{Binding ReadProgressLabel}"
+									       Style="{StaticResource SmallMetaLabel}" VerticalOptions="Center"
+									       IsVisible="{Binding EpisodeCount, Converter={StaticResource IntToBool}}" />
+								</Grid>
 							</Grid>
 						</Border>
 					</SwipeView>

@@ -3,7 +3,11 @@ using SQLite;
 
 namespace LanobeReader.Services.Database;
 
-public sealed record NovelWithUnread(Novel Novel, int UnreadCount);
+public sealed record NovelWithUnread(
+    Novel Novel,
+    int UnreadCount,
+    int ReadCount,
+    int EpisodeCount);
 
 public class NovelRepository
 {
@@ -11,6 +15,12 @@ public class NovelRepository
     {
         [SQLite.Column("unread_count")]
         public int UnreadCount { get; set; }
+
+        [SQLite.Column("read_count")]
+        public int ReadCount { get; set; }
+
+        [SQLite.Column("episode_count")]
+        public int EpisodeCount { get; set; }
     }
 
     private readonly SQLiteAsyncConnection _db;
@@ -62,6 +72,9 @@ public class NovelRepository
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
 
+        // episodes 1 パス GROUP BY で episode_count / read_count / unread_count を一括集計。
+        // (novel_id, is_read) 複合インデックス (idx_episodes_novel_isread, schema v3) が covering index となる。
+        // 全 3 値を episodes から派生させることで「既読+未読=総話数」の不変条件を保証する。
         const string baseSql =
             "SELECT " +
             "  n.id, " +
@@ -77,14 +90,19 @@ public class NovelRepository
             "  n.has_check_error, " +
             "  n.is_favorite, " +
             "  n.favorited_at, " +
-            "  COALESCE(u.cnt, 0) AS unread_count " +
+            "  COALESCE(e.unread_count, 0) AS unread_count, " +
+            "  COALESCE(e.read_count, 0) AS read_count, " +
+            "  COALESCE(e.episode_count, 0) AS episode_count " +
             "FROM novels n " +
             "LEFT JOIN (" +
-            "    SELECT novel_id, COUNT(*) AS cnt " +
+            "    SELECT " +
+            "      novel_id, " +
+            "      COUNT(*) AS episode_count, " +
+            "      SUM(CASE WHEN is_read = 1 THEN 1 ELSE 0 END) AS read_count, " +
+            "      SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) AS unread_count " +
             "    FROM episodes " +
-            "    WHERE is_read = 0 " +
             "    GROUP BY novel_id" +
-            ") u ON u.novel_id = n.id ";
+            ") e ON e.novel_id = n.id ";
 
         string orderBy = sortKey switch
         {
@@ -120,7 +138,7 @@ public class NovelRepository
                 IsFavorite = r.IsFavorite,
                 FavoritedAt = r.FavoritedAt,
             };
-            result.Add(new NovelWithUnread(novel, r.UnreadCount));
+            result.Add(new NovelWithUnread(novel, r.UnreadCount, r.ReadCount, r.EpisodeCount));
         }
         return result;
     }

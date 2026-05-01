@@ -6,7 +6,7 @@ namespace LanobeReader.Services.Database;
 
 public class DatabaseService
 {
-    private const int CURRENT_SCHEMA_VERSION = 2;
+    private const int CURRENT_SCHEMA_VERSION = 3;
 
     private readonly SQLiteAsyncConnection _connection;
     private Task? _initTask;
@@ -168,8 +168,10 @@ public class DatabaseService
         {
             await MigrateToV2Async().ConfigureAwait(false);
         }
-        // 今後のバージョンは↓に追加
-        // if (fromVersion < 3) await MigrateToV3Async().ConfigureAwait(false);
+        if (fromVersion < 3)
+        {
+            await MigrateToV3Async().ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -226,6 +228,29 @@ public class DatabaseService
         {
             LogHelper.Warn(nameof(DatabaseService), $"[MigrateToV2] Failed: {ex.Message}");
             throw; // 上位 (InitializeInternalAsync) で SetSchemaVersion を skip させるため再送出
+        }
+    }
+
+    /// <summary>
+    /// v2 → v3: episodes(novel_id, is_read) に複合インデックスを追加。
+    /// NovelRepository.GetAllWithUnreadCountAsync の集計サブクエリ
+    /// (episode_count / read_count / unread_count を 1 パスで GROUP BY) の
+    /// covering index として機能する。
+    /// </summary>
+    private async Task MigrateToV3Async()
+    {
+        try
+        {
+            await _connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS idx_episodes_novel_isread " +
+                "ON episodes (novel_id, is_read)"
+            ).ConfigureAwait(false);
+            LogHelper.Info(nameof(DatabaseService), "[MigrateToV3] Done.");
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Warn(nameof(DatabaseService), $"[MigrateToV3] Failed: {ex.Message}");
+            throw;
         }
     }
 }

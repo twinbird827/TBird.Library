@@ -68,7 +68,7 @@ public partial class NovelListViewModel : ErrorAwareViewModel
         {
             var rows = await _novelRepo.GetAllWithUnreadCountAsync(SortKey);
             Novels = new ObservableCollection<NovelCardViewModel>(
-                rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount)));
+                rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount, r.ReadCount, r.EpisodeCount)));
             if (rows.Any(r => r.Novel.HasCheckError))
                 SetError("一部のタイトルで更新チェックに失敗しました");
             else

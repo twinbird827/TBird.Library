@@ -21,6 +21,18 @@ public partial class NovelCardViewModel : ObservableObject
     private int _unreadCount;
 
     [ObservableProperty]
+    private int _readCount;
+
+    [ObservableProperty]
+    private int _episodeCount;
+
+    // ReadCount ≤ EpisodeCount は SQL の構造上保証される (両方とも同じ episodes 集計から派生)。
+    public string ReadProgressLabel => $"{ReadCount}/{EpisodeCount}";
+
+    partial void OnReadCountChanged(int value) => OnPropertyChanged(nameof(ReadProgressLabel));
+    partial void OnEpisodeCountChanged(int value) => OnPropertyChanged(nameof(ReadProgressLabel));
+
+    [ObservableProperty]
     private string _lastUpdatedAt = string.Empty;
 
     [ObservableProperty]
@@ -38,7 +50,7 @@ public partial class NovelCardViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFavorite;
 
-    public static NovelCardViewModel FromModel(Novel novel, int unreadCount)
+    public static NovelCardViewModel FromModel(Novel novel, int unreadCount, int readCount, int episodeCount)
     {
         return new NovelCardViewModel
         {
@@ -49,6 +61,8 @@ public partial class NovelCardViewModel : ObservableObject
             SiteType = (SiteType)novel.SiteType,
             NovelId = novel.NovelId,
             UnreadCount = unreadCount,
+            ReadCount = readCount,
+            EpisodeCount = episodeCount,
             LastUpdatedAt = DateTime.TryParse(novel.LastUpdatedAt, null,
                 System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
                 ? dt.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss")
