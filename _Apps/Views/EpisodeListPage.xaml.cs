@@ -6,6 +6,7 @@ namespace LanobeReader.Views;
 public partial class EpisodeListPage : ContentPage
 {
     private int? _pendingScrollIndex;
+    private bool _delayedRan;
 
     public EpisodeListPage(EpisodeListViewModel viewModel)
     {
@@ -33,6 +34,7 @@ public partial class EpisodeListPage : ContentPage
                     // SizeChanged フォールバック用にもインデックスを保持。
                     // TryScrollToPending() の成功時に null クリアすることで二重実行を防ぐ。
                     _pendingScrollIndex = i;
+                    _delayedRan = false;
 
                     // OnAppearing 時点でページは visible だが、ItemsSource 差し替え直後で
                     // CollectionView の measure/layout 未完だと ScrollTo が空振りする。
@@ -50,6 +52,13 @@ public partial class EpisodeListPage : ContentPage
                         {
                             LogHelper.Warn(nameof(EpisodeListPage),
                                 $"Delayed ScrollTo failed: {ex.Message}");
+                        }
+                        finally
+                        {
+                            // 成否に関わらず delay 経過を記録。これ以降の SizeChanged が
+                            // フォールバックとして動けるようになる (ScrollTo が silent no-op
+                            // だった場合も、次の SizeChanged で再試行される)。
+                            _delayedRan = true;
                         }
                     });
                 }
@@ -83,9 +92,13 @@ public partial class EpisodeListPage : ContentPage
     /// CollectionView の measure/layout 確定時に発火。DispatchDelayed(150ms) が
     /// 遅い実機で空振りしたケースを救うフォールバック経路。
     /// _pendingScrollIndex が null (= 既に消費済 or 不要) なら何もしない。
+    /// _delayedRan が false の間 (= DispatchDelayed が未到達) は何もしない。
+    /// 早期に発火した SizeChanged で消費 → ScrollTo silent no-op → 後続の delay 空振り、
+    /// という詰みパターンを避けるため、SizeChanged は必ず delay 経過後だけ動くよう順序保証する。
     /// </summary>
     private void OnEpisodesViewSizeChanged(object? sender, EventArgs e)
     {
+        if (!_delayedRan) return;
         try
         {
             TryScrollToPending();
