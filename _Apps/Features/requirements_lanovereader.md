@@ -371,11 +371,21 @@ LanobeReader/
 | キー | 型 | デフォルト値 | 変更時の反映タイミング |
 |---|---|---|---|
 | cache_months | int | 3 | 次回キャッシュ削除時 |
-| update_interval_hours | int | 6 | 次回WorkManagerスケジュール更新時 |
+| update_interval_hours | int | 6 | 次回 MainActivity.OnCreate 時に差分判定して再登録 |
 | font_size_sp | int | 16 | SCR-004を次回開いた時 |
 | background_theme | int | 0（白） | SCR-004を次回開いた時 |
 | line_spacing | int | 1（普通） | SCR-004を次回開いた時 |
 | episodes_per_page | int | 50 | SCR-003を次回開いた時 |
+| vertical_writing | int | 0（横書き） | SCR-004 を次回開いた時。OnAppearing で `ReloadSettingsAsync` 呼び出しによりリーダー復帰時にも反映 |
+| prefetch_enabled | int | 1（ON） | 即時（次回 `BackgroundJobQueue.EnqueueAsync` 呼出で参照） |
+| request_delay_ms | int | 800 | 次回 HTTP リクエスト時。UI スライダーは 500-2000ms、`Math.Clamp` で UI 範囲に強制 |
+| novel_sort_key | string | "updated_desc" | 即時（再ロードして並び替え反映） |
+| auto_mark_read_enabled | int | 0（OFF） | SCR-004 を次回開いた時または OnAppearing で反映 |
+| last_scheduled_hours | int | 6 | C-1 用の内部キー（毎起動でのリセット防止）。値は `update_interval_hours` の既定値と同期する |
+
+> 設定値はすべて文字列で `app_settings` テーブルに UPSERT。`AppSettingsRepository` 起動時の
+> `LoadAllAsync` で `_cache: ConcurrentDictionary<string,string>` に全件読み込み、以後はメモリヒット。
+> `SetValueAsync` で DB 反映 + キャッシュ更新が同時に走る。
 
 **キャッシュ手動クリア処理:**
 1. 「キャッシュをすべてクリア」ボタンタップ
@@ -790,8 +800,10 @@ graph TD
 | registered_at | TEXT | NG | | | 登録日時（ISO8601） |
 | has_unconfirmed_update | INTEGER | NG | | 0 | 更新通知未確認フラグ |
 | has_check_error | INTEGER | NG | | 0 | 更新チェックエラーフラグ |
+| is_favorite | INTEGER | NG | | 0 | お気に入りフラグ（F-010） |
+| favorited_at | TEXT | OK | | NULL | お気に入り登録日時（ISO8601） |
 
-ユニーク制約: `(site_type, novel_id)`
+ユニーク制約: `idx_novels_site_novel = UNIQUE (site_type, novel_id)`（v1 から整備）
 
 #### episodesテーブル
 | カラム名 | 型 | NULL | PK | デフォルト | 説明 |
@@ -802,12 +814,13 @@ graph TD
 | chapter_name | TEXT | OK | | NULL | 章タイトル（章なし作品はNULL） |
 | title | TEXT | NG | | | 話タイトル |
 | is_read | INTEGER | NG | | 0 | 既読フラグ（0=未読 / 1=既読） |
-| read_at | TEXT | OK | | NULL | 既読日時（ISO8601） |
+| read_at | TEXT | OK | | NULL | 既読日時（ISO8601）。F-006 の SetReadStateUpToAsync で N+1 以降は NULL に巻き戻される |
 | published_at | TEXT | OK | | NULL | 公開日時（ISO8601） |
+| is_favorite | INTEGER | NG | | 0 | お気に入りフラグ（F-010） |
+| favorited_at | TEXT | OK | | NULL | お気に入り登録日時（ISO8601） |
 
 インデックス:
-- `idx_episodes_novel_id`: (novel_id) - 一覧取得高速化
-- `idx_episodes_novel_episode`: (novel_id, episode_no) - 前後話特定用
+- `idx_episodes_novel_episode`: **UNIQUE** `(novel_id, episode_no)` - 前後話特定 + 重複防止（schema v2 で UNIQUE 化、重複レコードは除去後に再構築）
 
 #### episode_cacheテーブル
 | カラム名 | 型 | NULL | PK | デフォルト | 説明 |
@@ -828,15 +841,34 @@ graph TD
 | key | TEXT | NG | ○ | 設定キー |
 | value | TEXT | NG | | 設定値（文字列で統一） |
 
-初期レコード（アプリ初回起動時INSERT）:
-| key | value |
+初期レコード（アプリ初回起動時 INSERT、`SeedSettingsAsync` が `INSERT OR IGNORE` 相当の missing-only 動作で投入）:
+| key | value | 由来定数 |
+|---|---|---|
+| cache_months | 3 | `SettingsKeys.DEFAULT_CACHE_MONTHS` |
+| update_interval_hours | 6 | `SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS` |
+| font_size_sp | 16 | `SettingsKeys.DEFAULT_FONT_SIZE_SP` |
+| background_theme | 0 | `SettingsKeys.DEFAULT_BACKGROUND_THEME` |
+| line_spacing | 1 | `SettingsKeys.DEFAULT_LINE_SPACING` |
+| episodes_per_page | 50 | `SettingsKeys.DEFAULT_EPISODES_PER_PAGE` |
+| prefetch_enabled | 1 | `SettingsKeys.DEFAULT_PREFETCH_ENABLED` |
+| request_delay_ms | 800 | `SettingsKeys.DEFAULT_REQUEST_DELAY_MS` |
+| vertical_writing | 0 | `SettingsKeys.DEFAULT_VERTICAL_WRITING` |
+| novel_sort_key | "updated_desc" | `SettingsKeys.DEFAULT_NOVEL_SORT_KEY` |
+| last_scheduled_hours | 6 | `SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS` と同期 |
+| auto_mark_read_enabled | 0 | `SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED` |
+
+> 既定値はすべて `SettingsKeys.DEFAULT_*` 定数経由で参照する（`SeedSettingsAsync` のリテラル直書きは PR-4 / L-1 で排除済み）。
+
+#### スキーマバージョン管理
+
+`app_settings.schema_version`（int）でマイグレーションを管理する。`DatabaseService.CURRENT_SCHEMA_VERSION` と比較し、低ければ `MigrateAsync(fromVersion)` を順次適用。
+
+| version | 適用内容 |
 |---|---|
-| cache_months | 3 |
-| update_interval_hours | 6 |
-| font_size_sp | 16 |
-| background_theme | 0 |
-| line_spacing | 1 |
-| episodes_per_page | 50 |
+| v1 | 初版テーブル群 + `idx_novels_site_novel` UNIQUE |
+| v2 | `idx_episodes_novel_episode` を UNIQUE 化（重複レコード除去後にインデックス再作成）、`is_favorite` / `favorited_at` カラム追加 |
+
+マイグレーション失敗時は `schema_version` を上げず、次回起動で再試行する。
 
 ### 5.2 ER図
 ```mermaid
@@ -856,6 +888,8 @@ erDiagram
         text registered_at
         integer has_unconfirmed_update
         integer has_check_error
+        integer is_favorite
+        text favorited_at
     }
 
     episodes {
@@ -867,6 +901,8 @@ erDiagram
         integer is_read
         text read_at
         text published_at
+        integer is_favorite
+        text favorited_at
     }
 
     episode_cache {
