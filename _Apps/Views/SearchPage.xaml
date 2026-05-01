@@ -7,26 +7,41 @@
              x:DataType="vm:SearchViewModel"
              Title="検索">
 
-	<Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+	<Grid RowDefinitions="Auto,Auto,Auto,*">
 		<!-- Error banner (Auto row collapses when HasError=false) -->
 		<Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
 		       Style="{StaticResource ErrorBanner}" />
 
-		<!-- Mode tabs -->
-		<HorizontalStackLayout Grid.Row="1" Padding="8,4" Spacing="6">
-			<Button Text="検索" Command="{Binding SetModeKeywordCommand}" FontSize="12" HeightRequest="36" />
-			<Button Text="ランキング" Command="{Binding SetModeRankingCommand}" FontSize="12" HeightRequest="36" />
-			<Button Text="ジャンル" Command="{Binding SetModeGenreCommand}" FontSize="12" HeightRequest="36" />
-		</HorizontalStackLayout>
+		<!-- Mode tabs (3 等分) -->
+		<Grid Grid.Row="1" Padding="8,4" ColumnDefinitions="*,*,*" ColumnSpacing="6">
+			<Button Grid.Column="0" Text="検索"
+			        Command="{Binding SetModeKeywordCommand}" FontSize="12" HeightRequest="36" />
+			<Button Grid.Column="1" Text="ランキング"
+			        Command="{Binding SetModeRankingCommand}" FontSize="12" HeightRequest="36" />
+			<Button Grid.Column="2" Text="ジャンル"
+			        Command="{Binding SetModeGenreCommand}" FontSize="12" HeightRequest="36" />
+		</Grid>
 
 		<!-- Mode-specific inputs -->
 		<Grid Grid.Row="2" Padding="8,0">
 			<!-- Keyword mode -->
-			<Grid IsVisible="{Binding IsKeywordMode}" ColumnDefinitions="*,Auto">
-				<Entry Grid.Column="0" Placeholder="タイトル・作者名で検索"
-                       Text="{Binding SearchKeyword}" ReturnCommand="{Binding SearchCommand}" />
-				<Button Grid.Column="1" Text="検索" Command="{Binding SearchCommand}" Margin="4,0,0,0" />
-			</Grid>
+			<VerticalStackLayout IsVisible="{Binding IsKeywordMode}" Spacing="6">
+				<HorizontalStackLayout Spacing="16">
+					<HorizontalStackLayout Spacing="4">
+						<Switch IsToggled="{Binding SearchNarou}" VerticalOptions="Center" />
+						<Label Text="なろう" VerticalOptions="Center" />
+					</HorizontalStackLayout>
+					<HorizontalStackLayout Spacing="4">
+						<Switch IsToggled="{Binding SearchKakuyomu}" VerticalOptions="Center" />
+						<Label Text="カクヨム" VerticalOptions="Center" />
+					</HorizontalStackLayout>
+				</HorizontalStackLayout>
+				<Grid ColumnDefinitions="*,Auto">
+					<Entry Grid.Column="0" Placeholder="タイトル・作者名で検索"
+					       Text="{Binding SearchKeyword}" ReturnCommand="{Binding SearchCommand}" />
+					<Button Grid.Column="1" Text="検索" Command="{Binding SearchCommand}" Margin="4,0,0,0" />
+				</Grid>
+			</VerticalStackLayout>
 
 			<!-- Ranking mode -->
 			<VerticalStackLayout IsVisible="{Binding IsRankingMode}" Spacing="6">
@@ -41,48 +56,56 @@
 						</Picker.Items>
 					</Picker>
 				</HorizontalStackLayout>
-				<HorizontalStackLayout Spacing="8">
-					<Label Text="なろう大ジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding NarouBigGenres, x:DataType=vm:SearchViewModel}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
-                            SelectedItem="{Binding SelectedNarouBigGenre}" />
-				</HorizontalStackLayout>
-				<HorizontalStackLayout Spacing="8">
-					<Label Text="カクヨムジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
-                            SelectedItem="{Binding SelectedKakuyomuGenre}" />
-				</HorizontalStackLayout>
+				<Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+					<Label Grid.Column="0" Text="なろう大ジャンル:" VerticalOptions="Center"
+					       Opacity="{Binding SearchNarou, Converter={StaticResource BoolToOpacity}}" />
+					<Picker Grid.Column="1"
+					        ItemsSource="{Binding NarouBigGenres, x:DataType=vm:SearchViewModel}"
+					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
+					        SelectedItem="{Binding SelectedNarouBigGenre}"
+					        IsEnabled="{Binding SearchNarou}" />
+					<Switch Grid.Column="2" IsToggled="{Binding SearchNarou}" VerticalOptions="Center" />
+				</Grid>
+				<Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+					<Label Grid.Column="0" Text="カクヨムジャンル:" VerticalOptions="Center"
+					       Opacity="{Binding SearchKakuyomu, Converter={StaticResource BoolToOpacity}}" />
+					<Picker Grid.Column="1"
+					        ItemsSource="{Binding KakuyomuGenreList}"
+					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
+					        SelectedItem="{Binding SelectedKakuyomuGenre}"
+					        IsEnabled="{Binding SearchKakuyomu}" />
+					<Switch Grid.Column="2" IsToggled="{Binding SearchKakuyomu}" VerticalOptions="Center" />
+				</Grid>
 				<Button Text="ランキング取得" Command="{Binding FetchRankingCommand}" />
 			</VerticalStackLayout>
 
 			<!-- Genre mode -->
 			<VerticalStackLayout IsVisible="{Binding IsGenreMode}" Spacing="6">
-				<HorizontalStackLayout Spacing="8">
-					<Label Text="なろう大ジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding NarouBigGenres}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
-                            SelectedItem="{Binding SelectedNarouBigGenre}" />
-				</HorizontalStackLayout>
-				<HorizontalStackLayout Spacing="8">
-					<Label Text="カクヨムジャンル:" VerticalOptions="Center" />
-					<Picker ItemsSource="{Binding KakuyomuGenreList}" ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
-                            SelectedItem="{Binding SelectedKakuyomuGenre}" />
-				</HorizontalStackLayout>
+				<Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+					<Label Grid.Column="0" Text="なろう大ジャンル:" VerticalOptions="Center"
+					       Opacity="{Binding SearchNarou, Converter={StaticResource BoolToOpacity}}" />
+					<Picker Grid.Column="1"
+					        ItemsSource="{Binding NarouBigGenres}"
+					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
+					        SelectedItem="{Binding SelectedNarouBigGenre}"
+					        IsEnabled="{Binding SearchNarou}" />
+					<Switch Grid.Column="2" IsToggled="{Binding SearchNarou}" VerticalOptions="Center" />
+				</Grid>
+				<Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+					<Label Grid.Column="0" Text="カクヨムジャンル:" VerticalOptions="Center"
+					       Opacity="{Binding SearchKakuyomu, Converter={StaticResource BoolToOpacity}}" />
+					<Picker Grid.Column="1"
+					        ItemsSource="{Binding KakuyomuGenreList}"
+					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
+					        SelectedItem="{Binding SelectedKakuyomuGenre}"
+					        IsEnabled="{Binding SearchKakuyomu}" />
+					<Switch Grid.Column="2" IsToggled="{Binding SearchKakuyomu}" VerticalOptions="Center" />
+				</Grid>
 				<Button Text="ジャンル別取得" Command="{Binding FetchGenreCommand}" />
 			</VerticalStackLayout>
 		</Grid>
 
-		<!-- Site filters -->
-		<HorizontalStackLayout Grid.Row="3" Padding="8,0" Spacing="16">
-			<HorizontalStackLayout Spacing="4">
-				<CheckBox IsChecked="{Binding SearchNarou}" />
-				<Label Text="なろう" VerticalOptions="Center" />
-			</HorizontalStackLayout>
-			<HorizontalStackLayout Spacing="4">
-				<CheckBox IsChecked="{Binding SearchKakuyomu}" />
-				<Label Text="カクヨム" VerticalOptions="Center" />
-			</HorizontalStackLayout>
-		</HorizontalStackLayout>
-
-		<Grid Grid.Row="4">
+		<Grid Grid.Row="3">
 			<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
 
