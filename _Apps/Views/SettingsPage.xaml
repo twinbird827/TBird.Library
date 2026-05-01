@@ -6,8 +6,12 @@
              x:DataType="vm:SettingsViewModel"
              Title="設定">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="24">
+    <Grid RowDefinitions="Auto,*">
+        <Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+               Style="{StaticResource ErrorBanner}" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="24">
 
             <!-- Cache settings -->
             <VerticalStackLayout Spacing="8">
@@ -144,6 +148,7 @@
                         Style="{StaticResource ThemedSlider}" />
             </VerticalStackLayout>
 
-        </VerticalStackLayout>
-    </ScrollView>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>

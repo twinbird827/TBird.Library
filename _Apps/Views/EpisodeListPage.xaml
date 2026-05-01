@@ -7,9 +7,13 @@
              Title="{Binding NovelTitle}"
              Shell.TabBarIsVisible="False">
 
-	<Grid RowDefinitions="Auto,*,Auto">
-		<!-- Row 0: Filter + Action row -->
-		<HorizontalStackLayout Grid.Row="0" Padding="8,4" Spacing="8">
+	<Grid RowDefinitions="Auto,Auto,*,Auto">
+		<!-- Error banner (Auto row collapses when HasError=false) -->
+		<Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+		       Style="{StaticResource ErrorBanner}" />
+
+		<!-- Filter + Action row -->
+		<HorizontalStackLayout Grid.Row="1" Padding="8,4" Spacing="8">
 			<HorizontalStackLayout Spacing="4">
 				<CheckBox IsChecked="{Binding ShowUnreadOnly}" />
 				<Label Text="未読のみ" VerticalOptions="Center" />
@@ -25,11 +29,11 @@
 		</HorizontalStackLayout>
 
 		<!-- Loading -->
-		<ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+		<ActivityIndicator Grid.Row="2" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Episode list -->
-		<CollectionView Grid.Row="1" ItemsSource="{Binding Episodes}" SelectionMode="None"
+		<CollectionView Grid.Row="2" ItemsSource="{Binding Episodes}" SelectionMode="None"
                          IsGrouped="False">
 			<CollectionView.ItemTemplate>
 				<DataTemplate x:DataType="vm:EpisodeViewModel">
@@ -73,7 +77,7 @@
 		</CollectionView>
 
 		<!-- Footer: Continue + Paging -->
-		<Grid Grid.Row="2" RowDefinitions="Auto,Auto" Padding="8,4">
+		<Grid Grid.Row="3" RowDefinitions="Auto,Auto" Padding="8,4">
 			<!-- Continue reading -->
 			<Button Grid.Row="0" Text="続きから読む" Command="{Binding ReadContinueCommand}"
 			        HorizontalOptions="Fill" Margin="0,0,0,4" />

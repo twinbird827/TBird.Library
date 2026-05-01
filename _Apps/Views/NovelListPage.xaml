@@ -8,17 +8,24 @@
 
 	<ContentPage.ToolbarItems>
 		<ToolbarItem Text="並び替え" Command="{Binding ChangeSortCommand}" />
+		<!-- 旧 HasCheckError 連動から HasError 連動に変更。
+		     個別タイトルの check error に加え LoadNovelsAsync 自体の失敗時も retry 可能となる
+		     (= 活性スコープが広がる方向の意図的な仕様変更)。 -->
 		<ToolbarItem Text="更新" Command="{Binding RefreshCommand}"
-                     IsEnabled="{Binding HasCheckError}" />
+                     IsEnabled="{Binding HasError}" />
 	</ContentPage.ToolbarItems>
 
-	<Grid>
+	<Grid RowDefinitions="Auto,*">
+		<!-- Error banner (Auto row collapses when HasError=false) -->
+		<Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+		       Style="{StaticResource ErrorBanner}" />
+
 		<!-- Loading indicator -->
-		<ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+		<ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Novel list -->
-		<CollectionView ItemsSource="{Binding Novels}" SelectionMode="None">
+		<CollectionView Grid.Row="1" ItemsSource="{Binding Novels}" SelectionMode="None">
 			<CollectionView.ItemTemplate>
 				<DataTemplate x:DataType="vm:NovelCardViewModel">
 					<SwipeView Margin="8,4">

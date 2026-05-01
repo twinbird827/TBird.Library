@@ -11,7 +11,7 @@ using LanobeReader.Services.Narou;
 
 namespace LanobeReader.ViewModels;
 
-public partial class SearchViewModel : ObservableObject
+public partial class SearchViewModel : ErrorAwareViewModel
 {
     private readonly INovelServiceFactory _serviceFactory;
     private readonly NovelRepository _novelRepo;
@@ -79,12 +79,6 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasSearched;
 
-    [ObservableProperty]
-    private bool _hasError;
-
-    [ObservableProperty]
-    private string _errorMessage = string.Empty;
-
     // Ranking/Genre browse
     public ObservableCollection<GenreInfo> NarouBigGenres { get; }
     public ObservableCollection<GenreInfo> KakuyomuGenreList { get; }
@@ -139,8 +133,7 @@ public partial class SearchViewModel : ObservableObject
         string? prefixMessage = null)
     {
         IsLoading = true;
-        HasError = false;
-        ErrorMessage = string.Empty;
+        ClearError();
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -165,8 +158,7 @@ public partial class SearchViewModel : ObservableObject
             combined.AddRange(errors.Select(e => e!));
             if (combined.Count > 0)
             {
-                HasError = true;
-                ErrorMessage = string.Join("\n", combined);
+                SetError(string.Join("\n", combined));
             }
 
             await ShowResultsAsync(allHits);
@@ -174,8 +166,7 @@ public partial class SearchViewModel : ObservableObject
         catch (Exception ex)
         {
             LogHelper.Error(nameof(SearchViewModel), $"{operationName} failed: {ex.Message}");
-            HasError = true;
-            ErrorMessage = "通信エラーが発生しました";
+            SetError("通信エラーが発生しました");
         }
         finally
         {
@@ -254,6 +245,19 @@ public partial class SearchViewModel : ObservableObject
                 : null);
     }
 
+    private async Task TryEnqueuePrefetchAsync(int novelId)
+    {
+        try
+        {
+            await _prefetch.EnqueueNovelAsync(novelId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Warn(nameof(SearchViewModel),
+                $"Prefetch enqueue failed for novelId={novelId}: {ex.Message}");
+        }
+    }
+
     private async Task ShowResultsAsync(List<SearchResult> results)
     {
         var existingIds = await _novelRepo.GetExistingSiteNovelIdsAsync();
@@ -320,8 +324,10 @@ public partial class SearchViewModel : ObservableObject
 
             await _novelRepo.UpdateAsync(dbNovel);
 
-            // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)
-            _ = _prefetch.EnqueueNovelAsync(dbNovel.Id);
+            // Auto-enqueue prefetch for newly registered novel (Wi-Fi only)。
+            // M-2 で BackgroundJobQueue.EnqueueAsync 内に GetIntValueAsync の await が入ったため
+            // 例外発生面が広がった点に対し try/catch + LogHelper.Warn でクラッシュ耐性を確保する。
+            _ = TryEnqueuePrefetchAsync(dbNovel.Id);
 
             result.IsRegistered = true;
             result.TotalEpisodes = episodes.Count;
@@ -345,7 +351,7 @@ public partial class SearchViewModel : ObservableObject
                         $"Rollback delete failed for ({result.SiteType}, {result.NovelId}): {rbEx.Message}");
                 }
             }
-            await Shell.Current.DisplayAlert("エラー", $"登録に失敗しました: {ex.Message}", "OK");
+            SetError($"登録に失敗しました: {ex.Message}");
         }
         finally
         {

@@ -21,10 +21,14 @@
         </DataTrigger>
     </ContentPage.Triggers>
 
-	<Grid RowDefinitions="Auto,*,Auto">
+	<Grid RowDefinitions="Auto,Auto,*,Auto">
+
+		<!-- Error banner (Auto row collapses when HasError=false) -->
+		<Label Grid.Row="0" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+		       Style="{StaticResource ErrorBanner}" />
 
 		<!-- Header -->
-		<Grid Grid.Row="0" Padding="8" BackgroundColor="{StaticResource Overlay}"
+		<Grid Grid.Row="1" Padding="8" BackgroundColor="{StaticResource Overlay}"
               ColumnDefinitions="*,Auto"
               IsVisible="{Binding IsHeaderVisible}">
 			<Label Grid.Column="0" Text="{Binding EpisodeTitle}" TextColor="White"
@@ -36,11 +40,11 @@
 		</Grid>
 
 		<!-- Loading -->
-		<ActivityIndicator Grid.Row="1" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+		<ActivityIndicator Grid.Row="2" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Content (horizontal - Label) -->
-		<ScrollView Grid.Row="1" x:Name="ContentScrollView" Scrolled="OnScrolled"
+		<ScrollView Grid.Row="2" x:Name="ContentScrollView" Scrolled="OnScrolled"
                     IsVisible="{Binding IsHorizontal}">
 			<Label Text="{Binding EpisodeContent}" Padding="16"
                    FontSize="{Binding FontSize}" FontFamily="serif">
@@ -73,14 +77,14 @@
 		</ScrollView>
 
 		<!-- Content (vertical writing - WebView) -->
-		<controls:ReaderWebView Grid.Row="1"
+		<controls:ReaderWebView Grid.Row="2"
                                 IsVisible="{Binding IsVerticalWriting}"
                                 HtmlSource="{Binding EpisodeHtml}"
                                 CssVariables="{Binding ReaderCss}"
                                 Navigating="OnWebViewNavigating" />
 
 		<!-- Footer -->
-		<Grid Grid.Row="2" Padding="8" BackgroundColor="{StaticResource Overlay}"
+		<Grid Grid.Row="3" Padding="8" BackgroundColor="{StaticResource Overlay}"
               ColumnDefinitions="*,*,*,*"
               IsVisible="{Binding IsFooterVisible}">
 			<Button Grid.Column="0" Text="目次" Command="{Binding NavigateToTocCommand}"
@@ -94,7 +98,7 @@
 		</Grid>
 
 		<!-- 自動 OFF + フッタ非表示時の救済 Overlay (現状 ToggleHeaderFooter 未 binding のため将来導入時の保険) -->
-		<Button Grid.Row="2" Text="既読" Command="{Binding MarkAsReadCommand}"
+		<Button Grid.Row="3" Text="既読" Command="{Binding MarkAsReadCommand}"
                 Style="{StaticResource OverlayButton}"
                 HorizontalOptions="Start" VerticalOptions="End"
                 Margin="8,0,0,8" Padding="12,6"

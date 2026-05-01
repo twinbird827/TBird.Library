@@ -7,7 +7,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class ReaderViewModel : ObservableObject, IQueryAttributable
+public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 {
     private readonly EpisodeRepository _episodeRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
@@ -166,6 +166,12 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
     private async Task LoadEpisodeAsync(int episodeId)
     {
         IsLoading = true;
+        ClearError();
+        // 失敗時に前話の本文・タイトルが残るのを防ぐためここで一括クリアする。
+        // 成功時は下で上書きされる。
+        EpisodeContent = string.Empty;
+        EpisodeTitle = string.Empty;
+        EpisodeHtml = string.Empty;
         try
         {
             _episode = await _episodeRepo.GetByIdAsync(episodeId);
@@ -185,14 +191,8 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
                 var connectivity = Connectivity.Current.NetworkAccess;
                 if (connectivity != NetworkAccess.Internet)
                 {
-                    // 前話の残り表示を防ぐためコンテンツをクリア（横書き Label / 縦書き WebView 両方）。
                     // ユーザは目次/戻るボタンで自分で抜ける（自動遷移は採用しない）。
-                    EpisodeContent = string.Empty;
-                    EpisodeTitle = string.Empty;
-                    EpisodeHtml = string.Empty;
-
-                    await Shell.Current.DisplayAlert("オフライン",
-                        "オフラインのため表示できません。キャッシュもありません。", "OK");
+                    SetError("オフラインのため表示できません。キャッシュもありません");
                     return;
                 }
 
@@ -221,15 +221,15 @@ public partial class ReaderViewModel : ObservableObject, IQueryAttributable
         }
         catch (TaskCanceledException)
         {
-            await Shell.Current.DisplayAlert("エラー", "タイムアウトしました", "OK");
+            SetError("タイムアウトしました");
         }
         catch (HttpRequestException ex)
         {
-            await Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（HTTPエラー: {ex.Message}）", "OK");
+            SetError($"本文の取得に失敗しました（HTTPエラー: {ex.Message}）");
         }
         catch (Exception ex)
         {
-            await Shell.Current.DisplayAlert("エラー", $"本文の取得に失敗しました（{ex.Message}）", "OK");
+            SetError($"本文の取得に失敗しました（{ex.Message}）");
         }
         finally
         {

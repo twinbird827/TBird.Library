@@ -5,7 +5,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ErrorAwareViewModel
 {
     private readonly AppSettingsRepository _settingsRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
@@ -93,7 +93,13 @@ public partial class SettingsViewModel : ObservableObject
                 await _settingsRepo.SetValueAsync(key, value).ConfigureAwait(false);
             }
             catch (TaskCanceledException) { /* 新しい変更が来た */ }
-            catch (Exception ex) { LogHelper.Warn(nameof(SettingsViewModel), $"DebounceSave failed: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                LogHelper.Warn(nameof(SettingsViewModel), $"DebounceSave failed: {ex.Message}");
+                // Task.Run 経由のためバインディング更新は UI スレッドへ戻す
+                MainThread.BeginInvokeOnMainThread(() =>
+                    SetError($"設定の保存に失敗しました: {ex.Message}"));
+            }
         });
     }
 
@@ -118,11 +124,19 @@ public partial class SettingsViewModel : ObservableObject
         bool confirm = await Shell.Current.DisplayAlert(
             "確認", "すべてのキャッシュを削除しますか？", "OK", "キャンセル");
 
-        if (confirm)
+        if (!confirm) return;
+
+        ClearError();
+        try
         {
             await _cacheRepo.DeleteAllAsync();
             // Snackbar-like notification
             await Shell.Current.DisplayAlert("完了", "クリアしました", "OK");
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Error(nameof(SettingsViewModel), $"ClearCacheAsync failed: {ex.Message}");
+            SetError($"キャッシュの削除に失敗しました: {ex.Message}");
         }
     }
 }

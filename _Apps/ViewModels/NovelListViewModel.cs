@@ -7,7 +7,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class NovelListViewModel : ObservableObject
+public partial class NovelListViewModel : ErrorAwareViewModel
 {
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
@@ -35,9 +35,6 @@ public partial class NovelListViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     private bool _isLoading;
-
-    [ObservableProperty]
-    private bool _hasCheckError;
 
     [ObservableProperty]
     private string _sortKey = "updated_desc";
@@ -72,11 +69,15 @@ public partial class NovelListViewModel : ObservableObject
             var rows = await _novelRepo.GetAllWithUnreadCountAsync(SortKey);
             Novels = new ObservableCollection<NovelCardViewModel>(
                 rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount)));
-            HasCheckError = rows.Any(r => r.Novel.HasCheckError);
+            if (rows.Any(r => r.Novel.HasCheckError))
+                SetError("一部のタイトルで更新チェックに失敗しました");
+            else
+                ClearError();
         }
         catch (Exception ex)
         {
             LogHelper.Error(nameof(NovelListViewModel), $"LoadNovelsAsync failed: {ex.Message}");
+            SetError("一覧の読み込みに失敗しました");
         }
     }
 
@@ -130,7 +131,7 @@ public partial class NovelListViewModel : ObservableObject
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             LogHelper.Warn(nameof(NovelListViewModel), $"Refresh failed: {ex.Message}");
-            HasCheckError = true;
+            SetError("更新チェックに失敗しました");
         }
         finally
         {
