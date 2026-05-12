@@ -12,5 +12,6 @@
     <converters:BoolToColorConverter x:Key="BoolToGoldConverter"
         TrueColor="{StaticResource FavoriteGold}" FalseColor="{StaticResource Gray200}" />
     <converters:IntToBoolConverter x:Key="IntToBool" />
+    <converters:BoolToOpacityConverter x:Key="BoolToOpacity" />
 
 </ResourceDictionary>
