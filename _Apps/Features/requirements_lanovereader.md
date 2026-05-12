@@ -4,9 +4,9 @@
 | 項目 | 内容 |
 |---|---|
 | アプリ名 | ラノベリーダ |
-| バージョン | 1.1 |
+| バージョン | 1.2 |
 | 作成日 | 2026-04-03 |
-| 最終改訂日 | 2026-05-01 |
+| 最終改訂日 | 2026-05-12 |
 | ステータス | 確定 |
 | 対象読者 | Claude Code（実装担当AI） |
 
@@ -18,6 +18,7 @@
 
 | バージョン | 改訂日 | 主な変更内容 |
 |---|---|---|
+| 1.2 | 2026-05-12 | UX-1〜UX-4 (`plan_2026-05-01_ux-list-card-search-icon.md`、PR #130/#131/#132/#133) で確定した実装に追従。SCR-003 目次の初期表示位置を「直前まで読んだ話」起点にする anchor 仕様 (UX-1)、SCR-001 本棚カード最終行を `[更新日時 / 未読 / 既読数/総話数]` 構成にし episodes 1 パス集計に統一 (UX-2)、SCR-002 検索画面を 3 等分モードタブ + サイト Switch 統一 + Picker 行右端配置に再構成 (UX-3)、`_Apps/Resources/AppIcon/` 配下のアイコン/スプラッシュ SVG とアプリブランディング §2.5 を追加 (UX-4)。§5 にスキーマ v3 (`idx_episodes_novel_isread` 複合インデックス) を追記。実装済みプラン `plan_2026-05-01_ux-list-card-search-icon.md` を除去。 |
 | 1.1 | 2026-05-01 | PR-1〜PR-7 (`plan_2026-04-30_review-c1-l11.md`) で確定した実装に追従。F-006a / F-009..F-014 の機能追加、`searchTarget` 廃止 + `title=1&wname=1` 検索固定 (F-001)、読了点までの一括既読化と巻き戻し仕様 (F-006)、設定キー 6 個追加 (F-007)、`is_favorite`/`favorited_at` カラムと UNIQUE インデックス v2 マイグレーション (§5)、`ErrorAwareViewModel` + 赤バナー統一 (§6.3)、`biggenre` 採用とカクヨムスクレイピング刷新 (§7)、NetworkPolicyService / BackgroundJobQueue / 縦書きハイブリッド等の実装方針追加 (§8)。実装済み plan / audit / fixes / todo ファイル 16 個を除去。 |
 | 1.0 | 2026-04-03 | 初版。F-001〜F-008 の基本機能、SCR-001〜SCR-005、§5 DB スキーマ v1、§6〜§8 を策定。 |
 
@@ -98,6 +99,20 @@ LanobeReader/
 | プロパティ | PascalCase | IsLoading |
 | プライベートフィールド | _camelCase | _dbService |
 | 定数 | UPPER_SNAKE_CASE | DEFAULT_CACHE_MONTHS |
+
+### 2.5 アプリブランディング（アイコン / スプラッシュ）
+
+| 項目 | 値 |
+|---|---|
+| ブランドカラー | `#6200EE`（`Colors.xaml` の `Primary` と同色） |
+| アイコン構成 | 紫背景 + 白の「開いた本」モチーフ（Material `menu_book` ベースのベタ塗り 2 ページ + 中央綴じ目） |
+| 配置 | `_Apps/Resources/AppIcon/` 配下に背景 SVG `appicon.svg`、前景 SVG `appiconfg.svg`、スプラッシュ用 SVG `appiconsplash.svg` |
+| ビルド連携 | `<MauiIcon>` / `<MauiSplashScreen>` で各 dpi の PNG を Resizetizer が自動生成。`ForegroundScale=0.72` で Android アダプティブアイコン安全領域（72/108dp ≈ 0.667）にマージン込みで収める |
+| 既存資産との分離 | `Resources/Images/book_open.svg`（AppShell タブアイコン）は触らない。`Resources/AppIcon/*` と `Resources/Images/*` は出力先（`mipmap-*` vs `drawable-*`）が異なるため衝突しない |
+| Manifest 注入 | MAUI Resizetizer がマニフェストパッチに失敗するケースを避けるため、`Platforms/Android/AndroidManifest.xml` に `android:icon="@mipmap/appicon"` と `android:roundIcon="@mipmap/appicon_round"` を明示記述する |
+
+ホーム画面アイコン → スプラッシュ → アプリ画面（`Shell.BackgroundColor` も同色）で背景断絶が起きないよう、
+すべて Primary 色を共通の背景色として使う。
 | インターフェース | I + PascalCase | INovelRepository |
 | 非同期メソッド | 末尾Async | LoadNovelsAsync |
 
@@ -137,12 +152,18 @@ LanobeReader/
 | パラメータ | 型 | バリデーション | 必須 |
 |---|---|---|---|
 | keyword | string | 1文字以上100文字以下。空文字は検索ボタンを非活性にする | ○ |
-| searchNarou | bool | 検索対象サイト（デフォルト: true） | ○ |
-| searchKakuyomu | bool | 検索対象サイト（デフォルト: true） | ○ |
+| searchNarou | bool | 検索対象サイト（デフォルト: true）。3 モード横断で共有される VM プロパティ | ○ |
+| searchKakuyomu | bool | 検索対象サイト（デフォルト: true）。3 モード横断で共有される VM プロパティ | ○ |
 
 > 旧版にあった `searchTarget` (Title / Author / Both) パラメータは廃止された (PR-7)。
 > なろう側は常に「タイトル + 作者名」マッチで検索し、あらすじ・タグの全文検索は行わない。
 > あらすじマッチで無関係作品が大量にヒットしていた問題への対処。
+
+> サイト ON/OFF の UI は Switch で統一する（旧 CheckBox は廃止）。Keyword モードでは検索 Entry の上に
+> なろう/カクヨムの Switch を横並び配置し、Ranking/Genre モードでは各サイトの Picker 行の右端に
+> Switch を置く（= そのサイトの取得を ON/OFF）。共通サイトフィルタ行は廃止された。
+> Ranking/Genre モードで Switch OFF のときは対応する Picker を `IsEnabled=false` でグレーアウトし、
+> 隣接 Label も Opacity=0.4 で薄く表示する（`BoolToOpacityConverter`）。
 
 **処理フロー（正常系・Keyword モード）:**
 1. 検索ボタンタップでIsLoadingをtrueにしインジケーター表示
@@ -199,9 +220,13 @@ LanobeReader/
 
 **処理フロー（正常系）:**
 1. novelsテーブルから全件をlast_updated_at DESCでSELECT
-2. 各novelに対してepisodesテーブルからis_read=0の件数をカウントしunread_countを算出
+2. 各novelに対してepisodesテーブル 1 パスの `GROUP BY novel_id` で `episode_count = COUNT(*)` / `read_count = SUM(CASE WHEN is_read=1)` / `unread_count = SUM(CASE WHEN is_read=0)` を一括集計（schema v3 の `idx_episodes_novel_isread` covering index で index-only スキャン）
 3. NovelListViewModelのNovelsコレクションにバインド
 4. タイトル未登録（Novels.Count == 0）の場合、SCR-002（検索画面）へ強制遷移
+
+> 本棚カード表示の 3 値（`UnreadCount` バッジ、`ReadCount`、`EpisodeCount`）はすべて episodes テーブルから派生する。
+> `Novel.TotalEpisodes` 列はサイト fetch 値と DB 取り込み済み数で意味が混在しうるため、カード表示には使わない
+> （= 「既読数 + 未読数 = 総話数」の不変条件を保証）。
 
 **処理フロー（異常系）:**
 | エラー種別 | 検出条件 | 対処 | ユーザー通知 |
@@ -580,6 +605,11 @@ graph TD
 - 中部: CollectionView（タイトルカードのリスト、更新日時DESC）
 - 下部: BottomNavigationBar
 
+**カード最終行 (Row 2) の構成:** `[更新日時] ... [未読 N 話] [既読数/総話数]`
+- 左端: 更新日時（`LastUpdatedAt`）
+- 右端: `${ReadCount}/${EpisodeCount}`（例: `150/300`）
+- 右端のすぐ左: 未読バッジ（`UnreadCount > 0` のときのみ表示）
+
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
 |---|---|---|---|
@@ -587,8 +617,9 @@ graph TD
 | タイトルカードリスト | CollectionView | Novels | 更新日時DESC固定 |
 | タイトル名 | Label | Novel.Title | |
 | サイト種別バッジ | Label | Novel.SiteTypeLabel | 「なろう」「カクヨム」 |
-| 未読話数 | Label | Novel.UnreadCount | UnreadCount > 0の場合のみ表示 |
-| 最終更新日時 | Label | Novel.LastUpdatedAt | |
+| 未読話数 | Label | Novel.UnreadCount | UnreadCount > 0 のときのみ表示。カード最終行の右側 |
+| 既読数/総話数 | Label | Novel.ReadCount / Novel.EpisodeCount | `${ReadCount}/${EpisodeCount}` 形式。カード最終行の右端 |
+| 最終更新日時 | Label | Novel.LastUpdatedAt | カード最終行の左端 |
 | 連載/完結バッジ | Label | Novel.IsCompleted | |
 | 空状態ビュー | View | Novels.Count == 0 | 「タイトルを登録してください」+ 検索画面へのリンク |
 | 長押しメニュー | ContextMenu | | キャッシュ削除 / タイトル削除 |
@@ -615,18 +646,34 @@ graph TD
 #### SCR-002: 検索画面
 
 **レイアウト概要:**
-- 上部: 検索バー（テキスト入力 + 検索ボタン）
-- 上部サブ: 検索対象サイト切り替え（なろうON/OFF・カクヨムON/OFFのチェックボックス）
+- 上部: モードタブ（検索 / ランキング / ジャンル の 3 等分 Button 行）
+- 中上部: モード固有入力ブロック（モード毎に表示切替）
+  - **Keyword モード**: なろう/カクヨム Switch を横並び → その下に検索 Entry + 検索ボタン
+  - **Ranking モード**: 期間 Picker → なろう大ジャンル Picker + Switch → カクヨムジャンル Picker + Switch → 取得ボタン
+  - **Genre モード**: なろう大ジャンル Picker + Switch → カクヨムジャンルジャンル Picker + Switch → 取得ボタン
 - 中部: CollectionView（検索結果カードのリスト）
 - 下部: BottomNavigationBar
+
+> サイト ON/OFF Switch（`SearchNarou`/`SearchKakuyomu`）は 3 モード横断で同じ VM プロパティを共有する。
+> Ranking/Genre モードでは Switch OFF のとき該当 Picker を `IsEnabled=false`（システムのデフォルトグレー描画）
+> + 隣接 Label を Opacity=0.4 で薄く表示し、「このサイトは取得しない」を視覚的に明示する。
+> Ranking モードでカクヨム未対応の Quarterly 期間を選択した場合は赤バナーで通知し fetch を skip（既存挙動）。
 
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
 |---|---|---|---|
-| キーワード入力 | Entry | SearchKeyword | Placeholder: 「タイトル・作者名で検索」 |
-| 検索ボタン | Button | SearchCommand | SearchKeyword.Length > 0かつ!IsLoadingで活性 |
-| なろうチェック | CheckBox | SearchNarou | デフォルトtrue |
-| カクヨムチェック | CheckBox | SearchKakuyomu | デフォルトtrue |
+| モードタブ (検索) | Button | SetModeKeywordCommand | 3 等分 Grid の 1 列目 |
+| モードタブ (ランキング) | Button | SetModeRankingCommand | 3 等分 Grid の 2 列目 |
+| モードタブ (ジャンル) | Button | SetModeGenreCommand | 3 等分 Grid の 3 列目 |
+| キーワード入力 | Entry | SearchKeyword | Keyword モードのみ。Placeholder: 「タイトル・作者名で検索」 |
+| 検索ボタン | Button | SearchCommand | Keyword モードのみ。SearchKeyword.Length > 0かつ!IsLoadingで活性 |
+| なろう Switch | Switch | SearchNarou | デフォルトtrue。Keyword モードは Entry の上、Ranking/Genre モードは該当 Picker 行の右端 |
+| カクヨム Switch | Switch | SearchKakuyomu | デフォルトtrue。配置は なろう Switch と同様 |
+| 期間 Picker | Picker | RankingPeriodIndex | Ranking モードのみ。日間/週間/月間/四半期 |
+| なろう大ジャンル Picker | Picker | SelectedNarouBigGenre | Ranking/Genre モード。`SearchNarou` OFF で IsEnabled=false |
+| カクヨムジャンル Picker | Picker | SelectedKakuyomuGenre | Ranking/Genre モード。`SearchKakuyomu` OFF で IsEnabled=false |
+| ランキング取得ボタン | Button | FetchRankingCommand | Ranking モードのみ |
+| ジャンル別取得ボタン | Button | FetchGenreCommand | Genre モードのみ |
 | 検索結果リスト | CollectionView | SearchResults | |
 | タイトル名 | Label | Result.Title | |
 | 作者名 | Label | Result.Author | |
@@ -643,8 +690,14 @@ graph TD
 | プロパティ名 | 型 | 初期値 | 概要 |
 |---|---|---|---|
 | SearchKeyword | string | "" | 検索キーワード |
-| SearchNarou | bool | true | なろう検索対象フラグ |
-| SearchKakuyomu | bool | true | カクヨム検索対象フラグ |
+| SearchNarou | bool | true | なろう検索対象フラグ。3 モード横断で共有 |
+| SearchKakuyomu | bool | true | カクヨム検索対象フラグ。3 モード横断で共有 |
+| IsKeywordMode | bool | true | Keyword モード可視フラグ（モード固有 UI の `IsVisible` バインド） |
+| IsRankingMode | bool | false | Ranking モード可視フラグ |
+| IsGenreMode | bool | false | Genre モード可視フラグ |
+| RankingPeriodIndex | int | 0 | 期間 Picker の選択値（0=日間, 1=週間, 2=月間, 3=四半期） |
+| SelectedNarouBigGenre | GenreInfo | （先頭） | なろう大ジャンル選択値（Ranking/Genre モード） |
+| SelectedKakuyomuGenre | GenreInfo | （先頭） | カクヨムジャンル選択値（Ranking/Genre モード） |
 | SearchResults | ObservableCollection\<SearchResultViewModel\> | 空 | 検索結果 |
 | IsLoading | bool | false | ローディング制御 |
 | HasSearched | bool | false | 検索実行済みフラグ（空状態表示判定用） |
@@ -654,7 +707,12 @@ graph TD
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
 |---|---|---|
-| SearchCommand | SearchKeyword.Length > 0 && !IsLoading | F-001検索実行 |
+| SetModeKeywordCommand | 常時 | IsKeywordMode=true, 他モード可視フラグ false |
+| SetModeRankingCommand | 常時 | IsRankingMode=true, 他モード可視フラグ false |
+| SetModeGenreCommand | 常時 | IsGenreMode=true, 他モード可視フラグ false |
+| SearchCommand | SearchKeyword.Length > 0 && !IsLoading | F-001 検索実行（Keyword モード） |
+| FetchRankingCommand | !IsLoading | F-011 ランキング取得（Ranking モード） |
+| FetchGenreCommand | !IsLoading | F-011 大ジャンル別取得（Genre モード） |
 | RegisterCommand | !Result.IsRegistered | F-001登録処理 |
 
 ---
@@ -670,6 +728,29 @@ graph TD
 - 章情報がある作品: 章ごとにグループ化して表示（ページングなし）
 - 章情報がない作品: episodes_per_page件ずつページング表示（デフォルト50件）
 - ページ切り替えボタン: 「◀ 前へ」「次へ ▶」（最初のページは「前へ」非活性、最後のページは「次へ」非活性）
+
+**初期表示位置（anchor 選定）:**
+
+`InitializeAsync` で全話を `episode_no` 昇順で読み込んだ後、anchor を以下の優先順で決める:
+
+1. `firstUnread = FirstOrDefault(IsRead == false)` が存在 → anchor = その 1 つ前の話（= 直前まで読んだ話）。
+   `firstUnread` が先頭話なら anchor 無し。
+2. 全話既読（`firstUnread == null`） → anchor = `LastOrDefault(IsRead == true)`（= 最終話）。完結作品を再度開いたとき
+   最終話付近を提示する目的。
+3. 0 話登録（`_allEpisodes.Count == 0`） → anchor 無し。
+
+anchor が決まったら、それを含むページを `CurrentPage` として `LoadPageAsync` 実行。OnAppearing 完了後に
+CollectionView の対象行へ `ScrollToPosition.Center, animate=false` でスクロールし、画面中央に配置する。
+anchor 無しのときは 1 ページ目・スクロールなし。
+
+> **anchor が「直前まで読んだ話 = firstUnread の 1 つ前」と一致する根拠**: `EpisodeRepository.SetReadStateUpToAsync` は
+> 「読了点までを既読化、それ以降を未読化」する仕様のため、既読/未読の境界は常に連続している（飛ばし読みによる穴は
+> 発生しない）。よって `firstUnread の前` = `MAX(episode_no WHERE is_read=1)` と一致する。将来 `UpdateAsync` 経由で
+> 個別話 IsRead=true を許す経路ができた場合、anchor 選定を `LastOrDefault(IsRead == true)` 単独に変更する。
+
+> 初期スクロールはフィルタ ON/OFF (`ShowUnreadOnly`/`ShowFavoritesOnly`) の再ロードや、ページ手動切替
+> (`PrevPageAsync`/`NextPageAsync`) では適用しない（現行どおり `CurrentPage=1` リセット）。
+> Reader 画面から戻った再 `OnAppearing` でも再スクロールしない（`PendingInitialScrollIndex` は 1 回限り消費）。
 
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
@@ -691,6 +772,7 @@ graph TD
 | CurrentPage | int | 1 | 現在ページ番号 |
 | MaxPage | int | 0 | 最大ページ数 |
 | HasChapters | bool | false | 章情報ありフラグ |
+| PendingInitialScrollIndex | int? | null | 初期スクロール対象 (anchor) のページ内インデックス。`InitializeAsync` が anchor を見つけた場合のみ設定。View 側 (`OnAppearing`) で `TakePendingInitialScrollIndex()` により 1 回だけ消費される pull 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
@@ -875,6 +957,7 @@ graph TD
 |---|---|
 | v1 | 初版テーブル群 + `idx_novels_site_novel` UNIQUE |
 | v2 | `idx_episodes_novel_episode` を UNIQUE 化（重複レコード除去後にインデックス再作成）、`is_favorite` / `favorited_at` カラム追加 |
+| v3 | `idx_episodes_novel_isread = (novel_id, is_read)` 複合インデックス追加。SCR-001 本棚カードの `episode_count / read_count / unread_count` を 1 パス GROUP BY 集計するクエリの covering index となり index-only スキャンで完結する |
 
 マイグレーション失敗時は `schema_version` を上げず、次回起動で再試行する。
 
