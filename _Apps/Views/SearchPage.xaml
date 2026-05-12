@@ -29,11 +29,13 @@
 				<HorizontalStackLayout Spacing="16">
 					<HorizontalStackLayout Spacing="4">
 						<Switch IsToggled="{Binding SearchNarou}" VerticalOptions="Center" />
-						<Label Text="なろう" VerticalOptions="Center" />
+						<Label Text="なろう" VerticalOptions="Center"
+						       Opacity="{Binding SearchNarou, Converter={StaticResource BoolToOpacity}}" />
 					</HorizontalStackLayout>
 					<HorizontalStackLayout Spacing="4">
 						<Switch IsToggled="{Binding SearchKakuyomu}" VerticalOptions="Center" />
-						<Label Text="カクヨム" VerticalOptions="Center" />
+						<Label Text="カクヨム" VerticalOptions="Center"
+						       Opacity="{Binding SearchKakuyomu, Converter={StaticResource BoolToOpacity}}" />
 					</HorizontalStackLayout>
 				</HorizontalStackLayout>
 				<Grid ColumnDefinitions="*,Auto">
@@ -63,7 +65,8 @@
 					        ItemsSource="{Binding NarouBigGenres, x:DataType=vm:SearchViewModel}"
 					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
 					        SelectedItem="{Binding SelectedNarouBigGenre}"
-					        IsEnabled="{Binding SearchNarou}" />
+					        IsEnabled="{Binding SearchNarou}"
+					        Opacity="{Binding SearchNarou, Converter={StaticResource BoolToOpacity}}" />
 					<Switch Grid.Column="2" IsToggled="{Binding SearchNarou}" VerticalOptions="Center" />
 				</Grid>
 				<Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
@@ -73,7 +76,8 @@
 					        ItemsSource="{Binding KakuyomuGenreList}"
 					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
 					        SelectedItem="{Binding SelectedKakuyomuGenre}"
-					        IsEnabled="{Binding SearchKakuyomu}" />
+					        IsEnabled="{Binding SearchKakuyomu}"
+					        Opacity="{Binding SearchKakuyomu, Converter={StaticResource BoolToOpacity}}" />
 					<Switch Grid.Column="2" IsToggled="{Binding SearchKakuyomu}" VerticalOptions="Center" />
 				</Grid>
 				<Button Text="ランキング取得" Command="{Binding FetchRankingCommand}" />
@@ -88,7 +92,8 @@
 					        ItemsSource="{Binding NarouBigGenres}"
 					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
 					        SelectedItem="{Binding SelectedNarouBigGenre}"
-					        IsEnabled="{Binding SearchNarou}" />
+					        IsEnabled="{Binding SearchNarou}"
+					        Opacity="{Binding SearchNarou, Converter={StaticResource BoolToOpacity}}" />
 					<Switch Grid.Column="2" IsToggled="{Binding SearchNarou}" VerticalOptions="Center" />
 				</Grid>
 				<Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
@@ -98,7 +103,8 @@
 					        ItemsSource="{Binding KakuyomuGenreList}"
 					        ItemDisplayBinding="{Binding Name, x:DataType=mo:GenreInfo}"
 					        SelectedItem="{Binding SelectedKakuyomuGenre}"
-					        IsEnabled="{Binding SearchKakuyomu}" />
+					        IsEnabled="{Binding SearchKakuyomu}"
+					        Opacity="{Binding SearchKakuyomu, Converter={StaticResource BoolToOpacity}}" />
 					<Switch Grid.Column="2" IsToggled="{Binding SearchKakuyomu}" VerticalOptions="Center" />
 				</Grid>
 				<Button Text="ジャンル別取得" Command="{Binding FetchGenreCommand}" />
