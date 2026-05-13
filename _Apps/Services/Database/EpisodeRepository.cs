@@ -19,10 +19,14 @@ public class EpisodeRepository
     public async Task<List<Episode>> GetByNovelIdAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId)
-            .OrderBy(e => e.EpisodeNo)
-            .ToListAsync().ConfigureAwait(false);
+        // ORM (Table<T>().Where().OrderBy().ToListAsync()) は LINQ 式木 → SQL コンパイルの
+        // オーバーヘッドが乗るため、長尺小説 (1500+ 話) では raw SQL が体感で速い。
+        // GetPagedByNovelIdAsync と同じ列順 / 列セットを維持。
+        return await _db.QueryAsync<Episode>(
+            "SELECT id, novel_id, episode_no, chapter_name, title, " +
+            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            "FROM episodes WHERE novel_id = ? ORDER BY episode_no",
+            novelId).ConfigureAwait(false);
     }
 
     public async Task<List<Episode>> GetPagedByNovelIdAsync(int novelId, int page, int pageSize)

@@ -106,12 +106,15 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
             RebuildFilterCache();
 
+            // _allEpisodes は既にロード済みなので、HasChapters / HasLastRead は in-memory で導出。
+            // 旧実装は GetLastReadEpisodeAsync を別 DB クエリで呼んでいたが、IsRead フラグが
+            // 1 つでもあれば「続きから読む」ボタンを出すのに十分なので DB 経由は不要。
             var hasChapters = _allEpisodes.Any(e => e.ChapterName is not null);
-            var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId);
+            var hasLastRead = _allEpisodes.Any(e => e.IsRead);
 
             NovelTitle = _novel.Title;
             HasChapters = hasChapters;
-            HasLastRead = lastRead is not null;
+            HasLastRead = hasLastRead;
             IsNovelFavorite = _novel.IsFavorite;
 
             RecalcPaging();

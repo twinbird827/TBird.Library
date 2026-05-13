@@ -54,9 +54,12 @@ public class EpisodeCacheRepository
     public async Task<HashSet<int>> GetCachedEpisodeIdsAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
+        // INNER JOIN は JOIN プランニングのオーバーヘッドが乗るため、IN サブクエリに置き換える。
+        // 内側のサブクエリは idx_episodes_novel_episode (novel_id, episode_no) を使った
+        // index-only スキャンで id 集合を取得、外側は episode_cache の PK lookup。
         var rows = await _db.QueryAsync<CachedIdRow>(
-            "SELECT c.episode_id AS EpisodeId FROM episode_cache c " +
-            "INNER JOIN episodes e ON e.id = c.episode_id WHERE e.novel_id = ?",
+            "SELECT episode_id AS EpisodeId FROM episode_cache " +
+            "WHERE episode_id IN (SELECT id FROM episodes WHERE novel_id = ?)",
             novelId).ConfigureAwait(false);
         return rows.Select(r => r.EpisodeId).ToHashSet();
     }
