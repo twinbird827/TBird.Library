@@ -78,7 +78,7 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     // InitializeAsync 完了直後の OnAppearing で RefreshReadStatusAsync をスキップするためのフラグ。
     // Init で既に最新の IsRead を取得済みのため、初回 Refresh は不要 (DB の二重 fetch を回避)。
     // Reader 画面から戻った 2 回目以降の OnAppearing では実 fetch する。
-    private bool _hasFreshData;
+    private bool _skipNextRefresh;
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -143,7 +143,7 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             await LoadPageAsync();
 
             // _allEpisodes は最新なので次の OnAppearing.Refresh は不要 (Reader 復帰時のみ実 fetch)。
-            _hasFreshData = true;
+            _skipNextRefresh = true;
         }
         catch (Exception ex)
         {
@@ -205,9 +205,9 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
 
         // Init 直後の最初の OnAppearing では _allEpisodes が最新なのでスキップ。
         // フラグを倒して、次回 (Reader 復帰時等) の OnAppearing からは実 fetch する。
-        if (_hasFreshData)
+        if (_skipNextRefresh)
         {
-            _hasFreshData = false;
+            _skipNextRefresh = false;
             return;
         }
 
