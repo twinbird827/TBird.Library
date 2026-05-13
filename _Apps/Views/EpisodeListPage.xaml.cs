@@ -38,9 +38,11 @@ public partial class EpisodeListPage : ContentPage
 
                     // OnAppearing 時点でページは visible だが、ItemsSource 差し替え直後で
                     // CollectionView の measure/layout 未完だと ScrollTo が空振りする。
-                    // DispatchDelayed で 150ms 待ち、Android の最初の layout サイクル完了を確実にする。
-                    // それでも空振りする場合は OnEpisodesViewSizeChanged が初回 size 確定時に再 ScrollTo する。
-                    Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(150), () =>
+                    // DispatchDelayed で短時間待って Android の最初の layout サイクル完了を期待する。
+                    // 旧 150ms は Pixel 系実機の最遅ケースに合わせていたが、Init.TOTAL に既に
+                    // 100〜200ms 消費していて layout 完了している可能性が高いため 50ms に短縮。
+                    // 空振りした場合は OnEpisodesViewSizeChanged のフォールバックが救う。
+                    Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(50), () =>
                     {
                         // このデリゲートは外側 try/catch の保護対象外。OnAppearing → 即 OnDisappearing の
                         // 遷移直後に走った場合 ObjectDisposed で例外する可能性があるため明示的に握り潰す。
