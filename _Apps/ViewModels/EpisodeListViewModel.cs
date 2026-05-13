@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
@@ -38,8 +37,11 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     [ObservableProperty]
     private string _novelTitle = string.Empty;
 
+    // ItemsSource を List で渡し、ページ切替時はリスト全体を差し替える。
+    // ObservableCollection 経由よりも CollectionView の view 再構築コストが軽い
+    // (NotifyCollectionChanged のバーストを避け、PropertyChanged 1 発に集約)。
     [ObservableProperty]
-    private ObservableCollection<EpisodeViewModel> _episodes = [];
+    private List<EpisodeViewModel> _episodes = new();
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrevPageCommand))]
@@ -72,6 +74,11 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     private int _episodesPerPage = 50;
     private Novel? _novel;
     private Task? _initTask;
+
+    // InitializeAsync 完了直後の OnAppearing で RefreshReadStatusAsync をスキップするためのフラグ。
+    // Init で既に最新の IsRead を取得済みのため、初回 Refresh は不要 (DB の二重 fetch を回避)。
+    // Reader 画面から戻った 2 回目以降の OnAppearing では実 fetch する。
+    private bool _hasFreshData;
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -134,6 +141,9 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             }
 
             await LoadPageAsync();
+
+            // _allEpisodes は最新なので次の OnAppearing.Refresh は不要 (Reader 復帰時のみ実 fetch)。
+            _hasFreshData = true;
         }
         catch (Exception ex)
         {
@@ -181,18 +191,25 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
 
     private Task LoadPageAsync()
     {
-        var list = _filteredCache
+        Episodes = _filteredCache
             .Skip((CurrentPage - 1) * _episodesPerPage)
             .Take(_episodesPerPage)
             .Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)))
             .ToList();
-        Episodes = new ObservableCollection<EpisodeViewModel>(list);
         return Task.CompletedTask;
     }
 
     public async Task RefreshReadStatusAsync()
     {
         if (_allEpisodes.Count == 0) return;
+
+        // Init 直後の最初の OnAppearing では _allEpisodes が最新なのでスキップ。
+        // フラグを倒して、次回 (Reader 復帰時等) の OnAppearing からは実 fetch する。
+        if (_hasFreshData)
+        {
+            _hasFreshData = false;
+            return;
+        }
 
         var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
         var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
