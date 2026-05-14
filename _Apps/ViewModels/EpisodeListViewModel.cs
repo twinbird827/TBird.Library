@@ -88,6 +88,13 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     // Reader 画面から戻った 2 回目以降の OnAppearing では実 fetch する。
     private bool _skipNextRefresh;
 
+    // 初回 InitializeAsync で「直前まで読んだ話」アンカーへジャンプ済みかどうか。
+    // MAUI Shell の挙動で Reader→目次の戻り時に ApplyQueryAttributes が再発火し InitializeAsync が
+    // 走り直すケースがあり、その際に再度アンカージャンプすると、ユーザーが直前にページ送りで
+    // 別ページを見ていた場合に強制的に最新既読ページへ戻されて UI 上の違和感になる。
+    // 2 回目以降の Init では CurrentPage を維持する。
+    private bool _hasAnchored;
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("novelId", out var novelIdObj) && int.TryParse(novelIdObj?.ToString(), out var novelId))
@@ -129,27 +136,33 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
 
             // anchor: 直前まで読んだ話 (= firstUnread の 1 つ前) を優先、無ければ最新既読話 (= 全話既読時の最終話)。
             // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
-            Episode? anchor = null;
-            var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
-            if (firstUnread is not null)
-            {
-                var idx = _allEpisodes.IndexOf(firstUnread);
-                if (idx > 0) anchor = _allEpisodes[idx - 1];
-            }
-            else
-            {
-                anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
-            }
-
+            // 2 回目以降の Init ではユーザーが直前にいたページを維持するためアンカー計算をスキップする。
             int? anchorIdxInPage = null;
-            if (anchor is not null)
+            if (!_hasAnchored)
             {
-                var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
-                if (idxInFiltered >= 0)
+                Episode? anchor = null;
+                var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
+                if (firstUnread is not null)
                 {
-                    CurrentPage = (idxInFiltered / _episodesPerPage) + 1;
-                    anchorIdxInPage = idxInFiltered % _episodesPerPage;
+                    var idx = _allEpisodes.IndexOf(firstUnread);
+                    if (idx > 0) anchor = _allEpisodes[idx - 1];
                 }
+                else
+                {
+                    anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
+                }
+
+                if (anchor is not null)
+                {
+                    var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
+                    if (idxInFiltered >= 0)
+                    {
+                        CurrentPage = (idxInFiltered / _episodesPerPage) + 1;
+                        anchorIdxInPage = idxInFiltered % _episodesPerPage;
+                    }
+                }
+
+                _hasAnchored = true;
             }
 
             // Shell のスライドアニメ (~250ms) と 50 アイテム追加が UI スレッドで競合すると
