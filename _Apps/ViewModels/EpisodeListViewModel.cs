@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
@@ -37,11 +38,18 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     [ObservableProperty]
     private string _novelTitle = string.Empty;
 
-    // ItemsSource を List で渡し、ページ切替時はリスト全体を差し替える。
-    // ObservableCollection 経由よりも CollectionView の view 再構築コストが軽い
-    // (NotifyCollectionChanged のバーストを避け、PropertyChanged 1 発に集約)。
-    [ObservableProperty]
-    private List<EpisodeViewModel> _episodes = new();
+    // ItemsSource は ObservableCollection の同一インスタンスを保持し、ページ切替時は
+    // Clear + Add で内容のみ差し替える。List 再代入だと CollectionView がアダプタを
+    // 全リセットしてコンテナ再利用 (RecyclerView のプール) が効かず、ページ切替が体感重くなる。
+    // 単発 Reset (notifyDataSetChanged 相当) は Android で逆に全アイテム invalidate が走り
+    // 遅いことが多いため、incremental な Clear + Add の方が体感が速い。
+    public ObservableCollection<EpisodeViewModel> Episodes { get; } = new();
+
+    // 「ページが切り替わった」セマンティクスを View へ通知する。Episodes 更新と同一 UI tick で
+    // 発火することで、View 側で ScrollTo を呼んでもユーザーには「先頭で表示されてからスクロール」
+    // の途中過程が見えない (RecyclerView が同じレイアウトパスでアイテム配置とスクロール target を
+    // 両方処理する)。RefreshReadStatusAsync 等のインプレース更新では発火させない。
+    public event EventHandler<PageContentResetArgs>? PageContentReset;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrevPageCommand))]
@@ -133,17 +141,29 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
                 anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
             }
 
+            int? anchorIdxInPage = null;
             if (anchor is not null)
             {
                 var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
                 if (idxInFiltered >= 0)
                 {
                     CurrentPage = (idxInFiltered / _episodesPerPage) + 1;
-                    PendingInitialScrollIndex = idxInFiltered % _episodesPerPage;
+                    anchorIdxInPage = idxInFiltered % _episodesPerPage;
                 }
             }
 
+            // Shell のスライドアニメ (~250ms) と 50 アイテム追加が UI スレッドで競合すると
+            // 遷移が中途半端な位置で詰まって見えるため、アニメ完了を待ってからリスト構築する。
+            // Dispatcher.Dispatch (1 tick) では不足、Task.Delay(200) が必要 (実機検証済)。
+            await Task.Delay(200);
             await LoadPageAsync();
+
+            // LoadPageAsync 完了と同じ UI tick でスクロール target を渡すことで、
+            // ユーザーには「先頭→アンカー」の中間スクロールが見えないようにする。
+            // anchor が無い場合は先頭リセット (ScrollIndex=0, ToCenter=false)。
+            PageContentReset?.Invoke(this, new PageContentResetArgs(
+                ScrollIndex: anchorIdxInPage ?? 0,
+                ToCenter: anchorIdxInPage.HasValue));
 
             // _allEpisodes は最新なので次の OnAppearing.Refresh は不要 (Reader 復帰時のみ実 fetch)。
             _skipNextRefresh = true;
@@ -157,24 +177,6 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         {
             IsLoading = false;
         }
-    }
-
-    /// <summary>
-    /// 初期スクロール対象 (anchor) のページ内インデックス。
-    /// anchor は「直前まで読んだ話 = firstUnread の 1 つ前」、無ければ「最新既読話」。
-    /// InitializeAsync が anchor を見つけた場合に設定され、View 側の OnAppearing で
-    /// TakePendingInitialScrollIndex() により 1 回だけ消費される。null = スクロール不要。
-    /// </summary>
-    public int? PendingInitialScrollIndex { get; private set; }
-
-    /// <summary>
-    /// PendingInitialScrollIndex を読み取って null クリアする。1 回限り消費を保証。
-    /// </summary>
-    public int? TakePendingInitialScrollIndex()
-    {
-        var v = PendingInitialScrollIndex;
-        PendingInitialScrollIndex = null;
-        return v;
     }
 
     private void RebuildFilterCache()
@@ -194,11 +196,11 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
 
     private Task LoadPageAsync()
     {
-        Episodes = _filteredCache
-            .Skip((CurrentPage - 1) * _episodesPerPage)
-            .Take(_episodesPerPage)
-            .Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)))
-            .ToList();
+        Episodes.Clear();
+        foreach (var e in _filteredCache.Skip((CurrentPage - 1) * _episodesPerPage).Take(_episodesPerPage))
+        {
+            Episodes.Add(EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)));
+        }
         return Task.CompletedTask;
     }
 
@@ -213,6 +215,11 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             _skipNextRefresh = false;
             return;
         }
+
+        // Reader→目次の戻り遷移ではここで Shell のスライドアニメが進行中。DB クエリ + IsRead 更新が
+        // 重なるとアニメが詰まって見えるため、アニメ完了を待ってから fetch & update する。
+        // Dispatcher.Dispatch (1 tick) では不足、Task.Delay(200) が必要 (実機検証済)。
+        await Task.Delay(200);
 
         var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
         var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
@@ -250,6 +257,7 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         CurrentPage = 1;
         RecalcPaging();
         await LoadPageAsync();
+        PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
     }
 
     [RelayCommand]
@@ -319,6 +327,7 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     {
         CurrentPage--;
         await LoadPageAsync();
+        PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
     }
 
     private bool CanGoPrev() => CurrentPage > 1;
@@ -328,7 +337,14 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     {
         CurrentPage++;
         await LoadPageAsync();
+        PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
     }
 
     private bool CanGoNext() => CurrentPage < MaxPage;
 }
+
+/// <summary>
+/// PageContentReset イベントのペイロード。スクロール先のインデックスと位置 (先頭 / 中央) を渡す。
+/// ToCenter=true は初回アンカースクロール (前回読んだ話を中央表示)、false はページ切替時の先頭リセット。
+/// </summary>
+public sealed record PageContentResetArgs(int ScrollIndex, bool ToCenter);
