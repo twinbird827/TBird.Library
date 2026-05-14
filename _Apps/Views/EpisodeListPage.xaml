@@ -2,7 +2,9 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:views="clr-namespace:LanobeReader.Views"
              x:Class="LanobeReader.Views.EpisodeListPage"
+             x:Name="ThisPage"
              x:DataType="vm:EpisodeListViewModel"
              Title="{Binding NovelTitle}"
              Shell.TabBarIsVisible="False">
@@ -36,13 +38,14 @@
 		<CollectionView Grid.Row="2" x:Name="EpisodesView"
 		                ItemsSource="{Binding Episodes}" SelectionMode="None"
 		                IsGrouped="False"
+		                ItemSizingStrategy="MeasureFirstItem"
 		                SizeChanged="OnEpisodesViewSizeChanged">
 			<CollectionView.ItemTemplate>
 				<DataTemplate x:DataType="vm:EpisodeViewModel">
 					<Grid Padding="16,10" ColumnDefinitions="Auto,*,Auto,Auto">
 						<Grid.GestureRecognizers>
 							<TapGestureRecognizer
-									Command="{Binding Source={RelativeSource AncestorType={x:Type vm:EpisodeListViewModel}}, Path=NavigateToEpisodeCommand, x:DataType=vm:EpisodeListViewModel}"
+									Command="{Binding ViewModel.NavigateToEpisodeCommand, Source={x:Reference ThisPage}, x:DataType=views:EpisodeListPage}"
 									CommandParameter="{Binding}" />
 						</Grid.GestureRecognizers>
 
@@ -56,7 +59,8 @@
 							<Label Text="{Binding ChapterName}" FontSize="10" TextColor="Gray"
                                    IsVisible="{Binding ChapterName, Converter={StaticResource HasValue}}" />
 							<Label Text="{Binding Title}" Style="{StaticResource BodyLabel}"
-                                   TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}" />
+                                   TextColor="{Binding IsRead, Converter={StaticResource BoolToGrayConverter}}"
+                                   LineBreakMode="TailTruncation" MaxLines="1" />
 						</VerticalStackLayout>
 
 						<!-- Cached indicator -->
@@ -69,7 +73,7 @@
                                TextColor="{Binding IsFavorite, Converter={StaticResource BoolToGoldConverter}}">
 							<Label.GestureRecognizers>
 								<TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:EpisodeListViewModel}}, Path=ToggleEpisodeFavoriteCommand, x:DataType=vm:EpisodeListViewModel}"
+                                    Command="{Binding ViewModel.ToggleEpisodeFavoriteCommand, Source={x:Reference ThisPage}, x:DataType=views:EpisodeListPage}"
                                     CommandParameter="{Binding}" />
 							</Label.GestureRecognizers>
 						</Label>

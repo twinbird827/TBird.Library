@@ -739,18 +739,23 @@ graph TD
    最終話付近を提示する目的。
 3. 0 話登録（`_allEpisodes.Count == 0`） → anchor 無し。
 
-anchor が決まったら、それを含むページを `CurrentPage` として `LoadPageAsync` 実行。OnAppearing 完了後に
-CollectionView の対象行へ `ScrollToPosition.Center, animate=false` でスクロールし、画面中央に配置する。
-anchor 無しのときは 1 ページ目・スクロールなし。
+anchor が決まったら、それを含むページを `CurrentPage` として `LoadPageAsync` 実行。`LoadPageAsync` 完了と
+同じ UI tick で `PageContentReset` イベントを発火し、View 側で `ScrollTo(idx, ScrollToPosition.Center,
+animate=false)` を同期呼び出しすることで対象行を画面中央に配置する（同一レイアウトパスでアイテム配置と
+スクロール target の両方が処理され、ユーザーには「先頭→アンカー」の中間スクロールが見えない）。
+anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToCenter=false)` を発火し、
+`ScrollToPosition.Start` で先頭リセットする。
 
 > **anchor が「直前まで読んだ話 = firstUnread の 1 つ前」と一致する根拠**: `EpisodeRepository.SetReadStateUpToAsync` は
 > 「読了点までを既読化、それ以降を未読化」する仕様のため、既読/未読の境界は常に連続している（飛ばし読みによる穴は
 > 発生しない）。よって `firstUnread の前` = `MAX(episode_no WHERE is_read=1)` と一致する。将来 `UpdateAsync` 経由で
 > 個別話 IsRead=true を許す経路ができた場合、anchor 選定を `LastOrDefault(IsRead == true)` 単独に変更する。
 
-> 初期スクロールはフィルタ ON/OFF (`ShowUnreadOnly`/`ShowFavoritesOnly`) の再ロードや、ページ手動切替
-> (`PrevPageAsync`/`NextPageAsync`) では適用しない（現行どおり `CurrentPage=1` リセット）。
-> Reader 画面から戻った再 `OnAppearing` でも再スクロールしない（`PendingInitialScrollIndex` は 1 回限り消費）。
+> フィルタ ON/OFF (`ShowUnreadOnly`/`ShowFavoritesOnly`) の再ロードや、ページ手動切替
+> (`PrevPageAsync`/`NextPageAsync`) では anchor スクロールではなく先頭リセット
+> (`PageContentReset(ScrollIndex=0, ToCenter=false)`) を発火する。
+> Reader 画面から戻った再 `OnAppearing` では `PageContentReset` を発火しないため再スクロールしない
+> （`RefreshReadStatusAsync` は `Episodes` への in-place 更新のみで完結する）。
 
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
@@ -772,7 +777,11 @@ anchor 無しのときは 1 ページ目・スクロールなし。
 | CurrentPage | int | 1 | 現在ページ番号 |
 | MaxPage | int | 0 | 最大ページ数 |
 | HasChapters | bool | false | 章情報ありフラグ |
-| PendingInitialScrollIndex | int? | null | 初期スクロール対象 (anchor) のページ内インデックス。`InitializeAsync` が anchor を見つけた場合のみ設定。View 側 (`OnAppearing`) で `TakePendingInitialScrollIndex()` により 1 回だけ消費される pull 型設計 |
+
+**ViewModelイベント:**
+| イベント名 | ペイロード | 発火タイミング |
+|---|---|---|
+| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `PrevPageAsync` / `NextPageAsync` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |

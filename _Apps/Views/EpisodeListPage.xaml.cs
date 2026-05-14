@@ -6,13 +6,22 @@ namespace LanobeReader.Views;
 public partial class EpisodeListPage : ContentPage
 {
     private int? _pendingScrollIndex;
-    private bool _delayedRan;
+    private bool _pendingToCenter;
 
     public EpisodeListPage(EpisodeListViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = viewModel;
+
+        // VM の PageContentReset は InitializeAsync (ApplyQueryAttributes 経由) からも発火するため、
+        // OnAppearing より前のコンストラクタ時点で購読しないと初回イベントを取りこぼす。
+        // Page と VM は共に Transient (MauiProgram.cs) で寿命が一致するため購読解除は不要。
+        viewModel.PageContentReset += OnPageContentReset;
     }
+
+    // XAML の DataTemplate 内から x:Reference 経由でアクセスするための型付きプロパティ。
+    // BindingContext を直接参照すると object 扱いになりコンパイル済みバインディングが効かない。
+    public EpisodeListViewModel ViewModel => (EpisodeListViewModel)BindingContext;
 
     protected override async void OnAppearing()
     {
@@ -25,45 +34,6 @@ public partial class EpisodeListPage : ContentPage
                 // 旧実装は両者が並列実行され、初回表示時に DB クエリの二重実行が発生していた。
                 await vm.EnsureInitializedAsync();
                 await vm.RefreshReadStatusAsync();
-
-                // 初回 OnAppearing で 1 回だけスクロール。Take... が null クリアするので
-                // Reader から戻った再表示時には再スクロールしない。
-                var idx = vm.TakePendingInitialScrollIndex();
-                if (idx is int i)
-                {
-                    // SizeChanged フォールバック用にもインデックスを保持。
-                    // TryScrollToPending() の成功時に null クリアすることで二重実行を防ぐ。
-                    _pendingScrollIndex = i;
-                    _delayedRan = false;
-
-                    // OnAppearing 時点でページは visible だが、ItemsSource 差し替え直後で
-                    // CollectionView の measure/layout 未完だと ScrollTo が空振りする。
-                    // DispatchDelayed で短時間待って Android の最初の layout サイクル完了を期待する。
-                    // 旧 150ms は Pixel 系実機の最遅ケースに合わせていたが、Init.TOTAL に既に
-                    // 100〜200ms 消費していて layout 完了している可能性が高いため 50ms に短縮。
-                    // 空振りした場合は OnEpisodesViewSizeChanged のフォールバックが救う。
-                    Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(50), () =>
-                    {
-                        // このデリゲートは外側 try/catch の保護対象外。OnAppearing → 即 OnDisappearing の
-                        // 遷移直後に走った場合 ObjectDisposed で例外する可能性があるため明示的に握り潰す。
-                        try
-                        {
-                            TryScrollToPending();
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Warn(nameof(EpisodeListPage),
-                                $"Delayed ScrollTo failed: {ex.Message}");
-                        }
-                        finally
-                        {
-                            // 成否に関わらず delay 経過を記録。これ以降の SizeChanged が
-                            // フォールバックとして動けるようになる (ScrollTo が silent no-op
-                            // だった場合も、次の SizeChanged で再試行される)。
-                            _delayedRan = true;
-                        }
-                    });
-                }
             }
             catch (Exception ex)
             {
@@ -76,9 +46,22 @@ public partial class EpisodeListPage : ContentPage
     }
 
     /// <summary>
-    /// _pendingScrollIndex が指す行へ ScrollTo を試みる。Center / animate=false で画面中央に置く。
-    /// 成功時に _pendingScrollIndex を null クリアして 1 回限り消費を保証する。
-    /// DispatchDelayed と SizeChanged の両経路から呼ばれるため、必ずここで null 化する。
+    /// VM からのスクロール指示。LoadPageAsync 完了と同じ UI tick で発火されるため、ここで同期的に
+    /// ScrollTo を呼べば RecyclerView は「アイテム配置 + スクロール target」を 1 回のレイアウト
+    /// パスで処理する。ユーザーには中間スクロールが見えない。
+    /// それでも空振りした場合 (measure 未完等) のため _pendingScrollIndex に target を残し、
+    /// 後続の OnEpisodesViewSizeChanged で再試行する。
+    /// </summary>
+    private void OnPageContentReset(object? sender, PageContentResetArgs e)
+    {
+        _pendingScrollIndex = e.ScrollIndex;
+        _pendingToCenter = e.ToCenter;
+        TryScrollToPending();
+    }
+
+    /// <summary>
+    /// _pendingScrollIndex が指す行へ ScrollTo を試みる。ToCenter フラグで Center / Start を選択。
+    /// 成功時に _pendingScrollIndex を null クリアして二重実行を防ぐ。
     /// </summary>
     private void TryScrollToPending()
     {
@@ -86,21 +69,17 @@ public partial class EpisodeListPage : ContentPage
         if (BindingContext is not EpisodeListViewModel vm) return;
         if (i < 0 || i >= vm.Episodes.Count) return;
 
-        EpisodesView.ScrollTo(i, position: ScrollToPosition.Center, animate: false);
+        var position = _pendingToCenter ? ScrollToPosition.Center : ScrollToPosition.Start;
+        EpisodesView.ScrollTo(i, position: position, animate: false);
         _pendingScrollIndex = null;
     }
 
     /// <summary>
-    /// CollectionView の measure/layout 確定時に発火。DispatchDelayed(150ms) が
-    /// 遅い実機で空振りしたケースを救うフォールバック経路。
-    /// _pendingScrollIndex が null (= 既に消費済 or 不要) なら何もしない。
-    /// _delayedRan が false の間 (= DispatchDelayed が未到達) は何もしない。
-    /// 早期に発火した SizeChanged で消費 → ScrollTo silent no-op → 後続の delay 空振り、
-    /// という詰みパターンを避けるため、SizeChanged は必ず delay 経過後だけ動くよう順序保証する。
+    /// CollectionView の measure/layout 確定時に発火。同期 ScrollTo が silent no-op だった場合の
+    /// フォールバック。_pendingScrollIndex が消費済なら何もしない。
     /// </summary>
     private void OnEpisodesViewSizeChanged(object? sender, EventArgs e)
     {
-        if (!_delayedRan) return;
         try
         {
             TryScrollToPending();
