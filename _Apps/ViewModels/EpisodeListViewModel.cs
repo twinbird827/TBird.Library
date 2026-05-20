@@ -83,20 +83,32 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     private Novel? _novel;
     private Task? _initTask;
 
-    // InitializeAsync 完了直後の OnAppearing で RefreshReadStatusAsync をスキップするためのフラグ。
-    // Init で既に最新の IsRead を取得済みのため、初回 Refresh は不要 (DB の二重 fetch を回避)。
-    // Reader 画面から戻った 2 回目以降の OnAppearing では実 fetch する。
+    // InitializeAsync / JumpToAnchorAsync 完了直後の OnAppearing で RefreshReadStatusAsync を
+    // スキップするためのフラグ。両者で IsRead は最新化済みのため、直後の Refresh は DB の二重
+    // fetch を回避するためにスキップする。
     private bool _skipNextRefresh;
 
-    // 初回 InitializeAsync で「直前まで読んだ話」アンカーへジャンプ済みかどうか。
-    // MAUI Shell の挙動で Reader→目次の戻り時に ApplyQueryAttributes が再発火し InitializeAsync が
-    // 走り直すケースがあり、その際に再度アンカージャンプすると、ユーザーが直前にページ送りで
-    // 別ページを見ていた場合に強制的に最新既読ページへ戻されて UI 上の違和感になる。
-    // 2 回目以降の Init では CurrentPage を維持する。
-    private bool _hasAnchored;
+    // Reader への遷移経路が「続きから読む」だった場合、戻り遷移時にアンカー位置（直前まで読んだ話）
+    // へ再ジャンプさせるマーカー。`NavigateToEpisode`（詳細タップ）では立てない → タップ経路は
+    // ApplyQueryAttributes 再発火時に何もせず、CollectionView の scroll 位置を維持する。
+    private bool _pendingScrollToAnchor;
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        if (_initTask is not null)
+        {
+            // 既に init 済み: MAUI Shell が Reader→目次の戻り遷移で ApplyQueryAttributes を
+            // 再発火させているケース。`_pendingScrollToAnchor` の有無で出し分け:
+            // - true (続きから読む経由)     → アンカー位置へ再ジャンプ
+            // - false (詳細タップ経由)      → 何もしない (Episodes / CurrentPage 不変 = scroll 維持)
+            if (_pendingScrollToAnchor)
+            {
+                _pendingScrollToAnchor = false;
+                _ = JumpToAnchorAsync();
+            }
+            return;
+        }
+
         if (query.TryGetValue("novelId", out var novelIdObj) && int.TryParse(novelIdObj?.ToString(), out var novelId))
         {
             _novelDbId = novelId;
@@ -134,36 +146,10 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
 
             RecalcPaging();
 
-            // anchor: 直前まで読んだ話 (= firstUnread の 1 つ前) を優先、無ければ最新既読話 (= 全話既読時の最終話)。
-            // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
-            // 2 回目以降の Init ではユーザーが直前にいたページを維持するためアンカー計算をスキップする。
-            int? anchorIdxInPage = null;
-            if (!_hasAnchored)
-            {
-                Episode? anchor = null;
-                var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
-                if (firstUnread is not null)
-                {
-                    var idx = _allEpisodes.IndexOf(firstUnread);
-                    if (idx > 0) anchor = _allEpisodes[idx - 1];
-                }
-                else
-                {
-                    anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
-                }
-
-                if (anchor is not null)
-                {
-                    var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
-                    if (idxInFiltered >= 0)
-                    {
-                        CurrentPage = (idxInFiltered / _episodesPerPage) + 1;
-                        anchorIdxInPage = idxInFiltered % _episodesPerPage;
-                    }
-                }
-
-                _hasAnchored = true;
-            }
+            // 一覧 → 目次（初回）: アンカー位置（直前まで読んだ話）へジャンプする。
+            // ApplyQueryAttributes 側で再走を抑止しているため、ここに到達するのは VM ライフタイムで 1 回のみ。
+            var (anchorPage, anchorIdxInPage) = ComputeAnchor();
+            if (anchorPage.HasValue) CurrentPage = anchorPage.Value;
 
             // Shell のスライドアニメ (~250ms) と 50 アイテム追加が UI スレッドで競合すると
             // 遷移が中途半端な位置で詰まって見えるため、アニメ完了を待ってからリスト構築する。
@@ -190,6 +176,64 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         {
             IsLoading = false;
         }
+    }
+
+    // アンカー（直前まで読んだ話 = firstUnread の 1 つ前、無ければ最新既読話）の
+    // フィルタ後ページ番号と当該ページ内インデックスを返す。
+    // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
+    // 該当話がフィルタ（未読のみ等）で除外されている／そもそも既読話が無い場合は (null, null)。
+    private (int? page, int? indexInPage) ComputeAnchor()
+    {
+        Episode? anchor = null;
+        var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
+        if (firstUnread is not null)
+        {
+            var idx = _allEpisodes.IndexOf(firstUnread);
+            if (idx > 0) anchor = _allEpisodes[idx - 1];
+        }
+        else
+        {
+            anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
+        }
+
+        if (anchor is null) return (null, null);
+
+        var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
+        if (idxInFiltered < 0) return (null, null);
+
+        var page = (idxInFiltered / _episodesPerPage) + 1;
+        var indexInPage = idxInFiltered % _episodesPerPage;
+        return (page, indexInPage);
+    }
+
+    // 続きから読む → Reader → 目次 戻り遷移用: IsRead を最新化してからアンカー位置にジャンプする。
+    // MAUI Shell が ApplyQueryAttributes を再発火させるタイミングで呼ばれる想定。
+    private async Task JumpToAnchorAsync()
+    {
+        if (_allEpisodes.Count == 0) return;
+
+        // Reader が話を既読化している可能性があるので IsRead を再 fetch して反映する。
+        var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+        var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
+        foreach (var ep in _allEpisodes)
+        {
+            if (readMap.TryGetValue(ep.Id, out var isRead))
+                ep.IsRead = isRead;
+        }
+        RebuildFilterCache();
+        RecalcPaging();
+
+        var (anchorPage, anchorIdxInPage) = ComputeAnchor();
+        if (anchorPage.HasValue) CurrentPage = anchorPage.Value;
+
+        await LoadPageAsync();
+
+        PageContentReset?.Invoke(this, new PageContentResetArgs(
+            ScrollIndex: anchorIdxInPage ?? 0,
+            ToCenter: anchorIdxInPage.HasValue));
+
+        // OnAppearing 経由の RefreshReadStatusAsync は同等処理を済ませたのでスキップ。
+        _skipNextRefresh = true;
     }
 
     private void RebuildFilterCache()
@@ -282,6 +326,9 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         var target = firstUnread ?? lastRead;
         if (target is not null && _novel is not null)
         {
+            // Reader 復帰時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。
+            // NavigateToEpisode（詳細タップ経由）ではセットしないため、タップ経路は scroll 位置維持。
+            _pendingScrollToAnchor = true;
             await Shell.Current.GoToAsync(
                 $"reader?novelId={_novelDbId}&episodeId={target.Id}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
         }
