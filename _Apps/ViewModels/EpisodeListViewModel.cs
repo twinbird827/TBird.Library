@@ -79,9 +79,20 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     [ObservableProperty]
     private bool _showFavoritesOnly;
 
+    // Shell のスライドアニメ (~250ms) と LoadPage の Clear+Add が UI スレッドで競合すると
+    // 遷移が中途半端な位置で詰まって見える。Dispatcher.Dispatch (1 tick) では不足、200ms で
+    // 詰まりが解消することを実機検証済。InitializeAsync / JumpToAnchorAsync / RefreshReadStatusAsync
+    // の 3 か所で同じ意味で使うため定数化。
+    private const int ShellAnimationSettleMs = 200;
+
     private int _episodesPerPage = 50;
     private Novel? _novel;
     private Task? _initTask;
+
+    // JumpToAnchorAsync の in-flight 追跡。続きから→Reader→戻る を連打されたとき、前回が
+    // 終わっていなければ次の起動をスキップする (二重 fetch / scroll target 競合 / _allEpisodes
+    // mutate の並走を避ける)。fire-and-forget 起動なので Task を保持する必要がある。
+    private Task? _jumpTask;
 
     // InitializeAsync / JumpToAnchorAsync 完了直後の OnAppearing で RefreshReadStatusAsync を
     // スキップするためのフラグ。両者で IsRead は最新化済みのため、直後の Refresh は DB の二重
@@ -101,18 +112,26 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     {
         if (_initTask is not null)
         {
-            // 既に init 済み: MAUI Shell が Reader→目次の戻り遷移で ApplyQueryAttributes を
+            // 既に init 起動済み: MAUI Shell が Reader→目次の戻り遷移で ApplyQueryAttributes を
             // 再発火させているケース。`_pendingScrollToAnchor` の有無で出し分け:
             // - true (続きから読む経由)     → アンカー位置へ再ジャンプ
             // - false (詳細タップ経由)      → 何もしない (Episodes / CurrentPage 不変 = scroll 維持)
+            //
+            // InitializeAsync が成功完了していない場合 (進行中 or 失敗) は JumpToAnchorAsync を
+            // 走らせない: _allEpisodes が未確定だと不正な anchor 計算をし、Init の IsLoading 等の
+            // 状態とも競合するため。フラグは消費して次回以降に持ち越さない。
             if (_pendingScrollToAnchor)
             {
                 _pendingScrollToAnchor = false;
-                // `JumpToAnchorAsync` の中で同等の fetch を済ませるため、続く OnAppearing 経由の
-                // RefreshReadStatusAsync は不要。fire-and-forget 前にフラグを立てて race を避ける
-                // (JumpToAnchorAsync の末尾で立てると、先に始まる RefreshReadStatusAsync のチェックに間に合わない)。
-                _skipNextRefresh = true;
-                _ = JumpToAnchorAsync();
+                if (_initTask.IsCompletedSuccessfully
+                    && _jumpTask is null or { IsCompleted: true })
+                {
+                    // `JumpToAnchorAsync` の中で同等の fetch を済ませるため、続く OnAppearing 経由の
+                    // RefreshReadStatusAsync は不要。fire-and-forget 前にフラグを立てて race を避ける
+                    // (JumpToAnchorAsync の末尾で立てると、先に始まる RefreshReadStatusAsync のチェックに間に合わない)。
+                    _skipNextRefresh = true;
+                    _jumpTask = JumpToAnchorAsync();
+                }
             }
             return;
         }
@@ -159,10 +178,9 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             var (anchorPage, anchorIdxInPage) = ComputeAnchor();
             if (anchorPage.HasValue) CurrentPage = anchorPage.Value;
 
-            // Shell のスライドアニメ (~250ms) と 50 アイテム追加が UI スレッドで競合すると
-            // 遷移が中途半端な位置で詰まって見えるため、アニメ完了を待ってからリスト構築する。
-            // Dispatcher.Dispatch (1 tick) では不足、Task.Delay(200) が必要 (実機検証済)。
-            await Task.Delay(200);
+            // Shell スライドアニメ完了を待ってからリスト構築する (アイテム追加との競合回避)。
+            // 詳細は ShellAnimationSettleMs の定義コメント参照。
+            await Task.Delay(ShellAnimationSettleMs);
             await LoadPageAsync();
 
             // LoadPageAsync 完了と同じ UI tick でスクロール target を渡すことで、
@@ -224,15 +242,16 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     //                       直後 (= 新 firstUnread - 1) のアンカーは通常 0-1 話しかずれないので、
     //                       stale でもユーザーには遅延なく「ほぼ正しい位置」が見える。
     //   Stage 1B (ページ跨ぎ): pre-Reader のページ内容を即時 hide (Episodes.Clear + IsLoading=true)。
-    //                       Stage 1A の Clear+Add scroll はアニメ中に走らせると詰まるためできないが、
-    //                       「pre-Reader 位置を見せて急に飛ぶ」よりは「ローディング → アンカー位置で表示」
-    //                       の方が違和感が小さい (ユーザー要望)。
-    //   Stage 2: アニメ完了 (Task.Delay 200) を待ってから DB fetch + IsRead 反映 + 必要なら
-    //            LoadPage / 再 scroll。
+    //                       Stage 2 相当の Clear+Add (LoadPageAsync) をアニメ中に走らせると詰まるため
+    //                       Stage 2 に回すが、「pre-Reader 位置を見せて急に飛ぶ」よりは「ローディング
+    //                       → アンカー位置で表示」の方が違和感が小さい (ユーザー要望)。
+    //   Stage 2: アニメ完了 (Task.Delay ShellAnimationSettleMs) を待ってから DB fetch + IsRead 反映 +
+    //            必要なら LoadPage / 再 scroll。
     private async Task JumpToAnchorAsync()
     {
         if (_allEpisodes.Count == 0) return;
 
+        bool clearedInStage1B = false;
         try
         {
             // --- Stage 1: stale anchor を計算してページ内 / 跨ぎで分岐 ---
@@ -251,10 +270,11 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
                 // Episodes.Clear は Reset 通知だが空リスト化なので Clear+Add より軽い (ViewHolder 解放のみ)。
                 Episodes.Clear();
                 IsLoading = true;
+                clearedInStage1B = true;
             }
 
             // --- Stage 2: アニメ完了後に fresh fetch + 反映 ---
-            await Task.Delay(200);
+            await Task.Delay(ShellAnimationSettleMs);
 
             // Reader が話を既読化している可能性があるので IsRead を再 fetch して反映する。
             var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
@@ -315,8 +335,10 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         }
         finally
         {
-            // Stage 1B で立てた IsLoading を巻き戻す。Stage 1A 経路でも false なので無害。
-            IsLoading = false;
+            // Stage 1B で立てた IsLoading のみ巻き戻す。Stage 1A 経路は IsLoading を触っていないので
+            // ここで無条件に false にすると、稀に並走している InitializeAsync の IsLoading=true を
+            // 横取りしてしまう (gating の見落とし) ため、フラグで限定する。
+            if (clearedInStage1B) IsLoading = false;
         }
     }
 
@@ -357,10 +379,10 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             return;
         }
 
-        // Reader→目次の戻り遷移ではここで Shell のスライドアニメが進行中。DB クエリ + IsRead 更新が
+        // Reader→目次の戻り遷移ではここで Shell スライドアニメが進行中。DB クエリ + IsRead 更新が
         // 重なるとアニメが詰まって見えるため、アニメ完了を待ってから fetch & update する。
-        // Dispatcher.Dispatch (1 tick) では不足、Task.Delay(200) が必要 (実機検証済)。
-        await Task.Delay(200);
+        // 詳細は ShellAnimationSettleMs の定義コメント参照。
+        await Task.Delay(ShellAnimationSettleMs);
 
         var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
         var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
