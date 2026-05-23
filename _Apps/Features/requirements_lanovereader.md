@@ -754,8 +754,23 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 > フィルタ ON/OFF (`ShowUnreadOnly`/`ShowFavoritesOnly`) の再ロードや、ページ手動切替
 > (`PrevPageAsync`/`NextPageAsync`) では anchor スクロールではなく先頭リセット
 > (`PageContentReset(ScrollIndex=0, ToCenter=false)`) を発火する。
-> Reader 画面から戻った再 `OnAppearing` では `PageContentReset` を発火しないため再スクロールしない
-> （`RefreshReadStatusAsync` は `Episodes` への in-place 更新のみで完結する）。
+>
+> **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を
+> 再発火させる仕様を利用して、遷移経路ごとに挙動を出し分ける:
+> - **続きから読む経由** (`ReadContinueAsync` で `_pendingScrollToAnchor=true` をセット):
+>   `JumpToAnchorAsync` を起動し、IsRead を再 fetch → アンカー再計算 → `CurrentPage` 更新
+>   → `LoadPageAsync` → `PageContentReset(ToCenter=true)` 発火でアンカー位置へジャンプする。
+>   Reader 内で既読化された話があれば `firstUnread` が進み、新しいアンカー (= Reader で読んだ
+>   最終話あたり) へ移動する。
+> - **詳細タップ経由** (`NavigateToEpisode`, フラグ立てない): 何もしない。`Episodes` と
+>   `CurrentPage` を一切触らないため `CollectionView` の scroll 位置が自然に維持される。
+>   ただし `ShowUnreadOnly=true` 状態でタップした話が Reader 側で既読化された場合、
+>   `OnAppearing` の `RefreshReadStatusAsync` がフィルタ再構築で `LoadPageAsync` を呼ぶため
+>   その話はリストから消える (scroll 位置は ObservableCollection の Clear+Add で維持)。
+>
+> 「続きから読む」経路では `ApplyQueryAttributes` 側で `_skipNextRefresh=true` を先に立てて
+> から `JumpToAnchorAsync` を fire-and-forget するため、直後に走る `OnAppearing` の
+> `RefreshReadStatusAsync` は DB の二重 fetch を回避してスキップする。
 
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
@@ -781,7 +796,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 **ViewModelイベント:**
 | イベント名 | ペイロード | 発火タイミング |
 |---|---|---|
-| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `PrevPageAsync` / `NextPageAsync` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
+| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToAnchorAsync` 完了時（「続きから読む」経由の Reader 戻り遷移、`ToCenter=true`）/ `PrevPageAsync` / `NextPageAsync` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新および詳細タップ経由の Reader 戻り遷移では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
