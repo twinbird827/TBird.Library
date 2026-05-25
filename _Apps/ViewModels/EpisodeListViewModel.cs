@@ -79,17 +79,63 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     [ObservableProperty]
     private bool _showFavoritesOnly;
 
+    // Shell のスライドアニメ (~250ms) と LoadPage の Clear+Add が UI スレッドで競合すると
+    // 遷移が中途半端な位置で詰まって見える。Dispatcher.Dispatch (1 tick) では不足、200ms で
+    // 詰まりが解消することを実機検証済。InitializeAsync / JumpToAnchorAsync / RefreshReadStatusAsync
+    // の 3 か所で同じ意味で使うため定数化。
+    private const int ShellAnimationSettleMs = 200;
+
     private int _episodesPerPage = 50;
     private Novel? _novel;
     private Task? _initTask;
 
-    // InitializeAsync 完了直後の OnAppearing で RefreshReadStatusAsync をスキップするためのフラグ。
-    // Init で既に最新の IsRead を取得済みのため、初回 Refresh は不要 (DB の二重 fetch を回避)。
-    // Reader 画面から戻った 2 回目以降の OnAppearing では実 fetch する。
+    // JumpToAnchorAsync の in-flight 追跡。続きから→Reader→戻る を連打されたとき、前回が
+    // 終わっていなければ次の起動をスキップする (二重 fetch / scroll target 競合 / _allEpisodes
+    // mutate の並走を避ける)。fire-and-forget 起動なので Task を保持する必要がある。
+    private Task? _jumpTask;
+
+    // InitializeAsync / JumpToAnchorAsync 完了直後の OnAppearing で RefreshReadStatusAsync を
+    // スキップするためのフラグ。両者で IsRead は最新化済みのため、直後の Refresh は DB の二重
+    // fetch を回避するためにスキップする。
     private bool _skipNextRefresh;
+
+    // Reader への遷移経路が「続きから読む」だった場合、戻り遷移時にアンカー位置（直前まで読んだ話）
+    // へ再ジャンプさせるマーカー。`NavigateToEpisode`（詳細タップ）では立てない → タップ経路は
+    // ApplyQueryAttributes 再発火時に何もせず、CollectionView の scroll 位置を維持する。
+    // 注: `ShowUnreadOnly=true` でタップした話が Reader 内で既読化された場合、`OnAppearing` の
+    // `RefreshReadStatusAsync` がフィルタ再構築で `LoadPageAsync` を呼ぶためその話はリストから消える
+    // (ObservableCollection の Clear+Add なので scroll 位置自体は維持される)。これは ShowUnreadOnly の
+    // 自然な振る舞いと整合するため許容。
+    private bool _pendingScrollToAnchor;
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        if (_initTask is not null)
+        {
+            // 既に init 起動済み: MAUI Shell が Reader→目次の戻り遷移で ApplyQueryAttributes を
+            // 再発火させているケース。`_pendingScrollToAnchor` の有無で出し分け:
+            // - true (続きから読む経由)     → アンカー位置へ再ジャンプ
+            // - false (詳細タップ経由)      → 何もしない (Episodes / CurrentPage 不変 = scroll 維持)
+            //
+            // InitializeAsync が成功完了していない場合 (進行中 or 失敗) は JumpToAnchorAsync を
+            // 走らせない: _allEpisodes が未確定だと不正な anchor 計算をし、Init の IsLoading 等の
+            // 状態とも競合するため。フラグは消費して次回以降に持ち越さない。
+            if (_pendingScrollToAnchor)
+            {
+                _pendingScrollToAnchor = false;
+                if (_initTask.IsCompletedSuccessfully
+                    && _jumpTask is null or { IsCompleted: true })
+                {
+                    // `JumpToAnchorAsync` の中で同等の fetch を済ませるため、続く OnAppearing 経由の
+                    // RefreshReadStatusAsync は不要。fire-and-forget 前にフラグを立てて race を避ける
+                    // (JumpToAnchorAsync の末尾で立てると、先に始まる RefreshReadStatusAsync のチェックに間に合わない)。
+                    _skipNextRefresh = true;
+                    _jumpTask = JumpToAnchorAsync();
+                }
+            }
+            return;
+        }
+
         if (query.TryGetValue("novelId", out var novelIdObj) && int.TryParse(novelIdObj?.ToString(), out var novelId))
         {
             _novelDbId = novelId;
@@ -127,35 +173,14 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
 
             RecalcPaging();
 
-            // anchor: 直前まで読んだ話 (= firstUnread の 1 つ前) を優先、無ければ最新既読話 (= 全話既読時の最終話)。
-            // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
-            Episode? anchor = null;
-            var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
-            if (firstUnread is not null)
-            {
-                var idx = _allEpisodes.IndexOf(firstUnread);
-                if (idx > 0) anchor = _allEpisodes[idx - 1];
-            }
-            else
-            {
-                anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
-            }
+            // 一覧 → 目次（初回）: アンカー位置（直前まで読んだ話）へジャンプする。
+            // ApplyQueryAttributes 側で再走を抑止しているため、ここに到達するのは VM ライフタイムで 1 回のみ。
+            var (anchorPage, anchorIdxInPage) = ComputeAnchor();
+            if (anchorPage.HasValue) CurrentPage = anchorPage.Value;
 
-            int? anchorIdxInPage = null;
-            if (anchor is not null)
-            {
-                var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
-                if (idxInFiltered >= 0)
-                {
-                    CurrentPage = (idxInFiltered / _episodesPerPage) + 1;
-                    anchorIdxInPage = idxInFiltered % _episodesPerPage;
-                }
-            }
-
-            // Shell のスライドアニメ (~250ms) と 50 アイテム追加が UI スレッドで競合すると
-            // 遷移が中途半端な位置で詰まって見えるため、アニメ完了を待ってからリスト構築する。
-            // Dispatcher.Dispatch (1 tick) では不足、Task.Delay(200) が必要 (実機検証済)。
-            await Task.Delay(200);
+            // Shell スライドアニメ完了を待ってからリスト構築する (アイテム追加との競合回避)。
+            // 詳細は ShellAnimationSettleMs の定義コメント参照。
+            await Task.Delay(ShellAnimationSettleMs);
             await LoadPageAsync();
 
             // LoadPageAsync 完了と同じ UI tick でスクロール target を渡すことで、
@@ -176,6 +201,144 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    // アンカー（直前まで読んだ話 = firstUnread の 1 つ前、無ければ最新既読話）の
+    // フィルタ後ページ番号と当該ページ内インデックスを返す。
+    // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
+    // 該当話がフィルタ（未読のみ等）で除外されている／そもそも既読話が無い場合は (null, null)。
+    private (int? page, int? indexInPage) ComputeAnchor()
+    {
+        Episode? anchor = null;
+        var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
+        if (firstUnread is not null)
+        {
+            var idx = _allEpisodes.IndexOf(firstUnread);
+            if (idx > 0) anchor = _allEpisodes[idx - 1];
+        }
+        else
+        {
+            anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
+        }
+
+        if (anchor is null) return (null, null);
+
+        var idxInFiltered = _filteredCache.FindIndex(e => e.Id == anchor.Id);
+        if (idxInFiltered < 0) return (null, null);
+
+        var page = (idxInFiltered / _episodesPerPage) + 1;
+        var indexInPage = idxInFiltered % _episodesPerPage;
+        return (page, indexInPage);
+    }
+
+    // 続きから読む → Reader → 目次 戻り遷移用: IsRead を最新化してからアンカー位置にジャンプする。
+    // MAUI Shell が ApplyQueryAttributes を再発火させるタイミングで呼ばれる想定。
+    // `_skipNextRefresh = true` は呼び出し元 (ApplyQueryAttributes) で先に立てる
+    // (race を避けるため。詳細は ApplyQueryAttributes 側コメント参照)。
+    //
+    // 2 段階処理 (Stage 1 はページ内 / ページ跨ぎで分岐):
+    //   Stage 1A (ページ内): stale anchor で即時 scroll (アニメと並行)。Reader 直前 (= lastRead) と
+    //                       直後 (= 新 firstUnread - 1) のアンカーは通常 0-1 話しかずれないので、
+    //                       stale でもユーザーには遅延なく「ほぼ正しい位置」が見える。
+    //   Stage 1B (ページ跨ぎ): pre-Reader のページ内容を即時 hide (Episodes.Clear + IsLoading=true)。
+    //                       Stage 2 相当の Clear+Add (LoadPageAsync) をアニメ中に走らせると詰まるため
+    //                       Stage 2 に回すが、「pre-Reader 位置を見せて急に飛ぶ」よりは「ローディング
+    //                       → アンカー位置で表示」の方が違和感が小さい (ユーザー要望)。
+    //   Stage 2: アニメ完了 (Task.Delay ShellAnimationSettleMs) を待ってから DB fetch + IsRead 反映 +
+    //            必要なら LoadPage / 再 scroll。
+    private async Task JumpToAnchorAsync()
+    {
+        if (_allEpisodes.Count == 0) return;
+
+        bool clearedInStage1B = false;
+        try
+        {
+            // --- Stage 1: stale anchor を計算してページ内 / 跨ぎで分岐 ---
+            var (staleAnchorPage, staleAnchorIdx) = ComputeAnchor();
+            bool sameStartingPage = staleAnchorPage.HasValue && staleAnchorPage.Value == CurrentPage;
+            if (sameStartingPage && staleAnchorIdx.HasValue)
+            {
+                // Stage 1A: 同じページ内 → ScrollTo 単発はアニメと並行可、即時発火。
+                PageContentReset?.Invoke(this, new PageContentResetArgs(
+                    ScrollIndex: staleAnchorIdx.Value,
+                    ToCenter: true));
+            }
+            else if (staleAnchorPage.HasValue)
+            {
+                // Stage 1B: ページ跨ぎ → pre-Reader のページ内容を即時 hide。
+                // Episodes.Clear は Reset 通知だが空リスト化なので Clear+Add より軽い (ViewHolder 解放のみ)。
+                Episodes.Clear();
+                IsLoading = true;
+                clearedInStage1B = true;
+            }
+
+            // --- Stage 2: アニメ完了後に fresh fetch + 反映 ---
+            await Task.Delay(ShellAnimationSettleMs);
+
+            // Reader が話を既読化している可能性があるので IsRead を再 fetch して反映する。
+            var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+            var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
+            foreach (var ep in _allEpisodes)
+            {
+                if (readMap.TryGetValue(ep.Id, out var isRead))
+                    ep.IsRead = isRead;
+            }
+            RebuildFilterCache();
+            RecalcPaging();
+
+            var (freshAnchorPage, freshAnchorIdx) = ComputeAnchor();
+            bool pageChanged = freshAnchorPage.HasValue && freshAnchorPage.Value != CurrentPage;
+
+            if (pageChanged)
+            {
+                // ページ跨ぎ → LoadPage 必須
+                CurrentPage = freshAnchorPage!.Value;
+                await LoadPageAsync();
+            }
+            else if (ShowUnreadOnly)
+            {
+                // 既読化された話がフィルタで除外されるため rebuild 必要
+                await LoadPageAsync();
+            }
+            else if (Episodes.Count == 0)
+            {
+                // Stage 1B で Clear した場合、ページ跨ぎでなくても再描画必要 (rare: stale anchor は別ページだが
+                // fresh anchor は CurrentPage に戻ってきたケース)
+                await LoadPageAsync();
+            }
+            else
+            {
+                // 同じページ・フィルタ内で IsRead だけ変わるケース: in-place 更新で済ませる。
+                // Clear+Add しないので Stage 1A の scroll 位置がそのまま温存される (フラッシュ無し)。
+                foreach (var vm in Episodes)
+                {
+                    if (readMap.TryGetValue(vm.Id, out var isRead))
+                        vm.IsRead = isRead;
+                }
+            }
+
+            // Stage 1A で scroll してない、または anchor index が変わった場合は再 scroll
+            if (!sameStartingPage || pageChanged || freshAnchorIdx != staleAnchorIdx)
+            {
+                PageContentReset?.Invoke(this, new PageContentResetArgs(
+                    ScrollIndex: freshAnchorIdx ?? 0,
+                    ToCenter: freshAnchorIdx.HasValue));
+            }
+        }
+        catch (Exception ex)
+        {
+            // fire-and-forget で呼ばれるため、例外を握り潰さないと unobserved になる。
+            // InitializeAsync と同等に SetError でユーザーに通知する。
+            LogHelper.Error(nameof(EpisodeListViewModel), $"JumpToAnchorAsync failed: {ex.Message}");
+            SetError($"目次の再読込に失敗しました: {ex.Message}");
+        }
+        finally
+        {
+            // Stage 1B で立てた IsLoading のみ巻き戻す。Stage 1A 経路は IsLoading を触っていないので
+            // ここで無条件に false にすると、稀に並走している InitializeAsync の IsLoading=true を
+            // 横取りしてしまう (gating の見落とし) ため、フラグで限定する。
+            if (clearedInStage1B) IsLoading = false;
         }
     }
 
@@ -216,10 +379,10 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
             return;
         }
 
-        // Reader→目次の戻り遷移ではここで Shell のスライドアニメが進行中。DB クエリ + IsRead 更新が
+        // Reader→目次の戻り遷移ではここで Shell スライドアニメが進行中。DB クエリ + IsRead 更新が
         // 重なるとアニメが詰まって見えるため、アニメ完了を待ってから fetch & update する。
-        // Dispatcher.Dispatch (1 tick) では不足、Task.Delay(200) が必要 (実機検証済)。
-        await Task.Delay(200);
+        // 詳細は ShellAnimationSettleMs の定義コメント参照。
+        await Task.Delay(ShellAnimationSettleMs);
 
         var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
         var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
@@ -269,8 +432,21 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         var target = firstUnread ?? lastRead;
         if (target is not null && _novel is not null)
         {
-            await Shell.Current.GoToAsync(
-                $"reader?novelId={_novelDbId}&episodeId={target.Id}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+            // Reader 復帰時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。
+            // NavigateToEpisode（詳細タップ経由）ではセットしないため、タップ経路は scroll 位置維持。
+            _pendingScrollToAnchor = true;
+            try
+            {
+                await Shell.Current.GoToAsync(
+                    $"reader?novelId={_novelDbId}&episodeId={target.Id}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+            }
+            catch
+            {
+                // GoToAsync が失敗した場合、Reader 遷移が起きていないのでフラグを巻き戻す。
+                // 立てたままだと次回の詳細タップ→戻り遷移でも意図せず anchor ジャンプが走る。
+                _pendingScrollToAnchor = false;
+                throw;
+            }
         }
     }
 
