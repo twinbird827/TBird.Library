@@ -15,6 +15,9 @@ namespace LanobeReader.Services.Network;
 /// </summary>
 public class NetworkPolicyService
 {
+    private const int MaxAttempts = 3;
+    private const int RetryDelayMs = 500;
+
     private readonly HttpClient _httpClient;
     private readonly AppSettingsRepository _settingsRepo;
 
@@ -84,6 +87,10 @@ public class NetworkPolicyService
 
     /// <summary>
     /// 指定サイトに対して HTTP GET（文字列）を発行。直列化＋ディレイが自動で適用される。
+    /// transient な HttpRequestException（SSL ストリーム破損 / 5xx / 408 / 429 等）は
+    /// 最大 2 回リトライする（合計 3 回試行）。試行間は最小 500ms 待機し、さらに
+    /// サイト別 request_delay_ms を尊重するため実効的な間隔はそれより長くなることがある。
+    /// 4xx クライアントエラー、TaskCanceledException、外部 ct のキャンセル要求はリトライしない。
     /// </summary>
     public async Task<string> GetStringAsync(SiteType site, string url, CancellationToken ct = default)
     {
@@ -91,23 +98,53 @@ public class NetworkPolicyService
         await gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            await EnforceDelayAsync(site, ct).ConfigureAwait(false);
-            try
+            for (int attempt = 1; ; attempt++)
             {
-                var result = await _httpClient.GetStringAsync(url, ct).ConfigureAwait(false);
-                _lastRequestAt[site] = DateTime.UtcNow;
-                return result;
-            }
-            catch (Exception ex)
-            {
-                LogRequestFailure(site, url, ex);
-                throw;
+                await EnforceDelayAsync(site, ct).ConfigureAwait(false);
+                try
+                {
+                    var result = await _httpClient.GetStringAsync(url, ct).ConfigureAwait(false);
+                    _lastRequestAt[site] = DateTime.UtcNow;
+                    return result;
+                }
+                catch (HttpRequestException ex) when (attempt < MaxAttempts && IsTransient(ex) && !ct.IsCancellationRequested)
+                {
+                    // リトライ予定の失敗も「サーバへ実際に投げた」扱いにし、次の試行まで
+                    // request_delay_ms を尊重する（礼儀+連続失敗時の負荷抑制）。
+                    _lastRequestAt[site] = DateTime.UtcNow;
+                    LogHelper.Warn(nameof(NetworkPolicyService),
+                        $"Transient failure [{site}] {url} (attempt {attempt}/{MaxAttempts}): {ex.Message}");
+                    await Task.Delay(RetryDelayMs, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // ユーザ操作等によるキャンセルは異常ではないのでスタック付き ERROR を出さない。
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _lastRequestAt[site] = DateTime.UtcNow;
+                    LogRequestFailure(site, url, ex);
+                    throw;
+                }
             }
         }
         finally
         {
             gate.Release();
         }
+    }
+
+    // 4xx クライアントエラーは恒久的なので再試行不要。
+    // ステータスなし（DNS/SSL/ソケット層の失敗）と 5xx/408/429 は transient とみなす。
+    private static bool IsTransient(HttpRequestException ex)
+    {
+        if (ex.StatusCode is { } code)
+        {
+            var n = (int)code;
+            return n >= 500 || n == 408 || n == 429;
+        }
+        return true;
     }
 
     // HttpRequestException.Message が "Connection failure" 等の抽象的な文字列だけだと
