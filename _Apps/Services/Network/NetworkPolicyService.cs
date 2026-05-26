@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Database;
@@ -91,14 +92,51 @@ public class NetworkPolicyService
         try
         {
             await EnforceDelayAsync(site, ct).ConfigureAwait(false);
-            var result = await _httpClient.GetStringAsync(url, ct).ConfigureAwait(false);
-            _lastRequestAt[site] = DateTime.UtcNow;
-            return result;
+            try
+            {
+                var result = await _httpClient.GetStringAsync(url, ct).ConfigureAwait(false);
+                _lastRequestAt[site] = DateTime.UtcNow;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                LogRequestFailure(site, url, ex);
+                throw;
+            }
         }
         finally
         {
             gate.Release();
         }
+    }
+
+    // HttpRequestException.Message が "Connection failure" 等の抽象的な文字列だけだと
+    // Android 側の真の原因 (UnknownHostException / SSLHandshakeException / EOFException 等) が見えない。
+    // InnerException チェーンを最大 5 段まで logcat に吐いて切り分けを可能にする。
+    private static void LogRequestFailure(SiteType site, string url, Exception ex)
+    {
+        var sb = new StringBuilder();
+        sb.Append("Request failed [").Append(site).Append("] ").AppendLine(url);
+        var cur = ex;
+        int depth = 0;
+        while (cur is not null && depth < 5)
+        {
+            sb.Append("  [").Append(depth).Append("] ")
+              .Append(cur.GetType().FullName).Append(": ").AppendLine(cur.Message);
+            cur = cur.InnerException;
+            depth++;
+        }
+        var st = ex.StackTrace;
+        if (!string.IsNullOrEmpty(st))
+        {
+            sb.AppendLine("  Stack (top 3):");
+            var lines = st.Split('\n');
+            for (int i = 0; i < Math.Min(3, lines.Length); i++)
+            {
+                sb.Append("    ").AppendLine(lines[i].TrimEnd());
+            }
+        }
+        LogHelper.Error(nameof(NetworkPolicyService), sb.ToString());
     }
 
     private async Task EnforceDelayAsync(SiteType site, CancellationToken ct)

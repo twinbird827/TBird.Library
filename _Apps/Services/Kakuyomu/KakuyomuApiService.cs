@@ -58,18 +58,61 @@ public class KakuyomuApiService : INovelService
 
             var title = link.GetAttribute("title")?.Trim() ?? link.TextContent.Trim();
 
-            // 作者名抽出: 親要素から /users/ アンカーを探す
-            var author = "";
-            var parentEl = link.ParentElement;
-            for (int i = 0; i < 4 && parentEl is not null; i++)
+            // 検索ページは CSS Modules（ハッシュ付クラス名）で組まれており、カードコンテナの
+            // class はビルドごとに変わる。安定して取れる identifying signal は「カード内に
+            // /users/ リンクと Meta_metaItem__* が両方ある」ことなので、両方を含む最近接の
+            // 共通祖先を「カード」とみなす。
+            AngleSharp.Dom.IElement? cardEl = null;
+            var ancestor = link.ParentElement;
+            for (int i = 0; i < 10 && ancestor is not null; i++)
             {
-                var userLink = parentEl.QuerySelector("a[href*='/users/']");
-                if (userLink is not null)
+                if (ancestor.QuerySelector("a[href*='/users/']") is not null
+                    && ancestor.QuerySelector("[class*='Meta_metaItem__']") is not null)
                 {
-                    author = userLink.TextContent.Trim();
+                    cardEl = ancestor;
                     break;
                 }
-                parentEl = parentEl.ParentElement;
+                ancestor = ancestor.ParentElement;
+            }
+
+            var author = "";
+            int totalEpisodes = 0;
+            bool isCompleted = false;
+
+            if (cardEl is not null)
+            {
+                var userLink = cardEl.QuerySelector("a[href*='/users/']");
+                author = userLink?.TextContent.Trim() ?? "";
+
+                // 「連載中 NN話」「完結済 NN話」テキストを持つ Meta_metaItem__* を探す。
+                // CSS Modules のハッシュ部分はビルドごとに変わるため substring 一致で抽出。
+                foreach (var meta in cardEl.QuerySelectorAll("[class*='Meta_metaItem__']"))
+                {
+                    var text = meta.TextContent.Trim();
+                    var m = Regex.Match(text, @"^(連載中|完結済)\s*(\d+)話$");
+                    if (m.Success)
+                    {
+                        isCompleted = m.Groups[1].Value == "完結済";
+                        int.TryParse(m.Groups[2].Value, out totalEpisodes);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // カード特定失敗時のフォールバック: 旧実装の 4 段親辿りで author だけ取得。
+                // CSS Modules のクラスプレフィックス自体が将来変わった場合の保険。
+                var parentEl = link.ParentElement;
+                for (int i = 0; i < 4 && parentEl is not null; i++)
+                {
+                    var userLink = parentEl.QuerySelector("a[href*='/users/']");
+                    if (userLink is not null)
+                    {
+                        author = userLink.TextContent.Trim();
+                        break;
+                    }
+                    parentEl = parentEl.ParentElement;
+                }
             }
 
             results.Add(new SearchResult
@@ -78,8 +121,8 @@ public class KakuyomuApiService : INovelService
                 NovelId = workId,
                 Title = title,
                 Author = author,
-                TotalEpisodes = 0,
-                IsCompleted = false,
+                TotalEpisodes = totalEpisodes,
+                IsCompleted = isCompleted,
             });
 
             if (results.Count >= 20) break;
@@ -311,7 +354,12 @@ public class KakuyomuApiService : INovelService
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-        var url = $"{BASE_URL}/rankings/{genreSlug}/{periodSlug}";
+        // `?work_variation=long` を必ず付ける。省略するとオリジン nginx が
+        // `Location: http://kakuyomu.jp/...?work_variation=long` の 302 を返し（HTTPS→HTTP）、
+        // Android の Network Security Config（cleartextTrafficPermitted=false）が 2 段目で
+        // 接続を拒否して HttpRequestException "Connection failure" になる。
+        // CloudFront が後段で 301 https に戻すためブラウザは通るが AndroidMessageHandler は通らない。
+        var url = $"{BASE_URL}/rankings/{genreSlug}/{periodSlug}?work_variation=long";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         var config = Configuration.Default;
