@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -10,7 +11,16 @@ namespace TBird.Core
 {
 	public static class FileUtil
 	{
-		private static string ToShort(string s) => Win32Methods.GetShortPathName(s);
+		[DllImport("kernel32.dll")]
+		private static extern int GetShortPathName(string longPath, StringBuilder shortPathBuffer, int bufferSize);
+
+		private static string ToShort(string s)
+		{
+			const int bufferSize = 128;
+			var sb = new StringBuilder(bufferSize);
+			GetShortPathName(s, sb, bufferSize);
+			return 0 < sb.Length ? sb.ToString() : s;
+		}
 
 		/// <summary>
 		/// 対象のﾊﾟｽ名に使用できない文字が含まれていないか確認します。
@@ -200,4 +210,4 @@ namespace TBird.Core
 			File.WriteAllText(path, results, encoding);
 		}
 	}
-}
+}

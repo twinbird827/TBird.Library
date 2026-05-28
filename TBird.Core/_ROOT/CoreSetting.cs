@@ -10,7 +10,7 @@
 		}
 		private static CoreSetting? _Instance;
 
-		public CoreSetting() : base(_path)
+		public CoreSetting() : base(PathSetting.GetPath(_path))
 		{
 			if (!Load())
 			{
