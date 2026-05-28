@@ -1,3 +1,6 @@
+using LanobeReader.Helpers;
+using LanobeReader.Models;
+using LanobeReader.Platforms.Android;
 using LanobeReader.Services;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
@@ -7,6 +10,9 @@ using LanobeReader.Services.Network;
 using LanobeReader.ViewModels;
 using LanobeReader.Views;
 using Microsoft.Extensions.Logging;
+using TBird.Core;
+using TBird.Maui;
+using TBird.Maui.Background;
 
 namespace LanobeReader;
 
@@ -14,6 +20,10 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        // MessageService は MauiAppBuilder 生成より前に差し替える（DI 構築中のログも正しく
+        // [LanobeReader] プレフィックスで logcat / AppDataDirectory/log に出力するため）。
+        MessageService.SetService(new MauiMessageService("LanobeReader"));
+
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
         // OpenSans*.ttf は Resources/Fonts に存在せず、XAML からも参照していないため AddFont を削除。
@@ -33,8 +43,33 @@ public static class MauiProgram
         // HttpClient
         builder.Services.AddSingleton<HttpClient>();
 
-        // Network / Background
+        // Network policy: 抽象 + SiteRateLimiter + 既存 NetworkPolicyService ラッパー
+        builder.Services.AddSingleton<INetworkPolicy, MauiNetworkPolicy>();
+        builder.Services.AddSingleton(sp =>
+        {
+            var http = sp.GetRequiredService<HttpClient>();
+            var settings = sp.GetRequiredService<AppSettingsRepository>();
+            return new SiteRateLimiter(
+                httpClient: http,
+                // SiteTypeExtension.GetApiKey() を唯一のソースオブトゥルースとし、enum 値全列挙で構築。
+                // リテラル "narou" / "kakuyomu" のハードコードは禁止。
+                siteKeys: Enum.GetValues<SiteType>().Select(s => s.GetApiKey()).ToArray(),
+                getDelayMs: async () =>
+                {
+                    var v = await settings.GetIntValueAsync(
+                        SettingsKeys.REQUEST_DELAY_MS,
+                        SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
+                    return Math.Clamp(v,
+                        SettingsKeys.MIN_REQUEST_DELAY_MS,
+                        SettingsKeys.MAX_REQUEST_DELAY_MS);
+                });
+            // maxAttempts / retryDelayMs は既定値（3 / 500）を採用
+        });
+        // NetworkPolicyService は INetworkPolicy + SiteRateLimiter を組み合わせる薄いラッパー（具象登録）。
+        // 既存消費者（NarouApiService / KakuyomuApiService）の DI シグネチャは変えない。
         builder.Services.AddSingleton<NetworkPolicyService>();
+
+        // Background
         builder.Services.AddSingleton<BackgroundJobQueue>();
         builder.Services.AddSingleton<PrefetchService>();
 
@@ -45,7 +80,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<INovelService>(sp => sp.GetRequiredService<KakuyomuApiService>());
         builder.Services.AddSingleton<INovelServiceFactory, NovelServiceFactory>();
         builder.Services.AddSingleton<UpdateCheckService>();
-        builder.Services.AddSingleton<NotificationPermissionService>();
+
+        // NotificationPermissionService<PostNotificationsPermission>: コンストラクタ引数 4 つを
+        // ファクトリで渡す。タイトル / 本文 / ボタン文言は現行 LanobeReader のローカライズ済テキスト。
+        builder.Services.AddSingleton(sp =>
+            new NotificationPermissionService<PostNotificationsPermission>(
+                title: "通知の許可",
+                message: "小説の更新をお知らせするために通知権限が必要です。許可しますか？",
+                acceptLabel: "許可する",
+                declineLabel: "後で"));
 
         // ViewModels
         builder.Services.AddTransient<NovelListViewModel>();

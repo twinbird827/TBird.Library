@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
+using TBird.Core;
+using TBird.Maui.ViewModels;
 using LanobeReader.Models;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
@@ -195,7 +197,7 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(EpisodeListViewModel), $"InitializeAsync failed: {ex.Message}");
+            MessageService.Error($"InitializeAsync failed: {ex.Message}");
             SetError($"目次の読み込みに失敗しました: {ex.Message}");
         }
         finally
@@ -330,7 +332,7 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
         {
             // fire-and-forget で呼ばれるため、例外を握り潰さないと unobserved になる。
             // InitializeAsync と同等に SetError でユーザーに通知する。
-            LogHelper.Error(nameof(EpisodeListViewModel), $"JumpToAnchorAsync failed: {ex.Message}");
+            MessageService.Error($"JumpToAnchorAsync failed: {ex.Message}");
             SetError($"目次の再読込に失敗しました: {ex.Message}");
         }
         finally

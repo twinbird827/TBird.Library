@@ -50,4 +50,12 @@
     <PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.10.*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.Maui\TBird.Maui.csproj" />
+    <ProjectReference Include="..\TBird.Maui.DB\TBird.Maui.DB.csproj" />
+    <ProjectReference Include="..\TBird.Maui.Background\TBird.Maui.Background.csproj" />
+    <ProjectReference Include="..\TBird.Maui.Web\TBird.Maui.Web.csproj" />
+  </ItemGroup>
+
 </Project>

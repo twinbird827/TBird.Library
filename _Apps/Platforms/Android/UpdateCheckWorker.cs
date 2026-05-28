@@ -1,6 +1,7 @@
 using Android.Content;
 using AndroidX.Work;
 using LanobeReader.Helpers;
+using TBird.Core;
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
@@ -24,7 +25,7 @@ public class UpdateCheckWorker : Worker
             {
                 // MainApplication 初期化完了前に Worker が起動した可能性。
                 // Retry で WorkManager のバックオフに任せる（次回はプロセスが暖まっている見込み）。
-                LogHelper.Warn(nameof(UpdateCheckWorker), "IPlatformApplication.Current is null, retry later");
+                MessageService.Warn("IPlatformApplication.Current is null, retry later");
                 return Result.InvokeRetry();
             }
 
@@ -35,7 +36,7 @@ public class UpdateCheckWorker : Worker
 
             if (dbService is null || novelRepo is null || episodeRepo is null || updateCheckService is null)
             {
-                LogHelper.Error(nameof(UpdateCheckWorker), "Failed to resolve services");
+                MessageService.Error("Failed to resolve services");
                 return Result.InvokeFailure();
             }
 
@@ -66,7 +67,7 @@ public class UpdateCheckWorker : Worker
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(UpdateCheckWorker), $"Unexpected error: {ex.Message}");
+            MessageService.Error($"Unexpected error: {ex.Message}");
             return Result.InvokeFailure();
         }
     }

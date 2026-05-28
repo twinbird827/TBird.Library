@@ -2,8 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
+using LanobeReader.Platforms.Android;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
+using TBird.Core;
+using TBird.Maui;
+using TBird.Maui.ViewModels;
 
 namespace LanobeReader.ViewModels;
 
@@ -13,14 +17,14 @@ public partial class NovelListViewModel : ErrorAwareViewModel
     private readonly EpisodeCacheRepository _cacheRepo;
     private readonly AppSettingsRepository _settingsRepo;
     private readonly UpdateCheckService _updateCheckService;
-    private readonly NotificationPermissionService _notificationPermission;
+    private readonly NotificationPermissionService<PostNotificationsPermission> _notificationPermission;
 
     public NovelListViewModel(
         NovelRepository novelRepo,
         EpisodeCacheRepository cacheRepo,
         AppSettingsRepository settingsRepo,
         UpdateCheckService updateCheckService,
-        NotificationPermissionService notificationPermission)
+        NotificationPermissionService<PostNotificationsPermission> notificationPermission)
     {
         _novelRepo = novelRepo;
         _cacheRepo = cacheRepo;
@@ -76,7 +80,7 @@ public partial class NovelListViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(NovelListViewModel), $"LoadNovelsAsync failed: {ex.Message}");
+            MessageService.Error($"LoadNovelsAsync failed: {ex.Message}");
             SetError("一覧の読み込みに失敗しました");
         }
     }
@@ -130,7 +134,7 @@ public partial class NovelListViewModel : ErrorAwareViewModel
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            LogHelper.Warn(nameof(NovelListViewModel), $"Refresh failed: {ex.Message}");
+            MessageService.Warn($"Refresh failed: {ex.Message}");
             SetError("更新チェックに失敗しました");
         }
         finally

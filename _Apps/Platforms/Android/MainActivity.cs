@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using LanobeReader.Helpers;
+using TBird.Core;
 using LanobeReader.Platforms.Android;
 using LanobeReader.Services.Database;
 
@@ -40,8 +41,7 @@ public class MainActivity : MauiAppCompatActivity
 
                 if (services is null)
                 {
-                    LogHelper.Warn(nameof(MainActivity),
-                        "DI not ready in OnCreate; scheduling with default interval");
+                    MessageService.Warn("DI not ready in OnCreate; scheduling with default interval");
                     UpdateCheckScheduler.SchedulePeriodicCheck(ctx);
                     return;
                 }
@@ -74,7 +74,7 @@ public class MainActivity : MauiAppCompatActivity
             }
             catch (Exception ex)
             {
-                LogHelper.Warn(nameof(MainActivity), $"Schedule worker failed: {ex.Message}");
+                MessageService.Warn($"Schedule worker failed: {ex.Message}");
                 try { UpdateCheckScheduler.SchedulePeriodicCheck(ctx); } catch { /* 諦める */ }
             }
         });

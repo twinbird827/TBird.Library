@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using AngleSharp;
 using AngleSharp.Dom;
 using LanobeReader.Models;
 using LanobeReader.Services.Network;
+using TBird.Maui.Web;
 
 namespace LanobeReader.Services.Kakuyomu;
 
@@ -40,9 +40,7 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/search?q={encoded}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+        var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
         var results = new List<SearchResult>();
         var seen = new HashSet<string>();
@@ -273,9 +271,7 @@ public class KakuyomuApiService : INovelService
 
         var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, cts.Token).ConfigureAwait(false);
 
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var episodeDoc = await context.OpenAsync(req => req.Content(episodeHtml), cts.Token).ConfigureAwait(false);
+        var episodeDoc = await AngleSharpHelper.ParseAsync(episodeHtml, cts.Token).ConfigureAwait(false);
 
         // CSS3 の [class~='X'] は「スペース区切り単語の完全一致」のため、
         // EpisodeBodyHeader 等の連結クラス名にはマッチしない（過剰マッチ回避）。
@@ -362,9 +358,7 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/rankings/{genreSlug}/{periodSlug}?work_variation=long";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+        var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
         var results = new List<SearchResult>();
         var seen = new HashSet<string>(); // サイト構造変化への保険（事前調査では重複なし）

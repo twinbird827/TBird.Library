@@ -1,5 +1,6 @@
-using LanobeReader.Helpers;
 using LanobeReader.Services.Database;
+using TBird.Core;
+using TBird.Maui.Background;
 
 namespace LanobeReader.Services.Background;
 
@@ -48,11 +49,10 @@ public class PrefetchService
                 EpisodeNo = ep.EpisodeNo,
                 SiteType = novel.SiteType,
                 SiteNovelId = novel.NovelId,
-                Priority = (highPriority || novel.IsFavorite) ? 1 : 0,
-            }).ConfigureAwait(false);
+            }, (highPriority || novel.IsFavorite) ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
             enqueued++;
         }
-        LogHelper.Info(nameof(PrefetchService), $"Enqueued {enqueued} episodes for novel {novelDbId}");
+        MessageService.Info($"Enqueued {enqueued} episodes for novel {novelDbId}");
         return enqueued;
     }
 
@@ -79,8 +79,7 @@ public class PrefetchService
                     EpisodeNo = ep.EpisodeNo,
                     SiteType = novel.SiteType,
                     SiteNovelId = novel.NovelId,
-                    Priority = novel.IsFavorite ? 1 : 0,
-                }).ConfigureAwait(false);
+                }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
             }
         }
     }

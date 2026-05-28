@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
+using TBird.Core;
+using TBird.Maui.ViewModels;
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Background;
@@ -165,7 +167,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(SearchViewModel), $"{operationName} failed: {ex.Message}");
+            MessageService.Error($"{operationName} failed: {ex.Message}");
             SetError("通信エラーが発生しました");
         }
         finally
@@ -253,8 +255,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            LogHelper.Warn(nameof(SearchViewModel),
-                $"Prefetch enqueue failed for novelId={novelId}: {ex.Message}");
+            MessageService.Warn($"Prefetch enqueue failed for novelId={novelId}: {ex.Message}");
         }
     }
 
@@ -338,7 +339,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(SearchViewModel), $"Register failed: {ex.Message}");
+            MessageService.Error($"Register failed: {ex.Message}");
             if (novelInserted)
             {
                 try
@@ -347,8 +348,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
                 }
                 catch (Exception rbEx)
                 {
-                    LogHelper.Warn(nameof(SearchViewModel),
-                        $"Rollback delete failed for ({result.SiteType}, {result.NovelId}): {rbEx.Message}");
+                    MessageService.Warn($"Rollback delete failed for ({result.SiteType}, {result.NovelId}): {rbEx.Message}");
                 }
             }
             SetError($"登録に失敗しました: {ex.Message}");
