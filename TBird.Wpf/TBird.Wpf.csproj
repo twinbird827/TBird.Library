@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <ProjectReference Include="..\TBird.Windows\TBird.Windows.csproj" />
   </ItemGroup>
 
   <ItemGroup>
