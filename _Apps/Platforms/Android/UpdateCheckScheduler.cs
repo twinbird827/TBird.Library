@@ -1,6 +1,7 @@
 using Android.Content;
 using AndroidX.Work;
 using LanobeReader.Helpers;
+using TBird.Core;
 
 namespace LanobeReader.Platforms.Android;
 
@@ -24,6 +25,6 @@ public static class UpdateCheckScheduler
             ExistingPeriodicWorkPolicy.Update!,
             workRequest);
 
-        LogHelper.Info(nameof(UpdateCheckScheduler), $"Scheduled periodic check every {intervalHours} hours");
+        MessageService.Info($"Scheduled periodic check every {intervalHours} hours");
     }
 }

@@ -1,4 +1,5 @@
 using LanobeReader.Helpers;
+using TBird.Core;
 using LanobeReader.ViewModels;
 
 namespace LanobeReader.Views;
@@ -39,8 +40,7 @@ public partial class EpisodeListPage : ContentPage
             {
                 // async void の例外は TaskScheduler.UnobservedTaskException で拾えないため、
                 // ここで握り潰してプロセスクラッシュを防ぐ。
-                LogHelper.Warn(nameof(EpisodeListPage),
-                    $"OnAppearing failed: {ex.Message}");
+                MessageService.Warn($"OnAppearing failed: {ex.Message}");
             }
         }
     }
@@ -86,8 +86,7 @@ public partial class EpisodeListPage : ContentPage
         }
         catch (Exception ex)
         {
-            LogHelper.Warn(nameof(EpisodeListPage),
-                $"SizeChanged ScrollTo failed: {ex.Message}");
+            MessageService.Warn($"SizeChanged ScrollTo failed: {ex.Message}");
         }
     }
 }

@@ -1,7 +1,8 @@
-using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
+using TBird.Core;
+using TBird.Maui.Background;
 
 namespace LanobeReader.Services;
 
@@ -30,7 +31,7 @@ public class UpdateCheckService
     {
         if (!await _semaphore.WaitAsync(0, ct).ConfigureAwait(false))
         {
-            LogHelper.Warn(nameof(UpdateCheckService), "Update check already running, skipping");
+            MessageService.Warn("Update check already running, skipping");
             return [];
         }
 
@@ -93,8 +94,7 @@ public class UpdateCheckService
                                         EpisodeNo = ep.EpisodeNo,
                                         SiteType = novel.SiteType,
                                         SiteNovelId = novel.NovelId,
-                                        Priority = novel.IsFavorite ? 1 : 0,
-                                    }).ConfigureAwait(false);
+                                    }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
                                 }
                             }
                         }
@@ -102,7 +102,7 @@ public class UpdateCheckService
                 }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
                 {
-                    LogHelper.Warn(nameof(UpdateCheckService), $"Failed to check {novel.Title}: {ex.Message}");
+                    MessageService.Warn($"Failed to check {novel.Title}: {ex.Message}");
                     novel.HasCheckError = true;
                     await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
                     failedIds.Add(novel.Id);

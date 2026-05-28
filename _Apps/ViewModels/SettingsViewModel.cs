@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
+using TBird.Core;
+using TBird.Maui.ViewModels;
 using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
@@ -95,7 +97,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
             catch (TaskCanceledException) { /* 新しい変更が来た */ }
             catch (Exception ex)
             {
-                LogHelper.Warn(nameof(SettingsViewModel), $"DebounceSave failed: {ex.Message}");
+                MessageService.Warn($"DebounceSave failed: {ex.Message}");
                 // Task.Run 経由のためバインディング更新は UI スレッドへ戻す
                 MainThread.BeginInvokeOnMainThread(() =>
                     SetError($"設定の保存に失敗しました: {ex.Message}"));
@@ -135,7 +137,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            LogHelper.Error(nameof(SettingsViewModel), $"ClearCacheAsync failed: {ex.Message}");
+            MessageService.Error($"ClearCacheAsync failed: {ex.Message}");
             SetError($"キャッシュの削除に失敗しました: {ex.Message}");
         }
     }

@@ -2,6 +2,7 @@ using LanobeReader.Helpers;
 using LanobeReader.Services;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
+using TBird.Core;
 
 namespace LanobeReader;
 
@@ -34,13 +35,13 @@ public partial class App : Application
         // Global exception handler
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
         {
-            LogHelper.Error("App", $"Unhandled exception: {args.ExceptionObject}");
+            MessageService.Error($"Unhandled exception: {args.ExceptionObject}");
         };
 
         // fire-and-forget Task の未観測例外を捕捉してプロセス終了を抑止する
         TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
-            LogHelper.Error("App", $"Unobserved task exception: {args.Exception}");
+            MessageService.Error($"Unobserved task exception: {args.Exception}");
             args.SetObserved();
         };
     }
@@ -63,7 +64,7 @@ public partial class App : Application
         try
         {
             // 1. Initialize database (background thread)
-            await _dbService.InitializeAsync().ConfigureAwait(false);
+            await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
             await _settingsRepo.LoadAllAsync().ConfigureAwait(false);
 
             // 2. Delete expired cache
@@ -83,7 +84,7 @@ public partial class App : Application
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.Warn("App", $"Navigation to search failed: {ex.Message}");
+                        MessageService.Warn($"Navigation to search failed: {ex.Message}");
                     }
                 });
             }
@@ -98,7 +99,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            LogHelper.Error("App", $"InitializeAppAsync failed: {ex.Message}");
+            MessageService.Error($"InitializeAppAsync failed: {ex.Message}");
         }
     }
 
@@ -110,7 +111,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            LogHelper.Warn("App", $"Background update check failed: {ex.Message}");
+            MessageService.Warn($"Background update check failed: {ex.Message}");
         }
     }
 
@@ -122,7 +123,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            LogHelper.Warn("App", $"Prefetch scan failed: {ex.Message}");
+            MessageService.Warn($"Prefetch scan failed: {ex.Message}");
         }
     }
 }

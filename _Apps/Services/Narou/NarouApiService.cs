@@ -1,10 +1,9 @@
 using System.IO.Compression;
 using System.Text.Json;
-using AngleSharp;
 using AngleSharp.Dom;
-using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Network;
+using TBird.Maui.Web;
 
 namespace LanobeReader.Services.Narou;
 
@@ -75,8 +74,6 @@ public class NarouApiService : INovelService
         int episodeNo = 0;
         int page = 1;
 
-        var config = Configuration.Default;
-
         while (true)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -87,8 +84,7 @@ public class NarouApiService : INovelService
                 : $"{NCODE_BASE}{novelId}/?p={page}";
             var html = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
 
-            var context = BrowsingContext.New(config);
-            var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+            var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
             var eplist = document.QuerySelector(".p-eplist");
             if (eplist is null)
@@ -146,9 +142,7 @@ public class NarouApiService : INovelService
         var url = $"{NCODE_BASE}{novelId}/{episodeNo}/";
         var html = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
 
-        var config = Configuration.Default;
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync(req => req.Content(html), cts.Token).ConfigureAwait(false);
+        var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
         var honbun = document.QuerySelector(".js-novel-text.p-novel__text:not(.p-novel__text--afterword)");
         if (honbun is null)
