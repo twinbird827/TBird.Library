@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>34</SupportedOSPlatformVersion>
+    <!-- UseMaui=true により Microsoft.Maui アセンブリのコア部分を有効化。
+         BindableObject / IValueConverter / Color / Colors は Microsoft.Maui.Controls
+         PackageReference から明示解決する（純粋クラスライブラリでは SingleProject app と
+         挙動が異なるため auto FrameworkReference に依存しない）。
+         Permissions.BasePlatformPermission は UseMaui 経由で Essentials が含まれる想定。
+         型解決エラーが出る場合は UseMauiEssentials=true または Microsoft.Maui.Essentials
+         PackageReference を fallback として追加する。 -->
+    <UseMaui>true</UseMaui>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>10</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.*" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+    <!-- Microsoft.Maui.Controls.Compatibility は意図的に含めない（lib 依存膨張防止）。 -->
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+  </ItemGroup>
+
+</Project>

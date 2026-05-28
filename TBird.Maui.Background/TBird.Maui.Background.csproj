@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>34</SupportedOSPlatformVersion>
+    <!-- UseMauiEssentials=true は MA002 警告対策のため明示的 PackageReference と併用。
+         .NET 8 以降は UseMauiEssentials の自動 PackageReference 注入が廃止されたため。 -->
+    <UseMauiEssentials>true</UseMauiEssentials>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>10</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Essentials" Version="9.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
+    <!-- SiteRateLimiter が非 transient 失敗時に Web.HttpRequestFailureLogger を呼ぶため参照。
+         Web (net8.0) → Background (net9.0-android) の片方向参照で循環なし。 -->
+    <ProjectReference Include="..\TBird.Maui.Web\TBird.Maui.Web.csproj" />
+  </ItemGroup>
+
+</Project>
