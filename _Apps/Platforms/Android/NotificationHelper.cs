@@ -20,6 +20,10 @@ public static class NotificationHelper
 			};
 
 			var manager = activity.GetSystemService(Context.NotificationService) as NotificationManager;
+			// ランチャーアイコンの通知ドット(新着バッジ)を明示的に有効化。
+			// 既定でも true だが意図を明示。チャンネルは作成後イミュータブルのため、
+			// 既存インストールではアプリ再インストール/データ削除まで反映されない (Android 仕様)。
+			updateChannel.SetShowBadge(true);
 			manager?.CreateNotificationChannel(updateChannel);
 		}
 	}
