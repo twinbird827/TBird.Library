@@ -55,9 +55,21 @@
 								<Label Grid.Row="0" Grid.Column="0" Grid.RowSpan="3"
                                        Text="★" FontSize="20" VerticalOptions="Center" Margin="0,0,6,0"
                                        TextColor="{Binding IsFavorite, Converter={StaticResource BoolToGoldConverter}}" />
-								<!-- Title -->
-								<Label Grid.Row="0" Grid.Column="1" Text="{Binding Title}"
-                                       FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+								<!-- Title (+ 新着マーク) -->
+								<!-- HasUnconfirmedUpdate=false のとき NEW バッジ列(Auto)は幅0に潰れ、
+								     タイトルが全幅を使えるよう内側 Grid で構成する。 -->
+								<Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+									<Border Grid.Column="0" Padding="5,1" VerticalOptions="Center"
+                                            BackgroundColor="{StaticResource DestructiveRed}"
+                                            IsVisible="{Binding HasUnconfirmedUpdate}">
+										<Border.StrokeShape>
+											<RoundRectangle CornerRadius="4" />
+										</Border.StrokeShape>
+										<Label Text="NEW" Style="{StaticResource BadgeLabel}" FontAttributes="Bold" />
+									</Border>
+									<Label Grid.Column="1" Text="{Binding Title}" VerticalOptions="Center"
+                                           FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+								</Grid>
 
 								<!-- Site badge -->
 								<Border Grid.Row="0" Grid.Column="2" Padding="4,2"
