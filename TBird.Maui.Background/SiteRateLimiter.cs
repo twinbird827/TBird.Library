@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TBird.Core;
@@ -52,7 +54,50 @@ public sealed class SiteRateLimiter
         }
     }
 
-    public async Task<string> GetStringAsync(string siteKey, string url, CancellationToken ct = default)
+    /// <summary>
+    /// サイト別ゲート＋ディレイ＋transient リトライ越しに HTTP GET し、本文文字列を返す。
+    /// </summary>
+    public Task<string> GetStringAsync(string siteKey, string url, CancellationToken ct = default)
+        => SendAsync(siteKey, url, c => _httpClient.GetStringAsync(url, c), ct);
+
+    /// <summary>
+    /// サイト別ゲート＋ディレイ＋transient リトライ越しに JSON 本文を POST し、応答本文文字列を返す。
+    /// 認証ヘッダ等は <see cref="HttpClient.DefaultRequestHeaders"/> 側で付与する想定（GET と同じ HttpClient を共用）。
+    /// 非 2xx 応答は <see cref="HttpStatusCode"/> 付きの <see cref="HttpRequestException"/> として例外化し、
+    /// GET と同じく transient（5xx / 408 / 429）はリトライ、それ以外は呼出側へ伝播する。
+    /// 失敗時はサーバが返したエラー本文（認証失敗・上流エラー説明等）を例外メッセージに含める
+    /// （Android では <see cref="HttpRequestException.Message"/> が抽象的なため、原因究明性を確保する）。
+    /// <para>
+    /// ⚠️ transient リトライは同一 <paramref name="jsonBody"/> を再送する。検索・参照系のように
+    /// 同じ本文を複数回受け取っても副作用が重複しない冪等なエンドポイントにのみ使うこと。
+    /// 状態を変更する非冪等エンドポイントでは二重適用が起こりうる（冪等性は呼出側の責任）。
+    /// </para>
+    /// </summary>
+    public Task<string> PostJsonAsync(string siteKey, string url, string jsonBody, CancellationToken ct = default)
+        => SendAsync(siteKey, url, async c =>
+        {
+            using var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+            using var response = await _httpClient.PostAsync(url, content, c).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                // EnsureSuccessStatusCode() は本文を読まず throw するため、中継サーバが返すエラー JSON が失われる。
+                // 本文を読んで例外メッセージに含めつつ、StatusCode を引き継いだ HttpRequestException を投げて
+                // transient 判定（TransientHttpErrorHelper.IsTransient）を従来どおり機能させる。
+                var error = await response.Content.ReadAsStringAsync(c).ConfigureAwait(false);
+                throw new HttpRequestException(
+                    $"POST {url} failed: {(int)response.StatusCode} {response.ReasonPhrase}. Body: {Truncate(error)}",
+                    null,
+                    response.StatusCode);
+            }
+            return await response.Content.ReadAsStringAsync(c).ConfigureAwait(false);
+        }, ct);
+
+    /// <summary>
+    /// HTTP 送信を siteKey 単位で直列化し、ディレイ挿入＋transient リトライでゲートする共通処理。
+    /// <paramref name="send"/> が実際の HTTP 呼び出し（GET / POST 等）を行う。
+    /// </summary>
+    private async Task<string> SendAsync(
+        string siteKey, string url, Func<CancellationToken, Task<string>> send, CancellationToken ct)
     {
         if (!_siteGates.TryGetValue(siteKey, out var gate))
         {
@@ -69,7 +114,7 @@ public sealed class SiteRateLimiter
                 await EnforceDelayAsync(siteKey, ct).ConfigureAwait(false);
                 try
                 {
-                    var result = await _httpClient.GetStringAsync(url, ct).ConfigureAwait(false);
+                    var result = await send(ct).ConfigureAwait(false);
                     _lastRequestAt[siteKey] = DateTime.UtcNow;
                     return result;
                 }
@@ -114,4 +159,12 @@ public sealed class SiteRateLimiter
             await Task.Delay((int)remaining, ct).ConfigureAwait(false);
         }
     }
+
+    /// <summary>POST 失敗時の例外メッセージへ載せるエラー本文を上限長で切り詰める（ログ肥大化防止）。</summary>
+    private const int MaxErrorBodyChars = 1000;
+
+    private static string Truncate(string s)
+        => string.IsNullOrEmpty(s) || s.Length <= MaxErrorBodyChars
+            ? s
+            : s.Substring(0, MaxErrorBodyChars) + "…(truncated)";
 }
