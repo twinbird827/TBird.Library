@@ -32,6 +32,10 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     private string? _caption;
     private DateTime? _releaseDate;
 
+    // ApplyQueryAttributes は同期 void だが内部のバインドは非同期。各操作コマンドはこの Task の完了を待ち、
+    // バインド未完了のまま（_itemNumber 等が null の状態で）トグル操作が空振りするのを防ぐ。
+    private Task _bindTask = Task.CompletedTask;
+
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _author = string.Empty;
     [ObservableProperty] private string _publisher = string.Empty;
@@ -45,7 +49,13 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     [ObservableProperty] private bool _isFuture;          // 未発売（カレンダーボタン表示条件）
     [ObservableProperty] private bool _showCalendarBadge; // 未発売かつ未登録
 
-    public async void ApplyQueryAttributes(IDictionary<string, object> query)
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        // バインドを Task として保持し、各操作コマンドが await できるようにする（async void の未観測例外も回避）。
+        _bindTask = BindAsync(query);
+    }
+
+    private async Task BindAsync(IDictionary<string, object> query)
     {
         try
         {
@@ -155,6 +165,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     [RelayCommand]
     private async Task TogglePurchasedAsync()
     {
+        await _bindTask; // バインド完了を待ってから操作する
         await EnsurePersistedAsync();
         if (_persisted is null) return;
         _persisted.IsPurchased = _persisted.IsPurchased == 1 ? 0 : 1;
@@ -165,6 +176,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     [RelayCommand]
     private async Task ToggleFavoriteAsync()
     {
+        await _bindTask; // バインド完了を待ってから操作する
         await EnsurePersistedAsync();
         if (_persisted is null) return;
         _persisted.IsFavorite = _persisted.IsFavorite == 1 ? 0 : 1;
@@ -175,6 +187,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     [RelayCommand]
     private async Task AddToCalendarAsync()
     {
+        await _bindTask; // バインド完了を待ってから操作する
         if (_releaseDate is null) return;
         await EnsurePersistedAsync();
         if (_persisted is null) return;
@@ -191,6 +204,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     [RelayCommand]
     private async Task OpenKoboAsync()
     {
+        await _bindTask; // バインド完了を待ってから _itemUrl を使う
         // アフィリエイトURL生成は当面未使用（将来は中継サーバー側で付与）。素の itemUrl を開く。
         var url = UrlBuilder.GetProductUrl(_itemUrl, null);
         if (string.IsNullOrEmpty(url)) return;

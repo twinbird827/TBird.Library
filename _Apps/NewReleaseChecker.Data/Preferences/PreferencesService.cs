@@ -1,5 +1,6 @@
 using System.Text.Json;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Services;
 
 namespace NewReleaseChecker.Data.Preferences;
 
@@ -10,8 +11,6 @@ public sealed class PreferencesService : IPreferencesService
     private const string KeyAutoCheck = "auto_check_enabled";
     private const string KeyInterval = "auto_check_interval";
     private const string KeyExclude = "exclude_keywords";
-
-    public const string IntervalDailyOnce = "daily_once";
 
     private static readonly string[] DefaultExcludes = { "分冊", "単話", "話売り" };
 
@@ -29,7 +28,7 @@ public sealed class PreferencesService : IPreferencesService
 
     public string AutoCheckInterval
     {
-        get => Microsoft.Maui.Storage.Preferences.Get(KeyInterval, IntervalDailyOnce);
+        get => Microsoft.Maui.Storage.Preferences.Get(KeyInterval, CheckIntervals.DefaultKey);
         set => Microsoft.Maui.Storage.Preferences.Set(KeyInterval, value);
     }
 

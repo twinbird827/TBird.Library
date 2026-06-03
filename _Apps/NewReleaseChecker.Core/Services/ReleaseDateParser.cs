@@ -16,17 +16,15 @@ public static class ReleaseDateParser
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
 
+        // 楽天Kobo検索API の salesDate は「YYYY年」「YYYY年MM月」「YYYY年MM月DD日」（＋「頃」「以降」「上旬」等の付加）形式。
+        // 日まで特定できる完全な日付のみ ISO 化する。年のみ/年月のみ/未定は NULL（§7.5）。
+        // ※ あいまいな DateTime.TryParse フォールバックは行わない（"2026/6" 等で日を当日補完して誤った発売日を捏造するため）。
         var s = raw.Trim().Replace("頃", "").Replace("予定", "").Trim();
 
         var m = YmdRegex.Match(s);
         if (m.Success)
         {
             return BuildIso(m.Groups[1].Value, m.Groups[2].Value, m.Groups[3].Value);
-        }
-
-        if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-        {
-            return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
         return null;

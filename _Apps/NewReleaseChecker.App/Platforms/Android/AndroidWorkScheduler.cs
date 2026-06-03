@@ -2,6 +2,7 @@ using Android.Content;
 using AndroidX.Work;
 using Java.Util.Concurrent;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Services;
 
 namespace NewReleaseChecker.App.Platforms.Android;
 
@@ -16,7 +17,7 @@ public sealed class AndroidWorkScheduler : IWorkScheduler
 
     public void Schedule(string interval)
     {
-        var hours = IntervalToHours(interval);
+        var hours = CheckIntervals.ToHours(interval);
 
         var constraints = new Constraints.Builder()
             .SetRequiredNetworkType(NetworkType.Connected!)
@@ -34,12 +35,4 @@ public sealed class AndroidWorkScheduler : IWorkScheduler
 
     public void Cancel()
         => WorkManager.GetInstance(_context).CancelUniqueWork(UniqueWorkName);
-
-    private static long IntervalToHours(string interval) => interval switch
-    {
-        "daily_twice" => 12,
-        "every_6h" => 6,
-        "every_12h" => 12,
-        _ => 24, // daily_once
-    };
 }

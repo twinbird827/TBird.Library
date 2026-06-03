@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:converters="clr-namespace:NewReleaseChecker.App.Converters"
+             xmlns:tbird="clr-namespace:TBird.Maui.Converters;assembly=TBird.Maui"
              x:Class="NewReleaseChecker.App.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -9,10 +9,9 @@
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <converters:IntToBoolConverter x:Key="IntToBool" />
-            <converters:CountToVisibilityConverter x:Key="CountToVisibility" />
-            <converters:StringNotEmptyConverter x:Key="StringNotEmpty" />
-            <converters:InverseBoolConverter x:Key="InverseBool" />
+            <!-- 共有コンバータ（TBird.Maui）を再利用する。件数(int>0)・文字列非空はいずれも HasValueConverter で表現できる -->
+            <tbird:HasValueConverter x:Key="CountToVisibility" />
+            <tbird:HasValueConverter x:Key="StringNotEmpty" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
