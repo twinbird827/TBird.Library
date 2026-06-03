@@ -200,7 +200,8 @@ internal sealed class Secrets : ISecretsProvider
 - 既存巻は毎回書誌情報を上書き更新する。**ただし `IsPurchased / IsFavorite / IsCalendarRegistered / IsNewDetected / DetectedAt` は絶対に上書きしない**。
 - `SeriesId` は ItemNumber 全体 UNIQUE のため1巻1シリーズ。SeriesId 設定済みの既存巻は別シリーズのチェックでも変更しない。`SeriesId=NULL`（発掘導線の単発巻）が同定ヒットした時のみ当該シリーズを設定。
 - 予約/発売確定はカラムを持たず、`ReleaseDate` と現在日時の比較で都度判定。通知は**予約検知時のみ**。
-- 通知発行後に `IsNewDetected` を降ろす。複数検知時は通知を**1件に集約**。
+- **予約検知の対象**: ①未発売（未来日）の**新刊 INSERT**、②**既知巻が「未来日でない（未定/発売済）→未来日」へ遷移**したケース（登録時に発売日未定だった巻の予約開始を取りこぼさないため。F-005）。②は購入済みを除外し、`markNewDetected` 時のみ。**②でも `IsNewDetected` 等のフラグ列は上書きしない**（上記の保護ルールを厳守）。遷移は旧/新発売日の比較で一度だけ成立し、未来日が保存された次回以降は再通知されない（自己限定的）。
+- 通知発行後に `IsNewDetected` を降ろす（INSERT 時に立てた新刊分のみ。②の遷移分は立てていないので書き戻し不要）。複数検知時は通知を**1件に集約**。
 
 ### 7.4 除外フィルタ
 - タイトルに除外キーワード（Preferences `exclude_keywords`、初期 `["分冊","単話","話売り"]`）を含む巻は DB に取り込まない。
