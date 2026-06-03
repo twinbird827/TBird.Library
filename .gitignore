@@ -352,3 +352,6 @@ MigrationBackup/
 
 # Claude Code working folder
 .claude/
+
+# docs
+docs/
