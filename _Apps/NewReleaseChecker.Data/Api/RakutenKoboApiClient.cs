@@ -18,7 +18,7 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
     public const string SiteKey = "relay-kobo";
 
     // 中継サーバー（透過プロキシ）のエンドポイント。GET ではなく POST(JSON 本文) で叩く。
-    private const string RelayBaseUrl = "https://kaz.server-on.net:49443";
+    private const string RelayBaseUrl = "https://kaz.server-on.net:60344";
     private const string SearchEndpoint = RelayBaseUrl + "/api/kobo/search";
     private const string GenreEndpoint = RelayBaseUrl + "/api/kobo/genres";
 
