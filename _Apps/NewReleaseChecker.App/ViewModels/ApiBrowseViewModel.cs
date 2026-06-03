@@ -50,14 +50,17 @@ public abstract partial class ApiBrowseViewModel : ObservableObject
         var cts = new CancellationTokenSource();
         _genreCts = cts;
         var ct = cts.Token;
+
+        var rootId = KoboGenres.ForMedia(MediaTab);
+        // 「すべて」は API 失敗時も必ず先に提示する。ここを空のままにすると finally の SelectedGenre 代入が
+        // null→null となって変更通知が出ず、LoadAsync が起動せず画面が空＆無反応のまま復帰できなくなる。
+        Genres.Clear();
+        Genres.Add(new RakutenGenreNode { KoboGenreId = rootId, GenreName = "すべて" });
         try
         {
-            var rootId = KoboGenres.ForMedia(MediaTab);
             var root = await Api.GetGenreAsync(rootId, ct);
             if (ct.IsCancellationRequested) return;
 
-            Genres.Clear();
-            Genres.Add(new RakutenGenreNode { KoboGenreId = rootId, GenreName = "すべて" });
             foreach (var c in root.Children) Genres.Add(c);
         }
         catch (OperationCanceledException) { return; }

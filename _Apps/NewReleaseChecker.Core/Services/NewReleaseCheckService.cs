@@ -21,6 +21,10 @@ public sealed class NewReleaseCheckService
     private readonly ILocalNotifier _notifier;
     private readonly IPreferencesService _prefs;
 
+    // チェック/登録の多重実行を直列化する。手動チェック・自動 Worker・シリーズ登録が同時に走ると
+    // existingByItemNumber スナップショットが競合し、同一 ItemNumber の二重 INSERT で UNIQUE 制約に抵触する。
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
     public NewReleaseCheckService(
         IRakutenApiClient api,
         ISeriesRepository series,
@@ -40,6 +44,25 @@ public sealed class NewReleaseCheckService
     /// 予約検知（未発売の新刊）があれば通知 ON 時に 1 件へ集約して通知する。
     /// </summary>
     public async Task<CheckSummary> CheckAsync(CheckTrigger trigger, CancellationToken ct = default)
+    {
+        // 既にチェック/登録が実行中なら今回はスキップする（多重実行による二重 INSERT 競合を防ぐ）。
+        // ブロックして待たせると手動更新が長時間ハングするため、即時に空サマリで返す。
+        if (!await _gate.WaitAsync(0, ct))
+        {
+            MessageService.Info($"新刊チェックは既に実行中のためスキップ: {trigger}");
+            return new CheckSummary(0, 0, 0);
+        }
+        try
+        {
+            return await CheckCoreAsync(trigger, ct);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<CheckSummary> CheckCoreAsync(CheckTrigger trigger, CancellationToken ct)
     {
         var targets = await _series.GetCheckTargetsAsync(MaxSeriesPerWork);
         MessageService.Info($"新刊チェック開始: {trigger}, 対象={targets.Count}件");
@@ -113,6 +136,20 @@ public sealed class NewReleaseCheckService
     /// 戻り値は登録した Series.Id。
     /// </summary>
     public async Task<int> RegisterSeriesAsync(SeriesRegistration reg, CancellationToken ct = default)
+    {
+        // 登録は必ず実行する必要がある（スキップ不可）ため、実行中のチェックが終わるまで待ってから直列に行う。
+        await _gate.WaitAsync(ct);
+        try
+        {
+            return await RegisterSeriesCoreAsync(reg, ct);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<int> RegisterSeriesCoreAsync(SeriesRegistration reg, CancellationToken ct)
     {
         var now = DateTime.Now;
         var nowIso = now.ToString("yyyy-MM-ddTHH:mm:ss");

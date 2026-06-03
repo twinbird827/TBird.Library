@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Platforms.Android;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Services;
 using TBird.Core;
 
 namespace NewReleaseChecker.App.ViewModels;
@@ -9,9 +10,8 @@ namespace NewReleaseChecker.App.ViewModels;
 /// <summary>設定（SCR-010 / F-008）。</summary>
 public partial class SettingsViewModel : ObservableObject
 {
-    private static readonly string[] IntervalKeys = { "daily_once", "daily_twice", "every_6h", "every_12h" };
-
-    public string[] IntervalLabels { get; } = { "1日1回", "1日2回", "6時間ごと", "12時間ごと" };
+    // 間隔の語彙（キー・ラベル・周期）は Core.CheckIntervals が単一の真実源。
+    public string[] IntervalLabels { get; } = CheckIntervals.All.Select(i => i.Label).ToArray();
 
     private readonly IPreferencesService _prefs;
     private readonly IWorkScheduler _scheduler;
@@ -33,7 +33,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         NotificationEnabled = _prefs.NotificationEnabled;
         AutoCheckEnabled = _prefs.AutoCheckEnabled;
-        IntervalIndex = Math.Max(0, Array.IndexOf(IntervalKeys, _prefs.AutoCheckInterval));
+        IntervalIndex = CheckIntervals.IndexOf(_prefs.AutoCheckInterval);
         AppVersion = $"バージョン {AppInfo.Current.VersionString}";
         _loaded = true;
     }
@@ -79,8 +79,8 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnIntervalIndexChanged(int value)
     {
-        if (!_loaded || value < 0) return;
-        _prefs.AutoCheckInterval = IntervalKeys[value];
+        if (!_loaded || value < 0 || value >= CheckIntervals.All.Count) return;
+        _prefs.AutoCheckInterval = CheckIntervals.All[value].Key;
         ApplySchedule();
     }
 

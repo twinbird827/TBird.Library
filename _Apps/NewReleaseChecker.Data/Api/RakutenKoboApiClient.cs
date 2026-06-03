@@ -40,18 +40,28 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
 
     public async Task<IReadOnlyList<RakutenBook>> SearchByKeywordAsync(string keyword, CancellationToken ct = default)
     {
+        // 新刊・予約（＝最新の発売日）を確実に取得するため新しい順（-releaseDate）で取得する。
+        // 古い順（+releaseDate）だと長編シリーズで最新巻が後方ページへ押し出され、MaxPages 打ち切りで取りこぼす。
         var all = new List<RakutenBook>();
-        for (int page = 1; page <= MaxPages; page++)
+        var totalPages = MaxPages;
+        for (int page = 1; page <= MaxPages && page <= totalPages; page++)
         {
-            var items = await SearchAsync(
-                new RakutenSearchQuery { Keyword = keyword, Sort = "+releaseDate", Hits = 30, Page = page }, ct);
+            var (items, pageCount) = await SearchRawAsync(
+                new RakutenSearchQuery { Keyword = keyword, Sort = "-releaseDate", Hits = 30, Page = page }, ct);
             all.AddRange(items);
+            // 応答の総ページ数で無駄なページ取得（レート制限下では各 1 秒以上）を抑える。
+            if (pageCount > 0) totalPages = pageCount;
             if (items.Count < 30) break; // 最終ページに到達
         }
         return all;
     }
 
     public async Task<IReadOnlyList<RakutenBook>> SearchAsync(RakutenSearchQuery query, CancellationToken ct = default)
+        => (await SearchRawAsync(query, ct)).Items;
+
+    /// <summary>検索を実行し、商品リストと応答の総ページ数（pageCount）を返す。</summary>
+    private async Task<(IReadOnlyList<RakutenBook> Items, int PageCount)> SearchRawAsync(
+        RakutenSearchQuery query, CancellationToken ct = default)
     {
         var json = await _rateLimiter.PostJsonAsync(SiteKey, SearchEndpoint, BuildSearchBody(query), ct);
 
@@ -67,7 +77,7 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
                 }
             }
         }
-        return list;
+        return (list, resp?.PageCount ?? 0);
     }
 
     public async Task<RakutenGenreNode> GetGenreAsync(string koboGenreId, CancellationToken ct = default)

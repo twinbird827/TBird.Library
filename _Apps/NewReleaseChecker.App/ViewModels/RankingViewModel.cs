@@ -12,7 +12,9 @@ public sealed partial class RankingViewModel : ApiBrowseViewModel
     protected override RakutenSearchQuery BuildQuery(string genreId) => new()
     {
         KoboGenreId = genreId,
-        // ⚠️ 売れ筋順の sort 値は実装時に要検証（要件 §8 / F-011）。standard は既定の人気順。
+        // 楽天Kobo電子書籍検索APIに「売れ筋(sales)」ソートは存在しない（standard / ±releaseDate / ±itemPrice /
+        // reviewCount / reviewAverage のみ。公式仕様 2017-04-26 で確認済）。ランキングは API 既定の人気順
+        // standard を採用する（ジャンル既定の並び＝最も売れ筋に近い順。要件 F-011）。
         Sort = "standard",
         Hits = 30,
     };
