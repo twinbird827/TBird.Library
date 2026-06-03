@@ -92,12 +92,10 @@ public sealed class NewReleaseCheckService
                     if (ContainsExcludeKeyword(c.Title, excludes)) continue;
                     if (!SeriesIdentifier.IsSameSeries(registeredSet, c.Author)) continue;
 
-                    var (isNew, book) = await UpsertAsync(c, s.Id, now, nowIso, markNewDetected: true, existingByItemNumber);
-                    if (isNew)
-                    {
-                        totalNew++;
-                        if (book.IsNewDetected == 1) reservations.Add((book, s));
-                    }
+                    var (isNewItem, isNewReservation, book) = await UpsertAsync(c, s.Id, now, nowIso, markNewDetected: true, existingByItemNumber);
+                    if (isNewItem) totalNew++;
+                    // 新規予約検知（新刊INSERT＝未発売 / 既知巻の未定→未来日 遷移）を通知対象に集約する。
+                    if (isNewReservation) reservations.Add((book, s));
                 }
 
                 await _series.TouchLastCheckedAsync(s.Id, nowIso);
@@ -118,10 +116,12 @@ public sealed class NewReleaseCheckService
                 await NotifyReservationsAsync(reservations);
                 notified = reservations.Count;
             }
-            // 通知の有無に関わらず IsNewDetected を降ろす。通知 OFF のまま放置すると INSERT 時に立てた
-            // IsNewDetected=1 が残留し、再有効化後はその巻が既存扱いで再検知されず永久に未通知になるため。
+            // INSERT 時に IsNewDetected=1 を立てた新刊のみ、通知の有無に関わらず降ろす（通知 OFF のまま放置すると
+            // 残留し、再有効化後に既存扱いで再検知されず永久に未通知になるため）。
+            // 既知巻の未定→未来日 遷移分は IsNewDetected を立てていない（=0）ので書き戻し不要＝ユーザーフラグ列を触らない。
             foreach (var (book, _) in reservations)
             {
+                if (book.IsNewDetected != 1) continue;
                 book.IsNewDetected = 0;
                 await _book.UpdateFlagsAsync(book);
             }
@@ -195,11 +195,15 @@ public sealed class NewReleaseCheckService
     }
 
     /// <summary>
-    /// 候補巻を DB に反映する。
+    /// 候補巻を DB に反映する。戻り値は (IsNewItem: DB に無い ItemNumber を INSERT したか,
+    /// IsNewReservation: 今回新たに予約開始として検知したか＝通知対象か, Book)。
     /// 新刊（DB に無い ItemNumber）なら INSERT（IsFavorite=1、予約検知かつ markNewDetected なら IsNewDetected=1）。
-    /// 既存巻なら書誌列のみ上書き（ユーザーフラグ列は保護）。SeriesId=NULL の既存巻のみ当該シリーズを設定。
+    /// 既存巻なら書誌列のみ上書き（ユーザーフラグ列は §7.3 どおり一切保護＝上書きしない）。SeriesId=NULL の
+    /// 既存巻のみ当該シリーズを設定。既存巻が「未来日でない（未定/発売済）→未来日」へ遷移した場合は、
+    /// IsNewDetected 列を触らずに IsNewReservation=true を返して予約開始を通知に乗せる（F-005 の取りこぼし対策）。
+    /// 遷移は old/new 発売日比較で一度だけ成立し、未来日が保存された次回以降は再通知されない（自己限定的）。
     /// </summary>
-    private async Task<(bool IsNew, Book Book)> UpsertAsync(
+    private async Task<(bool IsNewItem, bool IsNewReservation, Book Book)> UpsertAsync(
         RakutenBook c, int seriesId, DateTime now, string nowIso, bool markNewDetected,
         Dictionary<string, Book> existingByItemNumber)
     {
@@ -209,6 +213,7 @@ public sealed class NewReleaseCheckService
         if (existing == null)
         {
             var isFuture = ReleaseDateParser.IsFuture(iso, now);
+            var newDetected = markNewDetected && isFuture;
             var book = new Book
             {
                 SeriesId = seriesId,
@@ -222,15 +227,18 @@ public sealed class NewReleaseCheckService
                 ItemUrl = c.ItemUrl,
                 Caption = c.Caption,
                 IsFavorite = 1,
-                IsNewDetected = (markNewDetected && isFuture) ? 1 : 0,
+                IsNewDetected = newDetected ? 1 : 0,
                 DetectedAt = nowIso,
             };
             book.Id = await _book.InsertAsync(book);
             existingByItemNumber[c.ItemNumber] = book; // 同一 Run 内の二重 INSERT 防止
-            return (true, book);
+            return (true, newDetected, book);
         }
 
-        // 既存巻: 書誌列のみ上書き
+        // 既存巻: 予約開始の遷移判定のため、書誌を上書きする前の発売日で「以前は未来日だったか」を確定する。
+        var wasFuture = ReleaseDateParser.IsFuture(existing.ReleaseDate, now);
+
+        // 既存巻: 書誌列のみ上書き（ユーザーフラグ列は触らない＝§7.3）
         existing.Isbn = c.Isbn;
         existing.Title = c.Title;
         existing.Author = c.Author;
@@ -248,7 +256,12 @@ public sealed class NewReleaseCheckService
             existing.SeriesId = seriesId;
         }
 
-        return (false, existing);
+        // 「未来日でない（未定/発売済）」→「未来日」へ遷移した既知巻は予約開始として通知する。
+        // 購入済みは対象外。IsNewDetected 列は更新しない（次回は wasFuture=true となり再通知されない）。
+        var isFutureNow = ReleaseDateParser.IsFuture(iso, now);
+        var newReservation = markNewDetected && !wasFuture && isFutureNow && existing.IsPurchased == 0;
+
+        return (false, newReservation, existing);
     }
 
     private async Task NotifyReservationsAsync(IReadOnlyList<(Book Book, Series Series)> reservations)
