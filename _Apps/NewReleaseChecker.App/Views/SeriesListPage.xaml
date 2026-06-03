@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NewReleaseChecker.App.ViewModels"
+             xmlns:models="clr-namespace:NewReleaseChecker.App.Models"
+             x:Class="NewReleaseChecker.App.Views.SeriesListPage"
+             x:Name="Root"
+             Title="シリーズ">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="追加" Command="{Binding AddSeriesCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 並び替え・絞り込み（上部固定バー） -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,*" Padding="10,6" ColumnSpacing="10">
+            <Picker Grid.Column="0" Title="並び替え" SelectedIndex="{Binding SortOption}">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>最新巻発売日順</x:String>
+                        <x:String>登録順</x:String>
+                        <x:String>シリーズ名順</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+            <Picker Grid.Column="1" Title="絞り込み" SelectedIndex="{Binding FilterOption}">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>すべて</x:String>
+                        <x:String>ラノベのみ</x:String>
+                        <x:String>コミックのみ</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+        </Grid>
+
+        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshCommand}">
+            <CollectionView ItemsSource="{Binding Items}" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <StackLayout Padding="24" VerticalOptions="Center">
+                        <Label Text="＋ボタンからシリーズを追加しましょう" HorizontalOptions="Center" />
+                    </StackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <SwipeView>
+                            <SwipeView.RightItems>
+                                <SwipeItems>
+                                    <SwipeItem Text="削除" BackgroundColor="#E53935"
+                                               Command="{Binding BindingContext.DeleteSeriesCommand, Source={x:Reference Root}}"
+                                               CommandParameter="{Binding .}" />
+                                </SwipeItems>
+                            </SwipeView.RightItems>
+                            <Grid Padding="10" ColumnDefinitions="64,*,Auto" ColumnSpacing="10">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding BindingContext.OpenSeriesCommand, Source={x:Reference Root}}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="64" HeightRequest="90" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding SeriesKey}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding AuthorDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding LatestReleaseInfo}" FontSize="12" />
+                                </VerticalStackLayout>
+                                <Border Grid.Column="2" VerticalOptions="Center" Padding="8,2"
+                                        StrokeShape="RoundRectangle 10" BackgroundColor="{StaticResource Primary}"
+                                        IsVisible="{Binding UnpurchasedCount, Converter={StaticResource CountToVisibility}}">
+                                    <Label Text="{Binding UnpurchasedCount, StringFormat='未購入 {0}'}" TextColor="White" FontSize="11" />
+                                </Border>
+                            </Grid>
+                        </SwipeView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

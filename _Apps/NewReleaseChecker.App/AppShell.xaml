@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:NewReleaseChecker.App.Views"
+       x:Class="NewReleaseChecker.App.AppShell"
+       Title="新刊チェッカー">
+
+    <TabBar>
+        <ShellContent Title="シリーズ" Route="series"
+                      ContentTemplate="{DataTemplate views:SeriesListPage}" />
+        <ShellContent Title="お気に入り" Route="favorites"
+                      ContentTemplate="{DataTemplate views:FavoritesPage}" />
+        <ShellContent Title="発売予定" Route="upcoming"
+                      ContentTemplate="{DataTemplate views:UpcomingPage}" />
+        <ShellContent Title="ランキング" Route="ranking"
+                      ContentTemplate="{DataTemplate views:RankingPage}" />
+        <ShellContent Title="設定" Route="settings"
+                      ContentTemplate="{DataTemplate views:SettingsPage}" />
+    </TabBar>
+
+</Shell>

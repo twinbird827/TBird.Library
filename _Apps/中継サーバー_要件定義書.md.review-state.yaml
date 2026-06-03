@@ -1,0 +1,103 @@
+plan_file: "_Apps/中継サーバー_要件定義書.md"
+outer_round: 3
+inner_iteration: 0
+max_outer_rounds: 9
+max_inner_iterations: 9
+opt_fix_minor: true
+phase: COMPLETE
+this_round_had_fixes: false
+companion_files:
+  - "_Apps/中継サーバー_CLAUDE.md"
+  - "_Apps/Android引き継ぎメモ.md"
+verified_external_facts:
+  - "楽天WS 2026移行は実在(公式ブログ2026-02-10+複数技術記事で裏付け): 告知2026-02-10 / 移行期間〜5-13 / 旧app.rakuten.co.jp停止5-14"
+  - "Kobo電子書籍検索EP: openapi.rakuten.co.jp/services/api/Kobo/EbookSearch/20170426 (ドメインのみ移行・パス/版据え置き。公式タイトル version:2017-04-26 で確認)"
+  - "★Koboジャンル検索EP: openapi.rakuten.co.jp/services/api/Kobo/GenreSearch/20131010 — EbookSearch(20170426)とは版が異なり20131010。公式『楽天Koboジャンル検索API (version:2013-10-10)』+リクエストURL .../GenreSearch/20131010 で確認。Round2で20170426誤記を修正済"
+  - "市場APIは /services/api/ → /ichibams/api/ とパス変更したがKoboはパス据え置き(版番号のみAPIごとに異なる)"
+  - "accessKey: ヘッダ・クエリどちらでも可(公式『Can be provided in either header or as query parameter』)。applicationIdはクエリ必須。両方必須(片方欠落で400)"
+  - "applicationIdはUUID形式化。2026-02前の旧ID(数字のみ)は無効・再登録要"
+  - "sort等の値はUTF-8 URLエンコード必須(+releaseDate→%2BreleaseDate)"
+  - "上流レート制限: 公式は429 too_many_requestsを明記(具体秒数なし)。コミュニティ実測は『1000ms以下で429・1500ms推奨』。プランの『1.5秒未満で429』は安全側表現(閾値は約1秒だが推奨1.5秒で結論は妥当)"
+  - "既存Android実装 RakutenKoboApiClient.cs: SearchEndpoint=app.rakuten.co.jp/.../EbookSearch/20170426(版は正), GenreEndpoint=app.rakuten.co.jp/.../GenreSearch/20170426(版が誤=要20131010)。旧定数の版を流用しないこと"
+  - "★Round3独立再検証(2026-06-02 firecrawl): (a)公式EP webservice.rakuten.co.jp/.../kobo-genre-search のタイトルが『version:2013-10-10』=GenreSearch版20131010を再確認(Round2のCritical修正は正しい)。(b)2026移行を複数独立ソース(note.com/wasabi-inc/freefielder/zenn)が一致して裏付け(2026-02-10告知・app→openapiドメイン変更・認証刷新でアプリ再登録要・旧コード403)。土台は堅牢"
+last_investigation:
+  critical: 0
+  major: 0
+  minor: 0
+  nit: 5
+open_needs_user: []
+applied_fixes:
+  - round: 1
+    iteration: 1
+    location: "§使い方/§6"
+    change: "存在しないファイル参照 新刊チェッカー_Android引き継ぎメモ.md → 実在の Android引き継ぎメモ.md に修正(2箇所)"
+  - round: 1
+    iteration: 1
+    location: "§3.2.3 / §5.1 / §5.2"
+    change: "上流EPを『実装時確認』から検証済みの具体URL(openapi.rakuten.co.jp/services/api/Kobo/{EbookSearch|GenreSearch})へ確定。Koboはパス据え置きと明記"
+  - round: 1
+    iteration: 1
+    location: "§3.2.1 step4"
+    change: "JSON→クエリ変換で値の個別URLエンコード必須を明記(sort +releaseDate→%2B…)。数値の文字列化。クライアント本文のapplicationId/accessKey注入を無視しサーバー値で上書き"
+  - round: 1
+    iteration: 1
+    location: "§3.2.1 step5 / §7"
+    change: "タイムアウト矛盾を解消。HttpClient.Timeout併用禁止、RequestAbortedリンクCTS+CancelAfter(15s)、RequestAborted.IsCancellationRequestedで切断(伝播)とタイムアウト(504)を区別"
+  - round: 1
+    iteration: 1
+    location: "§3.2.3"
+    change: "accessKeyの渡し方をヘッダ/クエリ両可(公式)と明記しクエリ統一を決定。§8検証#2を解決"
+  - round: 1
+    iteration: 1
+    location: "§3.2.4 / §7"
+    change: "透過ヘッダを許可リスト方式に統一(BL/WL矛盾解消)。AutomaticDecompression無効・Content-Encoding透過・Content-Length再計算を明記"
+  - round: 1
+    iteration: 1
+    location: "§3.3 / §7検証#4"
+    change: "上流1.5秒/req制限(429)を明記。中継側2req/sは粗い保険で上流429は防げない→Android側SiteRateLimiterを1.5秒以上へ"
+  - round: 1
+    iteration: 1
+    location: "§5.3"
+    change: "applicationId UUID化・旧ID無効・再登録要の注意を追記(既存Secrets.csの旧IDは通らない)"
+  - round: 1
+    iteration: 1
+    location: "§2.3 / §7検証1-2"
+    change: "ファイル構成はCLAUDE.md §3を正と明記(HealthEndpoint/RequestLoggingMiddleware差異)。検証事項1-2を解決済へ更新"
+  - round: 1
+    iteration: 1
+    location: "§1.1 / §1.2 / 役割分担注記"
+    change: "§1.1の技術的不正確(ネイティブはOrigin付与可)を訂正し真の理由(登録ドメイン無/秘密埋込回避)を明記。『CLAUDE.md』表記=中継サーバー_CLAUDE.mdと定義。§1.2をクエリ統一に整合"
+  - round: 1
+    iteration: 1
+    location: "中継サーバー_CLAUDE.md §4 / §6.5"
+    change: "DIライフタイム矛盾を解消。AddSingleton併用を禁止し型付きHttpClient1本(Transient)に統一(Handlerローテーション喪失=DNS滞留を回避)。§6.5のc.Timeout削除"
+  - round: 1
+    iteration: 1
+    location: "中継サーバー_CLAUDE.md §6.1 / §13"
+    change: "上流パス例を新EPに更新。例外マッピングをTaskCanceledExceptionは派生ゆえRequestAbortedで判別へ訂正。§13検証事項を解決済値で更新"
+  - round: 2
+    iteration: 0
+    location: "§5.2 / §3.2.3メモ / §7検証1 / 中継§13#2 / 中継§6.1"
+    change: "【Critical】GenreSearch APIの版番号誤記を修正(20170426→20131010)。公式『version:2013-10-10』+リクエストURL .../GenreSearch/20131010 で二次確認。EbookSearch(20170426)とは版が異なる点、旧Android実装RakutenKoboApiClient.csの20170426は誤りで流用不可な点を明記。誤記のままだとR-003ジャンル検索プロキシが実行時に上流で弾かれ機能不全"
+  - round: 2
+    iteration: 0
+    location: "§3.2.1 step2-3"
+    change: "認証とレート制限の順序矛盾を解消。要件§3.2.1の処理フローを『レート制限→認証』へ並べ替え、中継§6.5のミドルウェア順(UseRateLimiter→認証ミドルウェア)と一致させた。インターネット公開EPでは未認証リクエスト氾濫・共有シークレット総当たりを入口で抑えるため、の理由を付記"
+  - round: 2
+    iteration: 0
+    location: "中継§11 (§9関連)"
+    change: "証明書自動更新と80番ポートのサイレント失効リスクを明記。win-acmeの自動更新はHTTP-01に80番到達性を要するため『更新時のみ手動開放+自動更新任せ』は失効を招く。常時開放(推奨)/手動renew運用のいずれか、外部443非開放でTLS-ALPN-01不可・DNS-01代替まで追記"
+  - round: 2
+    iteration: 1
+    location: "中継§6.3"
+    change: "/healthzのレート制限除外の実装方法を明記。PartitionedRateLimiter.CreateをGlobalLimiterに使うと既定で全EP対象→.DisableRateLimiting()で明示除外しないとR-005死活監視も2req/sに巻き込まれる点を補足"
+oscillation_log: []
+deferred_nits:
+  - "koboGenreId 例 000 vs 公式ルート 101: クライアント所有・透過のためAndroid側で確認(要件§3.2.5 R-003例 / 引き継ぎメモ§3.2.2例)"
+  - "不正JSONボディ時の応答(400)未定義: §4.4エラー表に明示なし。単一管理クライアント前提のため実害低"
+  - "中継§10.10 step2 のローカル確認 https://localhost/healthz: ホスト名バインディング(kaz.server-on.net)不一致で404の可能性。正系の外部確認(step3)は正しい"
+  - "引き継ぎメモ§1『変更前』API ベースURLが openapi.rakuten.co.jp 記載だが実コードは app.rakuten.co.jp(旧・停止済)。記述上の不整合"
+  - "レート制限『1.5秒未満で429』表現: 実測閾値は約1秒、1.5秒は安全圏推奨値。結論(Android≥1.5s)は安全側で妥当"
+completion:
+  round: 3
+  note: "フレッシュ(/clear後)コンテキストでの初回調査がCritical/Major=0・修正不要を確認。外部事実をfirecrawlで独立再検証し土台の堅牢性を再確認。プランは実行可能な状態。"

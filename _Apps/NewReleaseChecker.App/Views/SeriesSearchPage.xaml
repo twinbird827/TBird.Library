@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NewReleaseChecker.App.Views.SeriesSearchPage"
+             Title="シリーズ検索・登録">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="10" RowSpacing="8">
+        <SearchBar Grid.Row="0" Placeholder="タイトルで検索"
+                   Text="{Binding SearchKeyword}" SearchCommand="{Binding SearchCommand}" />
+
+        <Border Grid.Row="1" BackgroundColor="#FDECEA" Padding="10" StrokeShape="RoundRectangle 6"
+                IsVisible="{Binding HasError}">
+            <Label Text="{Binding ErrorMessage}" TextColor="#C0392B" />
+        </Border>
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Results}" SelectionMode="Single"
+                        SelectionChanged="OnResultSelected">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="8" ColumnDefinitions="56,*" ColumnSpacing="10">
+                        <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="56" HeightRequest="80" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding Title}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding Author}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding Publisher}" FontSize="12" />
+                            <Label Text="{Binding SalesDate}" FontSize="12" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center" HorizontalOptions="Center" />
+    </Grid>
+</ContentPage>

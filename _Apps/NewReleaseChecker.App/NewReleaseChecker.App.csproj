@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NewReleaseChecker.App</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+
+    <!-- アプリ表示情報 -->
+    <ApplicationTitle>新刊チェッカー</ApplicationTitle>
+    <ApplicationId>com.tbird.newreleasechecker</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <!-- Android 13 / API 33 以上 -->
+    <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App Icon / Splash -->
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+    <!-- Images / Fonts / Raw -->
+    <MauiImage Include="Resources\Images\*" />
+    <MauiFont Include="Resources\Fonts\*" />
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+    <PackageReference Include="CommunityToolkit.Maui" Version="11.*" />
+    <!-- net9 では 13.0.0 で固定（14.x 以降は .NET 10 専用） -->
+    <PackageReference Include="Plugin.LocalNotification" Version="13.0.0" />
+    <PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.11.2" />
+  </ItemGroup>
+
+  <!-- AndroidX SavedState の core/ktx バージョン不一致による重複クラス（androidx.savedstate.ViewKt）を回避。
+       ktx を core と同一バージョンに揃える（新しい ktx aar は core に統合済みのスタブ）。 -->
+  <ItemGroup>
+    <PackageReference Include="Xamarin.AndroidX.SavedState" Version="1.3.1.1" />
+    <PackageReference Include="Xamarin.AndroidX.SavedState.SavedState.Ktx" Version="1.3.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NewReleaseChecker.Core\NewReleaseChecker.Core.csproj" />
+    <ProjectReference Include="..\NewReleaseChecker.Data\NewReleaseChecker.Data.csproj" />
+    <ProjectReference Include="..\..\TBird.Maui\TBird.Maui.csproj" />
+    <ProjectReference Include="..\..\TBird.Maui.Background\TBird.Maui.Background.csproj" />
+  </ItemGroup>
+
+</Project>

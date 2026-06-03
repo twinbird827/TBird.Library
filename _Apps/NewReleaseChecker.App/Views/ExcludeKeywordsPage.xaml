@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NewReleaseChecker.App.Views.ExcludeKeywordsPage"
+             x:Name="Root"
+             Title="除外キーワード">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="既定に戻す" Command="{Binding ResetCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="10">
+        <Label Grid.Row="0" Text="タイトルにこれらの語を含む巻はチェック対象から除外されます。" FontSize="13" />
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Keywords}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="4" ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{Binding .}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="削除" FontSize="12"
+                                Command="{Binding BindingContext.RemoveCommand, Source={x:Reference Root}}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry Grid.Column="0" Placeholder="キーワードを追加" Text="{Binding NewKeyword}" />
+            <Button Grid.Column="1" Text="追加" Command="{Binding AddCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>
