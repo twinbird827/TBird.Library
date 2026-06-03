@@ -18,6 +18,14 @@
 
     <!-- Android 13 / API 33 以上 -->
     <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
+
+    <!-- ビルド警告の抑制（意図的な設計判断・良性ノイズのみ。実コードの警告は抑制しない）:
+         XC0022 / XC0025 = XAML バインディングのコンパイル最適化警告。本アプリは x:DataType を
+           付けない方針（VM コマンドを Source={x:Reference Root} で参照するため。CLAUDE.md 参照）。
+           コンパイル済みバインディングを採用しないため、この2件は意図通りで抑制する。
+         NU1608 = MAUI 推移依存の AndroidX.* (Lifecycle/Fragment/Collection) Ktx パッケージが
+           要求する Jvm/Runtime/Common より新しい版が解決される制約超過。AndroidX は後方互換のため良性。 -->
+    <NoWarn>$(NoWarn);XC0022;XC0025;NU1608</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +39,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- .NET 8 以降 UseMaui=true は Microsoft.Maui.Controls を自動参照しない（MA002）。
+         リポジトリ規約（TBird.Maui と同様）に倣い 9.0.* で明示参照する。 -->
+    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.*" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="CommunityToolkit.Maui" Version="11.*" />
     <!-- net9 では 13.0.0 で固定（14.x 以降は .NET 10 専用） -->

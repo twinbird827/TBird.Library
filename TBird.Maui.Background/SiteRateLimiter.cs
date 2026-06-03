@@ -66,7 +66,7 @@ public sealed class SiteRateLimiter
     /// 非 2xx 応答は <see cref="HttpStatusCode"/> 付きの <see cref="HttpRequestException"/> として例外化し、
     /// GET と同じく transient（5xx / 408 / 429）はリトライ、それ以外は呼出側へ伝播する。
     /// 失敗時はサーバが返したエラー本文（認証失敗・上流エラー説明等）を例外メッセージに含める
-    /// （Android では <see cref="HttpRequestException.Message"/> が抽象的なため、原因究明性を確保する）。
+    /// （Android では <see cref="Exception.Message"/> が抽象的なため、原因究明性を確保する）。
     /// <para>
     /// ⚠️ transient リトライは同一 <paramref name="jsonBody"/> を再送する。検索・参照系のように
     /// 同じ本文を複数回受け取っても副作用が重複しない冪等なエンドポイントにのみ使うこと。

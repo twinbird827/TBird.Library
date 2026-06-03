@@ -26,7 +26,7 @@ public class NewReleaseWorker : Worker
             if (services is null)
             {
                 MessageService.Error("WorkManager: ServiceProvider を取得できませんでした");
-                return Result.InvokeRetry();
+                return Result.InvokeRetry()!;
             }
 
             var check = services.GetRequiredService<NewReleaseCheckService>();
@@ -36,13 +36,13 @@ public class NewReleaseWorker : Worker
             // Worker はバックグラウンドスレッドで動くため同期待機してよい
             check.CheckAsync(CheckTrigger.Auto, cts.Token).GetAwaiter().GetResult();
 
-            return Result.InvokeSuccess();
+            return Result.InvokeSuccess()!;
         }
         catch (Exception ex)
         {
             // 自動チェック失敗はユーザー通知せずログのみ（次回周期/バックオフに任せる）
             MessageService.Exception(ex);
-            return Result.InvokeRetry();
+            return Result.InvokeRetry()!;
         }
     }
 }
