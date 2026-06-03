@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NewReleaseChecker.App.Views.SettingsPage"
+             Title="設定">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="20">
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="通知" FontAttributes="Bold" FontSize="16" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Grid.Column="0" Text="通知を有効にする" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding NotificationEnabled}" />
+                </Grid>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="自動チェック" FontAttributes="Bold" FontSize="16" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Grid.Column="0" Text="自動チェックを有効にする" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding AutoCheckEnabled}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Grid.Column="0" Text="チェック周期" VerticalOptions="Center" />
+                    <Picker Grid.Column="1" WidthRequest="160"
+                            ItemsSource="{Binding IntervalLabels}" SelectedIndex="{Binding IntervalIndex}"
+                            IsEnabled="{Binding AutoCheckEnabled}" />
+                </Grid>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="検索ロジック" FontAttributes="Bold" FontSize="16" />
+                <Button Text="除外キーワードを編集" Command="{Binding OpenExcludeKeywordsCommand}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="アプリ情報" FontAttributes="Bold" FontSize="16" />
+                <Label Text="{Binding AppVersion}" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

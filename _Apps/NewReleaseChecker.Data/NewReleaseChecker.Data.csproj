@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
+    <!-- データ層（再利用可能基盤）。Core の抽象を実装する（Data→Core の依存性逆転）。 -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <UseMauiEssentials>true</UseMauiEssentials>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Essentials" Version="9.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NewReleaseChecker.Core\NewReleaseChecker.Core.csproj" />
+    <ProjectReference Include="..\..\TBird.Maui.DB\TBird.Maui.DB.csproj" />
+    <ProjectReference Include="..\..\TBird.Maui.Web\TBird.Maui.Web.csproj" />
+    <!-- SiteRateLimiter（レート制限付き HTTP）を流用 -->
+    <ProjectReference Include="..\..\TBird.Maui.Background\TBird.Maui.Background.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NewReleaseChecker.App.Views.SeriesDetailPage"
+             x:Name="Root"
+             Title="シリーズ詳細">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="追跡キー編集" Command="{Binding EditSeriesKeyCommand}" />
+        <ToolbarItem Text="削除" Command="{Binding DeleteSeriesCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0" Padding="12" ColumnDefinitions="80,*" ColumnSpacing="12">
+            <Image Grid.Column="0" Source="{Binding HeaderImageUrl}" Aspect="AspectFit" WidthRequest="80" HeightRequest="112" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                <Label Text="{Binding SeriesKey}" FontSize="18" FontAttributes="Bold" />
+                <Label Text="{Binding AuthorDisplay}" FontSize="13" TextColor="{StaticResource Gray500}" />
+                <Label Text="{Binding Publisher}" FontSize="13" />
+                <Label Text="{Binding VolumeCountText}" FontSize="13" />
+                <Label Text="{Binding LastCheckedText}" FontSize="12" TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Books}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="10" ColumnDefinitions="48,*,Auto" ColumnSpacing="10">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding BindingContext.OpenBookCommand, Source={x:Reference Root}}"
+                                CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
+                        <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="48" HeightRequest="68" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding ReleaseDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                            <Label Text="購入済" FontSize="11" TextColor="{StaticResource Primary}" IsVisible="{Binding IsPurchased}" />
+                            <Label Text="★" FontSize="14" TextColor="#F5A623" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

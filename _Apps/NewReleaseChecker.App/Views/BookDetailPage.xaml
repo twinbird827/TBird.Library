@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NewReleaseChecker.App.Views.BookDetailPage"
+             Title="巻詳細">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Image Source="{Binding ImageUrl}" Aspect="AspectFit" HeightRequest="240" />
+
+            <Label Text="{Binding Title}" FontSize="20" FontAttributes="Bold" />
+            <Label Text="{Binding Author}" FontSize="14" TextColor="{StaticResource Gray500}" />
+            <Label Text="{Binding Publisher}" FontSize="14" />
+            <Label Text="{Binding ReleaseDisplay, StringFormat='発売日: {0}'}" FontSize="14" />
+
+            <Border Padding="6,2" BackgroundColor="#FFF3CD" StrokeShape="RoundRectangle 6"
+                    HorizontalOptions="Start" IsVisible="{Binding ShowCalendarBadge}">
+                <Label Text="カレンダー未登録" FontSize="11" TextColor="#856404" />
+            </Border>
+
+            <Label Text="{Binding CaptionText}" FontSize="13"
+                   IsVisible="{Binding CaptionText, Converter={StaticResource StringNotEmpty}}" />
+            <Label Text="{Binding IsbnText}" FontSize="11" TextColor="{StaticResource Gray500}"
+                   IsVisible="{Binding IsbnText, Converter={StaticResource StringNotEmpty}}" />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="10" Margin="0,8,0,0">
+                <Button Grid.Row="0" Grid.Column="0" Text="購入済切替" Command="{Binding TogglePurchasedCommand}" />
+                <Button Grid.Row="0" Grid.Column="1" Text="お気に入り切替" Command="{Binding ToggleFavoriteCommand}" />
+                <Button Grid.Row="1" Grid.Column="0" Text="Koboで購入" Command="{Binding OpenKoboCommand}" />
+                <Button Grid.Row="1" Grid.Column="1" Text="カレンダーに追加" Command="{Binding AddToCalendarCommand}"
+                        IsVisible="{Binding IsFuture}" />
+            </Grid>
+
+            <HorizontalStackLayout Spacing="16" Margin="0,4,0,0">
+                <Label Text="購入済" TextColor="{StaticResource Primary}" IsVisible="{Binding IsPurchased}" />
+                <Label Text="お気に入り" TextColor="#F5A623" IsVisible="{Binding IsFavorite}" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

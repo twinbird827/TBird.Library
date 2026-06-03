@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NewReleaseChecker.App.Views.RegisterConfirmPage"
+             Title="シリーズ登録">
+    <Grid RowDefinitions="*,Auto" Padding="16" RowSpacing="12">
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="12">
+                <Label Text="シリーズ名（追跡キー）" FontAttributes="Bold" />
+                <Entry Text="{Binding SeriesKey}" Placeholder="シリーズ名" />
+
+                <Label Text="種別" FontAttributes="Bold" />
+                <Picker SelectedIndex="{Binding MediaTab}">
+                    <Picker.ItemsSource>
+                        <x:Array Type="{x:Type x:String}">
+                            <x:String>ラノベ</x:String>
+                            <x:String>コミック</x:String>
+                        </x:Array>
+                    </Picker.ItemsSource>
+                </Picker>
+
+                <Label Text="著者集合（不要な著者のチェックを外す）" FontAttributes="Bold" />
+                <CollectionView ItemsSource="{Binding Authors}" HeightRequest="200">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <HorizontalStackLayout Padding="0,4" Spacing="8">
+                                <CheckBox IsChecked="{Binding IsSelected}" />
+                                <Label Text="{Binding Name}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Button Grid.Column="0" Text="キャンセル" Clicked="OnCancelClicked" />
+            <Button Grid.Column="1" Text="登録" Clicked="OnRegisterClicked" />
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,52 @@
+plan_file: "_Apps/新刊チェッカー_要件定義書.md"
+outer_round: 2
+inner_iteration: 0
+max_outer_rounds: 9
+max_inner_iterations: 9
+opt_fix_minor: true
+phase: COMPLETE
+this_round_had_fixes: false
+last_investigation:
+  critical: 0
+  major: 0
+  minor: 0
+  nit: 1
+open_needs_user: []
+applied_fixes:
+  - round: 1
+    iteration: 1
+    location: "§3.2.1 / §8 / CLAUDE.md §7.2"
+    change: "U1=A: 同定演算子を ⊆(部分集合) から =(集合一致) に変更。正規化で肩書きラベルのみ除去し人物名は保持（コミカライズ弁別）"
+  - round: 1
+    iteration: 1
+    location: "§3.2.1 検索クエリ / §8 / CLAUDE.md §7.1-7.2"
+    change: "U2=A: 新刊チェックの検索クエリを『シリーズキー(タイトル語)で検索→著者集合一致で選別』と明記。著者検索による別シリーズ誤統合を防止"
+  - round: 1
+    iteration: 1
+    location: "§5.2 / §5.3 / §5.4 / F-009 / F-010 / F-014 / SCR-007 / CLAUDE.md §8 §5"
+    change: "U3=A(+単発一覧): Book.SeriesId を NULL 許容化。発掘導線の単発お気に入り巻を SeriesId=NULL で永続化し、お気に入り一覧に『未追跡』表示＋『未追跡のみ』フィルタを追加"
+  - round: 1
+    iteration: 1
+    location: "§3.2.4 / §3.2.7 / CLAUDE.md §7.3"
+    change: "M1: IsNewDetected=1 は予約検知の新刊のみに限定（発売確定の新刊で降りない固定を防止）"
+  - round: 1
+    iteration: 1
+    location: "F-003 / 補足"
+    change: "M2: 手動チェックも50件上限+LastCheckedAt古い順ローテーションを適用と確定（曖昧さを解消）"
+  - round: 1
+    iteration: 1
+    location: "§4.4 SCR-010 / §5.5 / §6.2"
+    change: "M3: 自動チェックON/OFFの単一情報源を auto_check_enabled に統一。interval から 'off' を削除、起動時登録を enabled 連動に"
+  - round: 1
+    iteration: 1
+    location: "§3.2.5 / CLAUDE.md §7.3"
+    change: "M4: ItemNumber全体UNIQUEに伴う多重所属を定義（最初に取り込んだシリーズに固定、NULL単発巻のみ後付けでSeriesId設定）"
+  - round: 1
+    iteration: 1
+    location: "§8 / CLAUDE.md §5"
+    change: "M5: WorkManager Worker の依存解決を IPlatformApplication.Current.Services 経由と明記"
+  - round: 1
+    iteration: 1
+    location: "CLAUDE.md §5"
+    change: "検証で判明したスタイル参照修正: ライブラリに存在しない NetworkPolicyService の記述を INetworkPolicy/MauiNetworkPolicy に訂正"
+oscillation_log: []

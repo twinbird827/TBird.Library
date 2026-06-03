@@ -1,0 +1,7 @@
+# ビルド成果物
+**/bin/
+**/obj/
+.vs/
+
+# 機密設定（楽天 applicationId/accessKey・共有シークレット）。ローカル/サーバーにのみ配置しコミットしない。
+**/appsettings.Secrets.json

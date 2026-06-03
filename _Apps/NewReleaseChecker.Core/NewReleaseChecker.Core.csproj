@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
+    <!-- ドメイン層。UI に依存しない。sqlite-net 属性をモデルに付けるため
+         sqlite-net-pcl のみ参照する（実 DB アクセスは Data 層）。 -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="sqlite-net-pcl" Version="1.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\TBird.Core\TBird.Core.csproj" />
+  </ItemGroup>
+
+</Project>
