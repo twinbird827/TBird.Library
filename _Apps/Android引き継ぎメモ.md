@@ -2,7 +2,7 @@
 
 このドキュメントは、既に進行中の **新刊チェッカー Android アプリ** に対して、**楽天 API 中継サーバーを介して通信する構成**への変更を反映するための引き継ぎ指示です。Claude Code に対し、本書と既存の `新刊チェッカー_要件定義書.md` / `CLAUDE.md` を併せて渡してください。
 
-**前提**: 楽天ウェブサービス 2026 年新仕様により、Android ネイティブからの楽天 API 直接呼び出しは不可能になりました。よって自宅サーバー（Windows + IIS、`kaz.server-on.net:49443`）上に ASP.NET Core で薄い中継サーバーを構築し、Android アプリはそこ経由で楽天 API を利用します。中継サーバー側の要件は別資料 `中継サーバー_要件定義書.md` を参照。
+**前提**: 楽天ウェブサービス 2026 年新仕様により、Android ネイティブからの楽天 API 直接呼び出しは不可能になりました。よって自宅サーバー（Windows + IIS、`kaz.server-on.net:60344`）上に ASP.NET Core で薄い中継サーバーを構築し、Android アプリはそこ経由で楽天 API を利用します。中継サーバー側の要件は別資料 `中継サーバー_要件定義書.md` を参照。
 
 ---
 
@@ -11,7 +11,7 @@
 | 項目 | 変更前 | 変更後 |
 |---|---|---|
 | 楽天 API への直接アクセス | あり | **なし**（中継サーバー経由のみ） |
-| API ベース URL | `https://openapi.rakuten.co.jp/...`（楽天直） | `https://kaz.server-on.net:49443/api/kobo/...`（中継サーバー） |
+| API ベース URL | `https://openapi.rakuten.co.jp/...`（楽天直） | `https://kaz.server-on.net:60344/api/kobo/...`（中継サーバー） |
 | HTTP メソッド | GET（クエリパラメータ） | **POST**（JSON 本文） |
 | 認証 | `applicationId` + `accessKey` をクエリに付与 | **`X-Relay-Auth` ヘッダのみ**（共有シークレット） |
 | `applicationId` / `accessKey` の保持 | Android 側 `Secrets` クラス | **中継サーバー側へ移譲**（Android は持たない） |
@@ -29,7 +29,7 @@
 要件定義書本体は維持しつつ、以下のセクションを本書の内容で**上書き／追補**してください。
 
 - **§1.3 利用環境 → 「配置形態: スタンドアロン（端末内完結、サーバー不要）」**
-  - **修正**: 「自宅サーバー上の楽天 API 中継サーバー（NewReleaseChecker.Relay）を併用する構成。楽天 API への直接アクセスは行わない。中継サーバーの所在: `https://kaz.server-on.net:49443/`」
+  - **修正**: 「自宅サーバー上の楽天 API 中継サーバー（NewReleaseChecker.Relay）を併用する構成。楽天 API への直接アクセスは行わない。中継サーバーの所在: `https://kaz.server-on.net:60344/`」
 - **§6.5 秘密情報管理**
   - **修正**: 「Android 側 `Secrets` クラスは `applicationId` / `accessKey` を**保持しない**。代わりに `RelayServerApiKey`（中継サーバーとの共有シークレット）のみを保持する」
 - **§7.1 楽天Kobo電子書籍検索API（メイン）**
@@ -72,7 +72,7 @@
 ### 3.1 中継サーバーへの接続
 | 項目 | 内容 |
 |---|---|
-| ベース URL | `https://kaz.server-on.net:49443` |
+| ベース URL | `https://kaz.server-on.net:60344` |
 | プロトコル | HTTPS（Let's Encrypt 証明書） |
 | 認証 | HTTP ヘッダ `X-Relay-Auth: <共有シークレット>` |
 | Content-Type | `application/json`（POST 本文用） |
@@ -85,7 +85,7 @@
 **リクエスト**:
 ```http
 POST /api/kobo/search HTTP/1.1
-Host: kaz.server-on.net:49443
+Host: kaz.server-on.net:60344
 X-Relay-Auth: <Secrets.RelayServerApiKey>
 Content-Type: application/json
 
@@ -111,7 +111,7 @@ Content-Type: application/json
 **リクエスト**:
 ```http
 POST /api/kobo/genres HTTP/1.1
-Host: kaz.server-on.net:49443
+Host: kaz.server-on.net:60344
 X-Relay-Auth: <Secrets.RelayServerApiKey>
 Content-Type: application/json
 
@@ -157,7 +157,7 @@ Android プロジェクト側で具体的に変更する箇所:
 - `RelayServerApiKey` を**追加**（中継サーバー側と同じ共有シークレットをローカル `Secrets.cs` に記入）
 
 ### 4.2 API クライアント（おそらく `NewReleaseChecker.Data/Api/` 配下）
-- ベース URL を `https://kaz.server-on.net:49443/` に変更
+- ベース URL を `https://kaz.server-on.net:60344/` に変更
 - 全リクエストを GET から **POST** に変更（クエリ → JSON 本文）
 - 全リクエストに `X-Relay-Auth: <RelayServerApiKey>` ヘッダを付与
 - `applicationId` / `accessKey` をリクエストに含める処理を**削除**
@@ -189,7 +189,7 @@ Android プロジェクト側で具体的に変更する箇所:
 実装完了後の確認手順:
 
 1. **中継サーバーが先に稼働していること**（`中継サーバー_要件定義書.md` / `中継サーバー_CLAUDE.md` の手順で構築）
-2. ブラウザから `https://kaz.server-on.net:49443/healthz` にアクセス → 200 OK
+2. ブラウザから `https://kaz.server-on.net:60344/healthz` にアクセス → 200 OK
 3. `Secrets.cs` の `RelayServerApiKey` が中継サーバー側と一致していることを確認
 4. Android アプリから検索を実行（F-001 シリーズ検索）し、楽天 API 応答が中継経由で返ることを確認
 5. ログ（中継サーバー側）に受信記録が残っていることを確認
