@@ -1,3 +1,4 @@
+using System.Globalization;
 using NewReleaseChecker.Core.Abstractions;
 using NewReleaseChecker.Core.Models;
 
@@ -87,9 +88,9 @@ public sealed class BookRepository : IBookRepository
         // SeriesId=NULL かつ全ユーザーフラグ0 の単発巻（発掘導線で一括お気に入り→解除した残骸等）を掃除する。
         // ただし DetectedAt が insertedBefore 以降（＝ごく最近 INSERT された行）は、巻詳細・一括操作の
         // 「INSERT→フラグ更新」途中で一時的に孤児に見えているだけの可能性があるため対象外とする。
-        // ※ cutoff は DetectedAt 書き込み（DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")）と同じ無カルチャ書式で
-        //   生成し、TEXT 同士の辞書順（＝固定幅 ISO 風で時系列順）比較が成立するようにする。
-        var cutoff = insertedBefore.ToString("yyyy-MM-ddTHH:mm:ss");
+        // ※ cutoff は DetectedAt 書き込み（BookActionService.EnsurePersistedAsync）と同じ InvariantCulture の
+        //   "yyyy-MM-ddTHH:mm:ss" で生成し、TEXT 同士の辞書順（＝固定幅 ISO 風で時系列順）比較が成立するようにする。
+        var cutoff = insertedBefore.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
         return await _db.Connection.ExecuteAsync(
             "DELETE FROM Book WHERE SeriesId IS NULL AND IsPurchased=0 AND IsFavorite=0 AND IsCalendarRegistered=0 AND IsNewDetected=0 AND (DetectedAt IS NULL OR DetectedAt < ?)",
             cutoff);

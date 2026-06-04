@@ -52,7 +52,14 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
     /// <summary>通常タップ時の遷移（各 VM の巻詳細遷移）。</summary>
     protected abstract Task OpenBookAsync(BookListItem item);
 
-    [RelayCommand] private void EnterSelectionMode() => IsSelectionMode = true;
+    [RelayCommand(CanExecute = nameof(CanEnterSelectionMode))]
+    private void EnterSelectionMode() => IsSelectionMode = true;
+
+    /// <summary>選択開始は対象が1件以上ある時のみ可能（空一覧では「選択」を無効化）。</summary>
+    private bool CanEnterSelectionMode() => SelectionItems.Count > 0;
+
+    /// <summary>一覧の再構築後に呼び、選択開始可否（空一覧での無効化）を再評価する（F-015）。</summary>
+    protected void NotifyListChanged() => EnterSelectionModeCommand.NotifyCanExecuteChanged();
 
     [RelayCommand] private void ExitSelectionMode() => ResetSelection();
 
@@ -100,7 +107,7 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
     /// 選択巻に mutate を適用：解決→mutate→UpdateFlags→再読込→モード解除。
     /// <paramref name="createIfMissing"/>=true（付与系）は未永続巻を必要なら INSERT、false（解除系）は既存巻のみ対象。
     /// </summary>
-    /// <remarks>各巻は逐次適用で原子的ではない。途中で例外が出た場合はそこまでの巻のみ反映され、エラー表示後に再読込する。</remarks>
+    /// <remarks>各巻は逐次適用で原子的ではない。失敗した巻はスキップして残りを継続適用し、失敗件数を再読込後にトースト表示する。</remarks>
     protected async Task ApplyToSelectedAsync(Action<Book> mutate, bool createIfMissing = true)
     {
         // 付与系/解除系は別コマンド（AsyncRelayCommand）のため既定の単一コマンド再入抑止が効かず、
@@ -110,30 +117,33 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
         var targets = SelectionItems.Where(i => i.IsSelected).ToList();
         if (targets.Count == 0) { ResetSelection(); return; }
         _isApplyingBulk = true;
-        var failed = false;
+        var failCount = 0;
         try
         {
             foreach (var item in targets)
             {
-                var b = await ResolveAsync(item, createIfMissing);
-                if (b is null) continue;
-                mutate(b);
-                await BookRepo.UpdateFlagsAsync(b);
+                // 1件の失敗で全体を止めず、残りは継続試行する（途中中断による未着手をなくす）。
+                try
+                {
+                    var b = await ResolveAsync(item, createIfMissing);
+                    if (b is null) continue;
+                    mutate(b);
+                    await BookRepo.UpdateFlagsAsync(b);
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    MessageService.Exception(ex); // logcat/ファイルへ記録（失敗件数は finally でまとめて通知）。
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            // 逐次適用のため途中失敗＝部分適用。logcat/ファイルへ記録しつつ、前景の手動操作なので
-            // ユーザーにもトーストで失敗を知らせる（無言の部分適用を避ける。要件 §6.7）。
-            failed = true;
-            MessageService.Exception(ex);
         }
         finally
         {
             _isApplyingBulk = false;
             ResetSelection();
             await ReloadAsync();
-            if (failed) await _notifier.ShowToastAsync("一括操作の一部に失敗しました");
+            // 前景の手動操作なので、失敗があればユーザーにもトーストで知らせる（無言の部分適用を避ける。要件 §6.7）。
+            if (failCount > 0) await _notifier.ShowToastAsync($"一括操作中に{failCount}件失敗しました");
         }
     }
 

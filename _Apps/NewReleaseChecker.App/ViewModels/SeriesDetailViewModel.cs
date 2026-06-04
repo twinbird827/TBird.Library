@@ -87,6 +87,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
         finally
         {
             _isLoading = false;
+            NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
         }
     }
 

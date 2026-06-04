@@ -105,6 +105,7 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
             });
         }
         OnPropertyChanged(nameof(IsEmpty));
+        NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
     }
 
     // ----- 一括選択（F-015）フック -----

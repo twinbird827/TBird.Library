@@ -1,3 +1,4 @@
+using System.Globalization;
 using NewReleaseChecker.Core.Abstractions;
 using NewReleaseChecker.Core.Models;
 using SQLite;
@@ -35,7 +36,8 @@ public sealed class BookActionService
             ImageUrl = string.IsNullOrEmpty(src.ImageUrl) ? null : src.ImageUrl,
             ItemUrl = src.ItemUrl,
             Caption = src.Caption,
-            DetectedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
+            // DeleteOrphansAsync の cutoff と TEXT 辞書順比較が成立するよう、不変書式で書き込む。
+            DetectedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
         };
         try
         {

@@ -117,6 +117,7 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
             {
                 IsBusy = false;
                 OnPropertyChanged(nameof(IsEmpty));
+                NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
             }
         }
     }
