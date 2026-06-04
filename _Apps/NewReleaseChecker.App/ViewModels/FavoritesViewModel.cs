@@ -64,6 +64,9 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
     /// <summary>キャッシュ済みお気に入りに現在の絞込/並替を適用して Items を差し替える。</summary>
     private void ApplySortAndFilter()
     {
+        // Items を作り直すため、選択モードが残っていれば解除する（件数/ラベルの陳腐化防止）。
+        if (IsSelectionMode) ResetSelection();
+
         var now = DateTime.Now;
 
         IEnumerable<Book> filtered = FilterOption switch
@@ -106,7 +109,8 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
     // ----- 一括選択（F-015）フック -----
     protected override ObservableCollection<BookListItem> SelectionItems => Items;
 
-    protected override async Task<Book?> ResolveAsync(BookListItem item)
+    // お気に入り一覧の巻は常に永続（BookId あり）のため createIfMissing は不問。
+    protected override async Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing)
         => item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
 
     protected override Task ReloadAsync() => LoadAsync();
@@ -118,6 +122,6 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
     }
 
     [RelayCommand] private Task BulkPurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 1);
-    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0);
-    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0);
+    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0, createIfMissing: false);
+    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0, createIfMissing: false);
 }

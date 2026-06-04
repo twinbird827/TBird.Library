@@ -83,6 +83,9 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
 
     public async Task LoadAsync()
     {
+        // タブ/ジャンル変更で一覧を作り直すため、選択モードが残っていれば解除する（件数/ラベルの陳腐化防止）。
+        if (IsSelectionMode) ResetSelection();
+
         _loadCts?.Cancel();
         var cts = new CancellationTokenSource();
         _loadCts = cts;
@@ -137,9 +140,15 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
     // ----- 一括選択（F-015）フック -----
     protected override ObservableCollection<BookListItem> SelectionItems => Items;
 
-    protected override async Task<Book?> ResolveAsync(BookListItem item)
-        => item.Source is { } src ? await _actions.EnsurePersistedAsync(src)
-           : (item.BookId is { } id ? await BookRepo.GetAsync(id) : null);
+    protected override async Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing)
+    {
+        if (item.Source is { } src)
+            // 付与系は必要なら永続化、解除系は既存巻のみ対象（未永続巻に無駄な孤児行を作らない）。
+            return createIfMissing
+                ? await _actions.EnsurePersistedAsync(src)
+                : await BookRepo.GetByItemNumberAsync(src.ItemNumber);
+        return item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
+    }
 
     protected override Task ReloadAsync() => Task.CompletedTask; // API 一覧は表示変化なし
 
@@ -149,6 +158,7 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
         await Shell.Current.GoToAsync(Routes.BookDetail, new Dictionary<string, object> { ["source"] = src });
     }
 
+    // 付与系（★追加）は INSERT してでも対象化。解除系（★解除）は既存お気に入り巻のみ。
     [RelayCommand] private Task BulkFavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 1);
-    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0);
+    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0, createIfMissing: false);
 }

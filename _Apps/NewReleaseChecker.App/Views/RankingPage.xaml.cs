@@ -15,6 +15,8 @@ public partial class RankingPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        // Singleton VM のため、タブ復帰時に前回の選択モードを持ち越さない（F-015）。
+        _vm.ExitSelectionModeCommand.Execute(null);
         await _vm.InitializeAsync();
     }
 

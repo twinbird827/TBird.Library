@@ -23,11 +23,22 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
     [ObservableProperty] private bool _isSelectionMode;
     [ObservableProperty] private int _selectedCount;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectAllLabel))]
+    private bool _allSelected;
+
+    /// <summary>「全選択」⇄「全解除」トグルボタンの表示文言。</summary>
+    public string SelectAllLabel => AllSelected ? "全解除" : "全選択";
+
     /// <summary>選択対象のコレクション（各 VM の Books / Items を返す）。</summary>
     protected abstract ObservableCollection<BookListItem> SelectionItems { get; }
 
-    /// <summary>行アイテムを永続 Book に解決する（永続=BookId 取得 / 非永続=EnsurePersist）。null は対象外。</summary>
-    protected abstract Task<Book?> ResolveAsync(BookListItem item);
+    /// <summary>
+    /// 行アイテムを永続 Book に解決する。null は対象外（スキップ）。
+    /// <paramref name="createIfMissing"/>=true は未永続巻を必要なら INSERT（付与系）、
+    /// false は既存の永続巻のみ返す（解除系。未永続巻に無駄な孤児行を作らない）。
+    /// </summary>
+    protected abstract Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing);
 
     /// <summary>一括適用後の再読込（不要な画面は Task.CompletedTask）。</summary>
     protected abstract Task ReloadAsync();
@@ -37,44 +48,62 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
 
     [RelayCommand] private void EnterSelectionMode() => IsSelectionMode = true;
 
-    [RelayCommand]
-    private void ExitSelectionMode()
+    [RelayCommand] private void ExitSelectionMode() => ResetSelection();
+
+    /// <summary>
+    /// 選択状態をクリアして選択モードを抜ける。一覧の再構築（並替/絞込/タブ切替）や画面再表示時にも呼び、
+    /// Singleton VM でのモード残留・件数/ラベルの陳腐化を防ぐ（F-015）。
+    /// </summary>
+    protected void ResetSelection()
     {
         foreach (var it in SelectionItems) it.IsSelected = false;
         SelectedCount = 0;
+        AllSelected = false;
         IsSelectionMode = false;
     }
 
+    // 通常タップの遷移は await する（async RelayCommand の既定で実行中は再入不可となり、連打による二重遷移を防ぐ）。
     [RelayCommand]
-    private void RowTapped(BookListItem? item)
+    private async Task RowTapped(BookListItem? item)
     {
         if (item is null) return;
         if (IsSelectionMode)
         {
             item.IsSelected = !item.IsSelected;
-            SelectedCount = SelectionItems.Count(i => i.IsSelected);
+            RefreshSelectionState();
         }
-        else _ = OpenBookAsync(item);
+        else await OpenBookAsync(item);
     }
 
     [RelayCommand]
     private void SelectAll()
     {
-        var allSelected = SelectionItems.Count > 0 && SelectionItems.All(i => i.IsSelected);
-        foreach (var it in SelectionItems) it.IsSelected = !allSelected;
-        SelectedCount = SelectionItems.Count(i => i.IsSelected);
+        var selectAll = !(SelectionItems.Count > 0 && SelectionItems.All(i => i.IsSelected));
+        foreach (var it in SelectionItems) it.IsSelected = selectAll;
+        RefreshSelectionState();
     }
 
-    /// <summary>選択巻に mutate を適用：解決(EnsurePersist含む)→mutate→UpdateFlags→再読込→モード解除。</summary>
-    protected async Task ApplyToSelectedAsync(Action<Book> mutate)
+    /// <summary>選択件数・全選択状態（ボタン文言）を現在の IsSelected から再計算する。</summary>
+    private void RefreshSelectionState()
+    {
+        SelectedCount = SelectionItems.Count(i => i.IsSelected);
+        AllSelected = SelectionItems.Count > 0 && SelectedCount == SelectionItems.Count;
+    }
+
+    /// <summary>
+    /// 選択巻に mutate を適用：解決→mutate→UpdateFlags→再読込→モード解除。
+    /// <paramref name="createIfMissing"/>=true（付与系）は未永続巻を必要なら INSERT、false（解除系）は既存巻のみ対象。
+    /// </summary>
+    /// <remarks>各巻は逐次適用で原子的ではない。途中で例外が出た場合はそこまでの巻のみ反映され、エラー表示後に再読込する。</remarks>
+    protected async Task ApplyToSelectedAsync(Action<Book> mutate, bool createIfMissing = true)
     {
         var targets = SelectionItems.Where(i => i.IsSelected).ToList();
-        if (targets.Count == 0) { ExitSelectionMode(); return; }
+        if (targets.Count == 0) { ResetSelection(); return; }
         try
         {
             foreach (var item in targets)
             {
-                var b = await ResolveAsync(item);
+                var b = await ResolveAsync(item, createIfMissing);
                 if (b is null) continue;
                 mutate(b);
                 await BookRepo.UpdateFlagsAsync(b);
@@ -83,7 +112,7 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
         catch (Exception ex) { MessageService.Exception(ex); }
         finally
         {
-            ExitSelectionMode();
+            ResetSelection();
             await ReloadAsync();
         }
     }

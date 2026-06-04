@@ -24,6 +24,11 @@ public interface IBookRepository
     /// <summary>指定シリーズに属する全巻を削除（明示カスケード）。</summary>
     Task DeleteBySeriesAsync(int seriesId);
 
-    /// <summary>SeriesId=NULL かつ全ユーザーフラグ0 の孤児行を一括削除する（方式C: 遅延掃除）。削除件数を返す。</summary>
-    Task<int> DeleteOrphansAsync();
+    /// <summary>
+    /// SeriesId=NULL かつ全ユーザーフラグ0 の孤児行のうち、DetectedAt が <paramref name="insertedBefore"/> より前
+    /// （または NULL）の行のみを一括削除する（方式C: 遅延掃除）。削除件数を返す。
+    /// 直近 INSERT 行を除外するのは、巻詳細・一括操作の「INSERT→フラグ更新」の途中行（フラグ未設定で一時的に孤児）を
+    /// 誤削除してユーザー操作をサイレントに失わせないため。
+    /// </summary>
+    Task<int> DeleteOrphansAsync(DateTime insertedBefore);
 }

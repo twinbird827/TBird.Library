@@ -92,7 +92,8 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
     // ----- 一括選択（F-015）フック -----
     protected override ObservableCollection<BookListItem> SelectionItems => Books;
 
-    protected override async Task<Book?> ResolveAsync(BookListItem item)
+    // シリーズ詳細の巻は常に永続（BookId あり）のため createIfMissing は不問。
+    protected override async Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing)
         => item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
 
     protected override Task ReloadAsync() => LoadAsync();
@@ -104,7 +105,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
     }
 
     [RelayCommand] private Task BulkPurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 1);
-    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0);
+    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0, createIfMissing: false);
 
     [RelayCommand]
     private async Task EditSeriesKeyAsync()

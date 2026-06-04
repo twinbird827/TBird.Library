@@ -54,7 +54,7 @@
         <Grid Grid.Row="2" IsVisible="{Binding IsSelectionMode}" Padding="8" ColumnSpacing="8"
               ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" BackgroundColor="{StaticResource Gray100}">
             <Label  Grid.Column="0" VerticalOptions="Center" Text="{Binding SelectedCount, StringFormat='{0}件'}" />
-            <Button Grid.Column="1" Text="全選択" Command="{Binding SelectAllCommand}" />
+            <Button Grid.Column="1" Text="{Binding SelectAllLabel}" Command="{Binding SelectAllCommand}" />
             <Button Grid.Column="3" Text="★追加" Command="{Binding BulkFavoriteCommand}" />
             <Button Grid.Column="4" Text="★解除" Command="{Binding BulkUnfavoriteCommand}" />
             <Button Grid.Column="5" Text="完了"  Command="{Binding ExitSelectionModeCommand}" />

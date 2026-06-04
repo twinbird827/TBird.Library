@@ -15,6 +15,12 @@ public sealed class NewReleaseCheckService
     /// <summary>1 回の Work あたりのチェック上限シリーズ数（要件 §6.1 / §7.6）。</summary>
     public const int MaxSeriesPerWork = 50;
 
+    /// <summary>
+    /// 孤児巻の遅延掃除で「直近 INSERT（掃除対象外）」とみなす猶予（分）。
+    /// 巻詳細・一括操作は _gate 外で「INSERT→フラグ更新」を行うため、その途中行を誤削除しないよう保護する。
+    /// </summary>
+    private const int OrphanGraceMinutes = 5;
+
     private readonly IRakutenApiClient _api;
     private readonly ISeriesRepository _series;
     private readonly IBookRepository _book;
@@ -65,8 +71,10 @@ public sealed class NewReleaseCheckService
     private async Task<CheckSummary> CheckCoreAsync(CheckTrigger trigger, CancellationToken ct)
     {
         // 方式C（遅延掃除）: 一括お気に入り→解除等で生じた孤児巻（SeriesId=NULL・全フラグ0）をチェック開始時に一括削除する。
-        // CheckAsync が _gate を保持済みのため、本サービスの INSERT と直列化され安全。
-        var deleted = await _book.DeleteOrphansAsync();
+        // 本サービス自身の INSERT は _gate で直列化されるが、巻詳細・一括操作の INSERT は _gate 外で走るため、
+        // それらの「INSERT→フラグ更新」途中（フラグ未設定で一時的に孤児）の行を巻き込まないよう、
+        // 直近 OrphanGraceMinutes 分に検知された行は掃除対象から除外する。
+        var deleted = await _book.DeleteOrphansAsync(DateTime.Now.AddMinutes(-OrphanGraceMinutes));
         if (deleted > 0) MessageService.Info($"孤児巻を掃除: {deleted}件");
 
         var targets = await _series.GetCheckTargetsAsync(MaxSeriesPerWork);
