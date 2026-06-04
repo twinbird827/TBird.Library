@@ -8,8 +8,8 @@ namespace NewReleaseChecker.App.ViewModels;
 /// <summary>ランキング（SCR-009 / F-011）。売れ筋順に表示。</summary>
 public sealed partial class RankingViewModel : ApiBrowseViewModel
 {
-    public RankingViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions)
-        : base(api, book, actions) { }
+    public RankingViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions, IUserNotifier notifier)
+        : base(api, book, actions, notifier) { }
 
     protected override RakutenSearchQuery BuildQuery(string genreId) => new()
     {

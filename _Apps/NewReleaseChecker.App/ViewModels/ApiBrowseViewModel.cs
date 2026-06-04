@@ -18,8 +18,8 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
     protected readonly IRakutenApiClient Api;
     private readonly BookActionService _actions;
 
-    protected ApiBrowseViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions)
-        : base(book)
+    protected ApiBrowseViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions, IUserNotifier notifier)
+        : base(book, notifier)
     {
         Api = api;
         _actions = actions;

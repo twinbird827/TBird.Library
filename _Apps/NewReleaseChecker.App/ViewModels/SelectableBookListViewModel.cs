@@ -18,7 +18,13 @@ namespace NewReleaseChecker.App.ViewModels;
 public abstract partial class SelectableBookListViewModel : ObservableObject
 {
     protected readonly IBookRepository BookRepo;
-    protected SelectableBookListViewModel(IBookRepository bookRepo) => BookRepo = bookRepo;
+    private readonly IUserNotifier _notifier;
+
+    protected SelectableBookListViewModel(IBookRepository bookRepo, IUserNotifier notifier)
+    {
+        BookRepo = bookRepo;
+        _notifier = notifier;
+    }
 
     [ObservableProperty] private bool _isSelectionMode;
     [ObservableProperty] private int _selectedCount;
@@ -104,6 +110,7 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
         var targets = SelectionItems.Where(i => i.IsSelected).ToList();
         if (targets.Count == 0) { ResetSelection(); return; }
         _isApplyingBulk = true;
+        var failed = false;
         try
         {
             foreach (var item in targets)
@@ -114,12 +121,19 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
                 await BookRepo.UpdateFlagsAsync(b);
             }
         }
-        catch (Exception ex) { MessageService.Exception(ex); }
+        catch (Exception ex)
+        {
+            // 逐次適用のため途中失敗＝部分適用。logcat/ファイルへ記録しつつ、前景の手動操作なので
+            // ユーザーにもトーストで失敗を知らせる（無言の部分適用を避ける。要件 §6.7）。
+            failed = true;
+            MessageService.Exception(ex);
+        }
         finally
         {
             _isApplyingBulk = false;
             ResetSelection();
             await ReloadAsync();
+            if (failed) await _notifier.ShowToastAsync("一括操作の一部に失敗しました");
         }
     }
 

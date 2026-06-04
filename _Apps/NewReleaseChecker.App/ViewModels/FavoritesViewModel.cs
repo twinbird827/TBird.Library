@@ -14,7 +14,8 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
 {
     private readonly ISeriesRepository _series;
 
-    public FavoritesViewModel(IBookRepository book, ISeriesRepository series) : base(book)
+    public FavoritesViewModel(IBookRepository book, ISeriesRepository series, IUserNotifier notifier)
+        : base(book, notifier)
     {
         _series = series;
     }

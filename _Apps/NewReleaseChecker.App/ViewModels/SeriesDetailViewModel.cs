@@ -15,7 +15,8 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
 {
     private readonly ISeriesRepository _series;
 
-    public SeriesDetailViewModel(ISeriesRepository series, IBookRepository book) : base(book)
+    public SeriesDetailViewModel(ISeriesRepository series, IBookRepository book, IUserNotifier notifier)
+        : base(book, notifier)
     {
         _series = series;
     }
