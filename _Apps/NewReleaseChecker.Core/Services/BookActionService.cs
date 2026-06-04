@@ -1,5 +1,6 @@
 using NewReleaseChecker.Core.Abstractions;
 using NewReleaseChecker.Core.Models;
+using SQLite;
 
 namespace NewReleaseChecker.Core.Services;
 
@@ -41,9 +42,10 @@ public sealed class BookActionService
             b.Id = await _book.InsertAsync(b);
             return b;
         }
-        catch
+        catch (SQLiteException)
         {
-            // UNIQUE 競合等。読み直して既存があればそれを採用、無ければ再送出。
+            // UNIQUE 競合等の DB 例外のみ対象。読み直して既存があればそれを採用、無ければ再送出。
+            // （無関係な例外を握り潰さないよう SQLiteException に限定する）
             var raced = await _book.GetByItemNumberAsync(src.ItemNumber);
             if (raced is not null) return raced;
             throw;

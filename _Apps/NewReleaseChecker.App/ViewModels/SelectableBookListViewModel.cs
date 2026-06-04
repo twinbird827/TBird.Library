@@ -97,8 +97,13 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
     /// <remarks>各巻は逐次適用で原子的ではない。途中で例外が出た場合はそこまでの巻のみ反映され、エラー表示後に再読込する。</remarks>
     protected async Task ApplyToSelectedAsync(Action<Book> mutate, bool createIfMissing = true)
     {
+        // 付与系/解除系は別コマンド（AsyncRelayCommand）のため既定の単一コマンド再入抑止が効かず、
+        // 適用中に別系統ボタンを連打すると同一選択へ複数操作が重複適用されうる。再入ガードで防ぐ。
+        if (_isApplyingBulk) return;
+
         var targets = SelectionItems.Where(i => i.IsSelected).ToList();
         if (targets.Count == 0) { ResetSelection(); return; }
+        _isApplyingBulk = true;
         try
         {
             foreach (var item in targets)
@@ -112,8 +117,12 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
         catch (Exception ex) { MessageService.Exception(ex); }
         finally
         {
+            _isApplyingBulk = false;
             ResetSelection();
             await ReloadAsync();
         }
     }
+
+    /// <summary>一括適用中の再入ガード（UI バインドしないため非 ObservableProperty）。</summary>
+    private bool _isApplyingBulk;
 }
