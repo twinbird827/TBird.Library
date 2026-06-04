@@ -64,6 +64,11 @@ public sealed class NewReleaseCheckService
 
     private async Task<CheckSummary> CheckCoreAsync(CheckTrigger trigger, CancellationToken ct)
     {
+        // 方式C（遅延掃除）: 一括お気に入り→解除等で生じた孤児巻（SeriesId=NULL・全フラグ0）をチェック開始時に一括削除する。
+        // CheckAsync が _gate を保持済みのため、本サービスの INSERT と直列化され安全。
+        var deleted = await _book.DeleteOrphansAsync();
+        if (deleted > 0) MessageService.Info($"孤児巻を掃除: {deleted}件");
+
         var targets = await _series.GetCheckTargetsAsync(MaxSeriesPerWork);
         MessageService.Info($"新刊チェック開始: {trigger}, 対象={targets.Count}件");
 

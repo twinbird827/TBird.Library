@@ -68,6 +68,8 @@ public static class MauiProgram
 
         // --- ドメインサービス（共通チェック） ---
         s.AddSingleton<NewReleaseCheckService>();
+        // 非永続巻の SeriesId=NULL 永続化を集約（巻詳細・一括操作で共有。F-015）。
+        s.AddSingleton<BookActionService>();
 
         // --- ViewModels ---
         s.AddSingleton<SeriesListViewModel>();

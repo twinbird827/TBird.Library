@@ -23,4 +23,7 @@ public interface IBookRepository
 
     /// <summary>指定シリーズに属する全巻を削除（明示カスケード）。</summary>
     Task DeleteBySeriesAsync(int seriesId);
+
+    /// <summary>SeriesId=NULL かつ全ユーザーフラグ0 の孤児行を一括削除する（方式C: 遅延掃除）。削除件数を返す。</summary>
+    Task<int> DeleteOrphansAsync();
 }

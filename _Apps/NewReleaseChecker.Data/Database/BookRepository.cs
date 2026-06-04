@@ -80,4 +80,12 @@ public sealed class BookRepository : IBookRepository
         await _db.EnsureInitializedAsync();
         await _db.Connection.ExecuteAsync("DELETE FROM Book WHERE SeriesId=?", seriesId);
     }
+
+    public async Task<int> DeleteOrphansAsync()
+    {
+        await _db.EnsureInitializedAsync();
+        // SeriesId=NULL かつ全ユーザーフラグ0 の単発巻（発掘導線で一括お気に入り→解除した残骸等）を掃除する。
+        return await _db.Connection.ExecuteAsync(
+            "DELETE FROM Book WHERE SeriesId IS NULL AND IsPurchased=0 AND IsFavorite=0 AND IsCalendarRegistered=0 AND IsNewDetected=0");
+    }
 }

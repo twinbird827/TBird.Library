@@ -9,15 +9,13 @@ using TBird.Core;
 
 namespace NewReleaseChecker.App.ViewModels;
 
-/// <summary>お気に入り一覧（SCR-007 / F-010）。SeriesId=NULL の単発巻は「未追跡」と表示。</summary>
-public partial class FavoritesViewModel : ObservableObject
+/// <summary>お気に入り一覧（SCR-007 / F-010）。SeriesId=NULL の単発巻は「未追跡」と表示。一括選択（F-015）対応。</summary>
+public partial class FavoritesViewModel : SelectableBookListViewModel
 {
-    private readonly IBookRepository _book;
     private readonly ISeriesRepository _series;
 
-    public FavoritesViewModel(IBookRepository book, ISeriesRepository series)
+    public FavoritesViewModel(IBookRepository book, ISeriesRepository series) : base(book)
     {
-        _book = book;
         _series = series;
     }
 
@@ -48,7 +46,7 @@ public partial class FavoritesViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            _allFavorites = (await _book.GetFavoritesAsync()).ToList();
+            _allFavorites = (await BookRepo.GetFavoritesAsync()).ToList();
             _seriesNames = (await _series.GetAllAsync()).ToDictionary(x => x.Id, x => x.SeriesKey);
             ApplySortAndFilter();
         }
@@ -105,10 +103,21 @@ public partial class FavoritesViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmpty));
     }
 
-    [RelayCommand]
-    private async Task OpenBookAsync(BookListItem? item)
+    // ----- 一括選択（F-015）フック -----
+    protected override ObservableCollection<BookListItem> SelectionItems => Items;
+
+    protected override async Task<Book?> ResolveAsync(BookListItem item)
+        => item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
+
+    protected override Task ReloadAsync() => LoadAsync();
+
+    protected override async Task OpenBookAsync(BookListItem item)
     {
-        if (item?.BookId is not { } id) return;
+        if (item.BookId is not { } id) return;
         await Shell.Current.GoToAsync($"{Routes.BookDetail}?bookId={id}");
     }
+
+    [RelayCommand] private Task BulkPurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 1);
+    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0);
+    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0);
 }

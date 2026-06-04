@@ -1,5 +1,6 @@
 using NewReleaseChecker.Core.Abstractions;
 using NewReleaseChecker.Core.Models;
+using NewReleaseChecker.Core.Services;
 using NewReleaseChecker.App.Models;
 
 namespace NewReleaseChecker.App.ViewModels;
@@ -7,7 +8,8 @@ namespace NewReleaseChecker.App.ViewModels;
 /// <summary>ランキング（SCR-009 / F-011）。売れ筋順に表示。</summary>
 public sealed partial class RankingViewModel : ApiBrowseViewModel
 {
-    public RankingViewModel(IRakutenApiClient api) : base(api) { }
+    public RankingViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions)
+        : base(api, book, actions) { }
 
     protected override RakutenSearchQuery BuildQuery(string genreId) => new()
     {

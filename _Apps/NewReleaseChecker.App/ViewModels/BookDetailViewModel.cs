@@ -17,20 +17,19 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
 {
     private readonly IBookRepository _book;
     private readonly ICalendarService _calendar;
+    private readonly BookActionService _actions;
 
-    public BookDetailViewModel(IBookRepository book, ICalendarService calendar)
+    public BookDetailViewModel(IBookRepository book, ICalendarService calendar, BookActionService actions)
     {
         _book = book;
         _calendar = calendar;
+        _actions = actions;
     }
 
     private Book? _persisted;     // 永続巻（あれば）
     private RakutenBook? _source; // 非永続巻の元データ
-    private string? _itemNumber;
-    private string? _itemUrl;
-    private string? _isbn;
-    private string? _caption;
-    private DateTime? _releaseDate;
+    private string? _itemUrl;     // Kobo を開く（OpenKoboAsync）で使用
+    private DateTime? _releaseDate; // カレンダー登録（AddToCalendarAsync）で使用
 
     // ApplyQueryAttributes は同期 void だが内部のバインドは非同期。各操作コマンドはこの Task の完了を待ち、
     // バインド未完了のまま（_itemNumber 等が null の状態で）トグル操作が空振りするのを防ぐ。
@@ -79,10 +78,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     {
         _persisted = b;
         _source = null;
-        _itemNumber = b.ItemNumber;
         _itemUrl = b.ItemUrl;
-        _isbn = b.Isbn;
-        _caption = b.Caption;
         _releaseDate = ReleaseDateParser.Parse(b.ReleaseDate);
 
         Title = b.Title;
@@ -110,10 +106,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
 
         _source = rb;
         _persisted = null;
-        _itemNumber = rb.ItemNumber;
         _itemUrl = rb.ItemUrl;
-        _isbn = rb.Isbn;
-        _caption = rb.Caption;
         var iso = ReleaseDateParser.ToIso(rb.SalesDate);
         _releaseDate = ReleaseDateParser.Parse(iso);
 
@@ -132,34 +125,12 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
     }
 
     /// <summary>非永続巻なら DB に INSERT（SeriesId=NULL）。永続巻なら何もしない。</summary>
+    /// <remarks>INSERT-on-demand は <see cref="BookActionService.EnsurePersistedAsync"/> に集約済み（一括処理と共有）。</remarks>
     private async Task EnsurePersistedAsync()
     {
         if (_persisted is not null) return;
-        if (_itemNumber is null) return;
-
-        var existing = await _book.GetByItemNumberAsync(_itemNumber);
-        if (existing is not null)
-        {
-            _persisted = existing;
-            return;
-        }
-
-        var b = new Book
-        {
-            SeriesId = null,
-            ItemNumber = _itemNumber,
-            Isbn = _isbn,
-            Title = Title,
-            Author = string.IsNullOrEmpty(Author) ? null : Author,
-            Publisher = string.IsNullOrEmpty(Publisher) ? null : Publisher,
-            ReleaseDate = _releaseDate?.ToString("yyyy-MM-dd"),
-            ImageUrl = string.IsNullOrEmpty(ImageUrl) ? null : ImageUrl,
-            ItemUrl = _itemUrl,
-            Caption = _caption,
-            DetectedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
-        };
-        b.Id = await _book.InsertAsync(b);
-        _persisted = b;
+        if (_source is null) return;
+        _persisted = await _actions.EnsurePersistedAsync(_source);
     }
 
     [RelayCommand]

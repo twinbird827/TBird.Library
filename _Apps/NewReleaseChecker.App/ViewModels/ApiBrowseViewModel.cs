@@ -13,11 +13,17 @@ namespace NewReleaseChecker.App.ViewModels;
 /// 発売予定表（SCR-008）/ ランキング（SCR-009）の共通基底。
 /// タブ（ラノベ/コミック）＋ジャンル絞り込みで API を都度フェッチ（DB 未保存）。
 /// </summary>
-public abstract partial class ApiBrowseViewModel : ObservableObject
+public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
 {
     protected readonly IRakutenApiClient Api;
+    private readonly BookActionService _actions;
 
-    protected ApiBrowseViewModel(IRakutenApiClient api) => Api = api;
+    protected ApiBrowseViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions)
+        : base(book)
+    {
+        Api = api;
+        _actions = actions;
+    }
 
     public ObservableCollection<BookListItem> Items { get; } = new();
     public ObservableCollection<RakutenGenreNode> Genres { get; } = new();
@@ -128,10 +134,21 @@ public abstract partial class ApiBrowseViewModel : ObservableObject
         Rank = rank,
     };
 
-    [RelayCommand]
-    private async Task OpenBookAsync(BookListItem? item)
+    // ----- 一括選択（F-015）フック -----
+    protected override ObservableCollection<BookListItem> SelectionItems => Items;
+
+    protected override async Task<Book?> ResolveAsync(BookListItem item)
+        => item.Source is { } src ? await _actions.EnsurePersistedAsync(src)
+           : (item.BookId is { } id ? await BookRepo.GetAsync(id) : null);
+
+    protected override Task ReloadAsync() => Task.CompletedTask; // API 一覧は表示変化なし
+
+    protected override async Task OpenBookAsync(BookListItem item)
     {
-        if (item?.Source is not { } src) return;
+        if (item.Source is not { } src) return;
         await Shell.Current.GoToAsync(Routes.BookDetail, new Dictionary<string, object> { ["source"] = src });
     }
+
+    [RelayCommand] private Task BulkFavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 1);
+    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0);
 }

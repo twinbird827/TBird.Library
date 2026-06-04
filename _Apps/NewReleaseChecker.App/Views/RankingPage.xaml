@@ -4,7 +4,11 @@
              x:Class="NewReleaseChecker.App.Views.RankingPage"
              x:Name="Root"
              Title="ランキング">
-    <Grid RowDefinitions="Auto,*">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="選択" Command="{Binding EnterSelectionModeCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,*,Auto">
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Padding="10,6" ColumnSpacing="10">
             <Picker Grid.Column="0" Title="種別" WidthRequest="120" SelectedIndex="{Binding MediaTab}">
                 <Picker.ItemsSource>
@@ -21,16 +25,18 @@
         <CollectionView Grid.Row="1" ItemsSource="{Binding Items}" SelectionMode="None">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="10" ColumnDefinitions="32,48,*" ColumnSpacing="10">
+                    <Grid Padding="10" ColumnDefinitions="Auto,32,48,*" ColumnSpacing="10">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer
-                                Command="{Binding BindingContext.OpenBookCommand, Source={x:Reference Root}}"
+                                Command="{Binding BindingContext.RowTappedCommand, Source={x:Reference Root}}"
                                 CommandParameter="{Binding .}" />
                         </Grid.GestureRecognizers>
-                        <Label Grid.Column="0" Text="{Binding Rank}" FontAttributes="Bold" FontSize="16"
+                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" InputTransparent="True"
+                                  IsVisible="{Binding BindingContext.IsSelectionMode, Source={x:Reference Root}}" />
+                        <Label Grid.Column="1" Text="{Binding Rank}" FontAttributes="Bold" FontSize="16"
                                VerticalOptions="Center" HorizontalOptions="Center" />
-                        <Image Grid.Column="1" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="48" HeightRequest="68" />
-                        <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                        <Image Grid.Column="2" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="48" HeightRequest="68" />
+                        <VerticalStackLayout Grid.Column="3" Spacing="2" VerticalOptions="Center">
                             <Label Text="{Binding Title}" LineBreakMode="TailTruncation" />
                             <Label Text="{Binding Author}" FontSize="12" TextColor="{StaticResource Gray500}" />
                             <Label Text="{Binding Publisher}" FontSize="11" />
@@ -43,5 +49,15 @@
 
         <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                            VerticalOptions="Center" HorizontalOptions="Center" />
+
+        <!-- 一括操作バー（選択モード時のみ。F-015）。009=★追加/★解除 -->
+        <Grid Grid.Row="2" IsVisible="{Binding IsSelectionMode}" Padding="8" ColumnSpacing="8"
+              ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" BackgroundColor="{StaticResource Gray100}">
+            <Label  Grid.Column="0" VerticalOptions="Center" Text="{Binding SelectedCount, StringFormat='{0}件'}" />
+            <Button Grid.Column="1" Text="全選択" Command="{Binding SelectAllCommand}" />
+            <Button Grid.Column="3" Text="★追加" Command="{Binding BulkFavoriteCommand}" />
+            <Button Grid.Column="4" Text="★解除" Command="{Binding BulkUnfavoriteCommand}" />
+            <Button Grid.Column="5" Text="完了"  Command="{Binding ExitSelectionModeCommand}" />
+        </Grid>
     </Grid>
 </ContentPage>
