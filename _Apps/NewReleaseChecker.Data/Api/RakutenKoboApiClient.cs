@@ -25,6 +25,9 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
     // 1 シリーズキー検索で取得する最大ページ数（30 件/ページ）。長編シリーズの取りこぼし対策。
     private const int MaxPages = 4;
 
+    // 追跡キーのトークン区切り。半角スペースに加え、全角スペース(U+3000)・タブも区切りとして扱う。
+    private static readonly char[] KeywordSeparators = { ' ', '　', '\t' };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -40,6 +43,10 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
 
     public async Task<IReadOnlyList<RakutenBook>> SearchByKeywordAsync(string keyword, CancellationToken ct = default)
     {
+        // 追跡キーは半角スペース区切りで楽天APIの AND 検索（orFlag 既定=0）に乗せる。
+        // 全角スペースは区切りとして扱われないため半角へ畳み込み、連続空白・前後空白も除去する。
+        keyword = NormalizeKeyword(keyword);
+
         // 新刊・予約（＝最新の発売日）を確実に取得するため新しい順（-releaseDate）で取得する。
         // 古い順（+releaseDate）だと長編シリーズで最新巻が後方ページへ押し出され、MaxPages 打ち切りで取りこぼす。
         var all = new List<RakutenBook>();
@@ -126,6 +133,28 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
     };
 
     private static int ParseLevel(string? level) => int.TryParse(level, out var n) ? n : 0;
+
+    /// <summary>
+    /// 追跡キーを楽天Kobo検索APIの keyword 仕様に合わせて正規化する。
+    /// 半角/全角スペース・タブで分割し、連続空白・前後空白を畳み込んで半角スペース 1 個区切りに統一する
+    /// （これにより複数語が orFlag 既定=0 の AND 検索に乗る）。
+    /// 楽天APIは1文字キーワードを 400（"keyword parameter is not valid"）で弾くため、複数トークン時は
+    /// 1文字トークンを除外する。ただし全トークンが1文字（除外すると空になる）なら、検索不能を避けるため
+    /// そのまま渡す。
+    /// </summary>
+    private static string NormalizeKeyword(string keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword)) return string.Empty;
+
+        var tokens = keyword.Split(KeywordSeparators, StringSplitOptions.RemoveEmptyEntries);
+
+        if (tokens.Length > 1)
+        {
+            var kept = tokens.Where(t => t.Length >= 2).ToArray();
+            if (kept.Length > 0) tokens = kept;
+        }
+        return string.Join(' ', tokens);
+    }
 
     /// <summary>
     /// 中継サーバーへ渡す検索パラメータ JSON を組み立てる（キー名・値は楽天Kobo電子書籍検索APIと 1:1 対応）。
