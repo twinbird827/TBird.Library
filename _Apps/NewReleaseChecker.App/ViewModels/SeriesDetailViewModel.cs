@@ -103,7 +103,9 @@ public partial class SeriesDetailViewModel : ObservableObject
     {
         if (_model is null) return;
         var result = await Shell.Current.DisplayPromptAsync(
-            "追跡キー編集", "シリーズ名（追跡キー）を編集します。", initialValue: _model.SeriesKey);
+            "追跡キー編集",
+            "シリーズ名（追跡キー）を編集します。\n半角スペースで区切ると、すべての語を含む巻だけを対象にします（AND検索）。",
+            initialValue: _model.SeriesKey);
         if (string.IsNullOrWhiteSpace(result)) return;
 
         _model.SeriesKey = result.Trim();

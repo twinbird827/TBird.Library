@@ -8,6 +8,8 @@
             <VerticalStackLayout Spacing="12">
                 <Label Text="シリーズ名（追跡キー）" FontAttributes="Bold" />
                 <Entry Text="{Binding SeriesKey}" Placeholder="シリーズ名" />
+                <Label Text="半角スペースで区切ると、すべての語を含む巻だけを対象にします（AND検索）。"
+                       FontSize="11" TextColor="{StaticResource Gray500}" />
 
                 <Label Text="種別" FontAttributes="Bold" />
                 <Picker SelectedIndex="{Binding MediaTab}">
