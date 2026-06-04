@@ -64,7 +64,16 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
     }
 
     public async Task<IReadOnlyList<RakutenBook>> SearchAsync(RakutenSearchQuery query, CancellationToken ct = default)
-        => (await SearchRawAsync(query, ct)).Items;
+    {
+        // フリーテキストのキーワード検索（シリーズ検索画面 F-001）も追跡キー検索と挙動を揃え、半角スペース区切りで
+        // 楽天APIの AND 検索（orFlag 既定=0）へ乗せる。全角スペース・連続空白の畳み込み、複数語時の1文字トークン除外も共通。
+        // ジャンルのみの検索（発売予定表・ランキング）は Keyword 未指定のため影響しない。
+        if (!string.IsNullOrEmpty(query.Keyword))
+        {
+            query = query with { Keyword = NormalizeKeyword(query.Keyword) };
+        }
+        return (await SearchRawAsync(query, ct)).Items;
+    }
 
     /// <summary>検索を実行し、商品リストと応答の総ページ数（pageCount）を返す。</summary>
     private async Task<(IReadOnlyList<RakutenBook> Items, int PageCount)> SearchRawAsync(
@@ -135,7 +144,7 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
     private static int ParseLevel(string? level) => int.TryParse(level, out var n) ? n : 0;
 
     /// <summary>
-    /// 追跡キーを楽天Kobo検索APIの keyword 仕様に合わせて正規化する。
+    /// 検索キーワード（追跡キー・フリーテキスト検索の双方）を楽天Kobo検索APIの keyword 仕様に合わせて正規化する。
     /// 半角/全角スペース・タブで分割し、連続空白・前後空白を畳み込んで半角スペース 1 個区切りに統一する
     /// （これにより複数語が orFlag 既定=0 の AND 検索に乗る）。
     /// 楽天APIは1文字キーワードを 400（"keyword parameter is not valid"）で弾くため、複数トークン時は

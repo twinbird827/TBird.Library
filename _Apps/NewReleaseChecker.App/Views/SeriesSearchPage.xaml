@@ -4,8 +4,12 @@
              x:Class="NewReleaseChecker.App.Views.SeriesSearchPage"
              Title="シリーズ検索・登録">
     <Grid RowDefinitions="Auto,Auto,*" Padding="10" RowSpacing="8">
-        <SearchBar Grid.Row="0" Placeholder="タイトルで検索"
-                   Text="{Binding SearchKeyword}" SearchCommand="{Binding SearchCommand}" />
+        <VerticalStackLayout Grid.Row="0" Spacing="2">
+            <SearchBar Placeholder="タイトルで検索"
+                       Text="{Binding SearchKeyword}" SearchCommand="{Binding SearchCommand}" />
+            <Label Text="半角スペースで区切ると、すべての語を含む作品だけを検索します（AND検索）。"
+                   FontSize="11" TextColor="{StaticResource Gray500}" Margin="6,0,0,0" />
+        </VerticalStackLayout>
 
         <Border Grid.Row="1" BackgroundColor="#FDECEA" Padding="10" StrokeShape="RoundRectangle 6"
                 IsVisible="{Binding HasError}">
