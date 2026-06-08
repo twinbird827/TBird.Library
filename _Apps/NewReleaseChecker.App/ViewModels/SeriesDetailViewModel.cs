@@ -9,17 +9,16 @@ using TBird.Core;
 
 namespace NewReleaseChecker.App.ViewModels;
 
-/// <summary>シリーズ詳細（SCR-005 / F-006）。情報＋所属全巻を表示。</summary>
+/// <summary>シリーズ詳細（SCR-005 / F-006）。情報＋所属全巻を表示。一括選択（F-015）対応。</summary>
 [QueryProperty(nameof(SeriesId), "seriesId")]
-public partial class SeriesDetailViewModel : ObservableObject
+public partial class SeriesDetailViewModel : SelectableBookListViewModel
 {
     private readonly ISeriesRepository _series;
-    private readonly IBookRepository _book;
 
-    public SeriesDetailViewModel(ISeriesRepository series, IBookRepository book)
+    public SeriesDetailViewModel(ISeriesRepository series, IBookRepository book, IUserNotifier notifier)
+        : base(book, notifier)
     {
         _series = series;
-        _book = book;
     }
 
     public ObservableCollection<BookListItem> Books { get; } = new();
@@ -48,7 +47,7 @@ public partial class SeriesDetailViewModel : ObservableObject
             _model = await _series.GetAsync(SeriesId);
             if (_model is null) return;
 
-            var books = await _book.GetBySeriesAsync(SeriesId);
+            var books = await BookRepo.GetBySeriesAsync(SeriesId);
             var now = DateTime.Now;
 
             SeriesKey = _model.SeriesKey;
@@ -77,6 +76,7 @@ public partial class SeriesDetailViewModel : ObservableObject
                     ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate),
                     SeriesName = _model.SeriesKey,
                     IsPurchased = b.IsPurchased == 1,
+                    IsFavorite = b.IsFavorite == 1,
                     ShowCalendarBadge = future && b.IsCalendarRegistered == 0,
                 });
             }
@@ -88,15 +88,27 @@ public partial class SeriesDetailViewModel : ObservableObject
         finally
         {
             _isLoading = false;
+            NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
         }
     }
 
-    [RelayCommand]
-    private async Task OpenBookAsync(BookListItem? item)
+    // ----- 一括選択（F-015）フック -----
+    protected override ObservableCollection<BookListItem> SelectionItems => Books;
+
+    // シリーズ詳細の巻は常に永続（BookId あり）のため createIfMissing は不問。
+    protected override async Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing)
+        => item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
+
+    protected override Task ReloadAsync() => LoadAsync();
+
+    protected override async Task OpenBookAsync(BookListItem item)
     {
-        if (item?.BookId is not { } id) return;
+        if (item.BookId is not { } id) return;
         await Shell.Current.GoToAsync($"{Routes.BookDetail}?bookId={id}");
     }
+
+    [RelayCommand] private Task BulkPurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 1);
+    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0, createIfMissing: false);
 
     [RelayCommand]
     private async Task EditSeriesKeyAsync()
@@ -121,7 +133,7 @@ public partial class SeriesDetailViewModel : ObservableObject
             $"「{_model.SeriesKey}」と紐づく全巻を削除します。よろしいですか？", "削除", "キャンセル");
         if (!ok) return;
 
-        await _book.DeleteBySeriesAsync(SeriesId);
+        await BookRepo.DeleteBySeriesAsync(SeriesId);
         await _series.DeleteAsync(SeriesId);
         await Shell.Current.GoToAsync("..");
     }

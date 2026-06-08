@@ -13,11 +13,17 @@ namespace NewReleaseChecker.App.ViewModels;
 /// 発売予定表（SCR-008）/ ランキング（SCR-009）の共通基底。
 /// タブ（ラノベ/コミック）＋ジャンル絞り込みで API を都度フェッチ（DB 未保存）。
 /// </summary>
-public abstract partial class ApiBrowseViewModel : ObservableObject
+public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
 {
     protected readonly IRakutenApiClient Api;
+    private readonly BookActionService _actions;
 
-    protected ApiBrowseViewModel(IRakutenApiClient api) => Api = api;
+    protected ApiBrowseViewModel(IRakutenApiClient api, IBookRepository book, BookActionService actions, IUserNotifier notifier)
+        : base(book, notifier)
+    {
+        Api = api;
+        _actions = actions;
+    }
 
     public ObservableCollection<BookListItem> Items { get; } = new();
     public ObservableCollection<RakutenGenreNode> Genres { get; } = new();
@@ -77,6 +83,9 @@ public abstract partial class ApiBrowseViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
+        // タブ/ジャンル変更で一覧を作り直すため、選択モードが残っていれば解除する（件数/ラベルの陳腐化防止）。
+        if (IsSelectionMode) ResetSelection();
+
         _loadCts?.Cancel();
         var cts = new CancellationTokenSource();
         _loadCts = cts;
@@ -95,6 +104,8 @@ public abstract partial class ApiBrowseViewModel : ObservableObject
                 Items.Add(ToItem(rb, rank));
                 rank++;
             }
+            // 非永続巻のため、表示後に DB のお気に入り状態を照合して★を反映する（最新読込のみ）。
+            if (_loadCts == cts) await RefreshFavoriteFlagsAsync();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -108,6 +119,7 @@ public abstract partial class ApiBrowseViewModel : ObservableObject
             {
                 IsBusy = false;
                 OnPropertyChanged(nameof(IsEmpty));
+                NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
             }
         }
     }
@@ -128,10 +140,37 @@ public abstract partial class ApiBrowseViewModel : ObservableObject
         Rank = rank,
     };
 
-    [RelayCommand]
-    private async Task OpenBookAsync(BookListItem? item)
+    // ----- 一括選択（F-015）フック -----
+    protected override ObservableCollection<BookListItem> SelectionItems => Items;
+
+    protected override async Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing)
     {
-        if (item?.Source is not { } src) return;
+        if (item.Source is { } src)
+            // 付与系は必要なら永続化、解除系は既存巻のみ対象（未永続巻に無駄な孤児行を作らない）。
+            return createIfMissing
+                ? await _actions.EnsurePersistedAsync(src)
+                : await BookRepo.GetByItemNumberAsync(src.ItemNumber);
+        return item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
+    }
+
+    // API 一覧は再フェッチしないが、一括お気に入り操作後は★表示だけ DB 照合で更新する。
+    protected override Task ReloadAsync() => RefreshFavoriteFlagsAsync();
+
+    /// <summary>現在表示中の各巻について、DB のお気に入り状態を ItemNumber 照合で反映する（★表示の更新）。</summary>
+    private async Task RefreshFavoriteFlagsAsync()
+    {
+        var favorites = (await BookRepo.GetFavoritesAsync()).Select(b => b.ItemNumber).ToHashSet();
+        foreach (var it in Items)
+            if (it.Source is { } src) it.IsFavorite = favorites.Contains(src.ItemNumber);
+    }
+
+    protected override async Task OpenBookAsync(BookListItem item)
+    {
+        if (item.Source is not { } src) return;
         await Shell.Current.GoToAsync(Routes.BookDetail, new Dictionary<string, object> { ["source"] = src });
     }
+
+    // 付与系（★追加）は INSERT してでも対象化。解除系（★解除）は既存お気に入り巻のみ。
+    [RelayCommand] private Task BulkFavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 1);
+    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0, createIfMissing: false);
 }

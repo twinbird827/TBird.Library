@@ -2,7 +2,7 @@ using NewReleaseChecker.App.ViewModels;
 
 namespace NewReleaseChecker.App.Views;
 
-public partial class SeriesDetailPage : ContentPage
+public partial class SeriesDetailPage : SelectableBookListPage
 {
     private readonly SeriesDetailViewModel _vm;
 

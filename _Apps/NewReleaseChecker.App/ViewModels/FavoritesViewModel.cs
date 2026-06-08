@@ -9,15 +9,14 @@ using TBird.Core;
 
 namespace NewReleaseChecker.App.ViewModels;
 
-/// <summary>お気に入り一覧（SCR-007 / F-010）。SeriesId=NULL の単発巻は「未追跡」と表示。</summary>
-public partial class FavoritesViewModel : ObservableObject
+/// <summary>お気に入り一覧（SCR-007 / F-010）。SeriesId=NULL の単発巻は「未追跡」と表示。一括選択（F-015）対応。</summary>
+public partial class FavoritesViewModel : SelectableBookListViewModel
 {
-    private readonly IBookRepository _book;
     private readonly ISeriesRepository _series;
 
-    public FavoritesViewModel(IBookRepository book, ISeriesRepository series)
+    public FavoritesViewModel(IBookRepository book, ISeriesRepository series, IUserNotifier notifier)
+        : base(book, notifier)
     {
-        _book = book;
         _series = series;
     }
 
@@ -48,7 +47,7 @@ public partial class FavoritesViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            _allFavorites = (await _book.GetFavoritesAsync()).ToList();
+            _allFavorites = (await BookRepo.GetFavoritesAsync()).ToList();
             _seriesNames = (await _series.GetAllAsync()).ToDictionary(x => x.Id, x => x.SeriesKey);
             ApplySortAndFilter();
         }
@@ -66,6 +65,9 @@ public partial class FavoritesViewModel : ObservableObject
     /// <summary>キャッシュ済みお気に入りに現在の絞込/並替を適用して Items を差し替える。</summary>
     private void ApplySortAndFilter()
     {
+        // Items を作り直すため、選択モードが残っていれば解除する（件数/ラベルの陳腐化防止）。
+        if (IsSelectionMode) ResetSelection();
+
         var now = DateTime.Now;
 
         IEnumerable<Book> filtered = FilterOption switch
@@ -99,16 +101,37 @@ public partial class FavoritesViewModel : ObservableObject
                 ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate),
                 SeriesName = seriesName,
                 IsPurchased = b.IsPurchased == 1,
+                IsFavorite = b.IsFavorite == 1,
                 ShowCalendarBadge = future && b.IsCalendarRegistered == 0,
             });
         }
         OnPropertyChanged(nameof(IsEmpty));
+        NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
     }
 
-    [RelayCommand]
-    private async Task OpenBookAsync(BookListItem? item)
+    // ----- 一括選択（F-015）フック -----
+    protected override ObservableCollection<BookListItem> SelectionItems => Items;
+
+    // お気に入り一覧の巻は常に永続（BookId あり）のため createIfMissing は不問。
+    protected override async Task<Book?> ResolveAsync(BookListItem item, bool createIfMissing)
+        => item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
+
+    protected override Task ReloadAsync() => LoadAsync();
+
+    protected override async Task OpenBookAsync(BookListItem item)
     {
-        if (item?.BookId is not { } id) return;
+        if (item.BookId is not { } id) return;
         await Shell.Current.GoToAsync($"{Routes.BookDetail}?bookId={id}");
     }
+
+    [RelayCommand] private Task BulkPurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 1);
+    [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0, createIfMissing: false);
+    // シリーズ追跡中の巻（SeriesId あり）は★解除の対象外。解除すると再登録に巻詳細からの個別操作が要り手間なため、
+    // お気に入り一覧では未追跡の単発巻（SeriesId=NULL）のみ★解除可能とする（スキップ件数はトースト通知）。
+    [RelayCommand]
+    private Task BulkUnfavorite() => ApplyToSelectedAsync(
+        b => b.IsFavorite = 0,
+        createIfMissing: false,
+        canApply: b => b.SeriesId is null,
+        skipMessage: "シリーズ追跡中の{0}件は★解除をスキップしました");
 }
