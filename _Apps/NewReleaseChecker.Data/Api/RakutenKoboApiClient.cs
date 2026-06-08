@@ -41,7 +41,7 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
         _rateLimiter = rateLimiter;
     }
 
-    public async Task<IReadOnlyList<RakutenBook>> SearchByKeywordAsync(string keyword, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RakutenBook>> SearchByKeywordAsync(string keyword, string? koboGenreId = null, string? ngKeyword = null, CancellationToken ct = default)
     {
         // 追跡キーは半角スペース区切りで楽天APIの AND 検索（orFlag 既定=0）に乗せる。
         // 全角スペースは区切りとして扱われないため半角へ畳み込み、連続空白・前後空白も除去する。
@@ -54,7 +54,7 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
         for (int page = 1; page <= MaxPages && page <= totalPages; page++)
         {
             var (items, pageCount) = await SearchRawAsync(
-                new RakutenSearchQuery { Keyword = keyword, Sort = "-releaseDate", Hits = 30, Page = page }, ct);
+                new RakutenSearchQuery { Keyword = keyword, KoboGenreId = koboGenreId, NGKeyword = ngKeyword, Sort = "-releaseDate", Hits = 30, Page = page }, ct);
             all.AddRange(items);
             // 応答の総ページ数で無駄なページ取得（レート制限下では各 1 秒以上）を抑える。
             if (pageCount > 0) totalPages = pageCount;
@@ -178,6 +178,7 @@ public sealed class RakutenKoboApiClient : IRakutenApiClient
         if (!string.IsNullOrEmpty(q.Author)) body["author"] = q.Author;
         if (!string.IsNullOrEmpty(q.PublisherName)) body["publisherName"] = q.PublisherName;
         if (!string.IsNullOrEmpty(q.KoboGenreId)) body["koboGenreId"] = q.KoboGenreId;
+        if (!string.IsNullOrEmpty(q.NGKeyword)) body["NGKeyword"] = q.NGKeyword;
         if (!string.IsNullOrEmpty(q.Sort)) body["sort"] = q.Sort;
         if (q.SalesType is { } st) body["salesType"] = st;
         body["hits"] = q.Hits;
