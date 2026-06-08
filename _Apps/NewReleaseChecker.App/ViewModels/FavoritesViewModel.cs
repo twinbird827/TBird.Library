@@ -101,6 +101,7 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
                 ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate),
                 SeriesName = seriesName,
                 IsPurchased = b.IsPurchased == 1,
+                IsFavorite = b.IsFavorite == 1,
                 ShowCalendarBadge = future && b.IsCalendarRegistered == 0,
             });
         }

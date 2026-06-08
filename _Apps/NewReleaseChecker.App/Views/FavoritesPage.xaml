@@ -56,6 +56,7 @@
                             <Label Text="{Binding ReleaseDisplay}" FontSize="11" />
                         </VerticalStackLayout>
                         <VerticalStackLayout Grid.Column="3" Spacing="4" VerticalOptions="Center">
+                            <Label Text="★" FontSize="14" TextColor="#F5A623" HorizontalOptions="End" IsVisible="{Binding IsFavorite}" />
                             <Label Text="購入済" FontSize="11" TextColor="{StaticResource Primary}" IsVisible="{Binding IsPurchased}" />
                             <Label Text="カレンダー未登録" FontSize="10" TextColor="#856404" IsVisible="{Binding ShowCalendarBadge}" />
                         </VerticalStackLayout>

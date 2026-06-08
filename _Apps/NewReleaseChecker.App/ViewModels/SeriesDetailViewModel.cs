@@ -76,6 +76,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
                     ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate),
                     SeriesName = _model.SeriesKey,
                     IsPurchased = b.IsPurchased == 1,
+                    IsFavorite = b.IsFavorite == 1,
                     ShowCalendarBadge = future && b.IsCalendarRegistered == 0,
                 });
             }

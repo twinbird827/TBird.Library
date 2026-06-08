@@ -104,6 +104,8 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
                 Items.Add(ToItem(rb, rank));
                 rank++;
             }
+            // 非永続巻のため、表示後に DB のお気に入り状態を照合して★を反映する（最新読込のみ）。
+            if (_loadCts == cts) await RefreshFavoriteFlagsAsync();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -151,7 +153,16 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
         return item.BookId is { } id ? await BookRepo.GetAsync(id) : null;
     }
 
-    protected override Task ReloadAsync() => Task.CompletedTask; // API 一覧は表示変化なし
+    // API 一覧は再フェッチしないが、一括お気に入り操作後は★表示だけ DB 照合で更新する。
+    protected override Task ReloadAsync() => RefreshFavoriteFlagsAsync();
+
+    /// <summary>現在表示中の各巻について、DB のお気に入り状態を ItemNumber 照合で反映する（★表示の更新）。</summary>
+    private async Task RefreshFavoriteFlagsAsync()
+    {
+        var favorites = (await BookRepo.GetFavoritesAsync()).Select(b => b.ItemNumber).ToHashSet();
+        foreach (var it in Items)
+            if (it.Source is { } src) it.IsFavorite = favorites.Contains(src.ItemNumber);
+    }
 
     protected override async Task OpenBookAsync(BookListItem item)
     {

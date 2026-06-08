@@ -42,7 +42,7 @@
                         </VerticalStackLayout>
                         <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
                             <Label Text="購入済" FontSize="11" TextColor="{StaticResource Primary}" IsVisible="{Binding IsPurchased}" />
-                            <Label Text="★" FontSize="14" TextColor="#F5A623" />
+                            <Label Text="★" FontSize="14" TextColor="#F5A623" IsVisible="{Binding IsFavorite}" />
                         </HorizontalStackLayout>
                     </Grid>
                 </DataTemplate>

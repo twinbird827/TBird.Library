@@ -26,7 +26,7 @@
         <CollectionView Grid.Row="1" ItemsSource="{Binding Items}" SelectionMode="None">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="10" ColumnDefinitions="Auto,48,*" ColumnSpacing="10">
+                    <Grid Padding="10" ColumnDefinitions="Auto,48,*,Auto" ColumnSpacing="10">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer
                                 Command="{Binding BindingContext.RowTappedCommand, Source={x:Reference Root}}"
@@ -41,6 +41,8 @@
                             <Label Text="{Binding Publisher}" FontSize="11" />
                             <Label Text="{Binding ReleaseDisplay}" FontSize="11" />
                         </VerticalStackLayout>
+                        <Label Grid.Column="3" Text="★" FontSize="14" TextColor="#F5A623"
+                               VerticalOptions="Center" IsVisible="{Binding IsFavorite}" />
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
