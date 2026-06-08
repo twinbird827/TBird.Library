@@ -6,7 +6,7 @@
              x:Name="Root"
              Title="発売予定">
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="選択" Command="{Binding EnterSelectionModeCommand}" />
+        <ToolbarItem Text="{Binding SelectionToggleLabel}" Command="{Binding ToggleSelectionModeCommand}" />
     </ContentPage.ToolbarItems>
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -49,14 +49,13 @@
         <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                            VerticalOptions="Center" HorizontalOptions="Center" />
 
-        <!-- 一括操作バー（選択モード時のみ。F-015）。008=★追加/★解除 -->
+        <!-- 一括操作バー（選択モード時のみ。F-015）。008=★追加/★解除。選択解除はツールバーの「一覧」で行う -->
         <Grid Grid.Row="2" IsVisible="{Binding IsSelectionMode}" Padding="8" ColumnSpacing="8"
-              ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" BackgroundColor="{StaticResource Gray100}">
+              ColumnDefinitions="Auto,Auto,*,Auto,Auto" BackgroundColor="{StaticResource Gray100}">
             <Label  Grid.Column="0" VerticalOptions="Center" Text="{Binding SelectedCount, StringFormat='{0}件'}" />
             <Button Grid.Column="1" Text="{Binding SelectAllLabel}" Command="{Binding SelectAllCommand}" />
             <Button Grid.Column="3" Text="★追加" Command="{Binding BulkFavoriteCommand}" />
             <Button Grid.Column="4" Text="★解除" Command="{Binding BulkUnfavoriteCommand}" />
-            <Button Grid.Column="5" Text="完了"  Command="{Binding ExitSelectionModeCommand}" />
         </Grid>
     </Grid>
 </views:SelectableBookListPage>

@@ -125,5 +125,12 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
 
     [RelayCommand] private Task BulkPurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 1);
     [RelayCommand] private Task BulkUnpurchase() => ApplyToSelectedAsync(b => b.IsPurchased = 0, createIfMissing: false);
-    [RelayCommand] private Task BulkUnfavorite() => ApplyToSelectedAsync(b => b.IsFavorite = 0, createIfMissing: false);
+    // シリーズ追跡中の巻（SeriesId あり）は★解除の対象外。解除すると再登録に巻詳細からの個別操作が要り手間なため、
+    // お気に入り一覧では未追跡の単発巻（SeriesId=NULL）のみ★解除可能とする（スキップ件数はトースト通知）。
+    [RelayCommand]
+    private Task BulkUnfavorite() => ApplyToSelectedAsync(
+        b => b.IsFavorite = 0,
+        createIfMissing: false,
+        canApply: b => b.SeriesId is null,
+        skipMessage: "シリーズ追跡中の{0}件は★解除をスキップしました");
 }

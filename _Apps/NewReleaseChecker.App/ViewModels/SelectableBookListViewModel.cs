@@ -26,8 +26,15 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
         _notifier = notifier;
     }
 
-    [ObservableProperty] private bool _isSelectionMode;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectionToggleLabel))]
+    [NotifyCanExecuteChangedFor(nameof(ToggleSelectionModeCommand))]
+    private bool _isSelectionMode;
+
     [ObservableProperty] private int _selectedCount;
+
+    /// <summary>選択モードの開始/解除を兼ねるツールバーボタンの表示文言（通常時「選択」⇄選択中「一覧」）。</summary>
+    public string SelectionToggleLabel => IsSelectionMode ? "一覧" : "選択";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectAllLabel))]
@@ -52,14 +59,22 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
     /// <summary>通常タップ時の遷移（各 VM の巻詳細遷移）。</summary>
     protected abstract Task OpenBookAsync(BookListItem item);
 
-    [RelayCommand(CanExecute = nameof(CanEnterSelectionMode))]
-    private void EnterSelectionMode() => IsSelectionMode = true;
+    /// <summary>
+    /// ツールバーボタン：通常時は選択モード開始、選択モード中は解除（一覧へ戻る）。
+    /// 1つのボタンで開始/解除を兼ねる（専用の「完了」ボタンは置かない。F-015）。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanToggleSelectionMode))]
+    private void ToggleSelectionMode()
+    {
+        if (IsSelectionMode) ResetSelection();
+        else IsSelectionMode = true;
+    }
 
-    /// <summary>選択開始は対象が1件以上ある時のみ可能（空一覧では「選択」を無効化）。</summary>
-    private bool CanEnterSelectionMode() => SelectionItems.Count > 0;
+    /// <summary>開始は対象が1件以上ある時のみ可能（空一覧では無効化）、解除は常に可能。</summary>
+    private bool CanToggleSelectionMode() => IsSelectionMode || SelectionItems.Count > 0;
 
     /// <summary>一覧の再構築後に呼び、選択開始可否（空一覧での無効化）を再評価する（F-015）。</summary>
-    protected void NotifyListChanged() => EnterSelectionModeCommand.NotifyCanExecuteChanged();
+    protected void NotifyListChanged() => ToggleSelectionModeCommand.NotifyCanExecuteChanged();
 
     [RelayCommand] private void ExitSelectionMode() => ResetSelection();
 
@@ -104,11 +119,12 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 選択巻に mutate を適用：解決→mutate→UpdateFlags→再読込→モード解除。
+    /// 選択巻に mutate を適用：解決→（適用可否判定）→mutate→UpdateFlags→再読込→モード解除。
     /// <paramref name="createIfMissing"/>=true（付与系）は未永続巻を必要なら INSERT、false（解除系）は既存巻のみ対象。
+    /// <paramref name="canApply"/> が指定されると false の巻は適用せずスキップし、件数を <paramref name="skipMessage"/>（{0}=件数）で通知する。
     /// </summary>
     /// <remarks>各巻は逐次適用で原子的ではない。失敗した巻はスキップして残りを継続適用し、失敗件数を再読込後にトースト表示する。</remarks>
-    protected async Task ApplyToSelectedAsync(Action<Book> mutate, bool createIfMissing = true)
+    protected async Task ApplyToSelectedAsync(Action<Book> mutate, bool createIfMissing = true, Func<Book, bool>? canApply = null, string? skipMessage = null)
     {
         // 付与系/解除系は別コマンド（AsyncRelayCommand）のため既定の単一コマンド再入抑止が効かず、
         // 適用中に別系統ボタンを連打すると同一選択へ複数操作が重複適用されうる。再入ガードで防ぐ。
@@ -118,6 +134,7 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
         if (targets.Count == 0) { ResetSelection(); return; }
         _isApplyingBulk = true;
         var failCount = 0;
+        var skipCount = 0;
         try
         {
             foreach (var item in targets)
@@ -127,6 +144,7 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
                 {
                     var b = await ResolveAsync(item, createIfMissing);
                     if (b is null) continue;
+                    if (canApply is not null && !canApply(b)) { skipCount++; continue; }
                     mutate(b);
                     await BookRepo.UpdateFlagsAsync(b);
                 }
@@ -144,6 +162,8 @@ public abstract partial class SelectableBookListViewModel : ObservableObject
             await ReloadAsync();
             // 前景の手動操作なので、失敗があればユーザーにもトーストで知らせる（無言の部分適用を避ける。要件 §6.7）。
             if (failCount > 0) await _notifier.ShowToastAsync($"一括操作中に{failCount}件失敗しました");
+            // 適用対象外でスキップした巻も、無言で取りこぼしたように見えないよう件数を通知する。
+            else if (skipCount > 0 && skipMessage is not null) await _notifier.ShowToastAsync(string.Format(skipMessage, skipCount));
         }
     }
 
