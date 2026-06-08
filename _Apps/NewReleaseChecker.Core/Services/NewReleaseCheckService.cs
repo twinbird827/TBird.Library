@@ -81,6 +81,9 @@ public sealed class NewReleaseCheckService
         MessageService.Info($"新刊チェック開始: {trigger}, 対象={targets.Count}件");
 
         var excludes = _prefs.ExcludeKeywords;
+        // 除外キーワードは API の NGKeyword でも前段除外する（分冊版等が 120 件枠を埋めて旧刊を押し出すのを防ぐ）。
+        // クライアント側 ContainsExcludeKeyword はタイトル限定の安全網として残す（NGKeyword は本文等にも当たり得るため）。
+        var ngKeyword = string.Join(' ', excludes);
         var now = DateTime.Now;
         var nowIso = now.ToString("yyyy-MM-ddTHH:mm:ss");
         var reservations = new List<(Book Book, Series Series)>();
@@ -98,7 +101,9 @@ public sealed class NewReleaseCheckService
             try
             {
                 var registeredSet = AuthorNormalizer.ParseStored(s.AuthorSet);
-                var candidates = await _api.SearchByKeywordAsync(s.SeriesKey, ct);
+                // メディア種別のジャンル（ラノベ/コミック）に絞り込んで検索する。本編と別ジャンルのコミカライズを
+                // 弁別し、かつ大量の別ジャンル分冊版で 120 件枠が埋まって旧刊が取りこぼされるのを防ぐ（§3.2.1）。
+                var candidates = await _api.SearchByKeywordAsync(s.SeriesKey, MediaType.ToKoboGenreId(s.MediaType), ngKeyword, ct);
 
                 foreach (var c in candidates)
                 {
@@ -183,13 +188,16 @@ public sealed class NewReleaseCheckService
         var seriesId = await _series.InsertAsync(series);
 
         var excludes = _prefs.ExcludeKeywords;
+        var ngKeyword = string.Join(' ', excludes); // チェック時と同様、分冊版等を API 段階でも除外する。
         try
         {
             // 既刊収集も ItemNumber 一括取得で N+1 を避ける（INSERT 分は辞書へ反映）。
             var existingByItemNumber = (await _book.GetAllAsync())
                 .ToDictionary(b => b.ItemNumber, StringComparer.Ordinal);
 
-            var candidates = await _api.SearchByKeywordAsync(reg.SeriesKey, ct);
+            // メディア種別のジャンルに絞り込んで既刊収集する（チェック時と同条件＝§3.2.1）。
+            var candidates = await _api.SearchByKeywordAsync(reg.SeriesKey, MediaType.ToKoboGenreId(reg.MediaType), ngKeyword, ct);
+
             foreach (var c in candidates)
             {
                 if (ContainsExcludeKeyword(c.Title, excludes)) continue;

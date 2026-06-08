@@ -11,6 +11,9 @@ public sealed record RakutenSearchQuery
     /// <summary>ジャンル絞り込み（koboGenreId）。</summary>
     public string? KoboGenreId { get; init; }
 
+    /// <summary>除外キーワード（NGKeyword）。検索結果からこのキーワードを含む商品を除外する。半角スペース区切りで複数可。</summary>
+    public string? NGKeyword { get; init; }
+
     /// <summary>"standard" / "+releaseDate" / "-releaseDate" / "sales" など。</summary>
     public string? Sort { get; init; }
 
