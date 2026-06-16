@@ -1,10 +1,6 @@
 using Android.Content;
 using AndroidX.Work;
-using LanobeReader.Helpers;
 using TBird.Core;
-using LanobeReader.Models;
-using LanobeReader.Services;
-using LanobeReader.Services.Database;
 
 namespace LanobeReader.Platforms.Android;
 
@@ -20,50 +16,15 @@ public class UpdateCheckWorker : Worker
     {
         try
         {
-            var services = IPlatformApplication.Current?.Services;
-            if (services is null)
+            // Worker threads have no SynchronizationContext, so blocking on Task.Run is safe here.
+            // 実処理は前面サービス経路と共通の UpdateCheckRunner に集約。
+            var outcome = Task.Run(() => UpdateCheckRunner.RunAsync(ApplicationContext)).GetAwaiter().GetResult();
+            return outcome switch
             {
-                // MainApplication 初期化完了前に Worker が起動した可能性。
-                // Retry で WorkManager のバックオフに任せる（次回はプロセスが暖まっている見込み）。
-                MessageService.Warn("IPlatformApplication.Current is null, retry later");
-                return Result.InvokeRetry();
-            }
-
-            var dbService = services.GetService<DatabaseService>();
-            var novelRepo = services.GetService<NovelRepository>();
-            var episodeRepo = services.GetService<EpisodeRepository>();
-            var updateCheckService = services.GetService<UpdateCheckService>();
-
-            if (dbService is null || novelRepo is null || episodeRepo is null || updateCheckService is null)
-            {
-                MessageService.Error("Failed to resolve services");
-                return Result.InvokeFailure();
-            }
-
-            // Ensure DB is initialized (Worker may run before app startup completes)
-            dbService.EnsureInitializedAsync().GetAwaiter().GetResult();
-
-            // Worker threads have no SynchronizationContext, so blocking on Task.Run is safe here
-            var updates = Task.Run(() => updateCheckService.CheckAllAsync()).GetAwaiter().GetResult();
-
-            foreach (var (novel, newCount) in updates)
-            {
-                // Get first unread episode for deep link
-                var firstUnread = Task.Run(() => episodeRepo.GetFirstUnreadEpisodeAsync(novel.Id)).GetAwaiter().GetResult();
-                var episodeId = firstUnread?.Id ?? 0;
-
-                NotificationHelper.ShowUpdateNotification(
-                    ApplicationContext,
-                    novel.Id, // Use novel ID as notification ID
-                    "ラノベリーダ",
-                    $"{novel.Title}: {newCount}話更新",
-                    novel.Id,
-                    episodeId,
-                    novel.SiteType,
-                    novel.NovelId);
-            }
-
-            return Result.InvokeSuccess();
+                UpdateCheckRunner.Outcome.Retry => Result.InvokeRetry(),
+                UpdateCheckRunner.Outcome.Failure => Result.InvokeFailure(),
+                _ => Result.InvokeSuccess(),
+            };
         }
         catch (Exception ex)
         {

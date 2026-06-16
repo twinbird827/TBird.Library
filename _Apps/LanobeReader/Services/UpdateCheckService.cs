@@ -37,9 +37,10 @@ public class UpdateCheckService
 
         try
         {
-            var novels = await _novelRepo.GetAllAsync().ConfigureAwait(false);
+            // 「最後にチェックした時刻が古い順(未チェック=null 優先)」で回す。3分上限(shortService)
+            // 等で打ち切られても、次回が続きから拾える (ラウンドロビン) ようにするため。
+            var novels = await _novelRepo.GetAllForCheckAsync().ConfigureAwait(false);
             var updates = new List<(Novel, int)>();
-            var failedIds = new HashSet<int>();
 
             foreach (var novel in novels)
             {
@@ -49,6 +50,7 @@ public class UpdateCheckService
                 // ユーザがアプリを開かない限り更新追跡から脱落する問題があったため (H-2)。
                 // 通知は notificationId=novel.Id で上書き表示されるため重複通知にはならない。
 
+                var cancelled = false;
                 try
                 {
                     var service = _serviceFactory.GetService((SiteType)novel.SiteType);
@@ -77,7 +79,6 @@ public class UpdateCheckService
                             {
                                 novel.Author = author;
                             }
-                            await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
 
                             updates.Add((novel, newEpisodes.Count));
 
@@ -99,21 +100,29 @@ public class UpdateCheckService
                             }
                         }
                     }
-                }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-                {
-                    MessageService.Warn($"Failed to check {novel.Title}: {ex.Message}");
-                    novel.HasCheckError = true;
-                    await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
-                    failedIds.Add(novel.Id);
-                    continue;
-                }
-            }
 
-            // Reset error flags on success
-            foreach (var novel in novels.Where(n => n.HasCheckError && !failedIds.Contains(n.Id)))
-            {
-                novel.HasCheckError = false;
+                    novel.HasCheckError = false; // 成功時はエラーフラグを解除
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+                {
+                    if (ct.IsCancellationRequested)
+                    {
+                        // 打ち切り(3分上限等)。この作品は LastCheckedAt を更新せず、
+                        // 次回この作品から再開できるようにループを抜ける。
+                        cancelled = true;
+                    }
+                    else
+                    {
+                        MessageService.Warn($"Failed to check {novel.Title}: {ex.Message}");
+                        novel.HasCheckError = true;
+                    }
+                }
+
+                if (cancelled) break;
+
+                // 成功・失敗いずれも LastCheckedAt を更新して 1 回だけ永続化し、
+                // ラウンドロビンを前進させる(失敗作品も後ろへ回し、特定作品で詰まらせない)。
+                novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
                 await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
             }
 

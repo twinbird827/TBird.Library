@@ -26,6 +26,7 @@ public class DatabaseService : SqliteDatabaseBase
         // 2. 既存カラム追加（新規カラムの後方互換）
         await EnsureColumnAsync(conn, "novels", "is_favorite", "INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "novels", "favorited_at", "TEXT NULL").ConfigureAwait(false);
+        await EnsureColumnAsync(conn, "novels", "last_checked_at", "TEXT NULL").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "episodes", "is_favorite", "INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "episodes", "favorited_at", "TEXT NULL").ConfigureAwait(false);
 

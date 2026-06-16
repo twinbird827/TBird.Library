@@ -41,8 +41,9 @@ public class MainActivity : MauiAppCompatActivity
 
                 if (services is null)
                 {
-                    MessageService.Warn("DI not ready in OnCreate; scheduling with default interval");
-                    UpdateCheckScheduler.SchedulePeriodicCheck(ctx);
+                    MessageService.Warn("DI not ready in OnCreate; scheduling with cached interval");
+                    // WorkManager とアラームを同一のキャッシュ間隔で武装し、両機構の間隔不一致を防ぐ。
+                    UpdateSchedulingCoordinator.ArmBothFromCache(ctx);
                     return;
                 }
 
@@ -50,7 +51,7 @@ public class MainActivity : MauiAppCompatActivity
                 var settingsRepo = services.GetService<AppSettingsRepository>();
                 if (dbService is null || settingsRepo is null)
                 {
-                    UpdateCheckScheduler.SchedulePeriodicCheck(ctx);
+                    UpdateSchedulingCoordinator.ArmBothFromCache(ctx);
                     return;
                 }
 
@@ -71,15 +72,47 @@ public class MainActivity : MauiAppCompatActivity
                     await settingsRepo.SetValueAsync(
                         SettingsKeys.LAST_SCHEDULED_HOURS, hours.ToString()).ConfigureAwait(false);
                 }
+
+                // アラームは毎起動で再武装（冪等・自己修復）。同一 PendingIntent を上書きするだけ。
+                UpdateAlarmScheduler.ScheduleNext(ctx, hours);
             }
             catch (Exception ex)
             {
                 MessageService.Warn($"Schedule worker failed: {ex.Message}");
-                try { UpdateCheckScheduler.SchedulePeriodicCheck(ctx); } catch { /* 諦める */ }
+                // 最終フォールバックは耐障害性を優先し、片方の失敗でもう片方を巻き込まないよう
+                // 各機構を独立 try で武装する（このため Coordinator.ArmBoth は経由しない）。
+                var cached = UpdateAlarmScheduler.GetCachedIntervalHours();
+                try { UpdateCheckScheduler.SchedulePeriodicCheck(ctx, cached); } catch { /* 諦める */ }
+                try { UpdateAlarmScheduler.ScheduleNext(ctx, cached); } catch { /* 諦める */ }
             }
         });
 
         HandleIntent(Intent);
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+
+        // 前面化を記録。以降 UpdateNotificationService は前面中の通知投稿を抑止し、
+        // 直下の CancelAll(バッジクリア)と前面通知が打ち消し合う競合を防ぐ。
+        AppForegroundTracker.SetForeground(true);
+
+        // 新着バッジ(ランチャーアイコンのドット)はアクティブな通知に紐づく Android 仕様のため、
+        // アプリを前面化した時点で通知をクリアしてバッジを消す。
+        // = 「新着があったらアプリを開くまではバッジを維持」を実現する。
+        try { NotificationHelper.CancelAll(this); }
+        catch (Exception ex) { MessageService.Warn($"CancelAll failed: {ex.Message}"); }
+
+        // 電池最適化の除外を一度だけ依頼(OEM 実機でのバックグラウンド更新の信頼性向上)。
+        BatteryOptimizationHelper.PromptOnceIfNeeded(this);
+    }
+
+    protected override void OnPause()
+    {
+        base.OnPause();
+        // 背面化を記録。背面中はバックグラウンド更新通知の投稿を許可する。
+        AppForegroundTracker.SetForeground(false);
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -100,12 +133,16 @@ public class MainActivity : MauiAppCompatActivity
             var siteType = intent.GetIntExtra("siteType", 1);
             var siteNovelId = intent.GetStringExtra("siteNovelId") ?? "";
 
-            if (novelId > 0 && episodeId > 0)
+            if (novelId > 0)
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.GoToAsync(
-                        $"reader?novelId={novelId}&episodeId={episodeId}&siteType={siteType}&siteNovelId={siteNovelId}");
+                    // 未読話が解決できた場合はリーダーへ直行。解決できない(episodeId<=0)場合でも
+                    // 無反応にせず、その小説の話一覧へ遷移してユーザの意図(=その小説を開く)を満たす。
+                    var route = episodeId > 0
+                        ? $"reader?novelId={novelId}&episodeId={episodeId}&siteType={siteType}&siteNovelId={siteNovelId}"
+                        : $"episodes?novelId={novelId}";
+                    await Shell.Current.GoToAsync(route);
                 });
             }
         }

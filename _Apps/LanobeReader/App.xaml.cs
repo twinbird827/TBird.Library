@@ -14,6 +14,7 @@ public partial class App : Application
     private readonly NovelRepository _novelRepo;
     private readonly UpdateCheckService _updateCheckService;
     private readonly PrefetchService _prefetchService;
+    private readonly IUpdateNotificationService _notifier;
 
     public App(
         DatabaseService dbService,
@@ -21,7 +22,8 @@ public partial class App : Application
         EpisodeCacheRepository cacheRepo,
         NovelRepository novelRepo,
         UpdateCheckService updateCheckService,
-        PrefetchService prefetchService)
+        PrefetchService prefetchService,
+        IUpdateNotificationService notifier)
     {
         InitializeComponent();
 
@@ -31,6 +33,7 @@ public partial class App : Application
         _novelRepo = novelRepo;
         _updateCheckService = updateCheckService;
         _prefetchService = prefetchService;
+        _notifier = notifier;
 
         // Global exception handler
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
@@ -107,7 +110,13 @@ public partial class App : Application
     {
         try
         {
-            await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
+            // 起動時チェックは新着を DB へ取り込み、アプリ内一覧の NEW 表示を最新化する。
+            // ShowUpdatesAsync は前面中（IsForeground）はシステム通知を抑止するため、通常の
+            // コールドスタート（OnResume で前面確定済み）では通知は出ない＝ユーザは一覧で新着を見る。
+            // 初期化中にアプリが背面化した稀なケースのみ、ここで通知が出る。
+            // バックグラウンド検出時の確実な通知は WorkManager / アラーム経路が担う。
+            var updates = await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
+            await _notifier.ShowUpdatesAsync(updates).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

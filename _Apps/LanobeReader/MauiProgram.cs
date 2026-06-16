@@ -81,6 +81,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<INovelServiceFactory, NovelServiceFactory>();
         builder.Services.AddSingleton<UpdateCheckService>();
 
+        // 新着通知 / 定期スケジュールの Android 実装。フォアグラウンド(App.xaml.cs)・
+        // バックグラウンド(UpdateCheckWorker)・設定変更(SettingsViewModel)から共通利用する。
+        builder.Services.AddSingleton<IUpdateNotificationService, UpdateNotificationService>();
+        builder.Services.AddSingleton<IUpdateScheduler, AndroidUpdateScheduler>();
+
         // NotificationPermissionService<PostNotificationsPermission>: コンストラクタ引数 4 つを
         // ファクトリで渡す。タイトル / 本文 / ボタン文言は現行 LanobeReader のローカライズ済テキスト。
         builder.Services.AddSingleton(sp =>

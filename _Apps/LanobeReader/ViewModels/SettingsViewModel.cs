@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
 using TBird.Core;
 using TBird.Maui.ViewModels;
+using LanobeReader.Services;
 using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
@@ -11,12 +12,14 @@ public partial class SettingsViewModel : ErrorAwareViewModel
 {
     private readonly AppSettingsRepository _settingsRepo;
     private readonly EpisodeCacheRepository _cacheRepo;
+    private readonly IUpdateScheduler _scheduler;
     private bool _isInitializing;
 
-    public SettingsViewModel(AppSettingsRepository settingsRepo, EpisodeCacheRepository cacheRepo)
+    public SettingsViewModel(AppSettingsRepository settingsRepo, EpisodeCacheRepository cacheRepo, IUpdateScheduler scheduler)
     {
         _settingsRepo = settingsRepo;
         _cacheRepo = cacheRepo;
+        _scheduler = scheduler;
     }
 
     [ObservableProperty]
@@ -75,38 +78,83 @@ public partial class SettingsViewModel : ErrorAwareViewModel
     }
 
     private readonly Dictionary<string, CancellationTokenSource> _debounceCts = new();
+    private readonly object _debounceLock = new();
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(400);
 
-    private void DebounceSave(string key, string value)
+    /// <summary>
+    /// キーごとに最新の操作のみを <see cref="DebounceDelay"/> 後に実行する共通デバウンス。
+    /// 各 CancellationTokenSource は「待機中トークンと競合する Cancel 直後の Dispose」を避けるため、
+    /// 自身の継続(finally)でのみ破棄する。辞書アクセスは _debounceLock で直列化(スレッド安全)。
+    /// </summary>
+    /// <param name="userErrorMessage">非 null のとき、失敗時に UI へエラー表示する。</param>
+    private void Debounce(string key, Func<Task> action, string? userErrorMessage = null)
     {
         if (_isInitializing) return;
-        if (_debounceCts.TryGetValue(key, out var oldCts))
+
+        CancellationTokenSource cts;
+        lock (_debounceLock)
         {
-            oldCts.Cancel();
-            oldCts.Dispose();
+            if (_debounceCts.TryGetValue(key, out var oldCts))
+            {
+                oldCts.Cancel();
+            }
+            cts = new CancellationTokenSource();
+            _debounceCts[key] = cts;
         }
-        var cts = new CancellationTokenSource();
-        _debounceCts[key] = cts;
+
         _ = Task.Run(async () =>
         {
             try
             {
                 await Task.Delay(DebounceDelay, cts.Token).ConfigureAwait(false);
-                await _settingsRepo.SetValueAsync(key, value).ConfigureAwait(false);
+                await action().ConfigureAwait(false);
             }
-            catch (TaskCanceledException) { /* 新しい変更が来た */ }
+            catch (OperationCanceledException) { /* 新しい変更が来た */ }
             catch (Exception ex)
             {
-                MessageService.Warn($"DebounceSave failed: {ex.Message}");
-                // Task.Run 経由のためバインディング更新は UI スレッドへ戻す
-                MainThread.BeginInvokeOnMainThread(() =>
-                    SetError($"設定の保存に失敗しました: {ex.Message}"));
+                MessageService.Warn($"Debounce[{key}] failed: {ex.Message}");
+                if (userErrorMessage is not null)
+                {
+                    // Task.Run 経由のためバインディング更新は UI スレッドへ戻す
+                    MainThread.BeginInvokeOnMainThread(() =>
+                        SetError($"{userErrorMessage}: {ex.Message}"));
+                }
+            }
+            finally
+            {
+                lock (_debounceLock)
+                {
+                    // 自分がまだ最新エントリなら辞書から外す(以後この破棄済み CTS への Cancel を防ぐ)。
+                    // 既に置き換え済みなら最新を残す。どちらでも自分自身の破棄は安全。
+                    if (_debounceCts.TryGetValue(key, out var cur) && ReferenceEquals(cur, cts))
+                    {
+                        _debounceCts.Remove(key);
+                    }
+                }
+                cts.Dispose();
             }
         });
     }
 
+    private void DebounceSave(string key, string value)
+        => Debounce(key, () => _settingsRepo.SetValueAsync(key, value), "設定の保存に失敗しました");
+
     partial void OnCacheMonthsChanged(int value)       => DebounceSave(SettingsKeys.CACHE_MONTHS, value.ToString());
-    partial void OnUpdateIntervalHoursChanged(int value) => DebounceSave(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString());
+
+    partial void OnUpdateIntervalHoursChanged(int value)
+    {
+        DebounceSave(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString());
+        // 間隔変更を即時に WorkManager / アラームへ反映する。従来は次回アプリ起動時の差分チェック
+        // (MainActivity) まで反映されず「設定を変えても効かない」状態だった。
+        Debounce("__reschedule_interval", async () =>
+        {
+            _scheduler.Schedule(value);
+            // MainActivity の差分チェックと整合させ、次回起動時の二重スケジュールを防ぐ。
+            await _settingsRepo.SetValueAsync(SettingsKeys.LAST_SCHEDULED_HOURS, value.ToString()).ConfigureAwait(false);
+            MessageService.Info($"Rescheduled update check to {value}h from settings");
+        });
+    }
+
     partial void OnFontSizeSpChanged(int value)        => DebounceSave(SettingsKeys.FONT_SIZE_SP, value.ToString());
     partial void OnBackgroundThemeChanged(int value)   => DebounceSave(SettingsKeys.BACKGROUND_THEME, value.ToString());
     partial void OnLineSpacingChanged(int value)       => DebounceSave(SettingsKeys.LINE_SPACING, value.ToString());

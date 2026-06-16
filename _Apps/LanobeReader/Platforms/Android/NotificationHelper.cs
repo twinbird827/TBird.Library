@@ -37,7 +37,7 @@ public static class NotificationHelper
 	}
 
 	public static void ShowUpdateNotification(Context context, int notificationId, string title, string body,
-		int novelId, int episodeId, int siteType, string siteNovelId)
+		int novelId, int episodeId, int siteType, string siteNovelId, int badgeNumber = 0)
 	{
 		if (!HasNotificationPermission(context)) return;
 
@@ -52,15 +52,32 @@ public static class NotificationHelper
 			context, notificationId, intent,
 			PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
 
-		var notification = new NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)!
+		var builder = new NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)!
 			.SetSmallIcon(global::Android.Resource.Drawable.IcDialogInfo)!
 			.SetContentTitle(title)!
 			.SetContentText(body)!
+			// dismissible: ユーザがスワイプで消せる。タップで開いた場合も自動で消える。
+			// アプリ前面化時(MainActivity.OnResume)にも CancelAll でクリアし、バッジ(通知ドット)を消す。
+			// ※通知をスワイプで消すとバッジも消えるのは Android 仕様(バッジは通知に紐づく)。
 			.SetAutoCancel(true)!
 			.SetContentIntent(pendingIntent)!
-			.SetPriority(NotificationCompat.PriorityDefault)!
-			.Build();
+			.SetPriority(NotificationCompat.PriorityDefault)!;
 
-		NotificationManagerCompat.From(context)?.Notify(notificationId, notification!);
+		// OEM ランチャー(Samsung/Xiaomi 等)向けに数字バッジを設定。0 のときは点(ドット)のみ。
+		if (badgeNumber > 0)
+		{
+			builder.SetNumber(badgeNumber);
+		}
+
+		NotificationManagerCompat.From(context)?.Notify(notificationId, builder.Build()!);
+	}
+
+	/// <summary>
+	/// 全ての新着通知をクリアする(=ランチャーアイコンのバッジも消える)。
+	/// 「アプリを開くまでバッジを維持」を実現するため、アプリ前面化時に呼ぶ。
+	/// </summary>
+	public static void CancelAll(Context context)
+	{
+		NotificationManagerCompat.From(context)?.CancelAll();
 	}
 }
