@@ -24,6 +24,24 @@ public static class UpdateAlarmScheduler
     // 受信側(Receiver/BootReceiver)が DB 非依存で間隔を取得するための Preferences ミラー。
     public const string IntervalPrefKey = "alarm_interval_hours";
 
+    /// <summary>
+    /// 次回発火までの実効間隔(ミリ秒)。Release は設定間隔そのもの。DEBUG では短縮上書きを反映。
+    /// アラームの発火時刻と冗長発火ゲートの窓を「同じ間隔」で算出するため一元化している。
+    /// </summary>
+    internal static long GetEffectiveIntervalMs(int intervalHours)
+    {
+        if (intervalHours <= 0) intervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS;
+        var ms = (long)intervalHours * 3600_000L;
+#if DEBUG
+        // 実機テスト用: 間隔を分単位に短縮（Release では未参照）。
+        if (DebugSchedulingConfig.AlarmOverrideMinutes > 0)
+        {
+            ms = (long)DebugSchedulingConfig.AlarmOverrideMinutes * 60_000L;
+        }
+#endif
+        return ms;
+    }
+
     public static void ScheduleNext(Context context, int intervalHours)
     {
         if (intervalHours <= 0) intervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS;
@@ -33,15 +51,15 @@ public static class UpdateAlarmScheduler
         if (am is null) return;
 
         var pi = BuildPendingIntent(context);
-        var triggerAt = Java.Lang.JavaSystem.CurrentTimeMillis() + (long)intervalHours * 3600_000L;
+        // 実効間隔(DEBUG 短縮上書きを含む)は GetEffectiveIntervalMs に一元化。ログもこの結果から
+        // 導出し、上書きロジックを二重評価して表示値が実値と乖離するのを防ぐ。
+        var effectiveMs = GetEffectiveIntervalMs(intervalHours);
+        var triggerAt = Java.Lang.JavaSystem.CurrentTimeMillis() + effectiveMs;
 
 #if DEBUG
-        // 実機テスト用: 間隔を分単位に短縮（Release では未参照）。
         if (DebugSchedulingConfig.AlarmOverrideMinutes > 0)
         {
-            triggerAt = Java.Lang.JavaSystem.CurrentTimeMillis()
-                + (long)DebugSchedulingConfig.AlarmOverrideMinutes * 60_000L;
-            MessageService.Info($"[DEBUG] Alarm override: firing in {DebugSchedulingConfig.AlarmOverrideMinutes} min");
+            MessageService.Info($"[DEBUG] Alarm override active: firing in ~{effectiveMs / 60_000L} min");
         }
 #endif
 
@@ -72,6 +90,22 @@ public static class UpdateAlarmScheduler
     /// </summary>
     public static int GetCachedIntervalHours()
         => Preferences.Get(IntervalPrefKey, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
+
+    /// <summary>
+    /// アラーム発火時、直近に(いずれかの経路で)チェックが完了済みなら冗長な FGS 起動を省くべきか返す。
+    /// WorkManager 定期が健全に動いている間はアラームを真のバックストップに留め、毎周期の常駐通知・
+    /// 端末ウェイク・電池消費を避ける狙い。閾値は「実効間隔の半分」とし、これより新しい完了が
+    /// あれば冗長とみなす。Doze 等で WorkManager が滞ると最終完了時刻が古くなりゲートを通過する。
+    /// 完了時刻の記録は全経路の合流点 UpdateCheckService.CheckAllAsync が一元的に行う
+    /// (SettingsKeys.LAST_CHECK_COMPLETED_MS)。
+    /// </summary>
+    public static bool ShouldSkipRedundantCheck()
+    {
+        var last = Preferences.Get(SettingsKeys.LAST_CHECK_COMPLETED_MS, 0L);
+        if (last <= 0L) return false; // 完了履歴が無ければ必ず実行する。
+        var elapsed = Java.Lang.JavaSystem.CurrentTimeMillis() - last;
+        return elapsed >= 0 && elapsed < GetEffectiveIntervalMs(GetCachedIntervalHours()) / 2;
+    }
 
     public static void Cancel(Context context)
     {

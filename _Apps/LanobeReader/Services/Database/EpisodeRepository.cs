@@ -114,6 +114,53 @@ public class EpisodeRepository
             .FirstOrDefaultAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 複数小説のディープリンク先エピソード Id をまとめて解決する。各小説につき
+    /// 「最初の未読話(最小 episode_no)」、未読が無ければ「最後に読んだ話(最大 episode_no)」。
+    /// 通知ループでの作品ごと逐次クエリ(最大 2×N 往復)を 2 クエリに集約する。戻り値は novelId -> episodeId。
+    /// 該当話が無い小説はキーを持たない(呼び出し側で 0 フォールバック)。
+    /// </summary>
+    public async Task<Dictionary<int, int>> GetDeepLinkTargetEpisodeIdsAsync(IReadOnlyList<int> novelIds)
+    {
+        var result = new Dictionary<int, int>();
+        if (novelIds.Count == 0) return result;
+        await EnsureAsync().ConfigureAwait(false);
+
+        var placeholders = string.Join(",", novelIds.Select(_ => "?"));
+        var args = novelIds.Cast<object>().ToArray();
+
+        // 各小説の最初の未読話(最小 episode_no)。
+        var firstUnread = await _db.QueryAsync<EpisodeRef>(
+            $"SELECT e.novel_id AS NovelId, e.id AS Id FROM episodes e " +
+            $"WHERE e.is_read = 0 AND e.novel_id IN ({placeholders}) " +
+            $"AND e.episode_no = (SELECT MIN(episode_no) FROM episodes " +
+            $"WHERE novel_id = e.novel_id AND is_read = 0)",
+            args).ConfigureAwait(false);
+        foreach (var r in firstUnread) result[r.NovelId] = r.Id;
+
+        // 未読が無い小説は最後に読んだ話(最大 episode_no)へフォールバック。
+        var remaining = novelIds.Where(id => !result.ContainsKey(id)).ToList();
+        if (remaining.Count > 0)
+        {
+            var ph2 = string.Join(",", remaining.Select(_ => "?"));
+            var args2 = remaining.Cast<object>().ToArray();
+            var lastRead = await _db.QueryAsync<EpisodeRef>(
+                $"SELECT e.novel_id AS NovelId, e.id AS Id FROM episodes e " +
+                $"WHERE e.is_read = 1 AND e.novel_id IN ({ph2}) " +
+                $"AND e.episode_no = (SELECT MAX(episode_no) FROM episodes " +
+                $"WHERE novel_id = e.novel_id AND is_read = 1)",
+                args2).ConfigureAwait(false);
+            foreach (var r in lastRead) result[r.NovelId] = r.Id;
+        }
+        return result;
+    }
+
+    private sealed class EpisodeRef
+    {
+        public int NovelId { get; set; }
+        public int Id { get; set; }
+    }
+
     public async Task InsertAllAsync(IEnumerable<Episode> episodes)
     {
         await EnsureAsync().ConfigureAwait(false);

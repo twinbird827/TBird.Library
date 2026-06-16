@@ -1,6 +1,8 @@
+using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
+using Microsoft.Maui.Storage;
 using TBird.Core;
 using TBird.Maui.Background;
 
@@ -141,6 +143,14 @@ public class UpdateCheckService
                     await _novelRepo.UpdateLastCheckedAtAsync(novel.Id, novel.LastCheckedAt).ConfigureAwait(false);
                 }
             }
+
+            // いずれの経路(起動時/手動更新/WorkManager/前面サービス)でも、CheckAll を完遂したら
+            // 完了時刻(epoch ms)を記録する。アラームの冗長発火ゲート
+            // (UpdateAlarmScheduler.ShouldSkipRedundantCheck)が直近完了を参照し、健全運用時は
+            // アラームをバックストップに留める。記録を各呼び出し側に散らさず、全経路の唯一の合流点で
+            // ある CheckAllAsync に置くことで、新しい呼び出し経路でも記録漏れが起きない。
+            // (セマフォ獲得失敗時は早期 return しており、ここには到達しない=実チェック時のみ記録)。
+            Preferences.Set(SettingsKeys.LAST_CHECK_COMPLETED_MS, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
             return updates;
         }

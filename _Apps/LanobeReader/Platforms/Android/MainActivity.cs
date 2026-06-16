@@ -90,13 +90,12 @@ public class MainActivity : MauiAppCompatActivity
         HandleIntent(Intent);
     }
 
+    // 前面/背面の追跡は MainApplication が登録する ActivityForegroundCallbacks がアプリ全体の
+    // Activity ライフサイクル(Started/Stopped)から一元的に行う。個々の Activity では行わない。
+
     protected override void OnResume()
     {
         base.OnResume();
-
-        // 前面化を記録。以降 UpdateNotificationService は前面中の通知投稿を抑止し、
-        // 直下の CancelAll(バッジクリア)と前面通知が打ち消し合う競合を防ぐ。
-        AppForegroundTracker.SetForeground(true);
 
         // 新着バッジ(ランチャーアイコンのドット)はアクティブな通知に紐づく Android 仕様のため、
         // アプリを前面化した時点で通知をクリアしてバッジを消す。
@@ -106,13 +105,6 @@ public class MainActivity : MauiAppCompatActivity
 
         // 電池最適化の除外を一度だけ依頼(OEM 実機でのバックグラウンド更新の信頼性向上)。
         BatteryOptimizationHelper.PromptOnceIfNeeded(this);
-    }
-
-    protected override void OnPause()
-    {
-        base.OnPause();
-        // 背面化を記録。背面中はバックグラウンド更新通知の投稿を許可する。
-        AppForegroundTracker.SetForeground(false);
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -142,7 +134,23 @@ public class MainActivity : MauiAppCompatActivity
                     var route = episodeId > 0
                         ? $"reader?novelId={novelId}&episodeId={episodeId}&siteType={siteType}&siteNovelId={siteNovelId}"
                         : $"episodes?novelId={novelId}";
-                    await Shell.Current.GoToAsync(route);
+                    try
+                    {
+                        // コールドスタートの通知タップでは Shell 構築前にここへ到達しうる。async void 内の
+                        // NRE はプロセスを巻き込むため、null ガード + 握りつぶしでクラッシュを防ぐ。
+                        if (Shell.Current is not null)
+                        {
+                            await Shell.Current.GoToAsync(route);
+                        }
+                        else
+                        {
+                            MessageService.Warn("Shell.Current is null on notification tap; navigation skipped");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MessageService.Warn($"Notification deep-link navigation failed: {ex.Message}");
+                    }
                 });
             }
         }

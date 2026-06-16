@@ -66,6 +66,9 @@ public static class UpdateCheckRunner
         // 通知表示はフォアグラウンド経路(App.xaml.cs)と共通の IUpdateNotificationService に集約。
         var updates = await updateCheckService.CheckAllAsync(ct).ConfigureAwait(false);
         await notifier.ShowUpdatesAsync(updates).ConfigureAwait(false);
+
+        // 完了時刻の記録は UpdateCheckService.CheckAllAsync(全経路の合流点)へ一元化済み。
+        // ここで個別にマークすると経路ごとの記録漏れリスクが戻るため行わない。
         return Outcome.Success;
     }
 }

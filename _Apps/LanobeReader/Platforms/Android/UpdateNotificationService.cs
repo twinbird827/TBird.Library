@@ -35,22 +35,28 @@ public class UpdateNotificationService : IUpdateNotificationService
 		// OEM ランチャー(Samsung/Xiaomi 等)の数字バッジ用に「未確認更新を持つ小説数」を
 		// COUNT クエリで算出(全件ロードを避ける)。
 		var unconfirmedCount = await _novelRepo.CountUnconfirmedAsync().ConfigureAwait(false);
+		// 別クエリの COUNT は、挿入とこの COUNT の間に確認操作/CancelAll が走ると今回投稿する
+		// 通知数を下回りうる(0 になることも)。表示中の通知数を下回らないよう下限を担保する。
+		var badgeTotal = Math.Max(unconfirmedCount, updates.Count);
+
+		// ディープリンク先(各小説の最初の未読話、無ければ最後に読んだ話)を 1 度の集約クエリで解決。
+		// 作品ごとに 2 クエリを逐次発行する従来方式(最大 2×N 往復)を避ける。
+		var novelIds = updates.Select(u => u.novel.Id).ToList();
+		var targets = await _episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(novelIds).ConfigureAwait(false);
 
 		for (int i = 0; i < updates.Count; i++)
 		{
 			var (novel, newCount) = updates[i];
 			try
 			{
-				// ディープリンク先 = その小説の最初の未読話。未読が無ければ最後に読んだ話へ
-				// フォールバックし、タップが無反応になる事態を避ける。
-				var target = await _episodeRepo.GetFirstUnreadEpisodeAsync(novel.Id).ConfigureAwait(false)
-					?? await _episodeRepo.GetLastReadEpisodeAsync(novel.Id).ConfigureAwait(false);
-				var episodeId = target?.Id ?? 0;
+				// ディープリンク先 = その小説の最初の未読話(無ければ最後に読んだ話)。
+				// 解決できない場合は 0 とし、タップ時は話一覧へ遷移する(MainActivity 側)。
+				var episodeId = targets.TryGetValue(novel.Id, out var id) ? id : 0;
 
 				// 数字バッジは最後の 1 通にのみ総数を付ける。各通知に総数を付けると、通知ごとの
 				// number を合算する OEM ランチャーで「通知数 × 総数」に膨らむため。
 				// (合算式: 0+0+…+総数=総数 / 最大式: 総数 のどちらでも正しい値になる)
-				var badge = (i == updates.Count - 1) ? unconfirmedCount : 0;
+				var badge = (i == updates.Count - 1) ? badgeTotal : 0;
 
 				NotificationHelper.ShowUpdateNotification(
 					context,

@@ -37,7 +37,7 @@ public static class UpdateCheckScheduler
         MessageService.Info("Enqueued one-time update check (alarm)");
     }
 
-    public static void SchedulePeriodicCheck(Context context, int intervalHours = 6)
+    public static void SchedulePeriodicCheck(Context context, int intervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS)
     {
         var constraints = new Constraints.Builder()
             .SetRequiredNetworkType(NetworkType.Connected!)
