@@ -32,17 +32,35 @@ public class UpdateNotificationService : IUpdateNotificationService
 
 		var context = global::Android.App.Application.Context;
 
-		// OEM ランチャー(Samsung/Xiaomi 等)の数字バッジ用に「未確認更新を持つ小説数」を
-		// COUNT クエリで算出(全件ロードを避ける)。
-		var unconfirmedCount = await _novelRepo.CountUnconfirmedAsync().ConfigureAwait(false);
-		// 別クエリの COUNT は、挿入とこの COUNT の間に確認操作/CancelAll が走ると今回投稿する
-		// 通知数を下回りうる(0 になることも)。表示中の通知数を下回らないよう下限を担保する。
-		var badgeTotal = Math.Max(unconfirmedCount, updates.Count);
+		// バッジ数とディープリンク先を解決する。どちらも通知本体とは別物のため、ここでのクエリ失敗で
+		// 通知全体を止めない: バッジは表示中の通知数、遷移先は話一覧(episodeId=0)へフォールバックし、
+		// 通知だけは確実に投稿する。
+		int badgeTotal;
+		Dictionary<int, int> targets;
+		try
+		{
+			// OEM ランチャー(Samsung/Xiaomi 等)の数字バッジ用に「未確認更新を持つ小説数」を
+			// COUNT クエリで算出(全件ロードを避ける)。
+			var unconfirmedCount = await _novelRepo.CountUnconfirmedAsync().ConfigureAwait(false);
+			// 別クエリの COUNT は、挿入とこの COUNT の間に確認操作/CancelAll が走ると今回投稿する
+			// 通知数を下回りうる(0 になることも)。表示中の通知数を下回らないよう下限を担保する。
+			badgeTotal = Math.Max(unconfirmedCount, updates.Count);
 
-		// ディープリンク先(各小説の最初の未読話、無ければ最後に読んだ話)を 1 度の集約クエリで解決。
-		// 作品ごとに 2 クエリを逐次発行する従来方式(最大 2×N 往復)を避ける。
-		var novelIds = updates.Select(u => u.novel.Id).ToList();
-		var targets = await _episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(novelIds).ConfigureAwait(false);
+			// ディープリンク先(各小説の最初の未読話、無ければ最後に読んだ話)を 1 度の集約クエリで解決。
+			// 作品ごとに 2 クエリを逐次発行する従来方式(最大 2×N 往復)を避ける。
+			var novelIds = updates.Select(u => u.novel.Id).ToList();
+			targets = await _episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(novelIds).ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			MessageService.Warn($"Notification metadata resolution failed; using fallback: {ex.Message}");
+			badgeTotal = updates.Count;
+			targets = new Dictionary<int, int>();
+		}
+
+		// 上の await 中にアプリが前面化した場合、MainActivity.OnResume の CancelAll が既に走った後に
+		// 通知を投稿すると消えない通知が残る(冒頭の前面判定との TOCTOU)。投稿直前に再判定して中止する。
+		if (AppForegroundTracker.IsForeground) return;
 
 		for (int i = 0; i < updates.Count; i++)
 		{

@@ -32,14 +32,23 @@ public partial class NovelListViewModel : ErrorAwareViewModel
         _settingsRepo = settingsRepo;
         _updateCheckService = updateCheckService;
         _notificationPermission = notificationPermission;
+    }
 
-        // 背面チェックが前面滞在中に新着を検出した場合、システム通知は抑止されるため、ここで一覧を
-        // 再読込して NEW 表示へ即時反映する。WeakReferenceMessenger は弱参照のため画面破棄時に
-        // 自動回収され、購読解除は不要。手動更新中(IsLoading)は RefreshAsync 側が再読込するため抑止する。
+    /// <summary>
+    /// 背面チェックが前面滞在中に新着を検出した場合、システム通知は抑止されるため、一覧を再読込して
+    /// NEW 表示へ即時反映する購読を開始する。購読は画面の表示中のみ有効化する(NovelListPage の
+    /// OnAppearing/OnDisappearing で Subscribe/Unsubscribe)。この VM は AddTransient のため、購読を
+    /// コンストラクタに置くと画面遷移のたびにハンドラが積み上がり、非表示の旧 VM まで再読込してしまう。
+    /// </summary>
+    public void SubscribeToUpdates()
+    {
+        // OnAppearing が複数回呼ばれても二重登録例外にならないよう、登録前に必ず解除する。
+        WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
         WeakReferenceMessenger.Default.Register<UpdatesDetectedMessage>(this, (_, _) =>
         {
             if (IsLoading) return;
-            // Send は背面スレッドから呼ばれうるため UI スレッドへ戻す。
+            // Send は背面スレッドから呼ばれうるため UI スレッドへ戻す。手動更新中(IsLoading)は
+            // RefreshAsync 側が再読込するため抑止する。
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 if (IsLoading) return;
@@ -48,6 +57,10 @@ public partial class NovelListViewModel : ErrorAwareViewModel
             });
         });
     }
+
+    /// <summary>画面非表示時に購読を解除する(非表示中は次回 OnAppearing の再読込が NEW を反映する)。</summary>
+    public void UnsubscribeFromUpdates()
+        => WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
 
     [ObservableProperty]
     private ObservableCollection<NovelCardViewModel> _novels = [];

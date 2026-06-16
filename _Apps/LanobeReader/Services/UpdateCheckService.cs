@@ -47,6 +47,9 @@ public class UpdateCheckService
             // 全作品を回りきったかどうか。打ち切り(キャンセル/3分上限)で抜けた場合は false とし、
             // 完了時刻の記録(=アラームのバックストップ抑止)を行わない。
             var completedFullSweep = true;
+            // 1件以上を実際にチェックできたか。全件失敗(ネット断等)や空テーブルでの「完了」記録による
+            // アラーム冗長ゲートの無用な抑止を避けるため、完了時刻記録の条件に用いる。
+            var anySuccess = false;
 
             foreach (var novel in novels)
             {
@@ -58,7 +61,7 @@ public class UpdateCheckService
 
                 var cancelled = false;
                 var hadError = novel.HasCheckError;
-                var hasNewEpisodes = false;
+                var persisted = false;
                 try
                 {
                     var service = _serviceFactory.GetService((SiteType)novel.SiteType);
@@ -79,7 +82,6 @@ public class UpdateCheckService
                         {
                             await _episodeRepo.InsertAllAsync(newEpisodes).ConfigureAwait(false);
 
-                            hasNewEpisodes = true;
                             novel.TotalEpisodes = totalEpisodes;
                             novel.LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow.ToString("o");
                             novel.HasUnconfirmedUpdate = true;
@@ -88,6 +90,16 @@ public class UpdateCheckService
                             {
                                 novel.Author = author;
                             }
+                            novel.HasCheckError = false;
+
+                            // 挿入した episodes と novel メタデータ(HasUnconfirmedUpdate/TotalEpisodes 等)は
+                            // 一括で確定させる。永続化を後続(プリフェッチ enqueue / ループ末尾)へ遅延すると、
+                            // その窓でプロセスが kill / 3分上限で打ち切られた場合に episodes だけ commit され
+                            // novel 行が古いまま残り、次回 GetMaxEpisodeNoAsync が新 max を返すため新着が
+                            // 二度と再検出されない(NEW 喪失)。挿入直後に永続化して窓を最小化する。
+                            novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
+                            await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                            persisted = true;
 
                             updates.Add((novel, newEpisodes.Count));
 
@@ -133,19 +145,25 @@ public class UpdateCheckService
 
                 if (cancelled) { completedFullSweep = false; break; }
 
-                // 成功・失敗いずれも LastCheckedAt を更新して 1 回だけ永続化し、
-                // ラウンドロビンを前進させる(失敗作品も後ろへ回し、特定作品で詰まらせない)。
-                novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
-                if (hasNewEpisodes || novel.HasCheckError != hadError)
+                if (!persisted)
                 {
-                    // 本文(話数/著者等)やエラーフラグに変化があったときだけ全カラム更新。
-                    await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                    // 新着なし作品。成功・失敗いずれも LastCheckedAt を更新して 1 回だけ永続化し、
+                    // ラウンドロビンを前進させる(失敗作品も後ろへ回し、特定作品で詰まらせない)。
+                    // (新着あり作品は挿入直後に LastCheckedAt 込みで永続化済み = NEW 喪失防止)
+                    novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
+                    if (novel.HasCheckError != hadError)
+                    {
+                        // エラーフラグに変化があったときだけ全カラム更新。
+                        await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // 変化が無い大多数の作品は last_checked_at 列のみ更新し、毎チェックの書き込み量を抑える。
+                        await _novelRepo.UpdateLastCheckedAtAsync(novel.Id, novel.LastCheckedAt).ConfigureAwait(false);
+                    }
                 }
-                else
-                {
-                    // 変化が無い大多数の作品は last_checked_at 列のみ更新し、毎チェックの書き込み量を抑える。
-                    await _novelRepo.UpdateLastCheckedAtAsync(novel.Id, novel.LastCheckedAt).ConfigureAwait(false);
-                }
+
+                if (!novel.HasCheckError) anySuccess = true;
             }
 
             // いずれの経路(起動時/手動更新/WorkManager/前面サービス)でも、CheckAll を「全作品まで
@@ -156,7 +174,9 @@ public class UpdateCheckService
             // (セマフォ獲得失敗時は早期 return しており、ここには到達しない=実チェック時のみ記録)。
             // 打ち切り(3分上限/キャンセル)で未巡回分が残る場合は記録しない。完了済みと誤記録すると
             // 次回アラームが冗長判定でスキップされ、未巡回作品の通知が最大 interval/2 遅延するため。
-            if (completedFullSweep)
+            // さらに、全件失敗(ネット断等)や空テーブルで「完了」を記録すると、何も検証していないのに
+            // バックストップを抑止してしまう。実際に1件以上チェックできた(anySuccess)場合のみ記録する。
+            if (completedFullSweep && anySuccess)
             {
                 Preferences.Set(SettingsKeys.LAST_CHECK_COMPLETED_MS, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             }

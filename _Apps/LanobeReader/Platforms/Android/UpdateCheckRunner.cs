@@ -46,7 +46,14 @@ public static class UpdateCheckRunner
         // DB 初期化（アプリ起動完了前に走る可能性があるため明示）。
         await dbService.EnsureInitializedAsync().ConfigureAwait(false);
 
+        // 通知表示はフォアグラウンド経路(App.xaml.cs)と共通の IUpdateNotificationService に集約。
+        var updates = await updateCheckService.CheckAllAsync(ct).ConfigureAwait(false);
+        await notifier.ShowUpdatesAsync(updates).ConfigureAwait(false);
+
         // 権威ある DB の間隔値でアラームを再武装し、Preferences ミラーの drift を是正する。
+        // チェック「後」に行う: 受信側(UpdateAlarmReceiver)が発火直後にキャッシュ間隔で次回を再武装済みのため、
+        // ここでの再同期前にプロセスが kill されても次回アラームは確保されている。再同期をチェック前に置くと、
+        // kill 時に「次回が丸ごと1間隔先」へ押し出されるだけで近接リトライの機会を失う。
         var settingsRepo = services.GetService<AppSettingsRepository>();
         if (settingsRepo is not null)
         {
@@ -62,10 +69,6 @@ public static class UpdateCheckRunner
                 MessageService.Warn($"Alarm re-sync from DB failed: {ex.Message}");
             }
         }
-
-        // 通知表示はフォアグラウンド経路(App.xaml.cs)と共通の IUpdateNotificationService に集約。
-        var updates = await updateCheckService.CheckAllAsync(ct).ConfigureAwait(false);
-        await notifier.ShowUpdatesAsync(updates).ConfigureAwait(false);
 
         // 完了時刻の記録は UpdateCheckService.CheckAllAsync(全経路の合流点)へ一元化済み。
         // ここで個別にマークすると経路ごとの記録漏れリスクが戻るため行わない。
