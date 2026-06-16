@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using LanobeReader.Helpers;
 using LanobeReader.Platforms.Android;
 using LanobeReader.Services;
@@ -31,6 +32,21 @@ public partial class NovelListViewModel : ErrorAwareViewModel
         _settingsRepo = settingsRepo;
         _updateCheckService = updateCheckService;
         _notificationPermission = notificationPermission;
+
+        // 背面チェックが前面滞在中に新着を検出した場合、システム通知は抑止されるため、ここで一覧を
+        // 再読込して NEW 表示へ即時反映する。WeakReferenceMessenger は弱参照のため画面破棄時に
+        // 自動回収され、購読解除は不要。手動更新中(IsLoading)は RefreshAsync 側が再読込するため抑止する。
+        WeakReferenceMessenger.Default.Register<UpdatesDetectedMessage>(this, (_, _) =>
+        {
+            if (IsLoading) return;
+            // Send は背面スレッドから呼ばれうるため UI スレッドへ戻す。
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                if (IsLoading) return;
+                try { await LoadNovelsAsync(); }
+                catch (Exception ex) { MessageService.Warn($"Auto-reload on updates failed: {ex.Message}"); }
+            });
+        });
     }
 
     [ObservableProperty]
@@ -132,8 +148,11 @@ public partial class NovelListViewModel : ErrorAwareViewModel
             await _updateCheckService.CheckAllAsync();
             await LoadNovelsAsync();
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (Exception ex)
         {
+            // CheckAllAsync は作品単位のネットワーク/パース例外を内部で握りつぶすため、ここへ来るのは
+            // DB エラー等の中断級。HttpRequestException 系に絞ると DB 例外が async コマンドから
+            // 未観測のまま抜けてしまうため、全例外を捕捉してユーザへ通知する。
             MessageService.Warn($"Refresh failed: {ex.Message}");
             SetError("更新チェックに失敗しました");
         }

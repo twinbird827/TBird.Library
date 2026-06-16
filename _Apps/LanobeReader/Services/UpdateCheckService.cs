@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Background;
@@ -43,10 +44,13 @@ public class UpdateCheckService
             // 等で打ち切られても、次回が続きから拾える (ラウンドロビン) ようにするため。
             var novels = await _novelRepo.GetAllForCheckAsync().ConfigureAwait(false);
             var updates = new List<(Novel, int)>();
+            // 全作品を回りきったかどうか。打ち切り(キャンセル/3分上限)で抜けた場合は false とし、
+            // 完了時刻の記録(=アラームのバックストップ抑止)を行わない。
+            var completedFullSweep = true;
 
             foreach (var novel in novels)
             {
-                if (ct.IsCancellationRequested) break;
+                if (ct.IsCancellationRequested) { completedFullSweep = false; break; }
 
                 // 取得自体は常に行う。HasUnconfirmedUpdate=true の小説をスキップすると、
                 // ユーザがアプリを開かない限り更新追跡から脱落する問題があったため (H-2)。
@@ -127,7 +131,7 @@ public class UpdateCheckService
                     }
                 }
 
-                if (cancelled) break;
+                if (cancelled) { completedFullSweep = false; break; }
 
                 // 成功・失敗いずれも LastCheckedAt を更新して 1 回だけ永続化し、
                 // ラウンドロビンを前進させる(失敗作品も後ろへ回し、特定作品で詰まらせない)。
@@ -144,13 +148,26 @@ public class UpdateCheckService
                 }
             }
 
-            // いずれの経路(起動時/手動更新/WorkManager/前面サービス)でも、CheckAll を完遂したら
-            // 完了時刻(epoch ms)を記録する。アラームの冗長発火ゲート
+            // いずれの経路(起動時/手動更新/WorkManager/前面サービス)でも、CheckAll を「全作品まで
+            // 完遂したら」完了時刻(epoch ms)を記録する。アラームの冗長発火ゲート
             // (UpdateAlarmScheduler.ShouldSkipRedundantCheck)が直近完了を参照し、健全運用時は
             // アラームをバックストップに留める。記録を各呼び出し側に散らさず、全経路の唯一の合流点で
             // ある CheckAllAsync に置くことで、新しい呼び出し経路でも記録漏れが起きない。
             // (セマフォ獲得失敗時は早期 return しており、ここには到達しない=実チェック時のみ記録)。
-            Preferences.Set(SettingsKeys.LAST_CHECK_COMPLETED_MS, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            // 打ち切り(3分上限/キャンセル)で未巡回分が残る場合は記録しない。完了済みと誤記録すると
+            // 次回アラームが冗長判定でスキップされ、未巡回作品の通知が最大 interval/2 遅延するため。
+            if (completedFullSweep)
+            {
+                Preferences.Set(SettingsKeys.LAST_CHECK_COMPLETED_MS, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            }
+
+            // 新着を検出したら、前面に居る一覧画面へ即時再読込を促す。背面検出はシステム通知で気づけるが、
+            // 前面時は通知が抑止される(CancelAll 競合回避)ため、ここで通知しないと手動更新まで NEW が
+            // 見えない窓が残る。受信側は弱参照のため購読解除不要。手動更新中は受信側が IsLoading で抑止する。
+            if (updates.Count > 0)
+            {
+                WeakReferenceMessenger.Default.Send(new UpdatesDetectedMessage(updates.Count));
+            }
 
             return updates;
         }
