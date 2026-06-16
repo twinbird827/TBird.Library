@@ -36,8 +36,9 @@ public class UpdateNotificationService : IUpdateNotificationService
 		// COUNT クエリで算出(全件ロードを避ける)。
 		var unconfirmedCount = await _novelRepo.CountUnconfirmedAsync().ConfigureAwait(false);
 
-		foreach (var (novel, newCount) in updates)
+		for (int i = 0; i < updates.Count; i++)
 		{
+			var (novel, newCount) = updates[i];
 			try
 			{
 				// ディープリンク先 = その小説の最初の未読話。未読が無ければ最後に読んだ話へ
@@ -45,6 +46,11 @@ public class UpdateNotificationService : IUpdateNotificationService
 				var target = await _episodeRepo.GetFirstUnreadEpisodeAsync(novel.Id).ConfigureAwait(false)
 					?? await _episodeRepo.GetLastReadEpisodeAsync(novel.Id).ConfigureAwait(false);
 				var episodeId = target?.Id ?? 0;
+
+				// 数字バッジは最後の 1 通にのみ総数を付ける。各通知に総数を付けると、通知ごとの
+				// number を合算する OEM ランチャーで「通知数 × 総数」に膨らむため。
+				// (合算式: 0+0+…+総数=総数 / 最大式: 総数 のどちらでも正しい値になる)
+				var badge = (i == updates.Count - 1) ? unconfirmedCount : 0;
 
 				NotificationHelper.ShowUpdateNotification(
 					context,
@@ -55,7 +61,7 @@ public class UpdateNotificationService : IUpdateNotificationService
 					episodeId,
 					novel.SiteType,
 					novel.NovelId,
-					unconfirmedCount);
+					badge);
 			}
 			catch (Exception ex)
 			{

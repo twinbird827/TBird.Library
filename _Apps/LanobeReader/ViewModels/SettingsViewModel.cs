@@ -152,7 +152,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
             // MainActivity の差分チェックと整合させ、次回起動時の二重スケジュールを防ぐ。
             await _settingsRepo.SetValueAsync(SettingsKeys.LAST_SCHEDULED_HOURS, value.ToString()).ConfigureAwait(false);
             MessageService.Info($"Rescheduled update check to {value}h from settings");
-        });
+        }, "更新間隔の反映に失敗しました");
     }
 
     partial void OnFontSizeSpChanged(int value)        => DebounceSave(SettingsKeys.FONT_SIZE_SP, value.ToString());

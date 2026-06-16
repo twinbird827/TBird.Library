@@ -163,6 +163,18 @@ public class NovelRepository
         return await _db.UpdateAsync(novel).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// last_checked_at 列のみを更新する軽量メソッド。更新チェックで状態に変化が無い
+    /// (新着なし・エラー状態も不変)作品の巡回タイムスタンプ前進に使い、全カラム UPDATE を避ける。
+    /// </summary>
+    public async Task UpdateLastCheckedAtAsync(int novelId, string lastCheckedAt)
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await _db.ExecuteAsync(
+            "UPDATE novels SET last_checked_at = ? WHERE id = ?",
+            lastCheckedAt, novelId).ConfigureAwait(false);
+    }
+
     public async Task SetFavoriteAsync(int novelId, bool favorite)
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);

@@ -61,7 +61,15 @@ public class UpdateCheckForegroundService : Service
         {
             try
             {
-                await UpdateCheckRunner.RunAsync(ApplicationContext!, _cts.Token).ConfigureAwait(false);
+                var outcome = await UpdateCheckRunner.RunAsync(ApplicationContext!, _cts.Token).ConfigureAwait(false);
+                if (outcome == UpdateCheckRunner.Outcome.Retry)
+                {
+                    // プロセス未初期化等でチェックを実行できなかった。FGS は再試行機構を持たないため、
+                    // WorkManager のバックオフ再試行へ委ねて取りこぼしを防ぐ(コールドブート窓対策)。
+                    MessageService.Warn("FGS check returned Retry; enqueueing WorkManager fallback");
+                    try { UpdateCheckScheduler.EnqueueOneTimeCheck(ApplicationContext!); }
+                    catch (Exception ex2) { MessageService.Error($"Fallback enqueue failed: {ex2.Message}"); }
+                }
             }
             catch (Exception ex)
             {

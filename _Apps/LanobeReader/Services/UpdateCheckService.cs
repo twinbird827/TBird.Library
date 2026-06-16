@@ -51,6 +51,8 @@ public class UpdateCheckService
                 // 通知は notificationId=novel.Id で上書き表示されるため重複通知にはならない。
 
                 var cancelled = false;
+                var hadError = novel.HasCheckError;
+                var hasNewEpisodes = false;
                 try
                 {
                     var service = _serviceFactory.GetService((SiteType)novel.SiteType);
@@ -71,6 +73,7 @@ public class UpdateCheckService
                         {
                             await _episodeRepo.InsertAllAsync(newEpisodes).ConfigureAwait(false);
 
+                            hasNewEpisodes = true;
                             novel.TotalEpisodes = totalEpisodes;
                             novel.LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow.ToString("o");
                             novel.HasUnconfirmedUpdate = true;
@@ -103,7 +106,7 @@ public class UpdateCheckService
 
                     novel.HasCheckError = false; // 成功時はエラーフラグを解除
                 }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+                catch (Exception ex)
                 {
                     if (ct.IsCancellationRequested)
                     {
@@ -113,6 +116,10 @@ public class UpdateCheckService
                     }
                     else
                     {
+                        // ネットワーク/パース/DB 等、その作品固有のあらゆる失敗を握りつぶして次へ進む。
+                        // ここを HttpRequestException 系に限定すると、想定外の例外で foreach 全体が脱出し
+                        // LastCheckedAt が前進しないため、巡回の先頭(最古)に居座る poison 作品が
+                        // 全作品のチェックを永久に止めてしまう。広く捕捉して必ず巡回を前進させる。
                         MessageService.Warn($"Failed to check {novel.Title}: {ex.Message}");
                         novel.HasCheckError = true;
                     }
@@ -123,7 +130,16 @@ public class UpdateCheckService
                 // 成功・失敗いずれも LastCheckedAt を更新して 1 回だけ永続化し、
                 // ラウンドロビンを前進させる(失敗作品も後ろへ回し、特定作品で詰まらせない)。
                 novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
-                await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                if (hasNewEpisodes || novel.HasCheckError != hadError)
+                {
+                    // 本文(話数/著者等)やエラーフラグに変化があったときだけ全カラム更新。
+                    await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                }
+                else
+                {
+                    // 変化が無い大多数の作品は last_checked_at 列のみ更新し、毎チェックの書き込み量を抑える。
+                    await _novelRepo.UpdateLastCheckedAtAsync(novel.Id, novel.LastCheckedAt).ConfigureAwait(false);
+                }
             }
 
             return updates;
