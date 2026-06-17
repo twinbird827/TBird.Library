@@ -36,7 +36,11 @@ public class BackgroundJobQueue
                 if (cached is not null) return;
 
                 var service = serviceFactory.GetService((SiteType)job.SiteType);
-                var content = await service.FetchEpisodeContentAsync(job.SiteNovelId, job.EpisodeNo, job.SiteEpisodeId, ct).ConfigureAwait(false);
+                var (content, cacheable) = await service.FetchEpisodeContentAsync(job.SiteNovelId, job.EpisodeNo, job.SiteEpisodeId, ct).ConfigureAwait(false);
+
+                // 位置依存フォールバックで取得した本文は誤話の可能性があり訂正経路も無いため先読みキャッシュ
+                // しない(誤話キャッシュの恒久化を防止)。次回ユーザが開いた時に都度取得し直させる。
+                if (!cacheable) return;
 
                 await cacheRepo.InsertAsync(new EpisodeCache
                 {

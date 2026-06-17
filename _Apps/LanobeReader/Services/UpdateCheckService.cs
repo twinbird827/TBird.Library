@@ -4,6 +4,7 @@ using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
+using LanobeReader.Services.Network;
 using Microsoft.Maui.Storage;
 using TBird.Core;
 using TBird.Maui.Background;
@@ -17,17 +18,26 @@ public class UpdateCheckService
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
     private readonly INovelServiceFactory _serviceFactory;
+    private readonly NetworkPolicyService _networkPolicy;
     private readonly BackgroundJobQueue? _jobQueue;
+
+    // 移行補完(フル TOC 取得 + backfill)を本プロセスで試行済みの作品 Id。全話がタイトル不一致(改題/ドリフト)で
+    // backfill が 0 件更新だと site_episode_id は付かず HasAnySiteEpisodeIdAsync が false のまま残る。マーカーが
+    // 無いと巡回の度にフル TOC を再取得し続け migrationBudget を浪費し他の旧作品の移行も阻害する。本サービスは
+    // Singleton のためプロセス存続中は保持される(再起動後に 1 度だけ再試行されるのは許容範囲)。
+    private readonly HashSet<int> _migrationAttempted = new();
 
     public UpdateCheckService(
         NovelRepository novelRepo,
         EpisodeRepository episodeRepo,
         INovelServiceFactory serviceFactory,
+        NetworkPolicyService networkPolicy,
         BackgroundJobQueue? jobQueue = null)
     {
         _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
         _serviceFactory = serviceFactory;
+        _networkPolicy = networkPolicy;
         _jobQueue = jobQueue;
     }
 
@@ -111,15 +121,7 @@ public class UpdateCheckService
                         // 旧データ(site_episode_id 未保存の既存話)に、いま取得した新鮮な TOC のサイト話 ID を
                         // 補完する(Kakuyomu の本文取得を位置依存からの脱却=誤話表示の是正)。タイトル一致時のみ
                         // 更新するためドリフト誤補完は避けられる。Narou は SiteEpisodeId を持たず no-op。
-                        // best-effort: 失敗しても更新検出処理は続行する。
-                        try
-                        {
-                            await _episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageService.Warn($"Backfill site_episode_id failed for {novel.Title}: {ex.Message}");
-                        }
+                        await TryBackfillSiteEpisodeIdsAsync(novel, allEpisodes).ConfigureAwait(false);
 
                         var newEpisodes = allEpisodes
                             .Where(e => e.EpisodeNo > currentMaxEpisode)
@@ -193,12 +195,18 @@ public class UpdateCheckService
                     }
                     else if (migrationBudget > 0
                         && (SiteType)novel.SiteType == SiteType.Kakuyomu
-                        && currentMaxEpisode > 0)
+                        && currentMaxEpisode > 0
+                        && !_migrationAttempted.Contains(novel.Id)
+                        && _networkPolicy.IsWifiConnected)
                     {
                         // (U2) 完結/安定済みの旧 Kakuyomu 作品は新着検出枝に入らず site_episode_id が永久に
                         // 未補完のまま残る(本文取得が位置依存=誤話リスク)。サイト話 ID を 1 件も持たない
                         // Kakuyomu 作品(=列追加前の旧データ)に限り、低頻度(1巡で migrationBudget 件まで)で
                         // フル TOC を取得して移行補完する。補完後は非 NULL 行が生じ再該当しないため概ね初回限り。
+                        // 機会的なバルク取得のため Wi-Fi 接続時のみ実行し従量制通信を避ける(プリフェッチと同方針。
+                        // 更新情報取得自体は機能上必須のためゲートしないが、移行補完は遅延可能なので Wi-Fi 限定)。
+                        // 全話ドリフト(0 件補完で HasAny が false のまま)の作品は _migrationAttempted で再取得を抑止し、
+                        // 巡回の度のフル TOC 再取得と budget 浪費を防ぐ。
                         // best-effort: 失敗しても巡回(LastCheckedAt 前進)は継続する。EXISTS 判定やフル TOC
                         // 取得の失敗を outer catch へ波及させると、更新チェック自体は成功しているのに
                         // HasCheckError=true となり完了記録を阻害するため、判定ごと try で握りつぶす。
@@ -208,7 +216,10 @@ public class UpdateCheckService
                             {
                                 migrationBudget--;
                                 var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
-                                await _episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
+                                await TryBackfillSiteEpisodeIdsAsync(novel, allEpisodes).ConfigureAwait(false);
+                                // フル TOC 取得まで到達した作品は試行済みとして記録(全話ドリフトでの毎巡再取得を防ぐ)。
+                                // 取得が例外で失敗した場合はここに到達せず未記録のまま=次回(Wi-Fi 時)に再試行される。
+                                _migrationAttempted.Add(novel.Id);
                             }
                         }
                         catch (Exception ex)
@@ -304,6 +315,23 @@ public class UpdateCheckService
         finally
         {
             _semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// 新鮮な TOC から site_episode_id を best-effort で補完する。新着検出枝と移行補完枝の両方から呼ぶ共通処理で、
+    /// 警告メッセージ書式と例外握り潰し(失敗しても更新検出/巡回は継続)を一元化する。Narou は SiteEpisodeId を
+    /// 持たず BackfillSiteEpisodeIdsAsync 側の早期 return で no-op。
+    /// </summary>
+    private async Task TryBackfillSiteEpisodeIdsAsync(Novel novel, IReadOnlyList<Episode> allEpisodes)
+    {
+        try
+        {
+            await _episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            MessageService.Warn($"Backfill site_episode_id failed for {novel.Title}: {ex.Message}");
         }
     }
 

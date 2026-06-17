@@ -260,18 +260,19 @@ public class KakuyomuApiService : INovelService
         return (ids, episodes);
     }
 
-    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
+    public async Task<(string content, bool cacheable)> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
+        var selfHealing = false;
         if (!string.IsNullOrEmpty(siteEpisodeId))
         {
             // DB に永続化済みの安定したサイト話 ID を直接使う本命パス。生 TOC の位置依存解決(序盤話の
             // 削除/並べ替えで episodeIds がシフトし誤話/404 になる)を回避する。
             try
             {
-                return await FetchContentByEpisodeIdAsync(novelId, siteEpisodeId, cts.Token).ConfigureAwait(false);
+                return (await FetchContentByEpisodeIdAsync(novelId, siteEpisodeId, cts.Token).ConfigureAwait(false), true);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -281,6 +282,7 @@ public class KakuyomuApiService : INovelService
                 // ID 永続化は API サービスへ DB 依存を持ち込まない設計方針のため行わない(読み取り都度の
                 // 再解決は 5 分 TOC キャッシュにより軽微)。
                 MessageService.Warn($"安定IDでの本文取得に失敗、位置依存解決で再試行: works/{novelId} ep={episodeNo}: {ex.Message}");
+                selfHealing = true;
             }
         }
 
@@ -291,7 +293,12 @@ public class KakuyomuApiService : INovelService
         {
             throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
         }
-        return await FetchContentByEpisodeIdAsync(novelId, episodeIds[episodeNo - 1], cts.Token).ConfigureAwait(false);
+        var content = await FetchContentByEpisodeIdAsync(novelId, episodeIds[episodeNo - 1], cts.Token).ConfigureAwait(false);
+        // 自己修復フォールバック(陳腐化した安定 ID の代替)で取得した本文はドリフトで誤話の可能性があり、
+        // かつ安定 ID が残置されるため backfill のキャッシュ破棄でも訂正されない。恒久キャッシュ(誤話キャッシュの
+        // 恒久化)を避けるため cacheable=false で返す。旧データ(siteEpisodeId 無し)の位置解決は移行 backfill
+        // 時にキャッシュ破棄で訂正されるため従来どおりキャッシュ可。
+        return (content, cacheable: !selfHealing);
     }
 
     private async Task<string> FetchContentByEpisodeIdAsync(string novelId, string episodeId, CancellationToken ct)

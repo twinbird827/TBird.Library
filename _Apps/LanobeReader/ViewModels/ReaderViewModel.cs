@@ -205,14 +205,20 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
                 }
 
                 var service = _serviceFactory.GetService((SiteType)_siteType);
-                content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo, _episode.SiteEpisodeId);
+                var (fetched, cacheable) = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo, _episode.SiteEpisodeId);
+                content = fetched;
 
-                await _cacheRepo.InsertAsync(new EpisodeCache
+                // 位置依存フォールバック(陳腐化した安定 ID の自己修復)で取得した本文は誤話の可能性があり、
+                // 訂正経路も無いため恒久キャッシュしない(誤話キャッシュの恒久化を防止)。表示はそのまま行う。
+                if (cacheable)
                 {
-                    EpisodeId = episodeId,
-                    Content = content,
-                    CachedAt = DateTime.UtcNow.ToString("o"),
-                });
+                    await _cacheRepo.InsertAsync(new EpisodeCache
+                    {
+                        EpisodeId = episodeId,
+                        Content = content,
+                        CachedAt = DateTime.UtcNow.ToString("o"),
+                    });
+                }
             }
 
             EpisodeTitle = _episode.Title;
