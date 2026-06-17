@@ -1,6 +1,7 @@
 using Android.App;
 using Android.Content;
 using Android.OS;
+using Android.Service.Notification;
 using AndroidX.Core.App;
 
 namespace LanobeReader.Platforms.Android;
@@ -73,11 +74,27 @@ public static class NotificationHelper
 	}
 
 	/// <summary>
-	/// 全ての新着通知をクリアする(=ランチャーアイコンのバッジも消える)。
+	/// 新着「更新通知」(<see cref="UPDATE_CHANNEL_ID"/>)のみをクリアする(=ランチャーアイコンのバッジも消える)。
 	/// 「アプリを開くまでバッジを維持」を実現するため、アプリ前面化時に呼ぶ。
+	/// 実行中の前面サービス(<c>update_check_progress</c> チャンネルの常駐通知)は対象外。CancelAll で
+	/// 巻き込むと進行中チェックの前面通知が消え、サービスの前面状態に干渉するため、チャンネルで限定する。
 	/// </summary>
 	public static void CancelAll(Context context)
 	{
+		if (Build.VERSION.SdkInt >= BuildVersionCodes.M
+			&& context.GetSystemService(Context.NotificationService) is NotificationManager manager)
+		{
+			foreach (var sbn in manager.GetActiveNotifications() ?? Array.Empty<StatusBarNotification>())
+			{
+				if (sbn.Notification?.ChannelId == UPDATE_CHANNEL_ID)
+				{
+					manager.Cancel(sbn.Tag, sbn.Id);
+				}
+			}
+			return;
+		}
+
+		// 旧 OS フォールバック(minSdk 上は到達しない)。
 		NotificationManagerCompat.From(context)?.CancelAll();
 	}
 }

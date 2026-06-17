@@ -1,6 +1,7 @@
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
+using LanobeReader.Views;
 using TBird.Core;
 
 namespace LanobeReader.Platforms.Android;
@@ -25,10 +26,10 @@ public class UpdateNotificationService : IUpdateNotificationService
 	{
 		if (updates.Count == 0) return;
 
-		// アプリが前面にある間はシステム通知を出さない。アプリ内一覧が新着(NEW)を直接表示しており、
-		// かつ MainActivity.OnResume の CancelAll が直後に消すため(= 機能同士の競合)。
-		// この時点で DB は更新済みのため、ユーザは一覧画面で新着を確認できる。
-		if (AppForegroundTracker.IsForeground) return;
+		// 一覧(本棚)ページが前面に表示されている間だけシステム通知を抑止する。一覧は新着(NEW)を
+		// 直接表示し、かつ MainActivity.OnResume の CancelAll が直後に消すため(= 機能同士の競合)。
+		// 他ページ(Reader/Settings 等)滞在中は一覧の NEW が見えないため、抑止せず通知を出す。
+		if (AppForegroundTracker.IsForeground && NovelListPage.IsShowing) return;
 
 		var context = global::Android.App.Application.Context;
 
@@ -58,9 +59,9 @@ public class UpdateNotificationService : IUpdateNotificationService
 			targets = new Dictionary<int, int>();
 		}
 
-		// 上の await 中にアプリが前面化した場合、MainActivity.OnResume の CancelAll が既に走った後に
+		// 上の await 中に一覧が前面化した場合、MainActivity.OnResume の CancelAll が既に走った後に
 		// 通知を投稿すると消えない通知が残る(冒頭の前面判定との TOCTOU)。投稿直前に再判定して中止する。
-		if (AppForegroundTracker.IsForeground) return;
+		if (AppForegroundTracker.IsForeground && NovelListPage.IsShowing) return;
 
 		for (int i = 0; i < updates.Count; i++)
 		{

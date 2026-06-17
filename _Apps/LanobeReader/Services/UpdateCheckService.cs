@@ -104,10 +104,11 @@ public class UpdateCheckService
                             updates.Add((novel, newEpisodes.Count));
 
                             // Enqueue newly-added episodes for background prefetch (Wi-Fi gated)
+                            // InsertAllAsync は AutoIncrement の Id を newEpisodes へ採番済みのため、
+                            // 全件再クエリ(GetByNovelIdAsync)で取り直さず、そのまま enqueue する。
                             if (_jobQueue is not null)
                             {
-                                var inserted = await _episodeRepo.GetByNovelIdAsync(novel.Id).ConfigureAwait(false);
-                                foreach (var ep in inserted.Where(e => e.EpisodeNo > currentMaxEpisode))
+                                foreach (var ep in newEpisodes)
                                 {
                                     await _jobQueue.EnqueueAsync(new PrefetchEpisodeJob
                                     {

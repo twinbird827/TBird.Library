@@ -37,7 +37,21 @@ public static class UpdateCheckScheduler
         MessageService.Info("Enqueued one-time update check (alarm)");
     }
 
+    /// <summary>
+    /// 定期ワークを新間隔で登録/更新する(Update)。間隔が変わったときに呼ぶ。
+    /// </summary>
     public static void SchedulePeriodicCheck(Context context, int intervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS)
+        => EnqueuePeriodic(context, intervalHours, ExistingPeriodicWorkPolicy.Update!);
+
+    /// <summary>
+    /// 定期ワークが未登録なら登録する(Keep)。既定間隔の新規インストールは差分判定が no-op となり
+    /// WorkManager ベースラインが欠落するため、毎起動で「存在保証」武装する。Keep のため既存ワークが
+    /// あれば周期はリセットされない。
+    /// </summary>
+    public static void EnsurePeriodicCheck(Context context, int intervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS)
+        => EnqueuePeriodic(context, intervalHours, ExistingPeriodicWorkPolicy.Keep!);
+
+    private static void EnqueuePeriodic(Context context, int intervalHours, ExistingPeriodicWorkPolicy policy)
     {
         var constraints = new Constraints.Builder()
             .SetRequiredNetworkType(NetworkType.Connected!)
@@ -54,9 +68,9 @@ public static class UpdateCheckScheduler
 
         WorkManager.GetInstance(context)!.EnqueueUniquePeriodicWork(
             UpdateCheckWorker.WORK_TAG,
-            ExistingPeriodicWorkPolicy.Update!,
+            policy,
             workRequest);
 
-        MessageService.Info($"Scheduled periodic check every {intervalHours} hours");
+        MessageService.Info($"Scheduled periodic check every {intervalHours} hours ({policy})");
     }
 }
