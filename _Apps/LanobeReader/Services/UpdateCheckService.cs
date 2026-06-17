@@ -59,6 +59,10 @@ public class UpdateCheckService
             // 1件以上を実際にチェックできたか。全件失敗(ネット断等)や空テーブルでの「完了」記録による
             // アラーム冗長ゲートの無用な抑止を避けるため、完了時刻記録の条件に用いる。
             var anySuccess = false;
+            // (U2) 1 巡で「移行補完」(フル TOC 取得+backfill)を試みる旧 Kakuyomu 作品の上限。完結/安定済みで
+            // 新着検出枝に入らない作品も site_episode_id へ移行できるようにしつつ、1 巡の追加ネットワーク
+            // コストを抑える。round-robin(last_checked_at 昇順)で巡回するため複数巡で全旧作品を順に拾える。
+            var migrationBudget = 3;
 
             foreach (var novel in novels)
             {
@@ -185,6 +189,31 @@ public class UpdateCheckService
                             novel.TotalEpisodes = totalEpisodes;
                             if (lastUpdatedAt is not null) novel.LastUpdatedAt = lastUpdatedAt;
                             metadataChanged = true;
+                        }
+                    }
+                    else if (migrationBudget > 0
+                        && (SiteType)novel.SiteType == SiteType.Kakuyomu
+                        && currentMaxEpisode > 0)
+                    {
+                        // (U2) 完結/安定済みの旧 Kakuyomu 作品は新着検出枝に入らず site_episode_id が永久に
+                        // 未補完のまま残る(本文取得が位置依存=誤話リスク)。サイト話 ID を 1 件も持たない
+                        // Kakuyomu 作品(=列追加前の旧データ)に限り、低頻度(1巡で migrationBudget 件まで)で
+                        // フル TOC を取得して移行補完する。補完後は非 NULL 行が生じ再該当しないため概ね初回限り。
+                        // best-effort: 失敗しても巡回(LastCheckedAt 前進)は継続する。EXISTS 判定やフル TOC
+                        // 取得の失敗を outer catch へ波及させると、更新チェック自体は成功しているのに
+                        // HasCheckError=true となり完了記録を阻害するため、判定ごと try で握りつぶす。
+                        try
+                        {
+                            if (!await _episodeRepo.HasAnySiteEpisodeIdAsync(novel.Id).ConfigureAwait(false))
+                            {
+                                migrationBudget--;
+                                var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
+                                await _episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageService.Warn($"Migration backfill failed for {novel.Title}: {ex.Message}");
                         }
                     }
                 }

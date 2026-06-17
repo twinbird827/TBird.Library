@@ -98,6 +98,19 @@ public class EpisodeRepository
             "SELECT COALESCE(MAX(episode_no), 0) FROM episodes WHERE novel_id = ?", novelId).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 当該小説に site_episode_id を持つ話が 1 件でも存在するか(安価な EXISTS 判定)。
+    /// false かつ episodes が存在する Kakuyomu 作品 = 列追加前の旧データで未移行、の判定に使う。
+    /// </summary>
+    public async Task<bool> HasAnySiteEpisodeIdAsync(int novelId)
+    {
+        await EnsureAsync().ConfigureAwait(false);
+        var count = await _db.ExecuteScalarAsync<int>(
+            "SELECT EXISTS(SELECT 1 FROM episodes WHERE novel_id = ? AND site_episode_id IS NOT NULL)",
+            novelId).ConfigureAwait(false);
+        return count != 0;
+    }
+
     public async Task<Episode?> GetLastReadEpisodeAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
@@ -190,10 +203,14 @@ public class EpisodeRepository
         if (freshEpisodes.Count == 0 || freshEpisodes.All(e => string.IsNullOrEmpty(e.SiteEpisodeId))) return;
         await EnsureAsync().ConfigureAwait(false);
 
-        var existing = await GetByNovelIdAsync(novelId).ConfigureAwait(false);
-        var byNo = existing
-            .Where(e => string.IsNullOrEmpty(e.SiteEpisodeId)) // 未補完の話のみ対象
-            .ToDictionary(e => e.EpisodeNo);
+        // 未補完(site_episode_id IS NULL)の話だけを SQL で絞り込む。全話フルロード+C# フィルタだと
+        // 初回補完後は更新ゼロでも更新チェックの度に O(話数) のコストを払う(長尺×お気に入りで無駄が累積)。
+        // 後段 UPDATE のガードも IS NULL のため、書き込み対象は本クエリと完全一致(空文字行は元々非対象)。
+        var pending = await _db.QueryAsync<Episode>(
+            $"SELECT {EpisodeColumns} FROM episodes WHERE novel_id = ? AND site_episode_id IS NULL",
+            novelId).ConfigureAwait(false);
+        if (pending.Count == 0) return;
+        var byNo = pending.ToDictionary(e => e.EpisodeNo);
 
         var updates = new List<(string siteId, int id)>();
         foreach (var fresh in freshEpisodes)
@@ -209,9 +226,16 @@ public class EpisodeRepository
         {
             foreach (var (siteId, id) in updates)
             {
-                conn.Execute(
+                var n = conn.Execute(
                     "UPDATE episodes SET site_episode_id = ? WHERE id = ? AND site_episode_id IS NULL",
                     siteId, id);
+                if (n > 0)
+                {
+                    // 補完前の窓で位置依存フォールバック(episodeIds[episodeNo-1])により取得・キャッシュ
+                    // された本文は、TOC ドリフト時に誤話の可能性がある。安定 ID を確定したこの時点で当該
+                    // キャッシュを破棄し、次回読み込みで安定 ID により取得し直させる(誤話キャッシュの是正)。
+                    conn.Execute("DELETE FROM episode_cache WHERE episode_id = ?", id);
+                }
             }
         }).ConfigureAwait(false);
     }

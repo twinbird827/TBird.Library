@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using LanobeReader.Models;
 using LanobeReader.Services.Network;
+using TBird.Core;
 using TBird.Maui.Web;
 
 namespace LanobeReader.Services.Kakuyomu;
@@ -264,31 +265,42 @@ public class KakuyomuApiService : INovelService
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-        string episodeId;
         if (!string.IsNullOrEmpty(siteEpisodeId))
         {
-            // DB に永続化済みの安定したサイト話 ID を直接使う。生 TOC の位置依存解決(序盤話の削除/
-            // 並べ替えで episodeIds がシフトし誤話/404 になる)を回避する本命パス。
-            episodeId = siteEpisodeId;
-        }
-        else
-        {
-            // 旧データ(site_episode_id 列追加前に保存された話)向けフォールバック: 生 TOC から位置で解決する。
-            // 新規取得分は SiteEpisodeId を持つためこの経路には来ない。BackfillSiteEpisodeIdsAsync が
-            // 旧データにも順次補完するため、フォールバック該当は時間とともに縮小する。
-            var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
-            if (episodeNo < 1 || episodeNo > episodeIds.Count)
+            // DB に永続化済みの安定したサイト話 ID を直接使う本命パス。生 TOC の位置依存解決(序盤話の
+            // 削除/並べ替えで episodeIds がシフトし誤話/404 になる)を回避する。
+            try
             {
-                throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
+                return await FetchContentByEpisodeIdAsync(novelId, siteEpisodeId, cts.Token).ConfigureAwait(false);
             }
-            episodeId = episodeIds[episodeNo - 1];
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // (U3) 安定 ID での取得失敗(404/本文欠落=削除・改稿で ID が陳腐化)時は、生 TOC の位置依存
+                // 解決で 1 度だけ自己修復を試みる。位置依存はドリフトで誤話になりうるが、移行前の挙動と
+                // 同等であり「読めない」確定よりは可読性を優先する方針(ユーザ承認済み U3-A)。なお訂正後の
+                // ID 永続化は API サービスへ DB 依存を持ち込まない設計方針のため行わない(読み取り都度の
+                // 再解決は 5 分 TOC キャッシュにより軽微)。
+                MessageService.Warn($"安定IDでの本文取得に失敗、位置依存解決で再試行: works/{novelId} ep={episodeNo}: {ex.Message}");
+            }
         }
 
+        // 旧データ(site_episode_id 列追加前に保存された話)、または上の安定 ID パスが失敗した場合の
+        // フォールバック: 生 TOC から位置で解決する。
+        var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
+        if (episodeNo < 1 || episodeNo > episodeIds.Count)
+        {
+            throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
+        }
+        return await FetchContentByEpisodeIdAsync(novelId, episodeIds[episodeNo - 1], cts.Token).ConfigureAwait(false);
+    }
+
+    private async Task<string> FetchContentByEpisodeIdAsync(string novelId, string episodeId, CancellationToken ct)
+    {
         var episodeHref = $"{BASE_URL}/works/{novelId}/episodes/{episodeId}";
 
-        var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, cts.Token).ConfigureAwait(false);
+        var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, ct).ConfigureAwait(false);
 
-        var episodeDoc = await AngleSharpHelper.ParseAsync(episodeHtml, cts.Token).ConfigureAwait(false);
+        var episodeDoc = await AngleSharpHelper.ParseAsync(episodeHtml, ct).ConfigureAwait(false);
 
         // CSS3 の [class~='X'] は「スペース区切り単語の完全一致」のため、
         // EpisodeBodyHeader 等の連結クラス名にはマッチしない（過剰マッチ回避）。
