@@ -31,6 +31,7 @@ public class MainActivity : MauiAppCompatActivity
         {
             try
             {
+                // DI 待ちは UpdateCheckRunner と共通の PlatformServiceReadiness に集約(コピー乖離防止)。
                 var services = await PlatformServiceReadiness.WaitForServicesAsync().ConfigureAwait(false);
 
                 if (services is null)

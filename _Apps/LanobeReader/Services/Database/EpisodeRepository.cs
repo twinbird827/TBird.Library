@@ -176,7 +176,16 @@ public class EpisodeRepository
                 $"AND e.episode_no = (SELECT {agg}(episode_no) FROM episodes " +
                 $"WHERE novel_id = e.novel_id AND is_read = {isRead})",
                 args).ConfigureAwait(false);
-            foreach (var r in rows) result[r.NovelId] = r.Id;
+            // episodes(novel_id, episode_no) に一意制約は無く、重複 episode_no 行があると
+            // 同一 novel に複数行が返りうる。最小 id を採用して遷移先を決定的にする
+            // (行順依存で通知タップ先がブレるのを防ぐ)。
+            foreach (var r in rows)
+            {
+                if (!result.TryGetValue(r.NovelId, out var existing) || r.Id < existing)
+                {
+                    result[r.NovelId] = r.Id;
+                }
+            }
         }
     }
 

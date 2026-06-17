@@ -14,7 +14,6 @@ public partial class App : Application
     private readonly NovelRepository _novelRepo;
     private readonly UpdateCheckService _updateCheckService;
     private readonly PrefetchService _prefetchService;
-    private readonly IUpdateNotificationService _notifier;
 
     public App(
         DatabaseService dbService,
@@ -22,8 +21,7 @@ public partial class App : Application
         EpisodeCacheRepository cacheRepo,
         NovelRepository novelRepo,
         UpdateCheckService updateCheckService,
-        PrefetchService prefetchService,
-        IUpdateNotificationService notifier)
+        PrefetchService prefetchService)
     {
         InitializeComponent();
 
@@ -33,7 +31,6 @@ public partial class App : Application
         _novelRepo = novelRepo;
         _updateCheckService = updateCheckService;
         _prefetchService = prefetchService;
-        _notifier = notifier;
 
         // Global exception handler
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
@@ -110,13 +107,12 @@ public partial class App : Application
     {
         try
         {
-            // 起動時チェックは新着を DB へ取り込み、アプリ内一覧の NEW 表示を最新化する。
-            // ShowUpdatesAsync は前面中（IsForeground）はシステム通知を抑止するため、通常の
-            // コールドスタート（OnResume で前面確定済み）では通知は出ない＝ユーザは一覧で新着を見る。
-            // 初期化中にアプリが背面化した稀なケースのみ、ここで通知が出る。
-            // バックグラウンド検出時の確実な通知は WorkManager / アラーム経路が担う。
-            var updates = await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
-            await _notifier.ShowUpdatesAsync(updates).ConfigureAwait(false);
+            // 起動時チェックは新着を DB へ取り込み、アプリ内一覧の NEW 表示を最新化することだけを担う。
+            // ここでは通知を投稿しない: コールドスタートはほぼ必ず前面で、一覧の NEW 表示と
+            // UpdatesDetectedMessage による即時再読込で新着は見える。起動直後の前面未確定期に通知を出すと
+            // 直後の OnResume.CancelAll が消す「フラッシュ」になるため、通知経路は背面検出を担う
+            // WorkManager / アラーム経路に一本化する。
+            await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

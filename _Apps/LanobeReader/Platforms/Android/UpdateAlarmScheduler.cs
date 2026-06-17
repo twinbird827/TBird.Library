@@ -98,11 +98,19 @@ public static class UpdateAlarmScheduler
     public static int GetCachedIntervalHours()
         => Preferences.Get(IntervalPrefKey, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
 
+    // 冗長ゲートの窓 = 実効間隔の 7/8。アラームと WorkManager 定期は同一周期で動くため、健全時の発火時点で
+    // 直近完了は通常 ~1 周期前後経過している。窓を半分にすると elapsed≈interval>interval/2 で毎周期 FGS が
+    // 貫通し、常駐通知・端末ウェイク・二重チェックが起き続けて「真のバックストップ」の狙いが成立しない。
+    // 窓を ~1 周期へ広げ、WorkManager が ~1 周期沈黙した時(=真に Doze 等で滞った時)だけアラームを貫通させる。
+    // 完全な 1 倍ではなく 7/8 とするのは発火ジッタによる境界フラップ(僅差で skip/実行が交互)を避けるマージン。
+    private const long RedundancyWindowNumerator = 7;
+    private const long RedundancyWindowDenominator = 8;
+
     /// <summary>
     /// アラーム発火時、直近に(いずれかの経路で)チェックが完了済みなら冗長な FGS 起動を省くべきか返す。
     /// WorkManager 定期が健全に動いている間はアラームを真のバックストップに留め、毎周期の常駐通知・
-    /// 端末ウェイク・電池消費を避ける狙い。閾値は「実効間隔の半分」とし、これより新しい完了が
-    /// あれば冗長とみなす。Doze 等で WorkManager が滞ると最終完了時刻が古くなりゲートを通過する。
+    /// 端末ウェイク・電池消費を避ける狙い。閾値は「実効間隔の 7/8」とし、これより新しい完了があれば
+    /// 冗長とみなす。Doze 等で WorkManager が ~1 周期滞ると最終完了時刻が古くなりゲートを通過する。
     /// 完了時刻の記録は全経路の合流点 UpdateCheckService.CheckAllAsync が一元的に行う
     /// (SettingsKeys.LAST_CHECK_COMPLETED_MS)。
     /// </summary>
@@ -111,7 +119,9 @@ public static class UpdateAlarmScheduler
         var last = Preferences.Get(SettingsKeys.LAST_CHECK_COMPLETED_MS, 0L);
         if (last <= 0L) return false; // 完了履歴が無ければ必ず実行する。
         var elapsed = Java.Lang.JavaSystem.CurrentTimeMillis() - last;
-        return elapsed >= 0 && elapsed < GetEffectiveIntervalMs(GetCachedIntervalHours()) / 2;
+        var window = GetEffectiveIntervalMs(GetCachedIntervalHours())
+            * RedundancyWindowNumerator / RedundancyWindowDenominator;
+        return elapsed >= 0 && elapsed < window;
     }
 
     public static void Cancel(Context context)
