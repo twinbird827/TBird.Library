@@ -17,6 +17,13 @@ public class DatabaseService : SqliteDatabaseBase
 
     protected override async Task CreateTablesAsync(SQLiteAsyncConnection conn)
     {
+        // 0. 並行アクセス対策。前面UI・背景更新チェック(FGS/Worker)・プリフェッチが同一接続へ
+        //    書き込むため、競合時の即時 "database is locked" を抑止する。WAL は DB ファイルに
+        //    永続化され読取と書込の並行性を上げ、busy_timeout は競合時に最大 5 秒待機する。
+        //    冪等(毎起動の再適用は無害)。
+        await conn.ExecuteAsync("PRAGMA journal_mode=WAL").ConfigureAwait(false);
+        await conn.ExecuteAsync("PRAGMA busy_timeout=5000").ConfigureAwait(false);
+
         // 1. CreateTable は冪等。v0 の新規インストール時の初期化も兼ねる。
         await conn.CreateTableAsync<Novel>().ConfigureAwait(false);
         await conn.CreateTableAsync<Episode>().ConfigureAwait(false);

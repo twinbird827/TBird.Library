@@ -5,6 +5,7 @@ using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
+using TBird.Maui.Background;
 
 namespace LanobeReader.ViewModels;
 
@@ -15,6 +16,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     private readonly NovelRepository _novelRepo;
     private readonly INovelServiceFactory _serviceFactory;
     private readonly AppSettingsRepository _settingsRepo;
+    private readonly INetworkPolicy _networkPolicy;
 
     private int _novelDbId;
     private int _currentEpisodeId;
@@ -25,13 +27,15 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
         EpisodeCacheRepository cacheRepo,
         NovelRepository novelRepo,
         INovelServiceFactory serviceFactory,
-        AppSettingsRepository settingsRepo)
+        AppSettingsRepository settingsRepo,
+        INetworkPolicy networkPolicy)
     {
         _episodeRepo = episodeRepo;
         _cacheRepo = cacheRepo;
         _novelRepo = novelRepo;
         _serviceFactory = serviceFactory;
         _settingsRepo = settingsRepo;
+        _networkPolicy = networkPolicy;
     }
 
     [ObservableProperty]
@@ -189,8 +193,9 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             }
             else
             {
-                var connectivity = Connectivity.Current.NetworkAccess;
-                if (connectivity != NetworkAccess.Internet)
+                // INetworkPolicy.IsOnline は Connectivity.Current を例外ガード付きで包む
+                // (MainActivity 起動前/特定端末状態で当該 API が throw するため)。生 API 直叩きは避ける。
+                if (!_networkPolicy.IsOnline)
                 {
                     // ユーザは目次/戻るボタンで自分で抜ける（自動遷移は採用しない）。
                     SetError("オフラインのため表示できません。キャッシュもありません");

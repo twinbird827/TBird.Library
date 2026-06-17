@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using LanobeReader.Helpers;
 using TBird.Core;
 using TBird.Maui.ViewModels;
 using LanobeReader.Models;
+using LanobeReader.Services;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
 
@@ -146,6 +148,54 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     }
 
     public Task EnsureInitializedAsync() => _initTask ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 前面滞在中に背面チェックが本作品の新着を検出した場合、システム通知は抑止されるため、目次を
+    /// 再読込して新着話を即時反映する購読を開始する。NovelListViewModel と同様、AddTransient なこの
+    /// VM ではハンドラ積み上がりを避けるため画面表示中のみ有効化する(EpisodeListPage の
+    /// OnAppearing/OnDisappearing で Subscribe/Unsubscribe)。
+    /// </summary>
+    public void SubscribeToUpdates()
+    {
+        // OnAppearing が複数回呼ばれても二重登録にならないよう、登録前に必ず解除する。
+        WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
+        WeakReferenceMessenger.Default.Register<UpdatesDetectedMessage>(this, (_, _) =>
+        {
+            // Send は背面スレッドから呼ばれうるため UI スレッドへ戻す。
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try { await ReloadEpisodesAsync(); }
+                catch (Exception ex) { MessageService.Warn($"Auto-reload episodes on updates failed: {ex.Message}"); }
+            });
+        });
+    }
+
+    /// <summary>画面非表示時に購読を解除する(非表示中は次回 OnAppearing の RefreshReadStatus が反映する)。</summary>
+    public void UnsubscribeFromUpdates()
+        => WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
+
+    /// <summary>
+    /// 新着検出時に _allEpisodes を再取得して現在ページを再描画する。初期化中・「続きから」戻りジャンプ中は
+    /// _allEpisodes の mutate と scroll target が競合するためスキップする(次の OnAppearing が反映する)。
+    /// 新着が無ければ何もしない。閲覧位置を保つため scroll(PageContentReset)はあえて発火しない
+    /// (新着は末尾ページに出るため現在ページの表示位置は変わらない)。
+    /// </summary>
+    private async Task ReloadEpisodesAsync()
+    {
+        if (IsLoading) return;
+        if (_initTask is null || !_initTask.IsCompletedSuccessfully) return;
+        if (_jumpTask is { IsCompleted: false }) return;
+        if (_novelDbId <= 0) return;
+
+        var fresh = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+        if (fresh.Count <= _allEpisodes.Count) return; // 新着なし → 何もしない
+
+        _allEpisodes = fresh;
+        _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+        RebuildFilterCache();
+        RecalcPaging();
+        await LoadPageAsync();
+    }
 
     public async Task InitializeAsync()
     {

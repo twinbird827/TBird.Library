@@ -231,11 +231,15 @@ public class KakuyomuApiService : INovelService
                 if (string.IsNullOrEmpty(refKey)) continue;
                 var colonIdx = refKey.IndexOf(':');
                 if (colonIdx < 0) continue;
-                ids.Add(refKey.Substring(colonIdx + 1));
-
                 if (!state.TryGetProperty(refKey, out var episodeEntry)) continue;
                 if (!episodeEntry.TryGetProperty("__typename", out var typename)) continue;
                 if (typename.GetString() != "Episode") continue;
+
+                // ID 追加は Episode 確定後に行う。episodeUnions には非 Episode(広告/お知らせ等)の
+                // __ref も含まれ、判定前に追加すると episodeIds が実話数(episodes)とズレる:
+                //   (a) FetchEpisodeContentAsync の episodeIds[episodeNo-1] 索引がズレて誤話/404
+                //   (b) totalEpisodes(=episodeIds.Count)が水増しされ UpdateCheckService が毎回再取得
+                ids.Add(refKey.Substring(colonIdx + 1));
 
                 var title = episodeEntry.TryGetProperty("title", out var titleProp)
                     ? titleProp.GetString() ?? ""

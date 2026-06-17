@@ -62,8 +62,16 @@ public class UpdateNotificationService : IUpdateNotificationService
 		// 通知を投稿すると消えない通知が残る(冒頭の前面判定との TOCTOU)。投稿直前に再判定して中止する。
 		if (AppForegroundTracker.IsForeground) return;
 
+		// 数字バッジ総数は「最初に投稿が成功した 1 通」にのみ付ける。各通知に総数を付けると number を
+		// 合算する OEM ランチャーで膨らむため 1 通に限定しつつ、固定位置(従来は最後の 1 通)だとその通知の
+		// 投稿失敗でバッジが 0 化するため、成功した最初の通知へ載せて取りこぼしを防ぐ。
+		var badgePlaced = false;
 		for (int i = 0; i < updates.Count; i++)
 		{
+			// ループ中にアプリが前面化した場合、以降に投稿した通知は MainActivity.OnResume の CancelAll で
+			// 消えず残る(冒頭/await 後の判定をすり抜けた窓)。反復ごとに再判定して中止する。
+			if (AppForegroundTracker.IsForeground) return;
+
 			var (novel, newCount) = updates[i];
 			try
 			{
@@ -71,10 +79,7 @@ public class UpdateNotificationService : IUpdateNotificationService
 				// 解決できない場合は 0 とし、タップ時は話一覧へ遷移する(MainActivity 側)。
 				var episodeId = targets.TryGetValue(novel.Id, out var id) ? id : 0;
 
-				// 数字バッジは最後の 1 通にのみ総数を付ける。各通知に総数を付けると、通知ごとの
-				// number を合算する OEM ランチャーで「通知数 × 総数」に膨らむため。
-				// (合算式: 0+0+…+総数=総数 / 最大式: 総数 のどちらでも正しい値になる)
-				var badge = (i == updates.Count - 1) ? badgeTotal : 0;
+				var badge = badgePlaced ? 0 : badgeTotal;
 
 				NotificationHelper.ShowUpdateNotification(
 					context,
@@ -86,6 +91,9 @@ public class UpdateNotificationService : IUpdateNotificationService
 					novel.SiteType,
 					novel.NovelId,
 					badge);
+
+				// 投稿成功時のみバッジ確定。失敗時は badgePlaced を立てず次の通知へ総数を持ち越す。
+				badgePlaced = true;
 			}
 			catch (Exception ex)
 			{

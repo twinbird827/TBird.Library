@@ -103,20 +103,31 @@ public class UpdateCheckService
 
                             updates.Add((novel, newEpisodes.Count));
 
-                            // Enqueue newly-added episodes for background prefetch (Wi-Fi gated)
+                            // 挿入済み episodes をバックグラウンド先読みへ積む(Wi-Fi ゲート)。
+                            // InsertAllAsync が各 Episode.Id を設定済みのため再取得(GetByNovelIdAsync)は不要。
+                            // プリフェッチ登録は best-effort: ここでの失敗を outer catch へ波及させると
+                            // novel.HasCheckError=true となり anySuccess を落として完了記録(LAST_CHECK_
+                            // COMPLETED_MS)を阻害し、更新確定済みでもアラームが毎周期 FGS を起動し続ける。
+                            // 更新は既に永続化(=成功)済みなので、enqueue 失敗は個別に握りつぶす。
                             if (_jobQueue is not null)
                             {
-                                var inserted = await _episodeRepo.GetByNovelIdAsync(novel.Id).ConfigureAwait(false);
-                                foreach (var ep in inserted.Where(e => e.EpisodeNo > currentMaxEpisode))
+                                try
                                 {
-                                    await _jobQueue.EnqueueAsync(new PrefetchEpisodeJob
+                                    foreach (var ep in newEpisodes)
                                     {
-                                        NovelDbId = novel.Id,
-                                        EpisodeDbId = ep.Id,
-                                        EpisodeNo = ep.EpisodeNo,
-                                        SiteType = novel.SiteType,
-                                        SiteNovelId = novel.NovelId,
-                                    }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
+                                        await _jobQueue.EnqueueAsync(new PrefetchEpisodeJob
+                                        {
+                                            NovelDbId = novel.Id,
+                                            EpisodeDbId = ep.Id,
+                                            EpisodeNo = ep.EpisodeNo,
+                                            SiteType = novel.SiteType,
+                                            SiteNovelId = novel.NovelId,
+                                        }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageService.Warn($"Prefetch enqueue failed for {novel.Title}: {ex.Message}");
                                 }
                             }
                         }
