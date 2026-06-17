@@ -135,7 +135,11 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        return ParseApolloState(html).episodes;
+        // 解析済み episodeIds を TOC キャッシュへ温める。直後に同一作品の本文を位置依存/自己修復で読む際、
+        // GetEpisodeIdsAsync が同一 /works/{novelId} を再取得するのを避ける(FetchNovelInfoAsync と同方針)。
+        var (episodeIds, episodes) = ParseApolloState(html);
+        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
+        return episodes;
     }
 
     private void SweepExpiredEpisodeIdCache()
@@ -274,7 +278,14 @@ public class KakuyomuApiService : INovelService
             {
                 return (await FetchContentByEpisodeIdAsync(novelId, siteEpisodeId, cts.Token).ConfigureAwait(false), true);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            // (U2) 自己修復は「安定 ID の陳腐化を示す失敗」に限定する。5xx/408/429/通信断などの transient
+            // エラーは SiteRateLimiter 内で既にリトライ済みで、ここまで来たら一過性の通信障害とみなし再送出して
+            // 上位リトライに委ねる(正しい安定 ID を一過性失敗で捨ててキャッシュ無効化+誤話リスクを負わない)。
+            // 404 等の非 transient な HttpRequestException(クライアントエラー=削除/改稿で ID 失効)と本文欠落
+            // (InvalidOperationException)のみ位置依存フォールバックへ降格させる。
+            catch (Exception ex) when (
+                ex is not OperationCanceledException
+                && !(ex is HttpRequestException hre && TransientHttpErrorHelper.IsTransient(hre)))
             {
                 // (U3) 安定 ID での取得失敗(404/本文欠落=削除・改稿で ID が陳腐化)時は、生 TOC の位置依存
                 // 解決で 1 度だけ自己修復を試みる。位置依存はドリフトで誤話になりうるが、移行前の挙動と
