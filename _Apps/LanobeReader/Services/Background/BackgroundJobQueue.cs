@@ -36,7 +36,7 @@ public class BackgroundJobQueue
                 if (cached is not null) return;
 
                 var service = serviceFactory.GetService((SiteType)job.SiteType);
-                var content = await service.FetchEpisodeContentAsync(job.SiteNovelId, job.EpisodeNo, ct).ConfigureAwait(false);
+                var content = await service.FetchEpisodeContentAsync(job.SiteNovelId, job.EpisodeNo, job.SiteEpisodeId, ct).ConfigureAwait(false);
 
                 await cacheRepo.InsertAsync(new EpisodeCache
                 {

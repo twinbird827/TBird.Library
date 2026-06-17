@@ -103,6 +103,20 @@ public class UpdateCheckService
                     {
                         // Fetch new episodes
                         var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
+
+                        // 旧データ(site_episode_id 未保存の既存話)に、いま取得した新鮮な TOC のサイト話 ID を
+                        // 補完する(Kakuyomu の本文取得を位置依存からの脱却=誤話表示の是正)。タイトル一致時のみ
+                        // 更新するためドリフト誤補完は避けられる。Narou は SiteEpisodeId を持たず no-op。
+                        // best-effort: 失敗しても更新検出処理は続行する。
+                        try
+                        {
+                            await _episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageService.Warn($"Backfill site_episode_id failed for {novel.Title}: {ex.Message}");
+                        }
+
                         var newEpisodes = allEpisodes
                             .Where(e => e.EpisodeNo > currentMaxEpisode)
                             .Select(e => { e.NovelId = novel.Id; return e; })
@@ -152,6 +166,7 @@ public class UpdateCheckService
                                             EpisodeNo = ep.EpisodeNo,
                                             SiteType = novel.SiteType,
                                             SiteNovelId = novel.NovelId,
+                                            SiteEpisodeId = ep.SiteEpisodeId,
                                         }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
                                     }
                                 }

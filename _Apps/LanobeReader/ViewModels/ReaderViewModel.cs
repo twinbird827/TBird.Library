@@ -205,7 +205,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
                 }
 
                 var service = _serviceFactory.GetService((SiteType)_siteType);
-                content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo);
+                content = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo, _episode.SiteEpisodeId);
 
                 await _cacheRepo.InsertAsync(new EpisodeCache
                 {

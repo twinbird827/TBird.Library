@@ -236,7 +236,8 @@ public class KakuyomuApiService : INovelService
                 // __ref も含まれ、判定前に追加すると episodeIds が実話数(episodes)とズレる:
                 //   (a) FetchEpisodeContentAsync の episodeIds[episodeNo-1] 索引がズレて誤話/404
                 //   (b) totalEpisodes(=episodeIds.Count)が水増しされ UpdateCheckService が毎回再取得
-                ids.Add(refKey.Substring(colonIdx + 1));
+                var siteEpisodeId = refKey.Substring(colonIdx + 1);
+                ids.Add(siteEpisodeId);
 
                 var title = episodeEntry.TryGetProperty("title", out var titleProp)
                     ? titleProp.GetString() ?? ""
@@ -248,6 +249,9 @@ public class KakuyomuApiService : INovelService
                     EpisodeNo = episodeNo,
                     Title = title,
                     ChapterName = chapterTitle,
+                    // 本文取得を位置依存(episodeIds[episodeNo-1])から安定 ID へ移行するため、各話に
+                    // サイト側エピソード ID を持たせて永続化する(序盤話の削除/並べ替えでの誤話表示を防ぐ)。
+                    SiteEpisodeId = siteEpisodeId,
                 });
             }
         }
@@ -255,19 +259,31 @@ public class KakuyomuApiService : INovelService
         return (ids, episodes);
     }
 
-    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
+    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-        var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
-
-        if (episodeNo < 1 || episodeNo > episodeIds.Count)
+        string episodeId;
+        if (!string.IsNullOrEmpty(siteEpisodeId))
         {
-            throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
+            // DB に永続化済みの安定したサイト話 ID を直接使う。生 TOC の位置依存解決(序盤話の削除/
+            // 並べ替えで episodeIds がシフトし誤話/404 になる)を回避する本命パス。
+            episodeId = siteEpisodeId;
+        }
+        else
+        {
+            // 旧データ(site_episode_id 列追加前に保存された話)向けフォールバック: 生 TOC から位置で解決する。
+            // 新規取得分は SiteEpisodeId を持つためこの経路には来ない。BackfillSiteEpisodeIdsAsync が
+            // 旧データにも順次補完するため、フォールバック該当は時間とともに縮小する。
+            var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
+            if (episodeNo < 1 || episodeNo > episodeIds.Count)
+            {
+                throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
+            }
+            episodeId = episodeIds[episodeNo - 1];
         }
 
-        var episodeId = episodeIds[episodeNo - 1];
         var episodeHref = $"{BASE_URL}/works/{novelId}/episodes/{episodeId}";
 
         var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, cts.Token).ConfigureAwait(false);

@@ -37,6 +37,9 @@ public class DatabaseService : SqliteDatabaseBase
         await EnsureColumnAsync(conn, "novels", "last_checked_at", "TEXT NULL").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "episodes", "is_favorite", "INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "episodes", "favorited_at", "TEXT NULL").ConfigureAwait(false);
+        // サイト側エピソード ID（Kakuyomu の本文取得を位置依存解決から安定 ID へ移行するため）。
+        // 列追加は EnsureColumnAsync で冪等。新規インストールは CreateTableAsync<Episode> が含めて作成する。
+        await EnsureColumnAsync(conn, "episodes", "site_episode_id", "TEXT NULL").ConfigureAwait(false);
 
         // 3. novels の UNIQUE 制約（v1 時点で既に整備済みなので再適用するだけ）
         await conn.ExecuteAsync(

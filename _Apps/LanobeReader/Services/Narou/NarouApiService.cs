@@ -157,7 +157,8 @@ public class NarouApiService : INovelService
         return episodes;
     }
 
-    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
+    // Narou は本文 URL を episode_no で直接組めるため siteEpisodeId は使用しない(INovelService 共通シグネチャ)。
+    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));

@@ -16,6 +16,12 @@ public class EpisodeRepository
 
     private Task EnsureAsync() => _dbService.EnsureInitializedAsync();
 
+    // 複数の raw SQL クエリで使う episodes の列リスト。列追加時の更新漏れ(列順・列セットのズレ)を
+    // 防ぐため一元化する。Episode のプロパティ([Column] 属性)へ列名でマップされる。
+    private const string EpisodeColumns =
+        "id, novel_id, episode_no, chapter_name, title, " +
+        "is_read, read_at, published_at, is_favorite, favorited_at, site_episode_id";
+
     public async Task<List<Episode>> GetByNovelIdAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
@@ -23,8 +29,7 @@ public class EpisodeRepository
         // オーバーヘッドが乗るため、長尺小説 (1500+ 話) では raw SQL が体感で速い。
         // GetPagedByNovelIdAsync と同じ列順 / 列セットを維持。
         return await _db.QueryAsync<Episode>(
-            "SELECT id, novel_id, episode_no, chapter_name, title, " +
-            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? ORDER BY episode_no",
             novelId).ConfigureAwait(false);
     }
@@ -34,8 +39,7 @@ public class EpisodeRepository
         await EnsureAsync().ConfigureAwait(false);
         int offset = (page - 1) * pageSize;
         return await _db.QueryAsync<Episode>(
-            "SELECT id, novel_id, episode_no, chapter_name, title, " +
-            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? ORDER BY episode_no LIMIT ? OFFSET ?",
             novelId, pageSize, offset).ConfigureAwait(false);
     }
@@ -63,8 +67,7 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         var results = await _db.QueryAsync<Episode>(
-            "SELECT id, novel_id, episode_no, chapter_name, title, " +
-            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? AND episode_no < ? " +
             "ORDER BY episode_no DESC LIMIT 1",
             novelId, currentEpisodeNo).ConfigureAwait(false);
@@ -75,8 +78,7 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         var results = await _db.QueryAsync<Episode>(
-            "SELECT id, novel_id, episode_no, chapter_name, title, " +
-            "is_read, read_at, published_at, is_favorite, favorited_at " +
+            $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? AND episode_no > ? " +
             "ORDER BY episode_no ASC LIMIT 1",
             novelId, currentEpisodeNo).ConfigureAwait(false);
@@ -175,6 +177,43 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         await _db.InsertAllAsync(episodes).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// site_episode_id が未設定の既存話(列追加前に保存された旧データ)へ、新鮮な TOC から導出した
+    /// サイト話 ID を補完する。ドリフト(序盤話の削除/並べ替え)後の誤補完を避けるため、同一 episode_no の
+    /// <b>タイトルが一致する話だけ</b>更新する(不一致=ドリフト疑い→触らない)。既に設定済みの話は更新しない。
+    /// SiteEpisodeId を持つ話が新鮮リストに無い場合(Narou 等)は何もしない。best-effort。
+    /// </summary>
+    public async Task BackfillSiteEpisodeIdsAsync(int novelId, IReadOnlyList<Episode> freshEpisodes)
+    {
+        if (freshEpisodes.Count == 0 || freshEpisodes.All(e => string.IsNullOrEmpty(e.SiteEpisodeId))) return;
+        await EnsureAsync().ConfigureAwait(false);
+
+        var existing = await GetByNovelIdAsync(novelId).ConfigureAwait(false);
+        var byNo = existing
+            .Where(e => string.IsNullOrEmpty(e.SiteEpisodeId)) // 未補完の話のみ対象
+            .ToDictionary(e => e.EpisodeNo);
+
+        var updates = new List<(string siteId, int id)>();
+        foreach (var fresh in freshEpisodes)
+        {
+            if (string.IsNullOrEmpty(fresh.SiteEpisodeId)) continue;
+            if (!byNo.TryGetValue(fresh.EpisodeNo, out var db)) continue;
+            if (db.Title != fresh.Title) continue; // タイトル不一致=ドリフト疑い→誤補完しない
+            updates.Add((fresh.SiteEpisodeId!, db.Id));
+        }
+        if (updates.Count == 0) return;
+
+        await _db.RunInTransactionAsync(conn =>
+        {
+            foreach (var (siteId, id) in updates)
+            {
+                conn.Execute(
+                    "UPDATE episodes SET site_episode_id = ? WHERE id = ? AND site_episode_id IS NULL",
+                    siteId, id);
+            }
+        }).ConfigureAwait(false);
     }
 
     public async Task<int> UpdateAsync(Episode episode)
