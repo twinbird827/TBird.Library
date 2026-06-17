@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text.Json;
 using AngleSharp.Dom;
@@ -12,19 +13,14 @@ public class NarouApiService : INovelService
     private const string API_BASE = "https://api.syosetu.com/novelapi/api/";
     private const string RANK_BASE = "https://api.syosetu.com/rank/rankget/";
     private const string NCODE_BASE = "https://ncode.syosetu.com/";
-    private const string USER_AGENT = "Mozilla/5.0 (compatible; LanobeReader/1.0)";
 
-    private readonly HttpClient _httpClient;
     private readonly NetworkPolicyService _network;
 
-    public NarouApiService(HttpClient httpClient, NetworkPolicyService network)
+    // 全 HTTP は _network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
+    // UA 等のヘッダは SiteRateLimiter 側の HttpClient に集約されるため、ここで HttpClient は持たない。
+    public NarouApiService(NetworkPolicyService network)
     {
-        _httpClient = httpClient;
         _network = network;
-        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
-        {
-            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
-        }
     }
 
     public SiteType SiteType => SiteType.Narou;
@@ -53,18 +49,45 @@ public class NarouApiService : INovelService
         for (int i = 1; i < jsonArray.Length; i++)
         {
             var item = jsonArray[i];
+            // ncode / title を欠く要素(API 仕様変化・通知/エラーオブジェクト混入)は、その 1 件だけ
+            // スキップする。GetProperty は欠落時に例外送出するため、1 件の不正でページ全体(検索/
+            // ランキング結果)が失われていた。TryGetProperty + continue で局所化する。
+            if (!item.TryGetProperty("ncode", out var ncodeEl)
+                || !item.TryGetProperty("title", out var titleEl)) continue;
+            var ncode = ncodeEl.GetString();
+            if (string.IsNullOrEmpty(ncode)) continue;
             results.Add(new SearchResult
             {
                 SiteType = SiteType.Narou,
-                NovelId = item.GetProperty("ncode").GetString()?.ToLower() ?? "",
-                Title = item.GetProperty("title").GetString() ?? "",
+                // ncode はキー(URL・dedup)に使うため、ロケール非依存の ToLowerInvariant で正規化する
+                // (FetchRankingAsync 側と揃える。ToLower だと tr-TR 等で 'I'→'ı' となりキーが分裂する)。
+                NovelId = ncode.ToLowerInvariant(),
+                Title = titleEl.GetString() ?? "",
                 Author = item.TryGetProperty("writer", out var w) ? w.GetString() ?? "" : "",
                 TotalEpisodes = item.TryGetProperty("general_all_no", out var ga) ? ga.GetInt32() : 0,
                 IsCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0,
-                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null,
+                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? ToUtcIso(lastup.GetString()) : null,
             });
         }
         return results;
+    }
+
+    /// <summary>
+    /// Narou の general_lastup("yyyy-MM-dd HH:mm:ss", JST・オフセット無し)を UTC ISO("o")へ正規化する。
+    /// 保存形式を UTC に統一することで、新着確定時フォールバック(DateTime.UtcNow.ToString("o"))と同形式に
+    /// 揃え、UpdateCheckService.SameInstant の TZ/形式差による誤判定(無駄なフル再取得)と、端末ローカル TZ
+    /// での誤表示を防ぐ。JST は DST が無いため固定 +9 時間で変換する。解析不能な値は素のまま返す。
+    /// </summary>
+    private static string? ToUtcIso(string? narouJst)
+    {
+        if (string.IsNullOrEmpty(narouJst)) return narouJst;
+        if (!DateTime.TryParse(narouJst, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
+        {
+            return narouJst;
+        }
+        var utc = new DateTimeOffset(
+            DateTime.SpecifyKind(local, DateTimeKind.Unspecified), TimeSpan.FromHours(9)).UtcDateTime;
+        return utc.ToString("o", CultureInfo.InvariantCulture);
     }
 
     public async Task<List<Episode>> FetchEpisodeListAsync(string novelId, CancellationToken ct = default)
@@ -171,7 +194,7 @@ public class NarouApiService : INovelService
 
         var item = jsonArray[1];
         var totalEpisodes = item.GetProperty("general_all_no").GetInt32();
-        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null;
+        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? ToUtcIso(lastup.GetString()) : null;
         var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0;
         var author = item.TryGetProperty("writer", out var writerProp) ? writerProp.GetString() : null;
 

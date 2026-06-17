@@ -11,22 +11,17 @@ namespace LanobeReader.Services.Kakuyomu;
 public class KakuyomuApiService : INovelService
 {
     private const string BASE_URL = "https://kakuyomu.jp";
-    private const string USER_AGENT = "Mozilla/5.0 (compatible; LanobeReader/1.0)";
 
-    private readonly HttpClient _httpClient;
     private readonly NetworkPolicyService _network;
     private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)> _episodeIdCache = new();
     private static readonly TimeSpan EpisodeIdCacheTtl = TimeSpan.FromMinutes(5);
     private const int EpisodeIdCacheMaxEntries = 100;
 
-    public KakuyomuApiService(HttpClient httpClient, NetworkPolicyService network)
+    // 全 HTTP は _network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
+    // UA 等のヘッダは SiteRateLimiter 側の HttpClient に集約されるため、ここで HttpClient は持たない。
+    public KakuyomuApiService(NetworkPolicyService network)
     {
-        _httpClient = httpClient;
         _network = network;
-        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
-        {
-            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
-        }
     }
 
     public SiteType SiteType => SiteType.Kakuyomu;
@@ -87,11 +82,13 @@ public class KakuyomuApiService : INovelService
                 foreach (var meta in cardEl.QuerySelectorAll("[class*='Meta_metaItem__']"))
                 {
                     var text = meta.TextContent.Trim();
-                    var m = Regex.Match(text, @"^(連載中|完結済)\s*(\d+)話$");
+                    // 桁区切り(半角/全角コンマ)を含む話数表記 "完結済 1,234話" にも対応する。
+                    // 区切りで弾くと話数 0・完結→連載中の誤判定になるため、抽出後にコンマを除去して解析する。
+                    var m = Regex.Match(text, @"^(連載中|完結済)\s*([\d,，]+)話$");
                     if (m.Success)
                     {
                         isCompleted = m.Groups[1].Value == "完結済";
-                        int.TryParse(m.Groups[2].Value, out totalEpisodes);
+                        int.TryParse(m.Groups[2].Value.Replace(",", "").Replace("，", ""), out totalEpisodes);
                         break;
                     }
                 }

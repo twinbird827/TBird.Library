@@ -18,11 +18,12 @@ public class DatabaseService : SqliteDatabaseBase
     protected override async Task CreateTablesAsync(SQLiteAsyncConnection conn)
     {
         // 0. 並行アクセス対策。前面UI・背景更新チェック(FGS/Worker)・プリフェッチが同一接続へ
-        //    書き込むため、競合時の即時 "database is locked" を抑止する。WAL は DB ファイルに
-        //    永続化され読取と書込の並行性を上げ、busy_timeout は競合時に最大 5 秒待機する。
-        //    冪等(毎起動の再適用は無害)。
-        await conn.ExecuteAsync("PRAGMA journal_mode=WAL").ConfigureAwait(false);
+        //    書き込むため、競合時の即時 "database is locked" を抑止する。busy_timeout を先に設定し、
+        //    続く WAL 切替 PRAGMA 自体も競合時に最大 5 秒待機できるようにする(起動時の一時ロックで
+        //    最初の DDL が即失敗→初期化 Task が faulted で固着するのを防ぐ)。WAL は DB ファイルに
+        //    永続化され読取と書込の並行性を上げる。冪等(毎起動の再適用は無害)。
         await conn.ExecuteAsync("PRAGMA busy_timeout=5000").ConfigureAwait(false);
+        await conn.ExecuteAsync("PRAGMA journal_mode=WAL").ConfigureAwait(false);
 
         // 1. CreateTable は冪等。v0 の新規インストール時の初期化も兼ねる。
         await conn.CreateTableAsync<Novel>().ConfigureAwait(false);
@@ -209,8 +210,11 @@ public class DatabaseService : SqliteDatabaseBase
         {
             try
             {
-                await conn.ExecuteAsync("DROP INDEX IF EXISTS idx_episodes_novel_isread")
-                    .ConfigureAwait(false);
+                // 新インデックスを先に作成し、旧 idx_episodes_novel_isread の DROP は最後に行う。
+                // この 3 文はトランザクション外のため、DROP を先頭に置くと途中失敗(プロセス kill /
+                // ディスク逼迫)で「旧索引は消えたが新索引は未作成」となり、該当クエリがフルスキャンへ
+                // 退化する窓が残る(schema_version 未前進で再実行されるが、その窓が問題)。順序を逆にすれば
+                // 部分失敗時も旧索引が残る(新索引と冗長だが無害)だけで covering index を失わない。
                 await conn.ExecuteAsync(
                     "CREATE INDEX IF NOT EXISTS idx_episodes_novel_isread_epno " +
                     "ON episodes (novel_id, is_read, episode_no)"
@@ -219,6 +223,8 @@ public class DatabaseService : SqliteDatabaseBase
                     "CREATE INDEX IF NOT EXISTS idx_novels_last_checked " +
                     "ON novels (last_checked_at)"
                 ).ConfigureAwait(false);
+                await conn.ExecuteAsync("DROP INDEX IF EXISTS idx_episodes_novel_isread")
+                    .ConfigureAwait(false);
                 MessageService.Info("[MigrateToV4] Done.");
             }
             catch (Exception ex)

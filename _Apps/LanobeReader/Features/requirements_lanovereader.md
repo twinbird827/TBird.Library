@@ -1179,7 +1179,7 @@ public enum SiteType
 | writer | author | 作者名 |
 | general_all_no | total_episodes | 総話数 |
 | novel_type | - | 1=連載/2=短編 |
-| end | is_completed | 0=連載中/1=完結 |
+| end | is_completed | 0=短編/完結済, 1=連載中（公式API仕様。is_completed = (end==0)） |
 | general_lastup | last_updated_at | 最終更新日時 |
 
 **本文スクレイピング:**

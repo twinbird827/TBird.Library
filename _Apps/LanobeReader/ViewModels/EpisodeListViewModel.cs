@@ -110,6 +110,11 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     // 自然な振る舞いと整合するため許容。
     private bool _pendingScrollToAnchor;
 
+    // ReloadEpisodesAsync の再入防止フラグ。背面チェックの UpdatesDetectedMessage が近接連投された場合、
+    // 受動的な背面再読込ではスピナー(IsLoading)を出したくないため、IsLoading とは別の同期フラグで
+    // 二重実行だけを弾く。UI スレッド上でのみ check/set するため await を挟まず原子性が保たれる。
+    private bool _isAutoReloading;
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (_initTask is not null)
@@ -171,19 +176,31 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     /// </summary>
     private async Task ReloadEpisodesAsync()
     {
-        if (IsLoading) return;
+        // IsLoading は設定せず _isAutoReloading だけを見る。旧実装は IsLoading を見るだけで立てて
+        // いなかったため、近接連投された 2 つの通知が両方ガードを抜けて _allEpisodes / Episodes を
+        // 並走 mutate し、コレクションやページングが壊れていた。check と set の間に await を挟まない
+        // ことで UI スレッド上の原子性を保ち、二重実行を確実に弾く。
+        if (IsLoading || _isAutoReloading) return;
         if (_initTask is null || !_initTask.IsCompletedSuccessfully) return;
         if (_jumpTask is { IsCompleted: false }) return;
         if (_novelDbId <= 0) return;
 
-        var fresh = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-        if (fresh.Count <= _allEpisodes.Count) return; // 新着なし → 何もしない
+        _isAutoReloading = true;
+        try
+        {
+            var fresh = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+            if (fresh.Count <= _allEpisodes.Count) return; // 新着なし → 何もしない
 
-        _allEpisodes = fresh;
-        _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
-        RebuildFilterCache();
-        RecalcPaging();
-        await LoadPageAsync();
+            _allEpisodes = fresh;
+            _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+            RebuildFilterCache();
+            RecalcPaging();
+            await LoadPageAsync();
+        }
+        finally
+        {
+            _isAutoReloading = false;
+        }
     }
 
     public async Task InitializeAsync()
@@ -457,6 +474,12 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
 
     private async Task ReloadListAsync()
     {
+        // 初期化未完了/「続きから」ジャンプ中は Init/Jump 側がページを構築するため触らない。
+        // (Init の Task.Delay の隙間でフィルタ再構築と二重 LoadPage が競合し、ページング/アンカーが
+        //  壊れるのを防ぐ。フィルタ切替は UI 操作=ページ描画後にしか起きないため、ここでのスキップは安全。)
+        if (_initTask is null || !_initTask.IsCompletedSuccessfully) return;
+        if (_jumpTask is { IsCompleted: false }) return;
+
         RebuildFilterCache();
         CurrentPage = 1;
         RecalcPaging();

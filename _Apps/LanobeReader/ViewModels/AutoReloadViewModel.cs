@@ -49,7 +49,7 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
         if (ParticipatesInNotificationSuppression && !_countedAsVisibleList)
         {
             _countedAsVisibleList = true;
-            UpdateListVisibilityTracker.OnSubscribed();
+            UpdateListVisibilityTracker.OnSubscribed(this);
         }
     }
 
@@ -60,7 +60,7 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
         if (_countedAsVisibleList)
         {
             _countedAsVisibleList = false;
-            UpdateListVisibilityTracker.OnUnsubscribed();
+            UpdateListVisibilityTracker.OnUnsubscribed(this);
         }
     }
 

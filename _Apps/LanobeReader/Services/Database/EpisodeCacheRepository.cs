@@ -26,7 +26,11 @@ public class EpisodeCacheRepository
     public async Task<int> InsertAsync(EpisodeCache cache)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.InsertAsync(cache).ConfigureAwait(false);
+        // episode_id は UNIQUE。Reader の直読みとバックグラウンド先読み(BackgroundJobQueue)が同一話を
+        // 同時に挿入しうる(各々 GetByEpisodeIdAsync で miss を確認してから Insert する check-then-insert の
+        // レース)。"OR IGNORE" で衝突時は何もせず冪等化し、UNIQUE 例外で Reader 読込が失敗したり、
+        // 先読みキューの連続失敗ブレーカーが誤作動して先読み全体が停止するのを防ぐ(先に入った内容を温存)。
+        return await _db.InsertAsync(cache, "OR IGNORE").ConfigureAwait(false);
     }
 
     public async Task DeleteByNovelIdAsync(int novelId)
