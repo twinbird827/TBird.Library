@@ -1,10 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using LanobeReader.Helpers;
 using TBird.Core;
-using TBird.Maui.ViewModels;
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Background;
@@ -12,7 +10,7 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributable
+public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributable
 {
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
@@ -150,29 +148,15 @@ public partial class EpisodeListViewModel : ErrorAwareViewModel, IQueryAttributa
     public Task EnsureInitializedAsync() => _initTask ?? Task.CompletedTask;
 
     /// <summary>
-    /// 前面滞在中に背面チェックが本作品の新着を検出した場合、システム通知は抑止されるため、目次を
-    /// 再読込して新着話を即時反映する購読を開始する。NovelListViewModel と同様、AddTransient なこの
-    /// VM ではハンドラ積み上がりを避けるため画面表示中のみ有効化する(EpisodeListPage の
-    /// OnAppearing/OnDisappearing で Subscribe/Unsubscribe)。
+    /// 新着検出時、表示中作品に関係する更新のみ目次を再読込する。UpdatesDetectedMessage は新着のあった
+    /// 作品 Id 一覧を持つため、本作品が対象でなければ全話再読込(GetByNovelIdAsync)を行わずに済ませる。
     /// </summary>
-    public void SubscribeToUpdates()
+    protected override async Task OnUpdatesDetectedAsync(UpdatesDetectedMessage message)
     {
-        // OnAppearing が複数回呼ばれても二重登録にならないよう、登録前に必ず解除する。
-        WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
-        WeakReferenceMessenger.Default.Register<UpdatesDetectedMessage>(this, (_, _) =>
-        {
-            // Send は背面スレッドから呼ばれうるため UI スレッドへ戻す。
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                try { await ReloadEpisodesAsync(); }
-                catch (Exception ex) { MessageService.Warn($"Auto-reload episodes on updates failed: {ex.Message}"); }
-            });
-        });
+        // 別作品だけの更新ではこの目次に変化は無い → 高コストな全話ロードを避ける。
+        if (_novelDbId <= 0 || !message.NovelIds.Contains(_novelDbId)) return;
+        await ReloadEpisodesAsync();
     }
-
-    /// <summary>画面非表示時に購読を解除する(非表示中は次回 OnAppearing の RefreshReadStatus が反映する)。</summary>
-    public void UnsubscribeFromUpdates()
-        => WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
 
     /// <summary>
     /// 新着検出時に _allEpisodes を再取得して現在ページを再描画する。初期化中・「続きから」戻りジャンプ中は

@@ -10,4 +10,6 @@ namespace LanobeReader.Services;
 /// </para>
 /// </summary>
 /// <param name="DetectedCount">新着が検出された小説数。</param>
-public sealed record UpdatesDetectedMessage(int DetectedCount);
+/// <param name="NovelIds">新着が検出された小説の DB Id 一覧。受信側(目次画面)が自分の表示中作品に
+/// 関係する更新かを判定し、無関係な更新での全話再読込を避けるために使う。</param>
+public sealed record UpdatesDetectedMessage(int DetectedCount, IReadOnlyList<int> NovelIds);

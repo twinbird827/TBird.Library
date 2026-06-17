@@ -58,9 +58,9 @@ public class UpdateNotificationService : IUpdateNotificationService
 			targets = new Dictionary<int, int>();
 		}
 
-		// 上の await 中にアプリが前面化した場合、MainActivity.OnResume の CancelAll が既に走った後に
-		// 通知を投稿すると消えない通知が残る(冒頭の前面判定との TOCTOU)。投稿直前に再判定して中止する。
-		if (AppForegroundTracker.IsForeground) return;
+		// await 中に前面化していても、投稿可否は NotificationHelper が「前面判定 + Notify」を原子的に
+		// 行って決める(CancelAll と相互排他)。前面化後に投稿した通知が居座る TOCTOU はそこで閉じるため、
+		// ここで個別に再判定する必要はない(従来の await 後/反復ごとの IsForeground チェックを撤去)。
 
 		// 数字バッジ総数は「最初に投稿が成功した 1 通」にのみ付ける。各通知に総数を付けると number を
 		// 合算する OEM ランチャーで膨らむため 1 通に限定しつつ、固定位置(従来は最後の 1 通)だとその通知の
@@ -68,10 +68,6 @@ public class UpdateNotificationService : IUpdateNotificationService
 		var badgePlaced = false;
 		for (int i = 0; i < updates.Count; i++)
 		{
-			// ループ中にアプリが前面化した場合、以降に投稿した通知は MainActivity.OnResume の CancelAll で
-			// 消えず残る(冒頭/await 後の判定をすり抜けた窓)。反復ごとに再判定して中止する。
-			if (AppForegroundTracker.IsForeground) return;
-
 			var (novel, newCount) = updates[i];
 			try
 			{
@@ -81,7 +77,9 @@ public class UpdateNotificationService : IUpdateNotificationService
 
 				var badge = badgePlaced ? 0 : badgeTotal;
 
-				NotificationHelper.ShowUpdateNotification(
+				// 戻り値 = 実際に投稿できたか(権限なし/前面化による抑止時は false)。投稿できたときだけ
+				// バッジ確定し、抑止・失敗時は badgePlaced を立てず次の通知へ総数を持ち越す。
+				if (NotificationHelper.ShowUpdateNotification(
 					context,
 					novel.Id, // notificationId = novel.Id（同一小説の通知は上書き）
 					"ラノベリーダ",
@@ -90,10 +88,10 @@ public class UpdateNotificationService : IUpdateNotificationService
 					episodeId,
 					novel.SiteType,
 					novel.NovelId,
-					badge);
-
-				// 投稿成功時のみバッジ確定。失敗時は badgePlaced を立てず次の通知へ総数を持ち越す。
-				badgePlaced = true;
+					badge))
+				{
+					badgePlaced = true;
+				}
 			}
 			catch (Exception ex)
 			{

@@ -8,7 +8,7 @@ namespace LanobeReader.Services.Database;
 
 public class DatabaseService : SqliteDatabaseBase
 {
-    private const int CURRENT_SCHEMA_VERSION = 3;
+    private const int CURRENT_SCHEMA_VERSION = 4;
 
     public DatabaseService()
         : base(Path.Combine(FileSystem.AppDataDirectory, "lanobereader.db"), CURRENT_SCHEMA_VERSION)
@@ -72,7 +72,7 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
-        => new IMigration[] { new MigrateToV2(), new MigrateToV3() };
+        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4() };
 
     protected override async Task<int> ReadSchemaVersionAsync(SQLiteAsyncConnection conn)
     {
@@ -188,6 +188,42 @@ public class DatabaseService : SqliteDatabaseBase
             catch (Exception ex)
             {
                 MessageService.Warn($"[MigrateToV3] Failed: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// v3 → v4: 更新チェック系クエリ向けのインデックスを整備。
+    /// - episodes(novel_id, is_read, episode_no): GetDeepLinkTargetEpisodeIdsAsync の
+    ///   相関サブクエリ MIN/MAX(episode_no) をインデックス端のシークで解決する covering index。
+    ///   (novel_id, is_read) の上位互換のため旧 idx_episodes_novel_isread は DROP する。
+    /// - novels(last_checked_at): GetAllForCheckAsync の「最終チェック古い順」ソートを索引化する
+    ///   (NULL=未チェックが先頭に来るラウンドロビン順)。
+    /// </summary>
+    private class MigrateToV4 : IMigration
+    {
+        public int FromVersion => 3;
+
+        public async Task ExecuteAsync(SQLiteAsyncConnection conn)
+        {
+            try
+            {
+                await conn.ExecuteAsync("DROP INDEX IF EXISTS idx_episodes_novel_isread")
+                    .ConfigureAwait(false);
+                await conn.ExecuteAsync(
+                    "CREATE INDEX IF NOT EXISTS idx_episodes_novel_isread_epno " +
+                    "ON episodes (novel_id, is_read, episode_no)"
+                ).ConfigureAwait(false);
+                await conn.ExecuteAsync(
+                    "CREATE INDEX IF NOT EXISTS idx_novels_last_checked " +
+                    "ON novels (last_checked_at)"
+                ).ConfigureAwait(false);
+                MessageService.Info("[MigrateToV4] Done.");
+            }
+            catch (Exception ex)
+            {
+                MessageService.Warn($"[MigrateToV4] Failed: {ex.Message}");
                 throw;
             }
         }

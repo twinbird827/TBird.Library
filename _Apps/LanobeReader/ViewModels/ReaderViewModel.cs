@@ -5,7 +5,7 @@ using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
-using TBird.Maui.Background;
+using LanobeReader.Services.Network;
 
 namespace LanobeReader.ViewModels;
 
@@ -16,7 +16,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     private readonly NovelRepository _novelRepo;
     private readonly INovelServiceFactory _serviceFactory;
     private readonly AppSettingsRepository _settingsRepo;
-    private readonly INetworkPolicy _networkPolicy;
+    private readonly NetworkPolicyService _networkPolicy;
 
     private int _novelDbId;
     private int _currentEpisodeId;
@@ -28,7 +28,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
         NovelRepository novelRepo,
         INovelServiceFactory serviceFactory,
         AppSettingsRepository settingsRepo,
-        INetworkPolicy networkPolicy)
+        NetworkPolicyService networkPolicy)
     {
         _episodeRepo = episodeRepo;
         _cacheRepo = cacheRepo;
@@ -193,8 +193,10 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             }
             else
             {
-                // INetworkPolicy.IsOnline は Connectivity.Current を例外ガード付きで包む
-                // (MainActivity 起動前/特定端末状態で当該 API が throw するため)。生 API 直叩きは避ける。
+                // NetworkPolicyService.IsOnline は INetworkPolicy 経由で Connectivity.Current を
+                // 例外ガード付きで包む(MainActivity 起動前/特定端末状態で当該 API が throw するため)。
+                // INetworkPolicy をアプリ層 VM が直接 DI で受け取ることは TBird.Maui.Background/CLAUDE.md
+                // で禁止されているため、消費アプリ側ラッパー(NetworkPolicyService)経由で参照する。
                 if (!_networkPolicy.IsOnline)
                 {
                     // ユーザは目次/戻るボタンで自分で抜ける（自動遷移は採用しない）。
