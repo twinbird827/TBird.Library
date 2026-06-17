@@ -143,11 +143,14 @@ public partial class SettingsViewModel : ErrorAwareViewModel
 
     partial void OnUpdateIntervalHoursChanged(int value)
     {
-        DebounceSave(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString());
-        // 間隔変更を即時に WorkManager / アラームへ反映する。従来は次回アプリ起動時の差分チェック
-        // (MainActivity) まで反映されず「設定を変えても効かない」状態だった。
-        Debounce("__reschedule_interval", async () =>
+        // 1 ユーザ操作 = 1 原子的処理として、単一デバウンス(同一キー)で逐次に
+        // 「間隔保存 → スケジュール反映 → LAST_SCHEDULED_HOURS 保存」を行う。
+        // 別キーの二重デバウンスにすると保存とスケジュールが順不同で競合し、永続値と実スケジュールが
+        // 一時的に食い違いうるため統合する。間隔変更は即時に WorkManager / アラームへ反映する
+        // (従来は次回起動の差分チェック(MainActivity)まで反映されなかった)。
+        Debounce(SettingsKeys.UPDATE_INTERVAL_HOURS, async () =>
         {
+            await _settingsRepo.SetValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString()).ConfigureAwait(false);
             _scheduler.Schedule(value);
             // MainActivity の差分チェックと整合させ、次回起動時の二重スケジュールを防ぐ。
             await _settingsRepo.SetValueAsync(SettingsKeys.LAST_SCHEDULED_HOURS, value.ToString()).ConfigureAwait(false);

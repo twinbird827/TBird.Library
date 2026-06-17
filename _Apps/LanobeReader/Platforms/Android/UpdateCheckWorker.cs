@@ -28,7 +28,7 @@ public class UpdateCheckWorker : Worker
         {
             // Worker threads have no SynchronizationContext, so blocking on Task.Run is safe here.
             // 実処理は前面サービス経路と共通の UpdateCheckRunner に集約。
-            var outcome = Task.Run(() => UpdateCheckRunner.RunAsync(ApplicationContext)).GetAwaiter().GetResult();
+            var outcome = Task.Run(() => UpdateCheckRunner.RunAsync(ApplicationContext, _cts.Token)).GetAwaiter().GetResult();
             return outcome switch
             {
                 UpdateCheckRunner.Outcome.Retry => Result.InvokeRetry(),

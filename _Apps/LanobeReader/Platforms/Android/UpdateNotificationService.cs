@@ -1,6 +1,7 @@
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
+using LanobeReader.Views;
 using TBird.Core;
 
 namespace LanobeReader.Platforms.Android;

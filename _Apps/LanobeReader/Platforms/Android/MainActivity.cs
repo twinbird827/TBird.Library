@@ -67,6 +67,13 @@ public class MainActivity : MauiAppCompatActivity
                     await settingsRepo.SetValueAsync(
                         SettingsKeys.LAST_SCHEDULED_HOURS, hours.ToString()).ConfigureAwait(false);
                 }
+                else
+                {
+                    // 間隔不変でも定期ワークが未登録なら登録する(既定間隔の新規インストールは差分が無く
+                    // 初回 no-op になり WorkManager ベースラインが欠落するのを防ぐ)。Keep のため既存
+                    // ワークがあれば周期はリセットされない。
+                    UpdateCheckScheduler.EnsurePeriodicCheck(ctx, hours);
+                }
 
                 // アラームは毎起動で再武装（冪等・自己修復）。同一 PendingIntent を上書きするだけ。
                 UpdateAlarmScheduler.ScheduleNext(ctx, hours);
