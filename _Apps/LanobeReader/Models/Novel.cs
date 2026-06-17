@@ -39,6 +39,14 @@ public class Novel
     [Column("has_check_error")]
     public bool HasCheckError { get; set; }
 
+    /// <summary>
+    /// この小説を最後に更新チェックした日時(ISO8601 "o", UTC)。null=未チェック。
+    /// 更新チェックを「古い順(未チェック優先)」で回し、3分上限等で打ち切られても
+    /// 次回が続きから拾えるようにするため (ラウンドロビン)。
+    /// </summary>
+    [Column("last_checked_at")]
+    public string? LastCheckedAt { get; set; }
+
     [Column("is_favorite")]
     public bool IsFavorite { get; set; }
 

@@ -31,18 +31,14 @@ public class MainActivity : MauiAppCompatActivity
         {
             try
             {
-                IServiceProvider? services = null;
-                for (int i = 0; i < 30; i++)
-                {
-                    services = IPlatformApplication.Current?.Services;
-                    if (services is not null) break;
-                    await Task.Delay(100).ConfigureAwait(false);
-                }
+                // DI 待ちは UpdateCheckRunner と共通の PlatformServiceReadiness に集約(コピー乖離防止)。
+                var services = await PlatformServiceReadiness.WaitForServicesAsync().ConfigureAwait(false);
 
                 if (services is null)
                 {
-                    MessageService.Warn("DI not ready in OnCreate; scheduling with default interval");
-                    UpdateCheckScheduler.SchedulePeriodicCheck(ctx);
+                    MessageService.Warn("DI not ready in OnCreate; scheduling with cached interval");
+                    // WorkManager とアラームを同一のキャッシュ間隔で武装し、両機構の間隔不一致を防ぐ。
+                    UpdateSchedulingCoordinator.ArmBothFromCache(ctx);
                     return;
                 }
 
@@ -50,7 +46,7 @@ public class MainActivity : MauiAppCompatActivity
                 var settingsRepo = services.GetService<AppSettingsRepository>();
                 if (dbService is null || settingsRepo is null)
                 {
-                    UpdateCheckScheduler.SchedulePeriodicCheck(ctx);
+                    UpdateSchedulingCoordinator.ArmBothFromCache(ctx);
                     return;
                 }
 
@@ -67,19 +63,51 @@ public class MainActivity : MauiAppCompatActivity
                     SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS).ConfigureAwait(false);
                 if (hours != lastScheduled)
                 {
+                    // 間隔が変わったときは Update で既存ワークを新間隔へ更新。
                     UpdateCheckScheduler.SchedulePeriodicCheck(ctx, hours);
                     await settingsRepo.SetValueAsync(
                         SettingsKeys.LAST_SCHEDULED_HOURS, hours.ToString()).ConfigureAwait(false);
                 }
+                else
+                {
+                    // 間隔不変でも定期ワークが未登録なら登録する(既定間隔の新規インストールは差分が無く
+                    // 初回 no-op になり WorkManager ベースラインが欠落するのを防ぐ)。Keep のため既存
+                    // ワークがあれば周期はリセットされない。
+                    UpdateCheckScheduler.EnsurePeriodicCheck(ctx, hours);
+                }
+
+                // アラームは毎起動で再武装（冪等・自己修復）。同一 PendingIntent を上書きするだけ。
+                UpdateAlarmScheduler.ScheduleNext(ctx, hours);
             }
             catch (Exception ex)
             {
                 MessageService.Warn($"Schedule worker failed: {ex.Message}");
-                try { UpdateCheckScheduler.SchedulePeriodicCheck(ctx); } catch { /* 諦める */ }
+                // 最終フォールバックは耐障害性を優先し、片方の失敗でもう片方を巻き込まないよう
+                // 各機構を独立 try で武装する（このため Coordinator.ArmBoth は経由しない）。
+                var cached = UpdateAlarmScheduler.GetCachedIntervalHours();
+                try { UpdateCheckScheduler.SchedulePeriodicCheck(ctx, cached); } catch { /* 諦める */ }
+                try { UpdateAlarmScheduler.ScheduleNext(ctx, cached); } catch { /* 諦める */ }
             }
         });
 
         HandleIntent(Intent);
+    }
+
+    // 前面/背面の追跡は MainApplication が登録する ActivityForegroundCallbacks がアプリ全体の
+    // Activity ライフサイクル(Started/Stopped)から一元的に行う。個々の Activity では行わない。
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+
+        // 新着バッジ(ランチャーアイコンのドット)はアクティブな通知に紐づく Android 仕様のため、
+        // アプリを前面化した時点で通知をクリアしてバッジを消す。
+        // = 「新着があったらアプリを開くまではバッジを維持」を実現する。
+        try { NotificationHelper.CancelAll(this); }
+        catch (Exception ex) { MessageService.Warn($"CancelAll failed: {ex.Message}"); }
+
+        // 電池最適化の除外を一度だけ依頼(OEM 実機でのバックグラウンド更新の信頼性向上)。
+        BatteryOptimizationHelper.PromptOnceIfNeeded(this);
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -100,12 +128,32 @@ public class MainActivity : MauiAppCompatActivity
             var siteType = intent.GetIntExtra("siteType", 1);
             var siteNovelId = intent.GetStringExtra("siteNovelId") ?? "";
 
-            if (novelId > 0 && episodeId > 0)
+            if (novelId > 0)
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.GoToAsync(
-                        $"reader?novelId={novelId}&episodeId={episodeId}&siteType={siteType}&siteNovelId={siteNovelId}");
+                    // 未読話が解決できた場合はリーダーへ直行。解決できない(episodeId<=0)場合でも
+                    // 無反応にせず、その小説の話一覧へ遷移してユーザの意図(=その小説を開く)を満たす。
+                    var route = episodeId > 0
+                        ? $"reader?novelId={novelId}&episodeId={episodeId}&siteType={siteType}&siteNovelId={siteNovelId}"
+                        : $"episodes?novelId={novelId}";
+                    try
+                    {
+                        // コールドスタートの通知タップでは Shell 構築前にここへ到達しうる。async void 内の
+                        // NRE はプロセスを巻き込むため、null ガード + 握りつぶしでクラッシュを防ぐ。
+                        if (Shell.Current is not null)
+                        {
+                            await Shell.Current.GoToAsync(route);
+                        }
+                        else
+                        {
+                            MessageService.Warn("Shell.Current is null on notification tap; navigation skipped");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MessageService.Warn($"Notification deep-link navigation failed: {ex.Message}");
+                    }
                 });
             }
         }

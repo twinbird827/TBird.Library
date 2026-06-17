@@ -107,6 +107,11 @@ public partial class App : Application
     {
         try
         {
+            // 起動時チェックは新着を DB へ取り込み、アプリ内一覧の NEW 表示を最新化することだけを担う。
+            // ここでは通知を投稿しない: コールドスタートはほぼ必ず前面で、一覧の NEW 表示と
+            // UpdatesDetectedMessage による即時再読込で新着は見える。起動直後の前面未確定期に通知を出すと
+            // 直後の OnResume.CancelAll が消す「フラッシュ」になるため、通知経路は背面検出を担う
+            // WorkManager / アラーム経路に一本化する。
             await _updateCheckService.CheckAllAsync().ConfigureAwait(false);
         }
         catch (Exception ex)

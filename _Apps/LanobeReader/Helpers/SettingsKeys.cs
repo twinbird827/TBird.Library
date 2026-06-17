@@ -14,6 +14,9 @@ public static class SettingsKeys
     public const string NOVEL_SORT_KEY = "novel_sort_key";
     public const string LAST_SCHEDULED_HOURS = "last_scheduled_hours";
     public const string AUTO_MARK_READ_ENABLED = "auto_mark_read_enabled";
+    // いずれかの経路で更新チェックを完遂した時刻(epoch ms)の Preferences ミラー。
+    // アラームの冗長発火ゲート(UpdateAlarmScheduler.ShouldSkipRedundantCheck)が参照する。
+    public const string LAST_CHECK_COMPLETED_MS = "last_check_completed_ms";
 
     // Default values
     public const int DEFAULT_CACHE_MONTHS = 3;

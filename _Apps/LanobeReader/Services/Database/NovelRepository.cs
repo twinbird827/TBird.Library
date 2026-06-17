@@ -42,6 +42,20 @@ public class NovelRepository
             .ToListAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 更新チェック用に「最後にチェックした時刻が古い順(未チェック=null を最優先)」で全件取得する。
+    /// SQLite では NULL が ASC で先頭に来るため、未チェックの小説が最優先で回る。
+    /// 3分上限等で打ち切られても次回が続きから拾える (ラウンドロビン) ようにするため、
+    /// UI 表示用の <see cref="GetAllAsync"/>(last_updated_at 降順) とは別順序で返す。
+    /// </summary>
+    public async Task<List<Novel>> GetAllForCheckAsync()
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await _db.Table<Novel>()
+            .OrderBy(n => n.LastCheckedAt)
+            .ToListAsync().ConfigureAwait(false);
+    }
+
     public async Task<List<NovelWithUnread>> GetAllWithUnreadCountAsync(string sortKey)
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
@@ -149,6 +163,18 @@ public class NovelRepository
         return await _db.UpdateAsync(novel).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// last_checked_at 列のみを更新する軽量メソッド。更新チェックで状態に変化が無い
+    /// (新着なし・エラー状態も不変)作品の巡回タイムスタンプ前進に使い、全カラム UPDATE を避ける。
+    /// </summary>
+    public async Task UpdateLastCheckedAtAsync(int novelId, string lastCheckedAt)
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await _db.ExecuteAsync(
+            "UPDATE novels SET last_checked_at = ? WHERE id = ?",
+            lastCheckedAt, novelId).ConfigureAwait(false);
+    }
+
     public async Task SetFavoriteAsync(int novelId, bool favorite)
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
@@ -194,5 +220,17 @@ public class NovelRepository
     {
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
         return await _db.Table<Novel>().CountAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 未確認の更新を持つ小説数を COUNT クエリで取得する(全件ロードを避ける)。
+    /// OEM ランチャーの数字バッジ用。
+    /// </summary>
+    public async Task<int> CountUnconfirmedAsync()
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await _db.Table<Novel>()
+            .Where(n => n.HasUnconfirmedUpdate)
+            .CountAsync().ConfigureAwait(false);
     }
 }

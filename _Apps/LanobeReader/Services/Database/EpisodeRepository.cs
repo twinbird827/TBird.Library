@@ -114,6 +114,72 @@ public class EpisodeRepository
             .FirstOrDefaultAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 複数小説のディープリンク先エピソード Id をまとめて解決する。各小説につき
+    /// 「最初の未読話(最小 episode_no)」、未読が無ければ「最後に読んだ話(最大 episode_no)」。
+    /// 通知ループでの作品ごと逐次クエリ(最大 2×N 往復)を 2 クエリに集約する。戻り値は novelId -> episodeId。
+    /// 該当話が無い小説はキーを持たない(呼び出し側で 0 フォールバック)。
+    /// </summary>
+    public async Task<Dictionary<int, int>> GetDeepLinkTargetEpisodeIdsAsync(IReadOnlyList<int> novelIds)
+    {
+        var result = new Dictionary<int, int>();
+        if (novelIds.Count == 0) return result;
+        await EnsureAsync().ConfigureAwait(false);
+
+        // 各小説の最初の未読話(最小 episode_no)。
+        await ResolveTargetEpisodesAsync(novelIds, isRead: 0, useMin: true, result).ConfigureAwait(false);
+
+        // 未読が無い小説は最後に読んだ話(最大 episode_no)へフォールバック。
+        var remaining = novelIds.Where(id => !result.ContainsKey(id)).ToList();
+        if (remaining.Count > 0)
+        {
+            await ResolveTargetEpisodesAsync(remaining, isRead: 1, useMin: false, result).ConfigureAwait(false);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// novelIds の各小説について is_read=<paramref name="isRead"/> の話の中で episode_no が
+    /// 最小(<paramref name="useMin"/>=true)/最大の話 Id を解決し <paramref name="result"/> へ詰める。
+    /// SQLite の変数上限(既定 999)に達しないよう IN 句の引数をチャンク分割して照会する。
+    /// </summary>
+    private async Task ResolveTargetEpisodesAsync(
+        IReadOnlyList<int> novelIds, int isRead, bool useMin, Dictionary<int, int> result)
+    {
+        const int ChunkSize = 900;
+        // isRead(0/1) と agg(MIN/MAX) はコード由来のリテラルでユーザ入力ではないため SQL に直接埋めてよい。
+        // 可変長の novelIds のみプレースホルダでパラメータ化する。
+        var agg = useMin ? "MIN" : "MAX";
+        for (int offset = 0; offset < novelIds.Count; offset += ChunkSize)
+        {
+            var chunk = novelIds.Skip(offset).Take(ChunkSize).ToList();
+            var placeholders = string.Join(",", chunk.Select(_ => "?"));
+            var args = chunk.Cast<object>().ToArray();
+            var rows = await _db.QueryAsync<EpisodeRef>(
+                $"SELECT e.novel_id AS NovelId, e.id AS Id FROM episodes e " +
+                $"WHERE e.is_read = {isRead} AND e.novel_id IN ({placeholders}) " +
+                $"AND e.episode_no = (SELECT {agg}(episode_no) FROM episodes " +
+                $"WHERE novel_id = e.novel_id AND is_read = {isRead})",
+                args).ConfigureAwait(false);
+            // episodes(novel_id, episode_no) に一意制約は無く、重複 episode_no 行があると
+            // 同一 novel に複数行が返りうる。最小 id を採用して遷移先を決定的にする
+            // (行順依存で通知タップ先がブレるのを防ぐ)。
+            foreach (var r in rows)
+            {
+                if (!result.TryGetValue(r.NovelId, out var existing) || r.Id < existing)
+                {
+                    result[r.NovelId] = r.Id;
+                }
+            }
+        }
+    }
+
+    private sealed class EpisodeRef
+    {
+        public int NovelId { get; set; }
+        public int Id { get; set; }
+    }
+
     public async Task InsertAllAsync(IEnumerable<Episode> episodes)
     {
         await EnsureAsync().ConfigureAwait(false);

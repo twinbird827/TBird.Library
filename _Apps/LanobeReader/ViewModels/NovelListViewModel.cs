@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using LanobeReader.Helpers;
 using LanobeReader.Platforms.Android;
 using LanobeReader.Services;
@@ -32,6 +33,34 @@ public partial class NovelListViewModel : ErrorAwareViewModel
         _updateCheckService = updateCheckService;
         _notificationPermission = notificationPermission;
     }
+
+    /// <summary>
+    /// 背面チェックが前面滞在中に新着を検出した場合、システム通知は抑止されるため、一覧を再読込して
+    /// NEW 表示へ即時反映する購読を開始する。購読は画面の表示中のみ有効化する(NovelListPage の
+    /// OnAppearing/OnDisappearing で Subscribe/Unsubscribe)。この VM は AddTransient のため、購読を
+    /// コンストラクタに置くと画面遷移のたびにハンドラが積み上がり、非表示の旧 VM まで再読込してしまう。
+    /// </summary>
+    public void SubscribeToUpdates()
+    {
+        // OnAppearing が複数回呼ばれても二重登録例外にならないよう、登録前に必ず解除する。
+        WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
+        WeakReferenceMessenger.Default.Register<UpdatesDetectedMessage>(this, (_, _) =>
+        {
+            if (IsLoading) return;
+            // Send は背面スレッドから呼ばれうるため UI スレッドへ戻す。手動更新中(IsLoading)は
+            // RefreshAsync 側が再読込するため抑止する。
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                if (IsLoading) return;
+                try { await LoadNovelsAsync(); }
+                catch (Exception ex) { MessageService.Warn($"Auto-reload on updates failed: {ex.Message}"); }
+            });
+        });
+    }
+
+    /// <summary>画面非表示時に購読を解除する(非表示中は次回 OnAppearing の再読込が NEW を反映する)。</summary>
+    public void UnsubscribeFromUpdates()
+        => WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
 
     [ObservableProperty]
     private ObservableCollection<NovelCardViewModel> _novels = [];
@@ -132,8 +161,11 @@ public partial class NovelListViewModel : ErrorAwareViewModel
             await _updateCheckService.CheckAllAsync();
             await LoadNovelsAsync();
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (Exception ex)
         {
+            // CheckAllAsync は作品単位のネットワーク/パース例外を内部で握りつぶすため、ここへ来るのは
+            // DB エラー等の中断級。HttpRequestException 系に絞ると DB 例外が async コマンドから
+            // 未観測のまま抜けてしまうため、全例外を捕捉してユーザへ通知する。
             MessageService.Warn($"Refresh failed: {ex.Message}");
             SetError("更新チェックに失敗しました");
         }
