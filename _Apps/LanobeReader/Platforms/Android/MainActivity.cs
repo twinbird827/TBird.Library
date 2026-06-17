@@ -62,6 +62,7 @@ public class MainActivity : MauiAppCompatActivity
                     SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS).ConfigureAwait(false);
                 if (hours != lastScheduled)
                 {
+                    // 間隔が変わったときは Update で既存ワークを新間隔へ更新。
                     UpdateCheckScheduler.SchedulePeriodicCheck(ctx, hours);
                     await settingsRepo.SetValueAsync(
                         SettingsKeys.LAST_SCHEDULED_HOURS, hours.ToString()).ConfigureAwait(false);

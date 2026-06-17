@@ -54,9 +54,9 @@ public static class UpdateCheckScheduler
 
         WorkManager.GetInstance(context)!.EnqueueUniquePeriodicWork(
             UpdateCheckWorker.WORK_TAG,
-            ExistingPeriodicWorkPolicy.Update!,
+            policy,
             workRequest);
 
-        MessageService.Info($"Scheduled periodic check every {intervalHours} hours");
+        MessageService.Info($"Scheduled periodic check every {intervalHours} hours ({policy})");
     }
 }

@@ -8,8 +8,18 @@ public class UpdateCheckWorker : Worker
 {
     public const string WORK_TAG = "lanobe_update_check";
 
+    // WorkManager が停止(quota 失効/制約喪失/システム回収)を通知したとき、進行中の巡回を
+    // 協調キャンセルするためのトークン。これにより CheckAll のラウンドロビン「続きから再開」が機能する。
+    private readonly CancellationTokenSource _cts = new();
+
     public UpdateCheckWorker(Context context, WorkerParameters workerParams) : base(context, workerParams)
     {
+    }
+
+    public override void OnStopped()
+    {
+        try { _cts.Cancel(); } catch { /* 破棄済み */ }
+        base.OnStopped();
     }
 
     public override Result DoWork()
@@ -30,6 +40,10 @@ public class UpdateCheckWorker : Worker
         {
             MessageService.Error($"Unexpected error: {ex.Message}");
             return Result.InvokeFailure();
+        }
+        finally
+        {
+            _cts.Dispose();
         }
     }
 }

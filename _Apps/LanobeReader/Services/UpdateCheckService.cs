@@ -227,6 +227,8 @@ public class UpdateCheckService
                             MessageService.Warn($"Migration backfill failed for {novel.Title}: {ex.Message}");
                         }
                     }
+
+                    novel.HasCheckError = false; // 成功時はエラーフラグを解除
                 }
                 catch (Exception ex)
                 {
@@ -284,6 +286,28 @@ public class UpdateCheckService
                     // 確定済みの updates 通知を巻き込まないよう例外は伝播させず握りつぶす。
                     MessageService.Warn($"Batch last_checked_at update failed: {ex.Message}");
                 }
+
+                if (cancelled) { completedFullSweep = false; break; }
+
+                if (!persisted)
+                {
+                    // 新着なし作品。成功・失敗いずれも LastCheckedAt を更新して 1 回だけ永続化し、
+                    // ラウンドロビンを前進させる(失敗作品も後ろへ回し、特定作品で詰まらせない)。
+                    // (新着あり作品は挿入直後に LastCheckedAt 込みで永続化済み = NEW 喪失防止)
+                    novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
+                    if (novel.HasCheckError != hadError)
+                    {
+                        // エラーフラグに変化があったときだけ全カラム更新。
+                        await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // 変化が無い大多数の作品は last_checked_at 列のみ更新し、毎チェックの書き込み量を抑える。
+                        await _novelRepo.UpdateLastCheckedAtAsync(novel.Id, novel.LastCheckedAt).ConfigureAwait(false);
+                    }
+                }
+
+                if (!novel.HasCheckError) anySuccess = true;
             }
 
             // いずれの経路(起動時/手動更新/WorkManager/前面サービス)でも、CheckAll を「全作品まで
