@@ -282,10 +282,12 @@ public class KakuyomuApiService : INovelService
             // エラーは SiteRateLimiter 内で既にリトライ済みで、ここまで来たら一過性の通信障害とみなし再送出して
             // 上位リトライに委ねる(正しい安定 ID を一過性失敗で捨ててキャッシュ無効化+誤話リスクを負わない)。
             // 404 等の非 transient な HttpRequestException(クライアントエラー=削除/改稿で ID 失効)と本文欠落
-            // (InvalidOperationException)のみ位置依存フォールバックへ降格させる。
+            // (InvalidOperationException)のみ位置依存フォールバックへ降格させる。予期せぬ例外(NRE/JsonException/
+            // HTTP に包まれない IOException 等)はここで握らず再送出し、上位(ReaderViewModel)でエラー表示させる
+            // (承認外の文脈で位置依存降格=誤話リスクを負わないため、対象を陳腐化失敗の 2 種に厳密化)。
             catch (Exception ex) when (
-                ex is not OperationCanceledException
-                && !(ex is HttpRequestException hre && TransientHttpErrorHelper.IsTransient(hre)))
+                (ex is HttpRequestException hre && !TransientHttpErrorHelper.IsTransient(hre))
+                || ex is InvalidOperationException)
             {
                 // (U3) 安定 ID での取得失敗(404/本文欠落=削除・改稿で ID が陳腐化)時は、生 TOC の位置依存
                 // 解決で 1 度だけ自己修復を試みる。位置依存はドリフトで誤話になりうるが、移行前の挙動と
