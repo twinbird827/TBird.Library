@@ -19,13 +19,8 @@ public static class UpdateCheckRunner
     public static async Task<Outcome> RunAsync(Context appContext, CancellationToken ct = default)
     {
         // MainApplication 初期化完了前に起動しうる（FGS / Worker いずれも）。最大 ~3 秒だけ待つ。
-        IServiceProvider? services = null;
-        for (int i = 0; i < 30; i++)
-        {
-            services = IPlatformApplication.Current?.Services;
-            if (services is not null) break;
-            await Task.Delay(100).ConfigureAwait(false);
-        }
+        // 待ちロジックは MainActivity と共通の PlatformServiceReadiness に集約(コピー乖離防止)。
+        var services = await PlatformServiceReadiness.WaitForServicesAsync().ConfigureAwait(false);
 
         if (services is null)
         {

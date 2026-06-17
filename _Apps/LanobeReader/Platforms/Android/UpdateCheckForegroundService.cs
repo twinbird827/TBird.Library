@@ -30,6 +30,10 @@ public class UpdateCheckForegroundService : Service
     // shortService の3分上限到達(OnTimeout)時にチェック処理をきれいに中断するためのトークン。
     private CancellationTokenSource? _cts;
 
+    // チェック進行中フラグ(0=待機, 1=実行中)。同一インスタンスに OnStartCommand が近接二重発火しても
+    // 2 本目のチェックを起こさせず、_cts の差し替えによる「誤キャンセル/取りこぼし」を防ぐ。
+    private int _isRunning;
+
     /// <summary>前面サービスを起動する。Android 8.0+ の背面起動規約に従い StartForegroundService 経由。</summary>
     public static void Start(Context context)
     {
@@ -56,12 +60,24 @@ public class UpdateCheckForegroundService : Service
             return StartCommandResult.NotSticky;
         }
 
-        _cts = new CancellationTokenSource();
+        // 多重起動ガード: 既にチェック進行中なら 2 本目を起こさない。進行中タスクがサービスと前面通知を
+        // 所有しており、その finally が StopForeground/StopSelf するため、ここでは何もせず即終了する
+        // (StopSelf(startId) すると最新 startId 扱いで進行中タスクごとサービスを止めてしまうため呼ばない)。
+        if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
+        {
+            MessageService.Info("FGS check already running; skipping duplicate start");
+            return StartCommandResult.NotSticky;
+        }
+
+        // クロージャはローカル変数 cts を参照する。フィールド _cts を直接参照すると、万一 2 本目が
+        // すり抜けて _cts を差し替えた場合に誤ったトークンを掴むため、起動時の cts を確定捕捉する。
+        var cts = new CancellationTokenSource();
+        _cts = cts;
         _ = Task.Run(async () =>
         {
             try
             {
-                var outcome = await UpdateCheckRunner.RunAsync(ApplicationContext!, _cts.Token).ConfigureAwait(false);
+                var outcome = await UpdateCheckRunner.RunAsync(ApplicationContext!, cts.Token).ConfigureAwait(false);
                 if (outcome == UpdateCheckRunner.Outcome.Retry)
                 {
                     // プロセス未初期化等でチェックを実行できなかった。FGS は再試行機構を持たないため、
@@ -77,8 +93,10 @@ public class UpdateCheckForegroundService : Service
             }
             finally
             {
+                Interlocked.Exchange(ref _isRunning, 0);
                 try { StopForeground(StopForegroundFlags.Remove); } catch { /* 既に停止済み */ }
-                StopSelf(startId);
+                // 多重起動を抑止しているため進行中タスクは常に 1 本。最新 startId に依存せず確実に停止する。
+                StopSelf();
             }
         });
 
