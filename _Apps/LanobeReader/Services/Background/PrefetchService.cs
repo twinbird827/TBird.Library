@@ -49,6 +49,7 @@ public class PrefetchService
                 EpisodeNo = ep.EpisodeNo,
                 SiteType = novel.SiteType,
                 SiteNovelId = novel.NovelId,
+                SiteEpisodeId = ep.SiteEpisodeId,
             }, (highPriority || novel.IsFavorite) ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
             enqueued++;
         }
@@ -79,6 +80,7 @@ public class PrefetchService
                     EpisodeNo = ep.EpisodeNo,
                     SiteType = novel.SiteType,
                     SiteNovelId = novel.NovelId,
+                    SiteEpisodeId = ep.SiteEpisodeId,
                 }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
             }
         }

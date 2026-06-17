@@ -157,7 +157,9 @@ public class NarouApiService : INovelService
         return episodes;
     }
 
-    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
+    // Narou は本文 URL を episode_no で直接組めるため siteEpisodeId は使用しない(INovelService 共通シグネチャ)。
+    // 位置依存フォールバックを持たず誤話リスクが無いため、本文は常にキャッシュ可(cacheable=true)。
+    public async Task<(string content, bool cacheable)> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -175,7 +177,7 @@ public class NarouApiService : INovelService
 
         var paragraphs = honbun.QuerySelectorAll("p");
         var lines = paragraphs.Select(p => p.TextContent);
-        return string.Join("\n", lines).Trim();
+        return (string.Join("\n", lines).Trim(), true);
     }
 
     public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted, string? author)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)

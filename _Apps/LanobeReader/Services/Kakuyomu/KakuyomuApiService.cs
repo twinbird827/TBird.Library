@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using LanobeReader.Models;
 using LanobeReader.Services.Network;
+using TBird.Core;
 using TBird.Maui.Web;
 
 namespace LanobeReader.Services.Kakuyomu;
@@ -134,7 +135,11 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        return ParseApolloState(html).episodes;
+        // 解析済み episodeIds を TOC キャッシュへ温める。直後に同一作品の本文を位置依存/自己修復で読む際、
+        // GetEpisodeIdsAsync が同一 /works/{novelId} を再取得するのを避ける(FetchNovelInfoAsync と同方針)。
+        var (episodeIds, episodes) = ParseApolloState(html);
+        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
+        return episodes;
     }
 
     private void SweepExpiredEpisodeIdCache()
@@ -236,7 +241,8 @@ public class KakuyomuApiService : INovelService
                 // __ref も含まれ、判定前に追加すると episodeIds が実話数(episodes)とズレる:
                 //   (a) FetchEpisodeContentAsync の episodeIds[episodeNo-1] 索引がズレて誤話/404
                 //   (b) totalEpisodes(=episodeIds.Count)が水増しされ UpdateCheckService が毎回再取得
-                ids.Add(refKey.Substring(colonIdx + 1));
+                var siteEpisodeId = refKey.Substring(colonIdx + 1);
+                ids.Add(siteEpisodeId);
 
                 var title = episodeEntry.TryGetProperty("title", out var titleProp)
                     ? titleProp.GetString() ?? ""
@@ -248,6 +254,9 @@ public class KakuyomuApiService : INovelService
                     EpisodeNo = episodeNo,
                     Title = title,
                     ChapterName = chapterTitle,
+                    // 本文取得を位置依存(episodeIds[episodeNo-1])から安定 ID へ移行するため、各話に
+                    // サイト側エピソード ID を持たせて永続化する(序盤話の削除/並べ替えでの誤話表示を防ぐ)。
+                    SiteEpisodeId = siteEpisodeId,
                 });
             }
         }
@@ -255,24 +264,63 @@ public class KakuyomuApiService : INovelService
         return (ids, episodes);
     }
 
-    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
+    public async Task<(string content, bool cacheable)> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-        var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
+        var selfHealing = false;
+        if (!string.IsNullOrEmpty(siteEpisodeId))
+        {
+            // DB に永続化済みの安定したサイト話 ID を直接使う本命パス。生 TOC の位置依存解決(序盤話の
+            // 削除/並べ替えで episodeIds がシフトし誤話/404 になる)を回避する。
+            try
+            {
+                return (await FetchContentByEpisodeIdAsync(novelId, siteEpisodeId, cts.Token).ConfigureAwait(false), true);
+            }
+            // (U2) 自己修復は「安定 ID の陳腐化を示す失敗」に限定する。5xx/408/429/通信断などの transient
+            // エラーは SiteRateLimiter 内で既にリトライ済みで、ここまで来たら一過性の通信障害とみなし再送出して
+            // 上位リトライに委ねる(正しい安定 ID を一過性失敗で捨ててキャッシュ無効化+誤話リスクを負わない)。
+            // 404 等の非 transient な HttpRequestException(クライアントエラー=削除/改稿で ID 失効)と本文欠落
+            // (InvalidOperationException)のみ位置依存フォールバックへ降格させる。予期せぬ例外(NRE/JsonException/
+            // HTTP に包まれない IOException 等)はここで握らず再送出し、上位(ReaderViewModel)でエラー表示させる
+            // (承認外の文脈で位置依存降格=誤話リスクを負わないため、対象を陳腐化失敗の 2 種に厳密化)。
+            catch (Exception ex) when (
+                (ex is HttpRequestException hre && !TransientHttpErrorHelper.IsTransient(hre))
+                || ex is InvalidOperationException)
+            {
+                // (U3) 安定 ID での取得失敗(404/本文欠落=削除・改稿で ID が陳腐化)時は、生 TOC の位置依存
+                // 解決で 1 度だけ自己修復を試みる。位置依存はドリフトで誤話になりうるが、移行前の挙動と
+                // 同等であり「読めない」確定よりは可読性を優先する方針(ユーザ承認済み U3-A)。なお訂正後の
+                // ID 永続化は API サービスへ DB 依存を持ち込まない設計方針のため行わない(読み取り都度の
+                // 再解決は 5 分 TOC キャッシュにより軽微)。
+                MessageService.Warn($"安定IDでの本文取得に失敗、位置依存解決で再試行: works/{novelId} ep={episodeNo}: {ex.Message}");
+                selfHealing = true;
+            }
+        }
 
+        // 旧データ(site_episode_id 列追加前に保存された話)、または上の安定 ID パスが失敗した場合の
+        // フォールバック: 生 TOC から位置で解決する。
+        var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
         if (episodeNo < 1 || episodeNo > episodeIds.Count)
         {
             throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
         }
+        var content = await FetchContentByEpisodeIdAsync(novelId, episodeIds[episodeNo - 1], cts.Token).ConfigureAwait(false);
+        // 自己修復フォールバック(陳腐化した安定 ID の代替)で取得した本文はドリフトで誤話の可能性があり、
+        // かつ安定 ID が残置されるため backfill のキャッシュ破棄でも訂正されない。恒久キャッシュ(誤話キャッシュの
+        // 恒久化)を避けるため cacheable=false で返す。旧データ(siteEpisodeId 無し)の位置解決は移行 backfill
+        // 時にキャッシュ破棄で訂正されるため従来どおりキャッシュ可。
+        return (content, cacheable: !selfHealing);
+    }
 
-        var episodeId = episodeIds[episodeNo - 1];
+    private async Task<string> FetchContentByEpisodeIdAsync(string novelId, string episodeId, CancellationToken ct)
+    {
         var episodeHref = $"{BASE_URL}/works/{novelId}/episodes/{episodeId}";
 
-        var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, cts.Token).ConfigureAwait(false);
+        var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, ct).ConfigureAwait(false);
 
-        var episodeDoc = await AngleSharpHelper.ParseAsync(episodeHtml, cts.Token).ConfigureAwait(false);
+        var episodeDoc = await AngleSharpHelper.ParseAsync(episodeHtml, ct).ConfigureAwait(false);
 
         // CSS3 の [class~='X'] は「スペース区切り単語の完全一致」のため、
         // EpisodeBodyHeader 等の連結クラス名にはマッチしない（過剰マッチ回避）。

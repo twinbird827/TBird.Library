@@ -36,4 +36,10 @@ public class Episode
 
     [Column("favorited_at")]
     public string? FavoritedAt { get; set; }
+
+    // サイト側の不透明なエピソード ID（例: Kakuyomu の TableOfContentsChapter 配下 Episode の ID）。
+    // 本文取得を episode_no の位置依存解決ではなくこの安定 ID で行うことで、序盤話の削除/並べ替えで
+    // 目次がずれても誤った話を表示しなくなる。Narou は URL に episode_no を直接使うため null のまま。
+    [Column("site_episode_id")]
+    public string? SiteEpisodeId { get; set; }
 }

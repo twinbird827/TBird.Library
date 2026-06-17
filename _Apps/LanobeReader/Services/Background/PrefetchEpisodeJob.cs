@@ -12,6 +12,8 @@ public class PrefetchEpisodeJob : BackgroundJobBase
     public int SiteType { get; init; }
     public string SiteNovelId { get; init; } = string.Empty;
     public int EpisodeNo { get; init; }
+    // サイト側エピソード ID(あれば)。本文取得の位置依存解決を避けるため API へ渡す。
+    public string? SiteEpisodeId { get; init; }
 
     public override string Description => $"Prefetch novel={NovelDbId} ep={EpisodeNo}";
 }
