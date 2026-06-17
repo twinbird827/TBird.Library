@@ -19,13 +19,7 @@ public static class UpdateCheckRunner
     public static async Task<Outcome> RunAsync(Context appContext, CancellationToken ct = default)
     {
         // MainApplication 初期化完了前に起動しうる（FGS / Worker いずれも）。最大 ~3 秒だけ待つ。
-        IServiceProvider? services = null;
-        for (int i = 0; i < 30; i++)
-        {
-            services = IPlatformApplication.Current?.Services;
-            if (services is not null) break;
-            await Task.Delay(100).ConfigureAwait(false);
-        }
+        var services = await PlatformServiceReadiness.WaitForServicesAsync().ConfigureAwait(false);
 
         if (services is null)
         {
@@ -47,7 +41,18 @@ public static class UpdateCheckRunner
         await dbService.EnsureInitializedAsync().ConfigureAwait(false);
 
         // 通知表示はフォアグラウンド経路(App.xaml.cs)と共通の IUpdateNotificationService に集約。
-        var updates = await updateCheckService.CheckAllAsync(ct).ConfigureAwait(false);
+        // 別経路が実チェック中で本呼び出しがスキップされた場合は、この経路では何も確認できていない。
+        // Retry を返して呼び出し側(FGS は WorkManager フォールバック、Worker は WorkManager バックオフ)に
+        // 近接再試行を委ね、進行中経路が失敗/打ち切られても取りこぼさないようにする(同時実行ガードにより
+        // 二重実行はせず、進行中経路が完了済みなら再試行は新着なしで通知も出ない=安全)。
+        var skippedDueToContention = false;
+        var updates = await updateCheckService
+            .CheckAllAsync(ct, () => skippedDueToContention = true).ConfigureAwait(false);
+        if (skippedDueToContention)
+        {
+            return Outcome.Retry;
+        }
+
         await notifier.ShowUpdatesAsync(updates).ConfigureAwait(false);
 
         // 権威ある DB の間隔値でアラームを再武装し、Preferences ミラーの drift を是正する。

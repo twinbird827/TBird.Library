@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using LanobeReader.Platforms.Android;
 using LanobeReader.Services;
 using TBird.Core;
 using TBird.Maui.ViewModels;
@@ -17,6 +18,10 @@ namespace LanobeReader.ViewModels;
 /// </summary>
 public abstract class AutoReloadViewModel : ErrorAwareViewModel
 {
+    // この VM が現在購読中か。SubscribeToUpdates が OnAppearing で複数回呼ばれても、前面一覧
+    // カウンタ(AppForegroundTracker)の増減を 1 回ずつに保つためのインスタンス状態。
+    private bool _subscribed;
+
     /// <summary>新着メッセージの購読を開始する(表示中のみ有効化する想定)。</summary>
     public void SubscribeToUpdates()
     {
@@ -31,11 +36,26 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
                 catch (Exception ex) { MessageService.Warn($"Auto-reload on updates failed: {ex.Message}"); }
             });
         });
+
+        // 「新着を即時表示する一覧が可視」であることを前面トラッカへ通知する。前面でも一覧非表示の
+        // 画面(リーダー/設定)滞在中はこのカウントが 0 となり、システム通知が抑止されず確実に届く。
+        if (!_subscribed)
+        {
+            _subscribed = true;
+            AppForegroundTracker.OnUpdateListSubscribed();
+        }
     }
 
     /// <summary>画面非表示時に購読を解除する(非表示中は次回 OnAppearing の再読込が NEW を反映する)。</summary>
     public void UnsubscribeFromUpdates()
-        => WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
+    {
+        WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
+        if (_subscribed)
+        {
+            _subscribed = false;
+            AppForegroundTracker.OnUpdateListUnsubscribed();
+        }
+    }
 
     /// <summary>新着検出時の再読込処理。UI スレッド上で呼ばれる。</summary>
     protected abstract Task OnUpdatesDetectedAsync(UpdatesDetectedMessage message);

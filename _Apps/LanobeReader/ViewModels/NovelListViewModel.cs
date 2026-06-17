@@ -32,13 +32,19 @@ public partial class NovelListViewModel : AutoReloadViewModel
         _notificationPermission = notificationPermission;
     }
 
+    // 手動更新(RefreshAsync)自身の CheckAllAsync が送った新着メッセージのエコーで二重再読込しない
+    // ための抑止フラグ。IsLoading でも大半は防げるが、メッセージ配送と RefreshAsync 継続の順序に
+    // 依存しないよう、リフレッシュ中は本フラグを立て、解除をメインスレッドキューの後尾へ積む。
+    private bool _suppressAutoReload;
+
     /// <summary>
-    /// 新着検出時に一覧全体を再読込し NEW 表示へ反映する。手動更新中(IsLoading)は RefreshAsync 側が
-    /// 再読込するため抑止する。本棚はどの作品の更新でも未読数/NEW が変わりうるため作品の絞り込みはしない。
+    /// 新着検出時に一覧全体を再読込し NEW 表示へ反映する。手動更新中(IsLoading / 自エコー抑止中)は
+    /// RefreshAsync 側が再読込するため抑止する。本棚はどの作品の更新でも未読数/NEW が変わりうるため
+    /// 作品の絞り込みはしない。
     /// </summary>
     protected override async Task OnUpdatesDetectedAsync(UpdatesDetectedMessage message)
     {
-        if (IsLoading) return;
+        if (IsLoading || _suppressAutoReload) return;
         await LoadNovelsAsync();
     }
 
@@ -136,6 +142,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     private async Task RefreshAsync()
     {
         IsLoading = true;
+        _suppressAutoReload = true;
         try
         {
             await _updateCheckService.CheckAllAsync();
@@ -152,6 +159,10 @@ public partial class NovelListViewModel : AutoReloadViewModel
         finally
         {
             IsLoading = false;
+            // 自エコー抑止の解除はメインスレッドキューの後尾へ積む。CheckAllAsync がリフレッシュ中に
+            // 送ったメッセージは本継続より前にキューされているためエコーは抑止され、以降に到着する
+            // (別経路の)新着は確実に再読込される。
+            MainThread.BeginInvokeOnMainThread(() => _suppressAutoReload = false);
         }
     }
 

@@ -56,12 +56,17 @@ public class UpdateCheckForegroundService : Service
             return StartCommandResult.NotSticky;
         }
 
-        _cts = new CancellationTokenSource();
+        // _cts はフィールドだが、ラムダ内で _cts.Token を直接参照すると OnTimeout/OnDestroy が
+        // _cts を Dispose/null 化した後(または 2 回目の OnStartCommand がフィールドを差し替えた後)に
+        // 評価され NullReferenceException / ObjectDisposedException となりうる。ローカルへ退避して渡す。
+        var cts = new CancellationTokenSource();
+        _cts = cts;
+        var token = cts.Token;
         _ = Task.Run(async () =>
         {
             try
             {
-                var outcome = await UpdateCheckRunner.RunAsync(ApplicationContext!, _cts.Token).ConfigureAwait(false);
+                var outcome = await UpdateCheckRunner.RunAsync(ApplicationContext!, token).ConfigureAwait(false);
                 if (outcome == UpdateCheckRunner.Outcome.Retry)
                 {
                     // プロセス未初期化等でチェックを実行できなかった。FGS は再試行機構を持たないため、

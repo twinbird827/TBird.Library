@@ -31,13 +31,7 @@ public class MainActivity : MauiAppCompatActivity
         {
             try
             {
-                IServiceProvider? services = null;
-                for (int i = 0; i < 30; i++)
-                {
-                    services = IPlatformApplication.Current?.Services;
-                    if (services is not null) break;
-                    await Task.Delay(100).ConfigureAwait(false);
-                }
+                var services = await PlatformServiceReadiness.WaitForServicesAsync().ConfigureAwait(false);
 
                 if (services is null)
                 {

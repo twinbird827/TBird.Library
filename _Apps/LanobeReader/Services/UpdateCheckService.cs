@@ -30,11 +30,16 @@ public class UpdateCheckService
         _jobQueue = jobQueue;
     }
 
-    public async Task<List<(Novel novel, int newEpisodeCount)>> CheckAllAsync(CancellationToken ct = default)
+    public async Task<List<(Novel novel, int newEpisodeCount)>> CheckAllAsync(
+        CancellationToken ct = default, Action? onSkippedDueToContention = null)
     {
         if (!await _semaphore.WaitAsync(0, ct).ConfigureAwait(false))
         {
+            // 別経路が実チェック中。背景経路の呼び出し側はこの通知を受け取り、近接リトライ
+            // (WorkManager フォールバック)へ委ねて取りこぼしを防げる。手動更新側は無視してよい
+            // (進行中のチェックが DB を更新し UpdatesDetectedMessage で一覧へ反映されるため)。
             MessageService.Warn("Update check already running, skipping");
+            onSkippedDueToContention?.Invoke();
             return [];
         }
 
@@ -44,6 +49,9 @@ public class UpdateCheckService
             // 等で打ち切られても、次回が続きから拾える (ラウンドロビン) ようにするため。
             var novels = await _novelRepo.GetAllForCheckAsync().ConfigureAwait(false);
             var updates = new List<(Novel, int)>();
+            // 「新着なし」作品の last_checked_at 前進を蓄積し、ループ末尾で 1 トランザクションに束ねる。
+            // 作品ごとの個別コミット(巡回1周＝作品数ぶんの書き込み)を避けるため。
+            var pendingLastChecked = new List<(int Id, string Ts)>();
             // 全作品を回りきったかどうか。打ち切り(キャンセル/3分上限)で抜けた場合は false とし、
             // 完了時刻の記録(=アラームのバックストップ抑止)を行わない。
             var completedFullSweep = true;
@@ -59,7 +67,6 @@ public class UpdateCheckService
                 // ユーザがアプリを開かない限り更新追跡から脱落する問題があったため (H-2)。
                 // 通知は notificationId=novel.Id で上書き表示されるため重複通知にはならない。
 
-                var cancelled = false;
                 var hadError = novel.HasCheckError;
                 var persisted = false;
                 // 新着なしでも novel 行の永続化(全カラム UPDATE)が必要になったか。
@@ -77,12 +84,17 @@ public class UpdateCheckService
 
                     var currentMaxEpisode = await _episodeRepo.GetMaxEpisodeNoAsync(novel.Id).ConfigureAwait(false);
 
-                    // サイト報告の総話数が DB 上限を超え、かつ前回処理した報告値から変化した場合のみ実取得する。
-                    // 「!= novel.TotalEpisodes」を併用する理由: Narou の general_all_no 等、サイト報告値が
-                    // 実際に解析できる話数より多くなることがある(カウントのズレ)。「> currentMaxEpisode」
-                    // だけで判定すると、解析可能な新話が無い(newEpisodes 空)まま毎周期フル一覧を再取得し続ける。
-                    // 処理済みの報告値を novel.TotalEpisodes に記録し、同じ報告値では再取得しないようにする。
-                    if (totalEpisodes > currentMaxEpisode && totalEpisodes != novel.TotalEpisodes)
+                    // サイト報告の総話数が DB 上限を超え、かつ「前回処理した報告値から変化した」または
+                    // 「サイトの最終更新時刻が前回から進んだ」場合に実取得する。
+                    // 「!= novel.TotalEpisodes」だけで判定する狙い: Narou の general_all_no 等、サイト報告値が
+                    // 実際に解析できる話数より多くなることがある(カウントのズレ)。報告値比較だけだと、解析可能な
+                    // 新話が無い(newEpisodes 空)まま毎周期フル一覧を再取得し続けるのを抑止できる。
+                    // ただし報告値が頭打ち(水増しカウント据え置き)のまま実話だけ後から埋まると、報告値比較
+                    // だけでは新着を恒久的に取りこぼす。サイトは新話公開時に最終更新時刻を進めるため、
+                    // lastUpdatedAt の変化も再取得条件に加えて取りこぼしを塞ぐ。両者とも不変なら再取得しない。
+                    var reportedTotalChanged = totalEpisodes != novel.TotalEpisodes;
+                    var siteUpdatedSinceLast = lastUpdatedAt is not null && lastUpdatedAt != novel.LastUpdatedAt;
+                    if (totalEpisodes > currentMaxEpisode && (reportedTotalChanged || siteUpdatedSinceLast))
                     {
                         // Fetch new episodes
                         var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
@@ -146,12 +158,12 @@ public class UpdateCheckService
                         }
                         else
                         {
-                            // 報告値は増えたが解析可能な新話は無い(サイトのカウントズレ)。処理済みの
-                            // 報告値を記録し、同じ報告値での無駄なフル再取得を次回以降抑止する。
+                            // 報告値は増えたが解析可能な新話は無い(サイトのカウントズレ)。処理済みの報告値と
+                            // 最終更新時刻を記録し、同じ報告値・同じ更新時刻での無駄なフル再取得を次回以降抑止する。
                             // (永続化は末尾の !persisted ブロックで metadataChanged を見て全カラム更新)
-                            // 注: 水増し分が後で実話で埋まった場合その話を一時的に取りこぼすが、サイトが
-                            // 次の話を出して報告値が再び増えれば newEpisodes に含めて拾い直す(自己修復)。
+                            // 報告値・最終更新時刻のいずれかが進めば上の条件で再取得し新着を拾い直す(自己修復)。
                             novel.TotalEpisodes = totalEpisodes;
+                            if (lastUpdatedAt is not null) novel.LastUpdatedAt = lastUpdatedAt;
                             metadataChanged = true;
                         }
                     }
@@ -161,21 +173,18 @@ public class UpdateCheckService
                     if (ct.IsCancellationRequested)
                     {
                         // 打ち切り(3分上限等)。この作品は LastCheckedAt を更新せず、
-                        // 次回この作品から再開できるようにループを抜ける。
-                        cancelled = true;
+                        // 次回この作品から再開できるようにループを抜ける(完了記録もしない)。
+                        completedFullSweep = false;
+                        break;
                     }
-                    else
-                    {
-                        // ネットワーク/パース/DB 等、その作品固有のあらゆる失敗を握りつぶして次へ進む。
-                        // ここを HttpRequestException 系に限定すると、想定外の例外で foreach 全体が脱出し
-                        // LastCheckedAt が前進しないため、巡回の先頭(最古)に居座る poison 作品が
-                        // 全作品のチェックを永久に止めてしまう。広く捕捉して必ず巡回を前進させる。
-                        MessageService.Warn($"Failed to check {novel.Title}: {ex.Message}");
-                        novel.HasCheckError = true;
-                    }
-                }
 
-                if (cancelled) { completedFullSweep = false; break; }
+                    // ネットワーク/パース/DB 等、その作品固有のあらゆる失敗を握りつぶして次へ進む。
+                    // ここを HttpRequestException 系に限定すると、想定外の例外で foreach 全体が脱出し
+                    // LastCheckedAt が前進しないため、巡回の先頭(最古)に居座る poison 作品が
+                    // 全作品のチェックを永久に止めてしまう。広く捕捉して必ず巡回を前進させる。
+                    MessageService.Warn($"Failed to check {novel.Title}: {ex.Message}");
+                    novel.HasCheckError = true;
+                }
 
                 if (!persisted)
                 {
@@ -190,12 +199,31 @@ public class UpdateCheckService
                     }
                     else
                     {
-                        // 変化が無い大多数の作品は last_checked_at 列のみ更新し、毎チェックの書き込み量を抑える。
-                        await _novelRepo.UpdateLastCheckedAtAsync(novel.Id, novel.LastCheckedAt).ConfigureAwait(false);
+                        // 変化が無い大多数の作品は last_checked_at 列のみ更新。作品ごとの即時 await は
+                        // 巡回1周で作品数ぶんのコミットになるため、蓄積してループ末尾で 1 トランザクションに束ねる。
+                        pendingLastChecked.Add((novel.Id, novel.LastCheckedAt));
                     }
                 }
 
                 if (!novel.HasCheckError) anySuccess = true;
+            }
+
+            // 蓄積した last_checked_at をまとめて 1 トランザクションで永続化する。break(キャンセル/打ち切り)
+            // でも foreach を抜けた後のここを必ず通過するため、巡回済み作品のタイムスタンプは前進する。
+            // 万一プロセス kill で未 flush でも失われるのは「新着なし作品」の巡回時刻のみ(次回その作品を
+            // 再チェックするだけ＝冪等・NEW 喪失なし)。新着あり作品は挿入直後に即時永続化済み。
+            if (pendingLastChecked.Count > 0)
+            {
+                try
+                {
+                    await _novelRepo.UpdateLastCheckedAtBatchAsync(pendingLastChecked).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    // last_checked_at は巡回順序のヒントに過ぎず、失敗しても次回再チェックされるだけ。
+                    // 確定済みの updates 通知を巻き込まないよう例外は伝播させず握りつぶす。
+                    MessageService.Warn($"Batch last_checked_at update failed: {ex.Message}");
+                }
             }
 
             // いずれの経路(起動時/手動更新/WorkManager/前面サービス)でも、CheckAll を「全作品まで

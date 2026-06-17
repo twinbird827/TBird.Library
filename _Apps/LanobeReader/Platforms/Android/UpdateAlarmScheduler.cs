@@ -45,7 +45,6 @@ public static class UpdateAlarmScheduler
     public static void ScheduleNext(Context context, int intervalHours)
     {
         if (intervalHours <= 0) intervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS;
-        Preferences.Set(IntervalPrefKey, intervalHours);
 
         var am = context.GetSystemService(Context.AlarmService) as AlarmManager;
         if (am is null) return;
@@ -54,7 +53,10 @@ public static class UpdateAlarmScheduler
         // 実効間隔(DEBUG 短縮上書きを含む)は GetEffectiveIntervalMs に一元化。ログもこの結果から
         // 導出し、上書きロジックを二重評価して表示値が実値と乖離するのを防ぐ。
         var effectiveMs = GetEffectiveIntervalMs(intervalHours);
-        var triggerAt = Java.Lang.JavaSystem.CurrentTimeMillis() + effectiveMs;
+        // ELAPSED_REALTIME(端末起動からの経過時間)を基準にする。RTC(壁時計)だと手動/NTP の
+        // 時刻巻き戻しでアラームが差分ぶん先送りされ、次回起動の再武装まで背景チェックが停止しうる。
+        // 経過時間基準は時刻変更の影響を受けない。再起動でアラームは消えるため BootReceiver が再武装する。
+        var triggerAt = SystemClock.ElapsedRealtime() + effectiveMs;
 
 #if DEBUG
         if (DebugSchedulingConfig.AlarmOverrideMinutes > 0)
@@ -68,15 +70,20 @@ public static class UpdateAlarmScheduler
         var useExact = Build.VERSION.SdkInt < BuildVersionCodes.S || am.CanScheduleExactAlarms();
         if (useExact)
         {
-            am.SetExactAndAllowWhileIdle(AlarmType.RtcWakeup, triggerAt, pi);
+            am.SetExactAndAllowWhileIdle(AlarmType.ElapsedRealtimeWakeup, triggerAt, pi);
             MessageService.Info($"Update alarm (exact) scheduled in {intervalHours}h");
         }
         else
         {
             // 不正確アラーム → Doze 中もメンテ窓で発火するが、前面起動は電池最適化除外に依存。
-            am.SetAndAllowWhileIdle(AlarmType.RtcWakeup, triggerAt, pi);
+            am.SetAndAllowWhileIdle(AlarmType.ElapsedRealtimeWakeup, triggerAt, pi);
             MessageService.Info($"Update alarm (inexact) scheduled in {intervalHours}h");
         }
+
+        // 間隔ミラーの更新はアラーム武装が成功した後にのみ行う。SetExact* が SecurityException 等で
+        // throw した場合、ミラーは旧値のまま残り GetCachedIntervalHours が実機構と乖離しない
+        // (ArmBoth のドリフト不変条件を維持: WorkManager 側も未変更で両機構が旧間隔で揃う)。
+        Preferences.Set(IntervalPrefKey, intervalHours);
     }
 
     public static void ScheduleFromCache(Context context)

@@ -80,12 +80,13 @@ public static class NotificationHelper
 			builder.SetNumber(badgeNumber);
 		}
 
-		// 前面判定と Notify をロック内で原子的に行う。ここで前面なら投稿しない(アプリ内一覧が NEW を
-		// 表示し、CancelAll が直後に消すため)。CancelAll と同一ロックのため「CancelAll 後に投稿して
-		// 居座る」競合が生じない。前面化は OnActivityStarted で OnResume の CancelAll より先に立つ。
+		// 抑止判定(前面 かつ 一覧可視)と Notify をロック内で原子的に行う。抑止条件が真なら投稿しない
+		// (アプリ内一覧が NEW を表示し、CancelAll が直後に消すため)。CancelAll と同一ロックのため
+		// 「CancelAll 後に投稿して居座る」競合が生じない。前面化は OnActivityStarted で OnResume の
+		// CancelAll より先に立つ。前面でも一覧非表示なら抑止せず投稿し、新着を確実に可視化する。
 		lock (_notifyGate)
 		{
-			if (AppForegroundTracker.IsForeground) return false;
+			if (AppForegroundTracker.ShouldSuppressSystemNotification) return false;
 			NotificationManagerCompat.From(context)?.Notify(notificationId, builder.Build()!);
 			return true;
 		}

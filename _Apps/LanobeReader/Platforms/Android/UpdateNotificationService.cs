@@ -25,10 +25,10 @@ public class UpdateNotificationService : IUpdateNotificationService
 	{
 		if (updates.Count == 0) return;
 
-		// アプリが前面にある間はシステム通知を出さない。アプリ内一覧が新着(NEW)を直接表示しており、
-		// かつ MainActivity.OnResume の CancelAll が直後に消すため(= 機能同士の競合)。
-		// この時点で DB は更新済みのため、ユーザは一覧画面で新着を確認できる。
-		if (AppForegroundTracker.IsForeground) return;
+		// 前面 かつ 新着を即時表示する一覧(本棚/目次)が可視の間はシステム通知を出さない。アプリ内一覧が
+		// 新着(NEW)を直接表示し、かつ MainActivity.OnResume の CancelAll が直後に消すため(= 機能同士の競合)。
+		// 前面でも一覧非表示の画面(リーダー/設定)滞在中は抑止すると新着が全く可視化されないため通知する。
+		if (AppForegroundTracker.ShouldSuppressSystemNotification) return;
 
 		var context = global::Android.App.Application.Context;
 
