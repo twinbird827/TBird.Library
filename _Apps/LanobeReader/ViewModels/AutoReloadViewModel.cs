@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.Messaging;
-using LanobeReader.Platforms.Android;
 using LanobeReader.Services;
 using TBird.Core;
 using TBird.Maui.ViewModels;
@@ -18,9 +17,17 @@ namespace LanobeReader.ViewModels;
 /// </summary>
 public abstract class AutoReloadViewModel : ErrorAwareViewModel
 {
-    // この VM が現在購読中か。SubscribeToUpdates が OnAppearing で複数回呼ばれても、前面一覧
-    // カウンタ(AppForegroundTracker)の増減を 1 回ずつに保つためのインスタンス状態。
-    private bool _subscribed;
+    // この VM が現在「可視一覧」として登録中か。SubscribeToUpdates が OnAppearing で複数回呼ばれても、
+    // 可視一覧カウンタ(UpdateListVisibilityTracker)の増減を 1 回ずつに保つためのインスタンス状態。
+    private bool _countedAsVisibleList;
+
+    /// <summary>
+    /// この画面が「新着を即時表示する一覧」としてシステム通知抑止に寄与するか。
+    /// true の VM が前面で可視の間はシステム通知を抑止する(アプリ内一覧が NEW を表示するため)。
+    /// 全作品の NEW を反映する本棚(NovelList)は true。表示中作品の話一覧しか反映しない目次
+    /// (EpisodeList)は、別作品の更新通知まで握り潰してしまうため false を返してオプトアウトする。
+    /// </summary>
+    protected virtual bool ParticipatesInNotificationSuppression => true;
 
     /// <summary>新着メッセージの購読を開始する(表示中のみ有効化する想定)。</summary>
     public void SubscribeToUpdates()
@@ -37,12 +44,12 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
             });
         });
 
-        // 「新着を即時表示する一覧が可視」であることを前面トラッカへ通知する。前面でも一覧非表示の
-        // 画面(リーダー/設定)滞在中はこのカウントが 0 となり、システム通知が抑止されず確実に届く。
-        if (!_subscribed)
+        // 「新着を即時表示する一覧が可視」であることを可視一覧トラッカへ通知する。前面でも一覧非表示の
+        // 画面(リーダー/設定/目次)滞在中はこのカウントが 0 となり、システム通知が抑止されず確実に届く。
+        if (ParticipatesInNotificationSuppression && !_countedAsVisibleList)
         {
-            _subscribed = true;
-            AppForegroundTracker.OnUpdateListSubscribed();
+            _countedAsVisibleList = true;
+            UpdateListVisibilityTracker.OnSubscribed();
         }
     }
 
@@ -50,10 +57,10 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
     public void UnsubscribeFromUpdates()
     {
         WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
-        if (_subscribed)
+        if (_countedAsVisibleList)
         {
-            _subscribed = false;
-            AppForegroundTracker.OnUpdateListUnsubscribed();
+            _countedAsVisibleList = false;
+            UpdateListVisibilityTracker.OnUnsubscribed();
         }
     }
 

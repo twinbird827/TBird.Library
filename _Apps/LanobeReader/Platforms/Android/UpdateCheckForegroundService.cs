@@ -56,9 +56,18 @@ public class UpdateCheckForegroundService : Service
             return StartCommandResult.NotSticky;
         }
 
-        // _cts はフィールドだが、ラムダ内で _cts.Token を直接参照すると OnTimeout/OnDestroy が
-        // _cts を Dispose/null 化した後(または 2 回目の OnStartCommand がフィールドを差し替えた後)に
-        // 評価され NullReferenceException / ObjectDisposedException となりうる。ローカルへ退避して渡す。
+        // 2 回目の OnStartCommand が来たら、フィールドを差し替える前に前回の実行をキャンセルする。
+        // 差し替えだけだと前回タスクはフィールド経由でキャンセル不能になり、shortService の 3 分上限を
+        // 超えて走り続けうる(OnTimeout/OnDestroy は最新 CTS しか参照できないため)。
+        var previous = Interlocked.Exchange(ref _cts, null);
+        if (previous is not null)
+        {
+            try { previous.Cancel(); } catch { /* 破棄済み */ }
+        }
+
+        // CTS の所有権はこの実行(タスク)に持たせる。ラムダ内で _cts.Token を直接参照すると、OnTimeout/
+        // OnDestroy の Dispose 後や 2 回目の差し替え後に評価され NRE / ObjectDisposedException となりうる
+        // ため、Token はローカルへ退避して渡し、Dispose はタスクの finally で一元的に行う。
         var cts = new CancellationTokenSource();
         _cts = cts;
         var token = cts.Token;
@@ -84,6 +93,10 @@ public class UpdateCheckForegroundService : Service
             {
                 try { StopForeground(StopForegroundFlags.Remove); } catch { /* 既に停止済み */ }
                 StopSelf(startId);
+                // フィールドがまだ自分を指していれば外し、自分専用の CTS を破棄する。OnTimeout/OnDestroy は
+                // Cancel のみ行い Dispose しない(走行中の token を破棄しない)ため、二重 Dispose も起きない。
+                Interlocked.CompareExchange(ref _cts, null, cts);
+                cts.Dispose();
             }
         });
 
@@ -128,9 +141,9 @@ public class UpdateCheckForegroundService : Service
 
     public override void OnDestroy()
     {
+        // Cancel のみ。CTS の Dispose は走行中タスクの finally が所有する(まだ使用中の token を破棄しない)。
+        // タスク完了後ならフィールドは null 化済みで、この呼び出しは安全に no-op となる。
         try { _cts?.Cancel(); } catch { /* 破棄済み */ }
-        _cts?.Dispose();
-        _cts = null;
         base.OnDestroy();
     }
 

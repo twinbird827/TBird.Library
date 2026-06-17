@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.Messaging;
 using LanobeReader.Helpers;
 using LanobeReader.Models;
@@ -93,7 +94,11 @@ public class UpdateCheckService
                     // だけでは新着を恒久的に取りこぼす。サイトは新話公開時に最終更新時刻を進めるため、
                     // lastUpdatedAt の変化も再取得条件に加えて取りこぼしを塞ぐ。両者とも不変なら再取得しない。
                     var reportedTotalChanged = totalEpisodes != novel.TotalEpisodes;
-                    var siteUpdatedSinceLast = lastUpdatedAt is not null && lastUpdatedAt != novel.LastUpdatedAt;
+                    // 文字列の単純比較ではなく実時刻として比較する。保存値はサイト形式("yyyy-MM-dd HH:mm:ss"
+                    // 等)のことも、新着確定時のフォールバック ISO("o")のこともあり、同一時刻でも形式差で
+                    // 不一致と誤判定して無駄なフル再取得を招くため(両方パースできる場合は UTC 実時刻で比較)。
+                    var siteUpdatedSinceLast = lastUpdatedAt is not null
+                        && !SameInstant(lastUpdatedAt, novel.LastUpdatedAt);
                     if (totalEpisodes > currentMaxEpisode && (reportedTotalChanged || siteUpdatedSinceLast))
                     {
                         // Fetch new episodes
@@ -256,5 +261,25 @@ public class UpdateCheckService
         {
             _semaphore.Release();
         }
+    }
+
+    /// <summary>
+    /// 2 つの最終更新時刻文字列が「同一の実時刻」を表すか。両方が DateTime としてパースできれば UTC に
+    /// 揃えて比較し、サイト形式("yyyy-MM-dd HH:mm:ss")と ISO("o")のような形式差を吸収する。どちらかが
+    /// パースできない場合は素の文字列一致で判定する。オフセット無しの値は UTC とみなす(端末ローカルTZ
+    /// による揺れを避ける)。
+    /// </summary>
+    private static bool SameInstant(string? a, string? b)
+    {
+        if (a == b) return true;
+        if (a is null || b is null) return false;
+
+        const DateTimeStyles styles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
+        if (DateTime.TryParse(a, CultureInfo.InvariantCulture, styles, out var da)
+            && DateTime.TryParse(b, CultureInfo.InvariantCulture, styles, out var db))
+        {
+            return da == db;
+        }
+        return false;
     }
 }

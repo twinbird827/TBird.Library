@@ -341,7 +341,13 @@ public class KakuyomuApiService : INovelService
             }
         }
 
-        return (totalEpisodes, DateTime.UtcNow.ToString("o"), isCompleted, author);
+        // lastUpdatedAt は null を返す。Kakuyomu の Apollo State には信頼できる作品単位の最終更新時刻が
+        // 無く、ここで DateTime.UtcNow を返すと「毎回値が変わる」ため、更新チェック側の
+        // siteUpdatedSinceLast(前回保存値との比較)が常に true となり、報告話数が頭打ちのまま実話が
+        // 埋まらないケースで毎周期フル一覧を再取得し続けてしまう。null なら報告話数(totalEpisodes)の
+        // 変化のみで再取得を判定する従来挙動に委ねられる。表示/ソート用の値は更新チェック側が新着確定時に
+        // フォールバックで補う。
+        return (totalEpisodes, null, isCompleted, author);
     }
 
     /// <summary>

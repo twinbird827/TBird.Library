@@ -147,6 +147,11 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
 
     public Task EnsureInitializedAsync() => _initTask ?? Task.CompletedTask;
 
+    // 目次はシステム通知抑止に寄与させない。目次が反映するのは表示中作品(_novelDbId)の話一覧のみで、
+    // 別作品の更新は OnUpdatesDetectedAsync が早期 return して反映しない。抑止に寄与させると、目次
+    // 滞在中に別作品の新着があってもシステム通知が出ず、アプリ内にも現れず取りこぼしになるため。
+    protected override bool ParticipatesInNotificationSuppression => false;
+
     /// <summary>
     /// 新着検出時、表示中作品に関係する更新のみ目次を再読込する。UpdatesDetectedMessage は新着のあった
     /// 作品 Id 一覧を持つため、本作品が対象でなければ全話再読込(GetByNovelIdAsync)を行わずに済ませる。
