@@ -138,8 +138,22 @@ public class KakuyomuApiService : INovelService
         // 解析済み episodeIds を TOC キャッシュへ温める。直後に同一作品の本文を位置依存/自己修復で読む際、
         // GetEpisodeIdsAsync が同一 /works/{novelId} を再取得するのを避ける(FetchNovelInfoAsync と同方針)。
         var (episodeIds, episodes) = ParseApolloState(html);
-        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
+        StoreEpisodeIdCache(novelId, episodeIds);
         return episodes;
+    }
+
+    // _episodeIdCache への書き込みを 1 箇所へ集約し、エントリ数が上限を超えたときだけ Sweep する軽量ゲート。
+    // 読み取り経路(GetEpisodeIdsAsync)のみが Sweep していたため、更新巡回が多数の Kakuyomu 作品で本書き込み
+    // (FetchEpisodeListAsync / FetchNovelInfoAsync)を連続実行すると、間に読み取りが挟まらず上限
+    // (EpisodeIdCacheMaxEntries)を一時超過してメモリが膨らんでいた。書き込み毎のフル TTL Sweep は巡回中
+    // O(n^2) になり高コストなので、上限超過時のみ Sweep して常時上限内へ収める(超過がなければ純粋な代入のみ)。
+    private void StoreEpisodeIdCache(string novelId, List<string> episodeIds)
+    {
+        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
+        if (_episodeIdCache.Count > EpisodeIdCacheMaxEntries)
+        {
+            SweepExpiredEpisodeIdCache();
+        }
     }
 
     private void SweepExpiredEpisodeIdCache()
@@ -175,7 +189,7 @@ public class KakuyomuApiService : INovelService
         var tocUrl = $"{BASE_URL}/works/{novelId}";
         var tocHtml = await _network.GetStringAsync(SiteType.Kakuyomu, tocUrl, ct).ConfigureAwait(false);
         var ids = ParseApolloState(tocHtml).episodeIds;
-        _episodeIdCache[novelId] = (DateTime.UtcNow, ids);
+        StoreEpisodeIdCache(novelId, ids);
         return ids;
     }
 
@@ -354,7 +368,7 @@ public class KakuyomuApiService : INovelService
         // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。
         // これにより直後の Prefetch が古いエピソードIDリストを使うリスクを防ぐ。
         var (episodeIds, _) = ParseApolloState(html);
-        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
+        StoreEpisodeIdCache(novelId, episodeIds);
         var totalEpisodes = episodeIds.Count;
 
         bool isCompleted = false;

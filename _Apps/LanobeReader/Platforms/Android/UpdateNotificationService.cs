@@ -58,46 +58,39 @@ public class UpdateNotificationService : IUpdateNotificationService
 			targets = new Dictionary<int, int>();
 		}
 
-		// await 中に前面化していても、投稿可否は NotificationHelper が「前面判定 + Notify」を原子的に
+		// await 中に前面化していても、投稿可否は NotificationHelper が「前面判定 + 全件 Notify」を原子的に
 		// 行って決める(CancelAll と相互排他)。前面化後に投稿した通知が居座る TOCTOU はそこで閉じるため、
 		// ここで個別に再判定する必要はない(従来の await 後/反復ごとの IsForeground チェックを撤去)。
 
-		// 数字バッジ総数は「最初に投稿が成功した 1 通」にのみ付ける。各通知に総数を付けると number を
-		// 合算する OEM ランチャーで膨らむため 1 通に限定しつつ、固定位置(従来は最後の 1 通)だとその通知の
-		// 投稿失敗でバッジが 0 化するため、成功した最初の通知へ載せて取りこぼしを防ぐ。
-		var badgePlaced = false;
+		// 数字バッジ総数は先頭 1 通にのみ付ける。各通知に総数を付けると number を合算する OEM ランチャーで
+		// 膨らむため 1 通に限定する。投稿は all-or-nothing(NotificationHelper.ShowUpdateNotifications が
+		// バッチ全体で抑止を 1 回確定)なので、従来の「成功した最初の通知へ載せる」動的判定は不要で、
+		// 先頭固定でバッジ取りこぼしは起きない。
+		var items = new List<NotificationHelper.UpdateNotificationItem>(updates.Count);
 		for (int i = 0; i < updates.Count; i++)
 		{
 			var (novel, newCount) = updates[i];
-			try
-			{
-				// ディープリンク先 = その小説の最初の未読話(無ければ最後に読んだ話)。
-				// 解決できない場合は 0 とし、タップ時は話一覧へ遷移する(MainActivity 側)。
-				var episodeId = targets.TryGetValue(novel.Id, out var id) ? id : 0;
+			// ディープリンク先 = その小説の最初の未読話(無ければ最後に読んだ話)。
+			// 解決できない場合は 0 とし、タップ時は話一覧へ遷移する(MainActivity 側)。
+			var episodeId = targets.TryGetValue(novel.Id, out var id) ? id : 0;
+			items.Add(new NotificationHelper.UpdateNotificationItem(
+				NotificationId: novel.Id, // novel.Id（同一小説の通知は上書き）
+				Title: "ラノベリーダ",
+				Body: $"{novel.Title}: {newCount}話更新",
+				NovelId: novel.Id,
+				EpisodeId: episodeId,
+				SiteType: novel.SiteType,
+				SiteNovelId: novel.NovelId,
+				BadgeNumber: i == 0 ? badgeTotal : 0));
+		}
 
-				var badge = badgePlaced ? 0 : badgeTotal;
-
-				// 戻り値 = 実際に投稿できたか(権限なし/前面化による抑止時は false)。投稿できたときだけ
-				// バッジ確定し、抑止・失敗時は badgePlaced を立てず次の通知へ総数を持ち越す。
-				if (NotificationHelper.ShowUpdateNotification(
-					context,
-					novel.Id, // notificationId = novel.Id（同一小説の通知は上書き）
-					"ラノベリーダ",
-					$"{novel.Title}: {newCount}話更新",
-					novel.Id,
-					episodeId,
-					novel.SiteType,
-					novel.NovelId,
-					badge))
-				{
-					badgePlaced = true;
-				}
-			}
-			catch (Exception ex)
-			{
-				// 1 件の失敗で残りの通知が止まらないよう小説単位で握りつぶしてログのみ。
-				MessageService.Warn($"ShowUpdateNotification failed for novel {novel.Id}: {ex.Message}");
-			}
+		try
+		{
+			NotificationHelper.ShowUpdateNotifications(context, items);
+		}
+		catch (Exception ex)
+		{
+			MessageService.Warn($"ShowUpdateNotifications failed: {ex.Message}");
 		}
 	}
 }

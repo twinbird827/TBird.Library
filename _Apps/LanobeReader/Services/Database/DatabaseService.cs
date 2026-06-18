@@ -8,7 +8,7 @@ namespace LanobeReader.Services.Database;
 
 public class DatabaseService : SqliteDatabaseBase
 {
-    private const int CURRENT_SCHEMA_VERSION = 4;
+    private const int CURRENT_SCHEMA_VERSION = 5;
 
     public DatabaseService()
         : base(Path.Combine(FileSystem.AppDataDirectory, "lanobereader.db"), CURRENT_SCHEMA_VERSION)
@@ -76,7 +76,7 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
-        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4() };
+        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5() };
 
     protected override async Task<int> ReadSchemaVersionAsync(SQLiteAsyncConnection conn)
     {
@@ -233,6 +233,49 @@ public class DatabaseService : SqliteDatabaseBase
             catch (Exception ex)
             {
                 MessageService.Warn($"[MigrateToV4] Failed: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// v4 → v5: 既存 novels.last_updated_at のうち、本PR以前に保存された Narou 由来の生 JST 値
+    /// ("yyyy-MM-dd HH:mm:ss"、オフセット無し)を UTC ISO("o")へ正規化する。
+    /// 本PRで Narou 取得値は <see cref="NarouDateTime.ToUtcIso"/> で UTC 統一されたが、既存行は旧 JST 生値の
+    /// まま残り、UpdateCheckService.SameInstant が両者を UTC 扱いで比較して 9 時間差と誤判定し、既存 Narou 全
+    /// 作品が初回チェックで一斉に無駄なフル再取得を起こす(端末ローカル TZ での誤表示も生む)。移行時に一括
+    /// 正規化して塞ぐ。形式判定: 'T' を含む値(= 既に ISO/UTC。Kakuyomu の UtcNow("o") 含む)は対象外。
+    /// 変換後の値は 'T' を含むため再対象にならず冪等。
+    /// </summary>
+    private class MigrateToV5 : IMigration
+    {
+        public int FromVersion => 4;
+
+        public async Task ExecuteAsync(SQLiteAsyncConnection conn)
+        {
+            try
+            {
+                // 旧形式候補(スペース区切り・'T' 無し)だけを SQL で絞り込む(ISO 値・NULL は対象外)。
+                var legacy = await conn.QueryAsync<Novel>(
+                    "SELECT * FROM novels " +
+                    "WHERE last_updated_at IS NOT NULL " +
+                    "AND last_updated_at LIKE '% %' AND last_updated_at NOT LIKE '%T%'").ConfigureAwait(false);
+
+                int converted = 0;
+                foreach (var novel in legacy)
+                {
+                    var normalized = NarouDateTime.ToUtcIso(novel.LastUpdatedAt);
+                    if (normalized is null || normalized == novel.LastUpdatedAt) continue; // 解析不能/不変はスキップ
+                    await conn.ExecuteAsync(
+                        "UPDATE novels SET last_updated_at = ? WHERE id = ?",
+                        normalized, novel.Id).ConfigureAwait(false);
+                    converted++;
+                }
+                MessageService.Info($"[MigrateToV5] Normalized {converted} legacy last_updated_at value(s).");
+            }
+            catch (Exception ex)
+            {
+                MessageService.Warn($"[MigrateToV5] Failed: {ex.Message}");
                 throw;
             }
         }

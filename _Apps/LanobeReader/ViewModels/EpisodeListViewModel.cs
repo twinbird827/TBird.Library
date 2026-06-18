@@ -115,6 +115,15 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     // 二重実行だけを弾く。UI スレッド上でのみ check/set するため await を挟まず原子性が保たれる。
     private bool _isAutoReloading;
 
+    // _allEpisodes / _filteredCache / Episodes / CurrentPage を変更する全経路(Initialize / ReloadEpisodes /
+    // JumpToAnchor / RefreshReadStatus / ReloadList)を直列化するゲート。これらは UI スレッド上で動くが、
+    // 各々が await(DB fetch / アニメ待ち)で yield するため、yield 中に別経路が割り込んで「fetch 前に読んだ
+    // 状態」を前提に代入を進め、アンカー誤算出・誤スクロール・Episodes の Clear+Add 競合を起こしうる
+    // (各経路の冒頭ガードは最初の await の前でしか評価されず、await 後の再チェックが無い)。本ゲートで
+    // 変更シーケンス全体を排他にし、await 跨ぎの再入を断つ。通常の単一フローでは無競合で即時取得のため
+    // UX タイミングは不変、実際に並走したときだけ直列化される。どの経路も他経路を呼ばないため再入なし。
+    private readonly SemaphoreSlim _mutateGate = new(1, 1);
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (_initTask is not null)
@@ -186,25 +195,50 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         if (_novelDbId <= 0) return;
 
         _isAutoReloading = true;
+        await _mutateGate.WaitAsync();
         try
         {
             var fresh = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-            if (fresh.Count <= _allEpisodes.Count) return; // 新着なし → 何もしない
+            var freshCachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+
+            // 件数増(新着)に加え、site_episode_id 補完・タイトル訂正・誤話キャッシュ破棄(cached バッジ変化)
+            // など件数不変の同内容差し替えも反映する。件数だけを契機にすると本PRの誤話是正(backfill が
+            // episode_cache を破棄し安定 ID で取り直させる)が、表示中の目次に反映されないため。
+            if (!HasMeaningfulEpisodeChange(fresh, freshCachedIds)) return; // 変化なし → 何もしない
 
             _allEpisodes = fresh;
-            _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+            _cachedIds = freshCachedIds;
             RebuildFilterCache();
             RecalcPaging();
             await LoadPageAsync();
         }
         finally
         {
+            _mutateGate.Release();
             _isAutoReloading = false;
         }
     }
 
+    // 表示中の目次に反映すべき変化があるか。新着(件数差)に加え、Id 集合・タイトル・site_episode_id・
+    // キャッシュ済み集合(cached バッジ)の変化を検出する。背面チェックは本作品が対象のときだけ本判定を
+    // 走らせるため(OnUpdatesDetectedAsync の事前フィルタ)、ここでの追加クエリ・比較コストは限定的。
+    private bool HasMeaningfulEpisodeChange(List<Episode> fresh, HashSet<int> freshCachedIds)
+    {
+        if (fresh.Count != _allEpisodes.Count) return true;
+        if (!freshCachedIds.SetEquals(_cachedIds)) return true;
+        var oldById = _allEpisodes.ToDictionary(e => e.Id);
+        foreach (var e in fresh)
+        {
+            if (!oldById.TryGetValue(e.Id, out var old)) return true;
+            if (old.Title != e.Title || old.SiteEpisodeId != e.SiteEpisodeId) return true;
+        }
+        return false;
+    }
+
     public async Task InitializeAsync()
     {
+        // 変更経路の直列化ゲートを取得(WaitAsync は throw しない経路のため、以降の finally で必ず解放される)。
+        await _mutateGate.WaitAsync();
         IsLoading = true;
         ClearError();
         try
@@ -259,6 +293,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         finally
         {
             IsLoading = false;
+            _mutateGate.Release();
         }
     }
 
@@ -309,6 +344,8 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     {
         if (_allEpisodes.Count == 0) return;
 
+        // 変更経路の直列化ゲート。空チェックの後に取得し、finally で必ず解放する。
+        await _mutateGate.WaitAsync();
         bool clearedInStage1B = false;
         try
         {
@@ -397,6 +434,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             // ここで無条件に false にすると、稀に並走している InitializeAsync の IsLoading=true を
             // 横取りしてしまう (gating の見落とし) ため、フラグで限定する。
             if (clearedInStage1B) IsLoading = false;
+            _mutateGate.Release();
         }
     }
 
@@ -437,35 +475,44 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             return;
         }
 
-        // Reader→目次の戻り遷移ではここで Shell スライドアニメが進行中。DB クエリ + IsRead 更新が
-        // 重なるとアニメが詰まって見えるため、アニメ完了を待ってから fetch & update する。
-        // 詳細は ShellAnimationSettleMs の定義コメント参照。
-        await Task.Delay(ShellAnimationSettleMs);
-
-        var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-        var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
-
-        foreach (var ep in _allEpisodes)
+        // 変更経路の直列化ゲート。早期スキップ判定の後に取得し、finally で必ず解放する。
+        await _mutateGate.WaitAsync();
+        try
         {
-            if (readMap.TryGetValue(ep.Id, out var isRead))
-                ep.IsRead = isRead;
-        }
+            // Reader→目次の戻り遷移ではここで Shell スライドアニメが進行中。DB クエリ + IsRead 更新が
+            // 重なるとアニメが詰まって見えるため、アニメ完了を待ってから fetch & update する。
+            // 詳細は ShellAnimationSettleMs の定義コメント参照。
+            await Task.Delay(ShellAnimationSettleMs);
 
-        if (ShowUnreadOnly)
-        {
-            // 未読フィルタ ON のときは既読化した話をリストから外す必要がある
-            RebuildFilterCache();
-            RecalcPaging();
-            await LoadPageAsync();
-        }
-        else
-        {
-            // フィルタが OFF なら現在表示中のアイテムだけ in-place 更新
-            foreach (var vm in Episodes)
+            var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
+            var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
+
+            foreach (var ep in _allEpisodes)
             {
-                if (readMap.TryGetValue(vm.Id, out var isRead))
-                    vm.IsRead = isRead;
+                if (readMap.TryGetValue(ep.Id, out var isRead))
+                    ep.IsRead = isRead;
             }
+
+            if (ShowUnreadOnly)
+            {
+                // 未読フィルタ ON のときは既読化した話をリストから外す必要がある
+                RebuildFilterCache();
+                RecalcPaging();
+                await LoadPageAsync();
+            }
+            else
+            {
+                // フィルタが OFF なら現在表示中のアイテムだけ in-place 更新
+                foreach (var vm in Episodes)
+                {
+                    if (readMap.TryGetValue(vm.Id, out var isRead))
+                        vm.IsRead = isRead;
+                }
+            }
+        }
+        finally
+        {
+            _mutateGate.Release();
         }
     }
 
@@ -480,11 +527,20 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         if (_initTask is null || !_initTask.IsCompletedSuccessfully) return;
         if (_jumpTask is { IsCompleted: false }) return;
 
-        RebuildFilterCache();
-        CurrentPage = 1;
-        RecalcPaging();
-        await LoadPageAsync();
-        PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
+        // 変更経路の直列化ゲート。早期スキップ判定の後に取得し、finally で必ず解放する。
+        await _mutateGate.WaitAsync();
+        try
+        {
+            RebuildFilterCache();
+            CurrentPage = 1;
+            RecalcPaging();
+            await LoadPageAsync();
+            PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
+        }
+        finally
+        {
+            _mutateGate.Release();
+        }
     }
 
     [RelayCommand]

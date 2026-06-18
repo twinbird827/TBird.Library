@@ -44,30 +44,28 @@ public static class NotificationHelper
 			== global::Android.Content.PM.Permission.Granted;
 	}
 
-	/// <summary>
-	/// 新着通知を投稿する。実際に投稿できたとき true を返す(権限なし・前面化により抑止したときは false)。
-	/// 呼び出し側はこの戻り値で「バッジを載せた通知が出たか」を判定できる。
-	/// </summary>
-	public static bool ShowUpdateNotification(Context context, int notificationId, string title, string body,
-		int novelId, int episodeId, int siteType, string siteNovelId, int badgeNumber = 0)
-	{
-		if (!HasNotificationPermission(context)) return false;
+	/// <summary>一括投稿する新着通知 1 通分のデータ。</summary>
+	public readonly record struct UpdateNotificationItem(
+		int NotificationId, string Title, string Body,
+		int NovelId, int EpisodeId, int SiteType, string SiteNovelId, int BadgeNumber);
 
+	private static Notification BuildUpdateNotification(Context context, UpdateNotificationItem item)
+	{
 		var intent = new Intent(context, typeof(MainActivity));
 		intent.SetFlags(ActivityFlags.ClearTop | ActivityFlags.SingleTop);
-		intent.PutExtra("novelId", novelId);
-		intent.PutExtra("episodeId", episodeId);
-		intent.PutExtra("siteType", siteType);
-		intent.PutExtra("siteNovelId", siteNovelId);
+		intent.PutExtra("novelId", item.NovelId);
+		intent.PutExtra("episodeId", item.EpisodeId);
+		intent.PutExtra("siteType", item.SiteType);
+		intent.PutExtra("siteNovelId", item.SiteNovelId);
 
 		var pendingIntent = PendingIntent.GetActivity(
-			context, notificationId, intent,
+			context, item.NotificationId, intent,
 			PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
 
 		var builder = new NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)!
 			.SetSmallIcon(global::Android.Resource.Drawable.IcDialogInfo)!
-			.SetContentTitle(title)!
-			.SetContentText(body)!
+			.SetContentTitle(item.Title)!
+			.SetContentText(item.Body)!
 			// dismissible: ユーザがスワイプで消せる。タップで開いた場合も自動で消える。
 			// アプリ前面化時(MainActivity.OnResume)にも CancelAll でクリアし、バッジ(通知ドット)を消す。
 			// ※通知をスワイプで消すとバッジも消えるのは Android 仕様(バッジは通知に紐づく)。
@@ -76,19 +74,46 @@ public static class NotificationHelper
 			.SetPriority(NotificationCompat.PriorityDefault)!;
 
 		// OEM ランチャー(Samsung/Xiaomi 等)向けに数字バッジを設定。0 のときは点(ドット)のみ。
-		if (badgeNumber > 0)
+		if (item.BadgeNumber > 0)
 		{
-			builder.SetNumber(badgeNumber);
+			builder.SetNumber(item.BadgeNumber);
 		}
 
-		// 抑止判定(前面 かつ 一覧可視)と Notify をロック内で原子的に行う。抑止条件が真なら投稿しない
-		// (アプリ内一覧が NEW を表示し、CancelAll が直後に消すため)。CancelAll と同一ロックのため
-		// 「CancelAll 後に投稿して居座る」競合が生じない。前面化は OnActivityStarted で OnResume の
-		// CancelAll より先に立つ。前面でも一覧非表示なら抑止せず投稿し、新着を確実に可視化する。
+		return builder.Build()!;
+	}
+
+	/// <summary>
+	/// 複数の新着通知を「単一の抑止判定」で一括投稿する。抑止可否はバッチ開始時に 1 回だけ確定し、投稿は
+	/// 全件まとめて <see cref="_notifyGate"/> 内で行う(CancelAll と原子的)。実際に投稿できたとき true を返す
+	/// (権限なし・前面化により抑止したときは false)。
+	///
+	/// 通知ごとに抑止を再判定すると、投函途中の前面化で一部だけ投稿され、直後の MainActivity.OnResume の
+	/// CancelAll がそれを消してバッジ総数まで失う「半抑止バッチ」になりうる。バッチ全体で抑止を 1 回確定し
+	/// all-or-nothing にすることでこれを防ぐ。抑止判定(前面 かつ 一覧可視)と Notify を同一ロックで原子的に
+	/// 行うため、CancelAll と「投稿後に消える/消した後に投稿される」競合も生じない。前面化は OnActivityStarted
+	/// で OnResume の CancelAll より先に立つ。前面でも一覧非表示なら抑止せず投稿し新着を確実に可視化する。
+	/// </summary>
+	public static bool ShowUpdateNotifications(Context context, IReadOnlyList<UpdateNotificationItem> items)
+	{
+		if (items.Count == 0) return false;
+		if (!HasNotificationPermission(context)) return false;
+
+		// Notify 直前の原子区間(ロック保持時間)を短く保つため、通知ビルドはロック外で済ませる。
+		var built = new List<(int id, Notification notification)>(items.Count);
+		foreach (var item in items)
+		{
+			built.Add((item.NotificationId, BuildUpdateNotification(context, item)));
+		}
+
 		lock (_notifyGate)
 		{
+			// バッチ全体で 1 回だけ抑止判定し、全件まとめて投稿する(CancelAll と相互排他)。
 			if (AppForegroundTracker.ShouldSuppressSystemNotification) return false;
-			NotificationManagerCompat.From(context)?.Notify(notificationId, builder.Build()!);
+			var manager = NotificationManagerCompat.From(context);
+			foreach (var (id, notification) in built)
+			{
+				manager?.Notify(id, notification);
+			}
 			return true;
 		}
 	}

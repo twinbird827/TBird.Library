@@ -41,7 +41,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppSettingsRepository>();
 
         // HttpClient
-        builder.Services.AddSingleton<HttpClient>();
+        // スクレイピング系 UA を共有 HttpClient に集約する(各 ApiService から USER_AGENT を撤去し、
+        // 「SiteRateLimiter 側の HttpClient に集約」とした際の唯一の設定点)。未設定だと既定 UA となり、
+        // Kakuyomu/Narou 側で弾かれうる + requirements の UA 要件に反するため、ここで明示付与する。
+        builder.Services.AddSingleton<HttpClient>(_ =>
+        {
+            var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; LanobeReader/1.0)");
+            return http;
+        });
 
         // Network policy: 抽象 + SiteRateLimiter + 既存 NetworkPolicyService ラッパー
         builder.Services.AddSingleton<INetworkPolicy, MauiNetworkPolicy>();

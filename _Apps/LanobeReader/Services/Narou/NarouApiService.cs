@@ -1,7 +1,7 @@
-using System.Globalization;
 using System.IO.Compression;
 using System.Text.Json;
 using AngleSharp.Dom;
+using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Network;
 using TBird.Maui.Web;
@@ -66,28 +66,11 @@ public class NarouApiService : INovelService
                 Author = item.TryGetProperty("writer", out var w) ? w.GetString() ?? "" : "",
                 TotalEpisodes = item.TryGetProperty("general_all_no", out var ga) ? ga.GetInt32() : 0,
                 IsCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0,
-                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? ToUtcIso(lastup.GetString()) : null,
+                // general_lastup(JST 生値)は UTC ISO へ正規化して保存する。詳細は NarouDateTime 参照。
+                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? NarouDateTime.ToUtcIso(lastup.GetString()) : null,
             });
         }
         return results;
-    }
-
-    /// <summary>
-    /// Narou の general_lastup("yyyy-MM-dd HH:mm:ss", JST・オフセット無し)を UTC ISO("o")へ正規化する。
-    /// 保存形式を UTC に統一することで、新着確定時フォールバック(DateTime.UtcNow.ToString("o"))と同形式に
-    /// 揃え、UpdateCheckService.SameInstant の TZ/形式差による誤判定(無駄なフル再取得)と、端末ローカル TZ
-    /// での誤表示を防ぐ。JST は DST が無いため固定 +9 時間で変換する。解析不能な値は素のまま返す。
-    /// </summary>
-    private static string? ToUtcIso(string? narouJst)
-    {
-        if (string.IsNullOrEmpty(narouJst)) return narouJst;
-        if (!DateTime.TryParse(narouJst, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
-        {
-            return narouJst;
-        }
-        var utc = new DateTimeOffset(
-            DateTime.SpecifyKind(local, DateTimeKind.Unspecified), TimeSpan.FromHours(9)).UtcDateTime;
-        return utc.ToString("o", CultureInfo.InvariantCulture);
     }
 
     public async Task<List<Episode>> FetchEpisodeListAsync(string novelId, CancellationToken ct = default)
@@ -196,7 +179,7 @@ public class NarouApiService : INovelService
 
         var item = jsonArray[1];
         var totalEpisodes = item.GetProperty("general_all_no").GetInt32();
-        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? ToUtcIso(lastup.GetString()) : null;
+        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? NarouDateTime.ToUtcIso(lastup.GetString()) : null;
         var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0;
         var author = item.TryGetProperty("writer", out var writerProp) ? writerProp.GetString() : null;
 

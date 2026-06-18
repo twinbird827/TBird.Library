@@ -61,7 +61,8 @@ public class NovelRepository
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
 
         // episodes 1 パス GROUP BY で episode_count / read_count / unread_count を一括集計。
-        // (novel_id, is_read) 複合インデックス (idx_episodes_novel_isread, schema v3) が covering index となる。
+        // (novel_id, is_read, episode_no) 複合インデックス (idx_episodes_novel_isread_epno, schema v4) が
+        // covering index となる(旧 idx_episodes_novel_isread は v4 で DROP 済み・本索引が上位互換)。
         // 全 3 値を episodes から派生させることで「既読+未読=総話数」の不変条件を保証する。
         const string baseSql =
             "SELECT " +

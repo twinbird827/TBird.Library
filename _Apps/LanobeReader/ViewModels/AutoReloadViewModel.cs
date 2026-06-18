@@ -17,10 +17,6 @@ namespace LanobeReader.ViewModels;
 /// </summary>
 public abstract class AutoReloadViewModel : ErrorAwareViewModel
 {
-    // この VM が現在「可視一覧」として登録中か。SubscribeToUpdates が OnAppearing で複数回呼ばれても、
-    // 可視一覧カウンタ(UpdateListVisibilityTracker)の増減を 1 回ずつに保つためのインスタンス状態。
-    private bool _countedAsVisibleList;
-
     /// <summary>
     /// この画面が「新着を即時表示する一覧」としてシステム通知抑止に寄与するか。
     /// true の VM が前面で可視の間はシステム通知を抑止する(アプリ内一覧が NEW を表示するため)。
@@ -46,9 +42,13 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
 
         // 「新着を即時表示する一覧が可視」であることを可視一覧トラッカへ通知する。前面でも一覧非表示の
         // 画面(リーダー/設定/目次)滞在中はこのカウントが 0 となり、システム通知が抑止されず確実に届く。
-        if (ParticipatesInNotificationSuppression && !_countedAsVisibleList)
+        // トラッカ側が ReferenceEquals で冪等化するため、OnAppearing が複数回呼ばれても 1 エントリに収束する。
+        // 旧実装はインスタンスのフラグ(_countedAsVisibleList)で二重登録を防いでいたが、背面化時の
+        // UpdateListVisibilityTracker.Reset() がトラッカだけをクリアするとフラグが true のまま desync し、
+        // 前面復帰後の再購読で OnSubscribed がスキップされて「可視なのに通知抑止が恒久的に効かない」事故が
+        // あった。フラグを廃しトラッカ登録を唯一の真実源とすることで、Reset 後でも再購読が確実に再登録する。
+        if (ParticipatesInNotificationSuppression)
         {
-            _countedAsVisibleList = true;
             UpdateListVisibilityTracker.OnSubscribed(this);
         }
     }
@@ -57,9 +57,9 @@ public abstract class AutoReloadViewModel : ErrorAwareViewModel
     public void UnsubscribeFromUpdates()
     {
         WeakReferenceMessenger.Default.Unregister<UpdatesDetectedMessage>(this);
-        if (_countedAsVisibleList)
+        // OnUnsubscribed は当該 owner を除去するだけ(未登録なら no-op)で冪等。
+        if (ParticipatesInNotificationSuppression)
         {
-            _countedAsVisibleList = false;
             UpdateListVisibilityTracker.OnUnsubscribed(this);
         }
     }

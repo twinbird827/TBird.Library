@@ -118,7 +118,16 @@ public class UpdateCheckService
                     // 通常であり実害は限定的(count-mismatch 経路で meta 据え置きのまま TOC が後から埋まる稀ケースのみ)。
                     var siteUpdatedSinceLast = lastUpdatedAt is not null
                         && !SameInstant(lastUpdatedAt, novel.LastUpdatedAt);
-                    if (totalEpisodes > currentMaxEpisode && (reportedTotalChanged || siteUpdatedSinceLast))
+                    // (U2) Kakuyomu は FetchNovelInfoAsync の totalEpisodes が実 TOC 解析数(episodeIds.Count)で
+                    // あり、Narou の general_all_no のようなメタ水増しが無い。よって totalEpisodes > currentMax は
+                    // 「実在の新話あり」を直接意味するため、二次条件(reportedTotalChanged/siteUpdatedSinceLast)を
+                    // 課さず取得してよい。これを課すと、一度 count-mismatch の else 枝で novel.TotalEpisodes が現値に
+                    // 揃った後、実話が同数まで後から埋まるケースで reportedTotalChanged=false・siteUpdatedSinceLast=
+                    // false(Kakuyomu は lastUpdatedAt=null)となり新着を恒久取りこぼす。Kakuyomu では取得後に
+                    // currentMax が totalEpisodes まで前進するため毎周期の無駄取得にもならない。
+                    var trustsCountAlone = (SiteType)novel.SiteType == SiteType.Kakuyomu;
+                    if (totalEpisodes > currentMaxEpisode
+                        && (trustsCountAlone || reportedTotalChanged || siteUpdatedSinceLast))
                     {
                         // Fetch new episodes
                         var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);

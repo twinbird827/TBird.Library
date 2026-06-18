@@ -30,6 +30,13 @@ public class UpdateCheckForegroundService : Service
     // shortService の3分上限到達(OnTimeout)時にチェック処理をきれいに中断するためのトークン。
     private CancellationTokenSource? _cts;
 
+    // 直近の startId。所有者タスクの finally がサービス停止に使う。2 回目以降の起動で値が進むため、
+    // 走行中タスクが古い startId で StopSelf すると「最新 startId と不一致で停止されない」サービス常駐
+    // リークになる。常に最新の startId で停止することで、起動と停止の startId 収支を合わせる。
+    // メインスレッド(OnStartCommand)で書き、プールスレッド(タスク finally)で読むため、メモリ可視性を
+    // 明示する volatile とする(_cts の Interlocked と同等の同期規律を保つ)。
+    private volatile int _latestStartId;
+
     /// <summary>前面サービスを起動する。Android 8.0+ の背面起動規約に従い StartForegroundService 経由。</summary>
     public static void Start(Context context)
     {
@@ -41,6 +48,9 @@ public class UpdateCheckForegroundService : Service
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
+        // 所有者タスクの finally が最新 startId で停止できるよう、前面化の成否に関わらず先に記録する。
+        _latestStartId = startId;
+
         try
         {
             // 8.0+ は起動直後の startForeground が必須。12+ で背面起動が許可されない場合は
@@ -50,6 +60,14 @@ public class UpdateCheckForegroundService : Service
         catch (Exception ex)
         {
             MessageService.Warn($"startForeground denied; fallback to WorkManager: {ex.Message}");
+            // 既に走行中のチェックがある場合、その実行が前面状態とサービス停止を所有している。ここで
+            // StopSelf するとサービスごと破棄され、OnDestroy が走行中タスクの CTS を巻き添えキャンセルして
+            // 進行中の巡回を中断してしまう(= 新着取りこぼし)。走行中があれば前面降格させず、停止は走行中
+            // チェックの finally(最新 startId で StopSelf)に委ねる。フォールバックも走行中が担うため不要。
+            if (Volatile.Read(ref _cts) is not null)
+            {
+                return StartCommandResult.NotSticky;
+            }
             try { UpdateCheckScheduler.EnqueueOneTimeCheck(ApplicationContext!); }
             catch (Exception ex2) { MessageService.Error($"Fallback enqueue failed: {ex2.Message}"); }
             StopSelf(startId);
@@ -95,14 +113,18 @@ public class UpdateCheckForegroundService : Service
                 // 差し替えられた(superseded)場合、StopForeground はサービス全体に効くため、走行中の後継
                 // タスクの前面状態・常駐通知まで畳んでしまう(Android 14+ shortService の前面要件違反/kill
                 // リスク)。所有者のときに限り StopForeground/StopSelf し、差し替え済みなら前面状態は後継へ
-                // 委ね、自分は Token キャンセルで早期終了するだけにする(後継の finally が自分の startId を畳む)。
-                // OnTimeout/OnDestroy は Cancel のみで Dispose/null 化しないため、二重 Dispose も起きない。
+                // 委ね、自分は Token キャンセルで早期終了するだけにする(後継の finally が最新 startId を畳む)。
+                // 停止は捕捉した startId ではなく最新 startId で行う(2 回目起動が前面化失敗で StopSelf を
+                // 見送った場合など、古い startId だと最新と不一致で停止されずサービスが常駐し続けるため)。
                 if (Interlocked.CompareExchange(ref _cts, null, cts) == cts)
                 {
                     try { StopForeground(StopForegroundFlags.Remove); } catch { /* 既に停止済み */ }
-                    StopSelf(startId);
+                    StopSelf(_latestStartId);
                 }
-                cts.Dispose();
+                // CTS は Cancel 専用(CancelAfter/WaitHandle 未使用)のため Dispose 不要。無条件 Dispose は
+                // OnTimeout/OnDestroy の _cts?.Cancel() と並走して破棄済み CTS への Cancel(ObjectDisposed
+                // Exception)を招き、従来はそれを catch で握り潰していた(catch 依存)。Dispose を撤去し、Cancel
+                // と Dispose が競合する余地そのものを無くす(Cancel-only CTS の GC 回収で資源は漏れない)。
             }
         });
 
@@ -140,16 +162,17 @@ public class UpdateCheckForegroundService : Service
     {
         MessageService.Warn("FGS short-service timeout reached; cancelling check and stopping");
         // チェックを中断。進行中の作品は LastCheckedAt 未更新のまま残り、次回その作品から再開する。
-        try { _cts?.Cancel(); } catch { /* 破棄済み */ }
+        // CTS は Dispose しない方針(finally 参照)のため、この Cancel が破棄済み CTS に当たることはない。
+        try { _cts?.Cancel(); } catch { /* Cancel 中のコールバック例外などへの保険 */ }
         try { StopForeground(StopForegroundFlags.Remove); } catch { /* 既に停止済み */ }
         StopSelf(startId);
     }
 
     public override void OnDestroy()
     {
-        // Cancel のみ。CTS の Dispose は走行中タスクの finally が所有する(まだ使用中の token を破棄しない)。
+        // Cancel のみ(CTS は Dispose しない方針のため破棄済み CTS への Cancel にはならない)。
         // タスク完了後ならフィールドは null 化済みで、この呼び出しは安全に no-op となる。
-        try { _cts?.Cancel(); } catch { /* 破棄済み */ }
+        try { _cts?.Cancel(); } catch { /* Cancel 中のコールバック例外などへの保険 */ }
         base.OnDestroy();
     }
 

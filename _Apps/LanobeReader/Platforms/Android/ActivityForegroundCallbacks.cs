@@ -17,7 +17,10 @@ namespace LanobeReader.Platforms.Android;
 public class ActivityForegroundCallbacks : AObject, global::Android.App.Application.IActivityLifecycleCallbacks
 {
     public void OnActivityStarted(Activity? activity) => AppForegroundTracker.OnActivityStarted();
-    public void OnActivityStopped(Activity? activity) => AppForegroundTracker.OnActivityStopped();
+    // 構成変更(回転/ダークモード/ロケール変更等)による再生成 Stop は真の背面化と区別する
+    // (IsChangingConfigurations=true)。これを渡し、トラッカの一時クリアによる通知漏れを防ぐ。
+    public void OnActivityStopped(Activity? activity)
+        => AppForegroundTracker.OnActivityStopped(activity?.IsChangingConfigurations ?? false);
 
     public void OnActivityCreated(Activity? activity, Bundle? savedInstanceState) { }
     public void OnActivityResumed(Activity? activity) { }
