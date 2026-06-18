@@ -91,11 +91,17 @@ public class UpdateCheckForegroundService : Service
             }
             finally
             {
-                try { StopForeground(StopForegroundFlags.Remove); } catch { /* 既に停止済み */ }
-                StopSelf(startId);
-                // フィールドがまだ自分を指していれば外し、自分専用の CTS を破棄する。OnTimeout/OnDestroy は
-                // Cancel のみ行い Dispose しない(走行中の token を破棄しない)ため、二重 Dispose も起きない。
-                Interlocked.CompareExchange(ref _cts, null, cts);
+                // 自分がまだ現所有者(_cts==cts)のときだけ前面状態を畳む。2 回目の OnStartCommand に
+                // 差し替えられた(superseded)場合、StopForeground はサービス全体に効くため、走行中の後継
+                // タスクの前面状態・常駐通知まで畳んでしまう(Android 14+ shortService の前面要件違反/kill
+                // リスク)。所有者のときに限り StopForeground/StopSelf し、差し替え済みなら前面状態は後継へ
+                // 委ね、自分は Token キャンセルで早期終了するだけにする(後継の finally が自分の startId を畳む)。
+                // OnTimeout/OnDestroy は Cancel のみで Dispose/null 化しないため、二重 Dispose も起きない。
+                if (Interlocked.CompareExchange(ref _cts, null, cts) == cts)
+                {
+                    try { StopForeground(StopForegroundFlags.Remove); } catch { /* 既に停止済み */ }
+                    StopSelf(startId);
+                }
                 cts.Dispose();
             }
         });

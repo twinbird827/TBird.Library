@@ -111,6 +111,11 @@ public class UpdateCheckService
                     // 文字列の単純比較ではなく実時刻として比較する。保存値はサイト形式("yyyy-MM-dd HH:mm:ss"
                     // 等)のことも、新着確定時のフォールバック ISO("o")のこともあり、同一時刻でも形式差で
                     // 不一致と誤判定して無駄なフル再取得を招くため(両方パースできる場合は UTC 実時刻で比較)。
+                    // 注意: Kakuyomu は FetchNovelInfoAsync が lastUpdatedAt=null を返すため(信頼できる作品単位の
+                    // 最終更新時刻が Apollo State に無い)、siteUpdatedSinceLast は常に false となり、再取得判定は
+                    // reportedTotalChanged のみで効く。上記の「報告値頭打ち+実話が後から埋まる」取りこぼし防止網は
+                    // Kakuyomu には掛からないが、Kakuyomu は新話公開で meta 話数(reportedTotalChanged)が増えるのが
+                    // 通常であり実害は限定的(count-mismatch 経路で meta 据え置きのまま TOC が後から埋まる稀ケースのみ)。
                     var siteUpdatedSinceLast = lastUpdatedAt is not null
                         && !SameInstant(lastUpdatedAt, novel.LastUpdatedAt);
                     if (totalEpisodes > currentMaxEpisode && (reportedTotalChanged || siteUpdatedSinceLast))
