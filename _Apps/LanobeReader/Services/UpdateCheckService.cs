@@ -99,6 +99,22 @@ public class UpdateCheckService
                     // ここで一度だけ設定すれば全成功経路をカバーできる。
                     novel.HasCheckError = false;
 
+                    // 完結状態・作者名は新着有無と独立に変化しうる(完結化は新話なしで起こり、改名も同様)。
+                    // 新着ブランチ内だけで代入すると新話なしの変化が永続化されず DB が古いまま固着するため、
+                    // 全ブランチ共通でここで差分検出し metadataChanged に乗せる(新着あり経路は直後の UpdateAsync、
+                    // 新着なし経路は末尾 !persisted ブロックがいずれも全カラム UpdateAsync で確定する)。
+                    if (novel.IsCompleted != isCompleted)
+                    {
+                        novel.IsCompleted = isCompleted;
+                        metadataChanged = true;
+                    }
+                    // 改名追従: 取得できた author が現値と異なれば上書き。登録/巡回の 2 経路の規則は
+                    // Novel.TryUpdateAuthor に集約する(空/取得失敗時は据え置き)。
+                    if (novel.TryUpdateAuthor(author))
+                    {
+                        metadataChanged = true;
+                    }
+
                     var currentMaxEpisode = await _episodeRepo.GetMaxEpisodeNoAsync(novel.Id).ConfigureAwait(false);
 
                     // サイト報告の総話数が DB 上限を超え、かつ「前回処理した報告値から変化した」または
@@ -147,12 +163,7 @@ public class UpdateCheckService
                             novel.TotalEpisodes = totalEpisodes;
                             novel.LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow.ToString("o");
                             novel.HasUnconfirmedUpdate = true;
-                            novel.IsCompleted = isCompleted;
-                            if (!string.IsNullOrEmpty(author) && string.IsNullOrEmpty(novel.Author))
-                            {
-                                novel.Author = author;
-                            }
-                            // (HasCheckError は取得成功直後に解除済み)
+                            // (IsCompleted/Author は取得成功直後の全ブランチ共通差分検出で設定済み。HasCheckError も解除済み)
 
                             // 挿入した episodes と novel メタデータ(HasUnconfirmedUpdate/TotalEpisodes 等)は
                             // 一括で確定させる。永続化を後続(プリフェッチ enqueue / ループ末尾)へ遅延すると、
@@ -208,15 +219,15 @@ public class UpdateCheckService
                     else if (migrationBudget > 0
                         && (SiteType)novel.SiteType == SiteType.Kakuyomu
                         && currentMaxEpisode > 0
-                        && !_migrationAttempted.Contains(novel.Id)
-                        && _networkPolicy.IsWifiConnected)
+                        && !_migrationAttempted.Contains(novel.Id))
                     {
                         // (U2) 完結/安定済みの旧 Kakuyomu 作品は新着検出枝に入らず site_episode_id が永久に
                         // 未補完のまま残る(本文取得が位置依存=誤話リスク)。サイト話 ID を 1 件も持たない
                         // Kakuyomu 作品(=列追加前の旧データ)に限り、低頻度(1巡で migrationBudget 件まで)で
                         // フル TOC を取得して移行補完する。補完後は非 NULL 行が生じ再該当しないため概ね初回限り。
-                        // 機会的なバルク取得のため Wi-Fi 接続時のみ実行し従量制通信を避ける(プリフェッチと同方針。
-                        // 更新情報取得自体は機能上必須のためゲートしないが、移行補完は遅延可能なので Wi-Fi 限定)。
+                        // 移行は TOC 1 取得で一度成功すれば恒久解消し、対象も _migrationAttempted/budget で
+                        // 1 件ずつに絞られるため総通信量は限定的。常時セルラー端末で旧作品が永久に位置依存解決
+                        // (誤話リスク)へ固着するのを避けるため、metered でも 1 件ずつ前進させる(Wi-Fi ゲートなし)。
                         // 全話ドリフト(0 件補完で HasAny が false のまま)の作品は _migrationAttempted で再取得を抑止し、
                         // 巡回の度のフル TOC 再取得と budget 浪費を防ぐ。
                         // best-effort: 失敗しても巡回(LastCheckedAt 前進)は継続する。EXISTS 判定やフル TOC
@@ -229,7 +240,7 @@ public class UpdateCheckService
                                 migrationBudget--;
                                 await FetchListAndBackfillAsync(service, novel, ct).ConfigureAwait(false);
                                 // フル TOC 取得まで到達した作品は試行済みとして記録(全話ドリフトでの毎巡再取得を防ぐ)。
-                                // 取得が例外で失敗した場合はここに到達せず未記録のまま=次回(Wi-Fi 時)に再試行される。
+                                // 取得が例外で失敗した場合はここに到達せず未記録のまま=次回巡回で再試行される。
                                 _migrationAttempted.Add(novel.Id);
                             }
                         }

@@ -59,4 +59,13 @@ public class Novel
         get => (SiteType)SiteType;
         set => SiteType = (int)value;
     }
+
+    /// <summary>取得できた author が空でなく現値と異なれば上書きし、変化したとき true を返す。
+    /// 登録/巡回の 2 経路の「!= なら上書き(空/取得失敗時は据え置き)」規則を 1 箇所へ集約する。</summary>
+    public bool TryUpdateAuthor(string? fetchedAuthor)
+    {
+        if (string.IsNullOrEmpty(fetchedAuthor) || Author == fetchedAuthor) return false;
+        Author = fetchedAuthor;
+        return true;
+    }
 }

@@ -296,6 +296,15 @@ public partial class SearchViewModel : ErrorAwareViewModel
             novelInserted = true;
 
             var service = _serviceFactory.GetService(result.SiteType);
+
+            // 改名追従: 登録時も canonical author(Kakuyomu activityName 等)を取得する。FetchEpisodeListAsync より
+            // 先に呼ぶことで Kakuyomu の TOC キャッシュ(TTL 5 分)を温め、直後の FetchEpisodeListAsync→GetEpisodesAsync
+            // が同一 /works/{id} をキャッシュ命中させて登録時 GET を 1 回に減らす。取得失敗は非致命(登録は継続)のため
+            // 単独 try/catch で囲み fetchedAuthor をローカル捕捉する(失敗時 null=据え置き)。
+            string? fetchedAuthor = null;
+            try { (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId, cts.Token); }
+            catch { /* 作者名取得失敗は無視 */ }
+
             var episodes = await service.FetchEpisodeListAsync(result.NovelId, cts.Token);
 
             var dbNovel = await _novelRepo.GetBySiteAndNovelIdAsync((int)result.SiteType, result.NovelId)
@@ -307,21 +316,11 @@ public partial class SearchViewModel : ErrorAwareViewModel
             }
             await _episodeRepo.InsertAllAsync(episodes);
 
+            // TotalEpisodes は実話数 episodes.Count を単一真実源とする(FetchNovelInfoAsync の totalEpisodes は
+            // Narou general_all_no 等で水増しありうるため寄せない)。author の「!= なら上書き」規則は
+            // 巡回経路(UpdateCheckService)と同一で、Novel.TryUpdateAuthor に集約する(2 経路で散在させない)。
             dbNovel.TotalEpisodes = episodes.Count;
-
-            // 作者名が空の場合、FetchNovelInfoAsync で補完
-            if (string.IsNullOrEmpty(dbNovel.Author))
-            {
-                try
-                {
-                    var (_, _, _, fetchedAuthor) = await service.FetchNovelInfoAsync(result.NovelId, cts.Token);
-                    if (!string.IsNullOrEmpty(fetchedAuthor))
-                    {
-                        dbNovel.Author = fetchedAuthor;
-                    }
-                }
-                catch { /* 作者名取得失敗は無視 */ }
-            }
+            dbNovel.TryUpdateAuthor(fetchedAuthor);
 
             await _novelRepo.UpdateAsync(dbNovel);
 

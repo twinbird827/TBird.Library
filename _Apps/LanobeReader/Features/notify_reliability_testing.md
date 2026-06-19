@@ -114,7 +114,7 @@ adb logcat | grep -iE "Update alarm|foreground|CheckAll|FGS|notif"
 | `Update alarm (exact) scheduled in ...` | exact で武装できている（不正確に落ちていない） |
 | `[DEBUG] Alarm override: firing in 15 min` | デバッグ短縮が効いている |
 | 「更新を確認中」通知 → 数秒後に消える | FGS が起動し処理完遂 |
-| `ShowUpdateNotification` 相当の新着通知 | 通知経路 OK |
+| `ShowUpdateNotifications` 相当の新着通知（バッチ all-or-nothing 投稿） | 通知経路 OK |
 
 ### ❌ 異常の目安
 

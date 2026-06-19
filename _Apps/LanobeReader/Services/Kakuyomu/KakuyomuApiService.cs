@@ -199,16 +199,9 @@ public class KakuyomuApiService : INovelService
 
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, ct).ConfigureAwait(false);
-        var (_, episodes) = ParseApolloState(html);
+        var episodes = ParseApolloState(html, novelId);
         StoreTocCache(novelId, episodes);
         return episodes;
-    }
-
-    private async Task<List<string>> GetEpisodeIdsAsync(string novelId, CancellationToken ct)
-    {
-        var episodes = await GetEpisodesAsync(novelId, ct).ConfigureAwait(false);
-        // ParseApolloState で各話に必ず SiteEpisodeId を設定するため順序・件数は episodeIds と一致する。
-        return episodes.Select(e => e.SiteEpisodeId!).ToList();
     }
 
     private static JsonElement? ExtractApolloState(string html)
@@ -228,32 +221,30 @@ public class KakuyomuApiService : INovelService
         return apolloState.Clone();
     }
 
-    private static (List<string> episodeIds, List<Episode> episodes) ParseApolloState(string html)
+    private static List<Episode> ParseApolloState(string html, string novelId)
     {
-        var ids = new List<string>();
         var episodes = new List<Episode>();
         var apolloState = ExtractApolloState(html);
-        if (apolloState is null) return (ids, episodes);
+        if (apolloState is null) return episodes;
 
         var state = apolloState.Value;
-        var chapters = new List<JsonElement>();
-        foreach (var prop in state.EnumerateObject())
+
+        // 章の列挙は Work:{novelId}.tableOfContentsV2 の順序付き __ref 配列を辿る(=表示順=話番号順)。
+        // ストアのキー列挙順(EnumerateObject)は正規化ストアの内部順で、複数章作品では表示順と乖離して
+        // 話番号がずれうるため使わない。確定構造が取れない場合のみ旧 prefix 走査へ graceful degradation する。
+        var chapters = ResolveOrderedChapters(state, novelId);
+        // ref 走査が「episodeUnions を持つ章」を 1 つも返さない(Work/tableOfContentsV2 不在、ref 解決不能、
+        // episodeUnions 欠落 等の構造不一致)なら、全章取りこぼし(空 TOC)を避け現行挙動へ graceful degradation。
+        // 章カウントだけ見ると ref が非空でも全話 0 の穴が残るため、有効章(episodeUnions 配列を持つ章)の有無で判定する。
+        if (!chapters.Any(c => c.TryGetProperty("episodeUnions", out var eu) && eu.ValueKind == JsonValueKind.Array))
         {
-            if (prop.Name.StartsWith("TableOfContentsChapter:", StringComparison.Ordinal))
-            {
-                chapters.Add(prop.Value);
-            }
+            chapters = CollectChaptersByPrefix(state);
         }
 
         int episodeNo = 0;
         foreach (var chapter in chapters)
         {
-            string? chapterTitle = null;
-            if (chapter.TryGetProperty("title", out var ct) && ct.ValueKind == JsonValueKind.String)
-            {
-                var t = ct.GetString();
-                if (!string.IsNullOrEmpty(t)) chapterTitle = t;
-            }
+            var chapterTitle = ResolveChapterName(state, chapter);
 
             if (!chapter.TryGetProperty("episodeUnions", out var episodeUnions)) continue;
             if (episodeUnions.ValueKind != JsonValueKind.Array) continue;
@@ -269,12 +260,10 @@ public class KakuyomuApiService : INovelService
                 if (!episodeEntry.TryGetProperty("__typename", out var typename)) continue;
                 if (typename.GetString() != "Episode") continue;
 
-                // ID 追加は Episode 確定後に行う。episodeUnions には非 Episode(広告/お知らせ等)の
-                // __ref も含まれ、判定前に追加すると episodeIds が実話数(episodes)とズレる:
-                //   (a) FetchEpisodeContentAsync の episodeIds[episodeNo-1] 索引がズレて誤話/404
-                //   (b) totalEpisodes(=episodeIds.Count)が水増しされ UpdateCheckService が毎回再取得
+                // episodeNo の採番は Episode 確定後に行う。episodeUnions には非 Episode(広告/お知らせ等)の
+                // __ref も混じり、判定前に採番すると実話数とズレて (a) 位置依存フォールバックの索引ズレ=誤話/404、
+                // (b) totalEpisodes(=episodes.Count)の水増しで UpdateCheckService が毎回再取得、を招く。
                 var siteEpisodeId = refKey.Substring(colonIdx + 1);
-                ids.Add(siteEpisodeId);
 
                 var title = episodeEntry.TryGetProperty("title", out var titleProp)
                     ? titleProp.GetString() ?? ""
@@ -286,14 +275,71 @@ public class KakuyomuApiService : INovelService
                     EpisodeNo = episodeNo,
                     Title = title,
                     ChapterName = chapterTitle,
-                    // 本文取得を位置依存(episodeIds[episodeNo-1])から安定 ID へ移行するため、各話に
+                    // 本文取得を位置依存(episodes[episodeNo-1])から安定 ID へ移行するため、各話に
                     // サイト側エピソード ID を持たせて永続化する(序盤話の削除/並べ替えでの誤話表示を防ぐ)。
                     SiteEpisodeId = siteEpisodeId,
                 });
             }
         }
 
-        return (ids, episodes);
+        return episodes;
+    }
+
+    // Work:{novelId}.tableOfContentsV2 の順序付き __ref を解決し、TableOfContentsChapter ノードを表示順で返す。
+    // tableOfContentsV2 が無い場合は二次的に bare tableOfContents も試す(Kakuyomu の work-toc-v2 フラグ運用で
+    // フィールド名が将来再変化しても拾えるように)。Work/両フィールドとも無ければ空を返し、呼出側が prefix 走査へ退避する。
+    private static List<JsonElement> ResolveOrderedChapters(JsonElement state, string novelId)
+    {
+        var result = new List<JsonElement>();
+        if (!state.TryGetProperty($"Work:{novelId}", out var work)) return result;
+
+        if (!((work.TryGetProperty("tableOfContentsV2", out var toc) && toc.ValueKind == JsonValueKind.Array)
+            || (work.TryGetProperty("tableOfContents", out toc) && toc.ValueKind == JsonValueKind.Array)))
+        {
+            return result;
+        }
+
+        foreach (var chapterRef in toc.EnumerateArray())
+        {
+            if (!chapterRef.TryGetProperty("__ref", out var refProp)) continue;
+            var refKey = refProp.GetString();
+            if (string.IsNullOrEmpty(refKey)) continue;
+            if (!state.TryGetProperty(refKey, out var chapterNode)) continue;
+            result.Add(chapterNode);
+        }
+        return result;
+    }
+
+    // 旧来のフォールバック: ストアのキーから TableOfContentsChapter: 接頭辞のノードを収集する。順序はストア
+    // 依存で表示順と乖離しうるが、確定構造(tableOfContentsV2)が取れないときに全章取りこぼし(空出力)へ
+    // 落ちるのを避けるのが目的(現行挙動への graceful degradation)。
+    private static List<JsonElement> CollectChaptersByPrefix(JsonElement state)
+    {
+        var chapters = new List<JsonElement>();
+        foreach (var prop in state.EnumerateObject())
+        {
+            if (prop.Name.StartsWith("TableOfContentsChapter:", StringComparison.Ordinal))
+            {
+                chapters.Add(prop.Value);
+            }
+        }
+        return chapters;
+    }
+
+    // 章名は TableOfContentsChapter ノード直下の title ではなく、nested chapter ref(={__ref:"Chapter:<id>"})が
+    // 指す Chapter ノードの title にある。未グループ化(単一無名章)では chapter=null、Chapter/title 不在時も
+    // null(無名章)へフォールバックする(取りこぼし防止)。
+    private static string? ResolveChapterName(JsonElement state, JsonElement chapterNode)
+    {
+        if (!chapterNode.TryGetProperty("chapter", out var chapterRef)) return null;
+        if (chapterRef.ValueKind != JsonValueKind.Object) return null;
+        if (!chapterRef.TryGetProperty("__ref", out var refProp)) return null;
+        var refKey = refProp.GetString();
+        if (string.IsNullOrEmpty(refKey)) return null;
+        if (!state.TryGetProperty(refKey, out var chapter)) return null;
+        if (!chapter.TryGetProperty("title", out var titleProp) || titleProp.ValueKind != JsonValueKind.String) return null;
+        var t = titleProp.GetString();
+        return string.IsNullOrEmpty(t) ? null : t;
     }
 
     public async Task<(string content, bool cacheable)> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
@@ -310,35 +356,37 @@ public class KakuyomuApiService : INovelService
             {
                 return (await FetchContentByEpisodeIdAsync(novelId, siteEpisodeId, cts.Token).ConfigureAwait(false), true);
             }
-            // (U2) 自己修復は「安定 ID の陳腐化を示す失敗」に限定する。5xx/408/429/通信断などの transient
-            // エラーは SiteRateLimiter 内で既にリトライ済みで、ここまで来たら一過性の通信障害とみなし再送出して
-            // 上位リトライに委ねる(正しい安定 ID を一過性失敗で捨ててキャッシュ無効化+誤話リスクを負わない)。
-            // 404 等の非 transient な HttpRequestException(クライアントエラー=削除/改稿で ID 失効)と本文欠落
-            // (InvalidOperationException)のみ位置依存フォールバックへ降格させる。予期せぬ例外(NRE/JsonException/
-            // HTTP に包まれない IOException 等)はここで握らず再送出し、上位(ReaderViewModel)でエラー表示させる
-            // (承認外の文脈で位置依存降格=誤話リスクを負わないため、対象を陳腐化失敗の 2 種に厳密化)。
-            catch (Exception ex) when (
-                (ex is HttpRequestException hre && !TransientHttpErrorHelper.IsTransient(hre))
-                || ex is InvalidOperationException)
+            // (U2) 自己修復は「安定 ID の陳腐化=ID 失効(404 等の非 transient な HttpRequestException)」に限定する。
+            // 5xx/408/429/通信断などの transient エラーは SiteRateLimiter 内で既にリトライ済みで、ここまで来たら
+            // 一過性の通信障害とみなし再送出して上位リトライに委ねる(正しい安定 ID を一過性失敗で捨ててキャッシュ
+            // 無効化+誤話リスクを負わない)。本文欠落(InvalidOperationException=本文 DOM の一時的変化)は ID 失効と
+            // 区別できる「真の取得失敗」なので、位置依存フォールバック(誤話の可能性あり)へ降格させず再送出し、
+            // 上位(ReaderViewModel)で明示的にエラー表示させる(誤話を出さない)。予期せぬ例外(NRE/JsonException 等)も
+            // 同様に握らず再送出する。
+            catch (HttpRequestException hre) when (!TransientHttpErrorHelper.IsTransient(hre))
             {
-                // (U3) 安定 ID での取得失敗(404/本文欠落=削除・改稿で ID が陳腐化)時は、生 TOC の位置依存
-                // 解決で 1 度だけ自己修復を試みる。位置依存はドリフトで誤話になりうるが、移行前の挙動と
-                // 同等であり「読めない」確定よりは可読性を優先する方針(ユーザ承認済み U3-A)。なお訂正後の
-                // ID 永続化は API サービスへ DB 依存を持ち込まない設計方針のため行わない(読み取り都度の
+                // (U3) ID 失効(404)に限り、生 TOC の位置依存解決で 1 度だけ自己修復を試みる。位置依存はドリフトで
+                // 誤話になりうるが、移行前の挙動と同等であり「読めない」確定よりは可読性を優先する方針(ユーザ承認
+                // 済み U3-A)。本文欠落(DOM 変化)は誤話回避のため自己修復せず伝播させる(上の catch 条件で除外)。
+                // なお訂正後の ID 永続化は API サービスへ DB 依存を持ち込まない設計方針のため行わない(読み取り都度の
                 // 再解決は 5 分 TOC キャッシュにより軽微)。
-                MessageService.Warn($"安定IDでの本文取得に失敗、位置依存解決で再試行: works/{novelId} ep={episodeNo}: {ex.Message}");
+                MessageService.Warn($"安定IDでの本文取得に失敗(ID失効)、位置依存解決で再試行: works/{novelId} ep={episodeNo}: {hre.Message}");
                 selfHealing = true;
             }
         }
 
         // 旧データ(site_episode_id 列追加前に保存された話)、または上の安定 ID パスが失敗した場合の
-        // フォールバック: 生 TOC から位置で解決する。
-        var episodeIds = await GetEpisodeIdsAsync(novelId, cts.Token).ConfigureAwait(false);
-        if (episodeNo < 1 || episodeNo > episodeIds.Count)
+        // フォールバック: 生 TOC から位置で解決する(GetEpisodesAsync が単一真実源。専用の id リストは持たない)。
+        var episodes = await GetEpisodesAsync(novelId, cts.Token).ConfigureAwait(false);
+        if (episodeNo < 1 || episodeNo > episodes.Count)
         {
             throw new InvalidOperationException($"エピソード {episodeNo} が見つかりません");
         }
-        var content = await FetchContentByEpisodeIdAsync(novelId, episodeIds[episodeNo - 1], cts.Token).ConfigureAwait(false);
+        // ParseApolloState は Episode 確定話に必ず SiteEpisodeId を設定するため通常 null にならないが、
+        // SiteEpisodeId は string? のため null 免除(!)せず明示 throw で扱う(範囲外と同等の取得失敗)。
+        var fallbackEpisodeId = episodes[episodeNo - 1].SiteEpisodeId
+            ?? throw new InvalidOperationException($"エピソード {episodeNo} の site_episode_id を解決できません");
+        var content = await FetchContentByEpisodeIdAsync(novelId, fallbackEpisodeId, cts.Token).ConfigureAwait(false);
         // 自己修復フォールバック(陳腐化した安定 ID の代替)で取得した本文はドリフトで誤話の可能性があり、
         // かつ安定 ID が残置されるため backfill のキャッシュ破棄でも訂正されない。恒久キャッシュ(誤話キャッシュの
         // 恒久化)を避けるため cacheable=false で返す。旧データ(siteEpisodeId 無し)の位置解決は移行 backfill
@@ -385,7 +433,7 @@ public class KakuyomuApiService : INovelService
 
         // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。これにより直後の FetchEpisodeListAsync
         // /Prefetch が同一 /works/{novelId} を再取得せず再利用し(2 fetch 冗長を解消)、古い TOC を使うリスクも防ぐ。
-        var (_, episodes) = ParseApolloState(html);
+        var episodes = ParseApolloState(html, novelId);
         StoreTocCache(novelId, episodes);
         var totalEpisodes = episodes.Count;
 

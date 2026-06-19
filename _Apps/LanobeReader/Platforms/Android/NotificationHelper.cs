@@ -3,6 +3,7 @@ using Android.Content;
 using Android.OS;
 using Android.Service.Notification;
 using AndroidX.Core.App;
+using TBird.Core;
 
 namespace LanobeReader.Platforms.Android;
 
@@ -99,22 +100,40 @@ public static class NotificationHelper
 		if (!HasNotificationPermission(context)) return false;
 
 		// Notify 直前の原子区間(ロック保持時間)を短く保つため、通知ビルドはロック外で済ませる。
+		// build は item 単位で隔離する。1 件のビルド失敗(OEM 由来/不正データ等)で他の新着通知まで
+		// 巻き込んで全損させないため、失敗は warn ログのみで残りを継続する。
 		var built = new List<(int id, Notification notification)>(items.Count);
 		foreach (var item in items)
 		{
-			built.Add((item.NotificationId, BuildUpdateNotification(context, item)));
+			try { built.Add((item.NotificationId, BuildUpdateNotification(context, item))); }
+			catch (Exception ex) { MessageService.Warn($"build notification failed for {item.NovelId}: {ex.Message}"); }
 		}
+		if (built.Count == 0) return false;
 
 		lock (_notifyGate)
 		{
 			// バッチ全体で 1 回だけ抑止判定し、全件まとめて投稿する(CancelAll と相互排他)。
 			if (AppForegroundTracker.ShouldSuppressSystemNotification) return false;
 			var manager = NotificationManagerCompat.From(context);
+			// manager==null なら Notify は no-op で 1 件も投稿できない。ループ前に 1 回だけ判定して早期 return し、
+			// null no-op のまま anyPosted=true になる経路自体を消す(全損が無音化しないよう warn を 1 行残す)。
+			if (manager is null)
+			{
+				MessageService.Warn($"NotificationManagerCompat.From returned null; {built.Count} notifications not posted");
+				return false;
+			}
+			var anyPosted = false;
 			foreach (var (id, notification) in built)
 			{
-				manager?.Notify(id, notification);
+				// Notify も item 単位で隔離する。1 件の投稿失敗(RemoteServiceException/too-many-pending-
+				// intents 等)で残り全件を破棄しないため、失敗は warn のみで継続する。
+				try { manager.Notify(id, notification); anyPosted = true; }
+				catch (Exception ex) { MessageService.Warn($"Notify failed for {id}: {ex.Message}"); }
 			}
-			return true;
+			// 全件失敗は anyPosted=false となり「抑止(前面)」と戻り値が区別できず、例外も投げないため外側
+			// catch にも乗らない。全損が無音化しないよう、ここで全損サマリを 1 行だけ残す(観測性維持)。
+			if (!anyPosted) MessageService.Warn($"all {built.Count} update notifications failed to post");
+			return anyPosted;
 		}
 	}
 
@@ -126,7 +145,7 @@ public static class NotificationHelper
 	/// </summary>
 	public static void CancelAll(Context context)
 	{
-		// ShowUpdateNotification の「前面判定 + 投稿」と相互排他にし、前面化直後の投稿が消え残るのを防ぐ。
+		// ShowUpdateNotifications の「前面判定 + 投稿」と相互排他にし、前面化直後の投稿が消え残るのを防ぐ。
 		lock (_notifyGate)
 		{
 			if (Build.VERSION.SdkInt >= BuildVersionCodes.M
