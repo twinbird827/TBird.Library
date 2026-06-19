@@ -14,9 +14,12 @@ public class KakuyomuApiService : INovelService
     private const string BASE_URL = "https://kakuyomu.jp";
 
     private readonly NetworkPolicyService _network;
-    private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)> _episodeIdCache = new();
-    private static readonly TimeSpan EpisodeIdCacheTtl = TimeSpan.FromMinutes(5);
-    private const int EpisodeIdCacheMaxEntries = 100;
+    // novelId -> (取得時刻, 解析済みエピソード). ids は episodes[i].SiteEpisodeId と一致するため別持ちせず
+    // episodes を単一の真実源にする。FetchNovelInfoAsync が毎巡 populate し、直後の FetchEpisodeListAsync が
+    // 同一 /works/{novelId} を再取得せず再利用する(2 fetch 冗長と、2 回取得のズレによる count-mismatch を解消)。
+    private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<Episode> episodes)> _tocCache = new();
+    private static readonly TimeSpan TocCacheTtl = TimeSpan.FromMinutes(5);
+    private const int TocCacheMaxEntries = 100;
 
     // 全 HTTP は _network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
     // UA 等のヘッダは SiteRateLimiter 側の HttpClient に集約されるため、ここで HttpClient は持たない。
@@ -132,65 +135,80 @@ public class KakuyomuApiService : INovelService
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(15));
 
-        var url = $"{BASE_URL}/works/{novelId}";
-        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
-
-        // 解析済み episodeIds を TOC キャッシュへ温める。直後に同一作品の本文を位置依存/自己修復で読む際、
-        // GetEpisodeIdsAsync が同一 /works/{novelId} を再取得するのを避ける(FetchNovelInfoAsync と同方針)。
-        var (episodeIds, episodes) = ParseApolloState(html);
-        StoreEpisodeIdCache(novelId, episodeIds);
-        return episodes;
+        var episodes = await GetEpisodesAsync(novelId, cts.Token).ConfigureAwait(false);
+        // キャッシュは pristine を保持する。共有インスタンスを返すと呼び出し元(UpdateCheckService が NovelId、
+        // InsertAll が PK を設定)の破壊的変更がキャッシュを汚染するため、ParseApolloState が設定する 4 項目だけ
+        // 複製して新インスタンスで返す(NovelId/Id 等は呼び出し元が後から設定)。
+        return episodes.Select(e => new Episode
+        {
+            EpisodeNo = e.EpisodeNo,
+            Title = e.Title,
+            ChapterName = e.ChapterName,
+            SiteEpisodeId = e.SiteEpisodeId,
+        }).ToList();
     }
 
-    // _episodeIdCache への書き込みを 1 箇所へ集約し、エントリ数が上限を超えたときだけ Sweep する軽量ゲート。
-    // 読み取り経路(GetEpisodeIdsAsync)のみが Sweep していたため、更新巡回が多数の Kakuyomu 作品で本書き込み
+    // _tocCache への書き込みを 1 箇所へ集約し、エントリ数が上限を超えたときだけ Sweep する軽量ゲート。
+    // 読み取り経路(GetEpisodesAsync)のみが Sweep していたため、更新巡回が多数の Kakuyomu 作品で本書き込み
     // (FetchEpisodeListAsync / FetchNovelInfoAsync)を連続実行すると、間に読み取りが挟まらず上限
-    // (EpisodeIdCacheMaxEntries)を一時超過してメモリが膨らんでいた。書き込み毎のフル TTL Sweep は巡回中
+    // (TocCacheMaxEntries)を一時超過してメモリが膨らんでいた。書き込み毎のフル TTL Sweep は巡回中
     // O(n^2) になり高コストなので、上限超過時のみ Sweep して常時上限内へ収める(超過がなければ純粋な代入のみ)。
-    private void StoreEpisodeIdCache(string novelId, List<string> episodeIds)
+    private void StoreTocCache(string novelId, List<Episode> episodes)
     {
-        _episodeIdCache[novelId] = (DateTime.UtcNow, episodeIds);
-        if (_episodeIdCache.Count > EpisodeIdCacheMaxEntries)
+        _tocCache[novelId] = (DateTime.UtcNow, episodes);
+        if (_tocCache.Count > TocCacheMaxEntries)
         {
-            SweepExpiredEpisodeIdCache();
+            SweepExpiredTocCache();
         }
     }
 
-    private void SweepExpiredEpisodeIdCache()
+    private void SweepExpiredTocCache()
     {
         var now = DateTime.UtcNow;
-        var expired = _episodeIdCache
-            .Where(kv => now - kv.Value.cachedAt >= EpisodeIdCacheTtl)
+        var expired = _tocCache
+            .Where(kv => now - kv.Value.cachedAt >= TocCacheTtl)
             .Select(kv => kv.Key)
             .ToList();
-        foreach (var k in expired) _episodeIdCache.TryRemove(k, out _);
+        foreach (var k in expired) _tocCache.TryRemove(k, out _);
 
-        if (_episodeIdCache.Count > EpisodeIdCacheMaxEntries)
+        if (_tocCache.Count > TocCacheMaxEntries)
         {
-            var oldest = _episodeIdCache
+            var oldest = _tocCache
                 .OrderBy(kv => kv.Value.cachedAt)
-                .Take(_episodeIdCache.Count - EpisodeIdCacheMaxEntries)
+                .Take(_tocCache.Count - TocCacheMaxEntries)
                 .Select(kv => kv.Key)
                 .ToList();
-            foreach (var k in oldest) _episodeIdCache.TryRemove(k, out _);
+            foreach (var k in oldest) _tocCache.TryRemove(k, out _);
         }
+    }
+
+    // 鮮度の高い TOC(解析済み episodes)をキャッシュ優先で返す。FetchNovelInfoAsync が温めた直後の
+    // FetchEpisodeListAsync が同一 /works/{novelId} を再取得せず再利用する合流点。
+    // 注意: 命中時は _tocCache 内の共有インスタンス(List とその Episode 要素)をそのまま返す。呼び出し元は
+    // read-only で扱うこと。要素を変更する必要がある経路(FetchEpisodeListAsync が NovelId/Id 設定のため公開)は
+    // 必ず複製してから返し、キャッシュ汚染(以後の FetchNovelInfoAsync/Prefetch が破壊済み TOC を再利用)を防ぐ。
+    private async Task<List<Episode>> GetEpisodesAsync(string novelId, CancellationToken ct)
+    {
+        SweepExpiredTocCache();
+
+        if (_tocCache.TryGetValue(novelId, out var cached)
+            && DateTime.UtcNow - cached.cachedAt < TocCacheTtl)
+        {
+            return cached.episodes;
+        }
+
+        var url = $"{BASE_URL}/works/{novelId}";
+        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, ct).ConfigureAwait(false);
+        var (_, episodes) = ParseApolloState(html);
+        StoreTocCache(novelId, episodes);
+        return episodes;
     }
 
     private async Task<List<string>> GetEpisodeIdsAsync(string novelId, CancellationToken ct)
     {
-        SweepExpiredEpisodeIdCache();
-
-        if (_episodeIdCache.TryGetValue(novelId, out var cached)
-            && DateTime.UtcNow - cached.cachedAt < EpisodeIdCacheTtl)
-        {
-            return cached.episodeIds;
-        }
-
-        var tocUrl = $"{BASE_URL}/works/{novelId}";
-        var tocHtml = await _network.GetStringAsync(SiteType.Kakuyomu, tocUrl, ct).ConfigureAwait(false);
-        var ids = ParseApolloState(tocHtml).episodeIds;
-        StoreEpisodeIdCache(novelId, ids);
-        return ids;
+        var episodes = await GetEpisodesAsync(novelId, ct).ConfigureAwait(false);
+        // ParseApolloState で各話に必ず SiteEpisodeId を設定するため順序・件数は episodeIds と一致する。
+        return episodes.Select(e => e.SiteEpisodeId!).ToList();
     }
 
     private static JsonElement? ExtractApolloState(string html)
@@ -365,11 +383,11 @@ public class KakuyomuApiService : INovelService
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
-        // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。
-        // これにより直後の Prefetch が古いエピソードIDリストを使うリスクを防ぐ。
-        var (episodeIds, _) = ParseApolloState(html);
-        StoreEpisodeIdCache(novelId, episodeIds);
-        var totalEpisodes = episodeIds.Count;
+        // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。これにより直後の FetchEpisodeListAsync
+        // /Prefetch が同一 /works/{novelId} を再取得せず再利用し(2 fetch 冗長を解消)、古い TOC を使うリスクも防ぐ。
+        var (_, episodes) = ParseApolloState(html);
+        StoreTocCache(novelId, episodes);
+        var totalEpisodes = episodes.Count;
 
         bool isCompleted = false;
         string? author = null;

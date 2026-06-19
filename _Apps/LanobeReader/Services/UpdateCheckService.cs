@@ -25,6 +25,8 @@ public class UpdateCheckService
     // backfill が 0 件更新だと site_episode_id は付かず HasAnySiteEpisodeIdAsync が false のまま残る。マーカーが
     // 無いと巡回の度にフル TOC を再取得し続け migrationBudget を浪費し他の旧作品の移行も阻害する。本サービスは
     // Singleton のためプロセス存続中は保持される(再起動後に 1 度だけ再試行されるのは許容範囲)。
+    // 再起動後に 1 度だけ再試行されるのは、サイト側でドリフトが解消(タイトル再一致)した作品を将来 backfill し直す
+    // self-heal 機会として意図的(永続マーカー化は self-heal を恒久封鎖するため採らない)。
     private readonly HashSet<int> _migrationAttempted = new();
 
     public UpdateCheckService(
@@ -129,13 +131,9 @@ public class UpdateCheckService
                     if (totalEpisodes > currentMaxEpisode
                         && (trustsCountAlone || reportedTotalChanged || siteUpdatedSinceLast))
                     {
-                        // Fetch new episodes
-                        var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
-
-                        // 旧データ(site_episode_id 未保存の既存話)に、いま取得した新鮮な TOC のサイト話 ID を
-                        // 補完する(Kakuyomu の本文取得を位置依存からの脱却=誤話表示の是正)。タイトル一致時のみ
-                        // 更新するためドリフト誤補完は避けられる。Narou は SiteEpisodeId を持たず no-op。
-                        await TryBackfillSiteEpisodeIdsAsync(novel, allEpisodes).ConfigureAwait(false);
+                        // Fetch new episodes(TOC 取得直後に site_episode_id を backfill=位置依存からの脱却。
+                        // タイトル一致時のみ更新するためドリフト誤補完は避けられる。Narou は no-op)。
+                        var allEpisodes = await FetchListAndBackfillAsync(service, novel, ct).ConfigureAwait(false);
 
                         var newEpisodes = allEpisodes
                             .Where(e => e.EpisodeNo > currentMaxEpisode)
@@ -229,8 +227,7 @@ public class UpdateCheckService
                             if (!await _episodeRepo.HasAnySiteEpisodeIdAsync(novel.Id).ConfigureAwait(false))
                             {
                                 migrationBudget--;
-                                var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
-                                await TryBackfillSiteEpisodeIdsAsync(novel, allEpisodes).ConfigureAwait(false);
+                                await FetchListAndBackfillAsync(service, novel, ct).ConfigureAwait(false);
                                 // フル TOC 取得まで到達した作品は試行済みとして記録(全話ドリフトでの毎巡再取得を防ぐ)。
                                 // 取得が例外で失敗した場合はここに到達せず未記録のまま=次回(Wi-Fi 時)に再試行される。
                                 _migrationAttempted.Add(novel.Id);
@@ -333,6 +330,19 @@ public class UpdateCheckService
     }
 
     /// <summary>
+    /// 新鮮な TOC を取得し、その場で site_episode_id を backfill して返す。新着検出枝・移行補完枝の双方が
+    /// 「TOC 取得直後に必ず backfill する」不変条件を共有する合流点(片方だけ変更して挙動が分岐するのを防ぐ)。
+    /// 戻り値は新着検出枝が newEpisodes 算出に使う。移行枝は副作用のみ目的で戻り値を無視してよい。
+    /// </summary>
+    private async Task<IReadOnlyList<Episode>> FetchListAndBackfillAsync(
+        INovelService service, Novel novel, CancellationToken ct)
+    {
+        var allEpisodes = await service.FetchEpisodeListAsync(novel.NovelId, ct).ConfigureAwait(false);
+        await TryBackfillSiteEpisodeIdsAsync(novel, allEpisodes).ConfigureAwait(false);
+        return allEpisodes;
+    }
+
+    /// <summary>
     /// 新鮮な TOC から site_episode_id を best-effort で補完する。新着検出枝と移行補完枝の両方から呼ぶ共通処理で、
     /// 警告メッセージ書式と例外握り潰し(失敗しても更新検出/巡回は継続)を一元化する。Narou は SiteEpisodeId を
     /// 持たず BackfillSiteEpisodeIdsAsync 側の早期 return で no-op。
@@ -354,6 +364,8 @@ public class UpdateCheckService
     /// 揃えて比較し、サイト形式("yyyy-MM-dd HH:mm:ss")と ISO("o")のような形式差を吸収する。どちらかが
     /// パースできない場合は素の文字列一致で判定する。オフセット無しの値は UTC とみなす(端末ローカルTZ
     /// による揺れを避ける)。
+    /// ※ 入力は保存済み(UTC 正規化/ISO オフセット付き)値。Narou 生 JST の正規化は NarouDateTime.ToUtcIso(+9 前提)が
+    /// 担当し、ここでは扱わない。両者はオフセット無し値の解釈が異なるため共通化しない。
     /// </summary>
     private static bool SameInstant(string? a, string? b)
     {

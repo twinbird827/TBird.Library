@@ -261,17 +261,27 @@ public class DatabaseService : SqliteDatabaseBase
                     "WHERE last_updated_at IS NOT NULL " +
                     "AND last_updated_at LIKE '% %' AND last_updated_at NOT LIKE '%T%'").ConfigureAwait(false);
 
-                int converted = 0;
+                // 変換対象を先に確定し 1 トランザクションで一括 UPDATE する。行ごとの個別コミット
+                // (WAL では行ごとに fsync)は起動ホットパスで旧作品が多いと逐次コミットが直列化し起動を
+                // 遅らせるため、他の一括処理(Backfill/UpdateLastCheckedAtBatch)と同じく RunInTransactionAsync に揃える。
+                var pendingUpdates = new List<(string normalized, int id)>();
                 foreach (var novel in legacy)
                 {
                     var normalized = NarouDateTime.ToUtcIso(novel.LastUpdatedAt);
                     if (normalized is null || normalized == novel.LastUpdatedAt) continue; // 解析不能/不変はスキップ
-                    await conn.ExecuteAsync(
-                        "UPDATE novels SET last_updated_at = ? WHERE id = ?",
-                        normalized, novel.Id).ConfigureAwait(false);
-                    converted++;
+                    pendingUpdates.Add((normalized, novel.Id));
                 }
-                MessageService.Info($"[MigrateToV5] Normalized {converted} legacy last_updated_at value(s).");
+                if (pendingUpdates.Count > 0)
+                {
+                    await conn.RunInTransactionAsync(c =>
+                    {
+                        foreach (var (normalized, id) in pendingUpdates)
+                        {
+                            c.Execute("UPDATE novels SET last_updated_at = ? WHERE id = ?", normalized, id);
+                        }
+                    }).ConfigureAwait(false);
+                }
+                MessageService.Info($"[MigrateToV5] Normalized {pendingUpdates.Count} legacy last_updated_at value(s).");
             }
             catch (Exception ex)
             {

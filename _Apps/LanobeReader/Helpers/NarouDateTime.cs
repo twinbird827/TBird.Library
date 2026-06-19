@@ -16,6 +16,8 @@ public static class NarouDateTime
     /// Narou の生 JST 文字列を UTC ISO("o")へ変換する。JST は DST が無いため固定 +9 時間で換算する。
     /// 解析不能・空の値は素のまま返す(best-effort)。既に ISO/UTC な値を渡しても、TryParse がオフセットを
     /// 解釈するため二重シフトはしない。
+    /// ※ UpdateCheckService.SameInstant はオフセット無し値を UTC とみなす(保存済み正規化値の比較用)。本メソッドは
+    /// Narou 生 JST 前提で +9 する点が異なるため、両者を 1 つのパーサへ統合しない(JST 生値と UTC 正規化値の混同防止)。
     /// </summary>
     public static string? ToUtcIso(string? narouJst)
     {

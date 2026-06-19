@@ -78,6 +78,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<NetworkPolicyService>();
 
         // Background
+        builder.Services.AddSingleton<EpisodeContentService>();
         builder.Services.AddSingleton<BackgroundJobQueue>();
         builder.Services.AddSingleton<PrefetchService>();
 

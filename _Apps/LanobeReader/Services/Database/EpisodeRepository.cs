@@ -219,7 +219,17 @@ public class EpisodeRepository
             $"SELECT {EpisodeColumns} FROM episodes WHERE novel_id = ? AND site_episode_id IS NULL",
             novelId).ConfigureAwait(false);
         if (pending.Count == 0) return;
-        var byNo = pending.ToDictionary(e => e.EpisodeNo);
+        // episodes(novel_id, episode_no) に一意制約は無く重複 episode_no 行がありうる
+        // (上記 GetTransitionTargets と同様)。ToDictionary は重複キーで例外を投げ、当該作品の
+        // 移行が毎周回失敗して恒久的に未補完のままになるため、最小 id を採用して決定的に 1 行へ畳む。
+        var byNo = new Dictionary<int, Episode>();
+        foreach (var e in pending)
+        {
+            if (!byNo.TryGetValue(e.EpisodeNo, out var existing) || e.Id < existing.Id)
+            {
+                byNo[e.EpisodeNo] = e;
+            }
+        }
 
         var updates = new List<(string siteId, int id)>();
         foreach (var fresh in freshEpisodes)

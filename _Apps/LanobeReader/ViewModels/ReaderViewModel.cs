@@ -12,9 +12,8 @@ namespace LanobeReader.ViewModels;
 public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 {
     private readonly EpisodeRepository _episodeRepo;
-    private readonly EpisodeCacheRepository _cacheRepo;
+    private readonly EpisodeContentService _contentService;
     private readonly NovelRepository _novelRepo;
-    private readonly INovelServiceFactory _serviceFactory;
     private readonly AppSettingsRepository _settingsRepo;
     private readonly NetworkPolicyService _networkPolicy;
 
@@ -24,16 +23,14 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     private string _siteNovelId = string.Empty;
     public ReaderViewModel(
         EpisodeRepository episodeRepo,
-        EpisodeCacheRepository cacheRepo,
+        EpisodeContentService contentService,
         NovelRepository novelRepo,
-        INovelServiceFactory serviceFactory,
         AppSettingsRepository settingsRepo,
         NetworkPolicyService networkPolicy)
     {
         _episodeRepo = episodeRepo;
-        _cacheRepo = cacheRepo;
+        _contentService = contentService;
         _novelRepo = novelRepo;
-        _serviceFactory = serviceFactory;
         _settingsRepo = settingsRepo;
         _networkPolicy = networkPolicy;
     }
@@ -185,40 +182,21 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             var prev = await _episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
             var next = await _episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
 
-            string content;
-            var cache = await _cacheRepo.GetByEpisodeIdAsync(episodeId);
-            if (cache is not null)
+            // 本文取得・キャッシュ命中判定・cacheable 保存は EpisodeContentService に集約。cacheable 契約は
+            // ファサード内で消費され、ここには漏れない(位置依存フォールバックの誤話本文を恒久キャッシュしない
+            // 不変条件は中央化済み)。networkAllowed=IsOnline で未命中かつオフラインなら null を受ける。
+            // NetworkPolicyService.IsOnline は INetworkPolicy 経由で Connectivity.Current を例外ガード付きで
+            // 包む(MainActivity 起動前/特定端末状態で当該 API が throw するため)。INetworkPolicy をアプリ層 VM が
+            // 直接 DI で受け取ることは TBird.Maui.Background/CLAUDE.md で禁止されているため、消費アプリ側
+            // ラッパー(NetworkPolicyService)経由で参照する。
+            var content = await _contentService.GetContentAsync(
+                episodeId, (SiteType)_siteType, _siteNovelId, _episode.EpisodeNo, _episode.SiteEpisodeId,
+                networkAllowed: _networkPolicy.IsOnline);
+            if (content is null)
             {
-                content = cache.Content;
-            }
-            else
-            {
-                // NetworkPolicyService.IsOnline は INetworkPolicy 経由で Connectivity.Current を
-                // 例外ガード付きで包む(MainActivity 起動前/特定端末状態で当該 API が throw するため)。
-                // INetworkPolicy をアプリ層 VM が直接 DI で受け取ることは TBird.Maui.Background/CLAUDE.md
-                // で禁止されているため、消費アプリ側ラッパー(NetworkPolicyService)経由で参照する。
-                if (!_networkPolicy.IsOnline)
-                {
-                    // ユーザは目次/戻るボタンで自分で抜ける（自動遷移は採用しない）。
-                    SetError("オフラインのため表示できません。キャッシュもありません");
-                    return;
-                }
-
-                var service = _serviceFactory.GetService((SiteType)_siteType);
-                var (fetched, cacheable) = await service.FetchEpisodeContentAsync(_siteNovelId, _episode.EpisodeNo, _episode.SiteEpisodeId);
-                content = fetched;
-
-                // 位置依存フォールバック(陳腐化した安定 ID の自己修復)で取得した本文は誤話の可能性があり、
-                // 訂正経路も無いため恒久キャッシュしない(誤話キャッシュの恒久化を防止)。表示はそのまま行う。
-                if (cacheable)
-                {
-                    await _cacheRepo.InsertAsync(new EpisodeCache
-                    {
-                        EpisodeId = episodeId,
-                        Content = content,
-                        CachedAt = DateTime.UtcNow.ToString("o"),
-                    });
-                }
+                // キャッシュ未命中かつオフライン。ユーザは目次/戻るボタンで自分で抜ける(自動遷移は採用しない)。
+                SetError("オフラインのため表示できません。キャッシュもありません");
+                return;
             }
 
             EpisodeTitle = _episode.Title;
