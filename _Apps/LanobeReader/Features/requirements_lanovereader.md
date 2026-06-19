@@ -1179,7 +1179,7 @@ public enum SiteType
 | writer | author | 作者名 |
 | general_all_no | total_episodes | 総話数 |
 | novel_type | - | 1=連載/2=短編 |
-| end | is_completed | 0=連載中/1=完結 |
+| end | is_completed | 0=短編/完結済, 1=連載中（公式API仕様。is_completed = (end==0)） |
 | general_lastup | last_updated_at | 最終更新日時 |
 
 **本文スクレイピング:**
@@ -1211,9 +1211,9 @@ public enum SiteType
 
 **期間 slug:** `daily` / `weekly` / `monthly`。**Quarterly はカクヨム非対応**のため、F-001 Ranking モードで Quarterly + SearchKakuyomu のとき赤バナー通知して fetch を skip (PR-3 / M-1)。
 
-**エピソード ID キャッシュ:**
-- `_episodeIdCache: ConcurrentDictionary<string, (DateTime cachedAt, List<string> episodeIds)>` で 5 分間キャッシュ
-- `SweepExpiredEpisodeIdCache` で TTL 切れ + 上限 100 件超過分を自動 sweep (PR-4 / L-6)
+**TOC キャッシュ:**
+- `_tocCache: ConcurrentDictionary<string, (DateTime cachedAt, List<Episode> episodes)>` で 5 分間キャッシュ。`SiteEpisodeId` を含む `List<Episode>` を単一の真実源とし、旧 `ids` 併走リスト（`List<string> episodeIds`）は廃止（順序・件数は `episodes` と一致するため別持ち不要）
+- `SweepExpiredTocCache` で TTL 切れ + 上限 100 件超過分を自動 sweep (PR-4 / L-6)
 
 **エラー時の挙動:**
 - タイムアウト: 各メソッドで個別に `CancelAfter` 設定（検索 10s、TOC 15s、本文 20s、ランキング 20s）

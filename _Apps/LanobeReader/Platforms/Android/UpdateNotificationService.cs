@@ -1,7 +1,6 @@
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Database;
-using LanobeReader.Views;
 using TBird.Core;
 
 namespace LanobeReader.Platforms.Android;
@@ -26,10 +25,10 @@ public class UpdateNotificationService : IUpdateNotificationService
 	{
 		if (updates.Count == 0) return;
 
-		// 一覧(本棚)ページが前面に表示されている間だけシステム通知を抑止する。一覧は新着(NEW)を
-		// 直接表示し、かつ MainActivity.OnResume の CancelAll が直後に消すため(= 機能同士の競合)。
-		// 他ページ(Reader/Settings 等)滞在中は一覧の NEW が見えないため、抑止せず通知を出す。
-		if (AppForegroundTracker.IsForeground && NovelListPage.IsShowing) return;
+		// 前面 かつ 新着を即時表示する一覧(本棚/目次)が可視の間はシステム通知を出さない。アプリ内一覧が
+		// 新着(NEW)を直接表示し、かつ MainActivity.OnResume の CancelAll が直後に消すため(= 機能同士の競合)。
+		// 前面でも一覧非表示の画面(リーダー/設定)滞在中は抑止すると新着が全く可視化されないため通知する。
+		if (AppForegroundTracker.ShouldSuppressSystemNotification) return;
 
 		var context = global::Android.App.Application.Context;
 
@@ -59,40 +58,39 @@ public class UpdateNotificationService : IUpdateNotificationService
 			targets = new Dictionary<int, int>();
 		}
 
-		// 上の await 中に一覧が前面化した場合、MainActivity.OnResume の CancelAll が既に走った後に
-		// 通知を投稿すると消えない通知が残る(冒頭の前面判定との TOCTOU)。投稿直前に再判定して中止する。
-		if (AppForegroundTracker.IsForeground && NovelListPage.IsShowing) return;
+		// await 中に前面化していても、投稿可否は NotificationHelper が「前面判定 + 全件 Notify」を原子的に
+		// 行って決める(CancelAll と相互排他)。前面化後に投稿した通知が居座る TOCTOU はそこで閉じるため、
+		// ここで個別に再判定する必要はない(従来の await 後/反復ごとの IsForeground チェックを撤去)。
 
+		// 数字バッジ総数は先頭 1 通にのみ付ける。各通知に総数を付けると number を合算する OEM ランチャーで
+		// 膨らむため 1 通に限定する。投稿は all-or-nothing(NotificationHelper.ShowUpdateNotifications が
+		// バッチ全体で抑止を 1 回確定)なので、従来の「成功した最初の通知へ載せる」動的判定は不要で、
+		// 先頭固定でバッジ取りこぼしは起きない。
+		var items = new List<NotificationHelper.UpdateNotificationItem>(updates.Count);
 		for (int i = 0; i < updates.Count; i++)
 		{
 			var (novel, newCount) = updates[i];
-			try
-			{
-				// ディープリンク先 = その小説の最初の未読話(無ければ最後に読んだ話)。
-				// 解決できない場合は 0 とし、タップ時は話一覧へ遷移する(MainActivity 側)。
-				var episodeId = targets.TryGetValue(novel.Id, out var id) ? id : 0;
+			// ディープリンク先 = その小説の最初の未読話(無ければ最後に読んだ話)。
+			// 解決できない場合は 0 とし、タップ時は話一覧へ遷移する(MainActivity 側)。
+			var episodeId = targets.TryGetValue(novel.Id, out var id) ? id : 0;
+			items.Add(new NotificationHelper.UpdateNotificationItem(
+				NotificationId: novel.Id, // novel.Id（同一小説の通知は上書き）
+				Title: "ラノベリーダ",
+				Body: $"{novel.Title}: {newCount}話更新",
+				NovelId: novel.Id,
+				EpisodeId: episodeId,
+				SiteType: novel.SiteType,
+				SiteNovelId: novel.NovelId,
+				BadgeNumber: i == 0 ? badgeTotal : 0));
+		}
 
-				// 数字バッジは最後の 1 通にのみ総数を付ける。各通知に総数を付けると、通知ごとの
-				// number を合算する OEM ランチャーで「通知数 × 総数」に膨らむため。
-				// (合算式: 0+0+…+総数=総数 / 最大式: 総数 のどちらでも正しい値になる)
-				var badge = (i == updates.Count - 1) ? badgeTotal : 0;
-
-				NotificationHelper.ShowUpdateNotification(
-					context,
-					novel.Id, // notificationId = novel.Id（同一小説の通知は上書き）
-					"ラノベリーダ",
-					$"{novel.Title}: {newCount}話更新",
-					novel.Id,
-					episodeId,
-					novel.SiteType,
-					novel.NovelId,
-					badge);
-			}
-			catch (Exception ex)
-			{
-				// 1 件の失敗で残りの通知が止まらないよう小説単位で握りつぶしてログのみ。
-				MessageService.Warn($"ShowUpdateNotification failed for novel {novel.Id}: {ex.Message}");
-			}
+		try
+		{
+			NotificationHelper.ShowUpdateNotifications(context, items);
+		}
+		catch (Exception ex)
+		{
+			MessageService.Warn($"ShowUpdateNotifications failed: {ex.Message}");
 		}
 	}
 }

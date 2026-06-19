@@ -23,10 +23,31 @@ public class EpisodeCacheRepository
             .FirstOrDefaultAsync(c => c.EpisodeId == episodeId).ConfigureAwait(false);
     }
 
-    public async Task<int> InsertAsync(EpisodeCache cache)
+    // cacheable 不変条件(誤話本文を恒久キャッシュしない)を迂回されないよう private 化する。外部からの
+    // キャッシュ書き込みは必ず UpsertIfCacheableAsync 経由とし、保存判定の入口を 1 つに固定する。
+    private async Task<int> InsertAsync(EpisodeCache cache)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.InsertAsync(cache).ConfigureAwait(false);
+        // episode_id は UNIQUE。Reader の直読みとバックグラウンド先読み(BackgroundJobQueue)が同一話を
+        // 同時に挿入しうる(各々 GetByEpisodeIdAsync で miss を確認してから Insert する check-then-insert の
+        // レース)。"OR IGNORE" で衝突時は何もせず冪等化し、UNIQUE 例外で Reader 読込が失敗したり、
+        // 先読みキューの連続失敗ブレーカーが誤作動して先読み全体が停止するのを防ぐ(先に入った内容を温存)。
+        return await _db.InsertAsync(cache, "OR IGNORE").ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 取得本文を「キャッシュ可なら」永続化する。cacheable=false(位置依存フォールバックで取得した誤話可能性
+    /// のある本文)は破棄する不変条件を 1 箇所へ固定する。EpisodeCache の構築/タイムスタンプもここへ集約。
+    /// </summary>
+    public Task UpsertIfCacheableAsync(int episodeId, string content, bool cacheable)
+    {
+        if (!cacheable) return Task.CompletedTask;
+        return InsertAsync(new EpisodeCache
+        {
+            EpisodeId = episodeId,
+            Content = content,
+            CachedAt = DateTime.UtcNow.ToString("o"),
+        });
     }
 
     public async Task DeleteByNovelIdAsync(int novelId)

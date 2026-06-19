@@ -29,6 +29,8 @@ public partial class EpisodeListPage : ContentPage
         base.OnAppearing();
         if (BindingContext is EpisodeListViewModel vm)
         {
+            // 前面滞在中に背面チェックが新着を検出した場合の即時反映を購読する(表示中のみ有効)。
+            vm.SubscribeToUpdates();
             try
             {
                 // ApplyQueryAttributes が起動した InitializeAsync の完了を待ってから RefreshReadStatusAsync。
@@ -43,6 +45,13 @@ public partial class EpisodeListPage : ContentPage
                 MessageService.Warn($"OnAppearing failed: {ex.Message}");
             }
         }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is EpisodeListViewModel vm)
+            vm.UnsubscribeFromUpdates();
     }
 
     /// <summary>

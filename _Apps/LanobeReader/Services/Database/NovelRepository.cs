@@ -61,7 +61,8 @@ public class NovelRepository
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
 
         // episodes 1 パス GROUP BY で episode_count / read_count / unread_count を一括集計。
-        // (novel_id, is_read) 複合インデックス (idx_episodes_novel_isread, schema v3) が covering index となる。
+        // (novel_id, is_read, episode_no) 複合インデックス (idx_episodes_novel_isread_epno, schema v4) が
+        // covering index となる(旧 idx_episodes_novel_isread は v4 で DROP 済み・本索引が上位互換)。
         // 全 3 値を episodes から派生させることで「既読+未読=総話数」の不変条件を保証する。
         const string baseSql =
             "SELECT " +
@@ -164,15 +165,21 @@ public class NovelRepository
     }
 
     /// <summary>
-    /// last_checked_at 列のみを更新する軽量メソッド。更新チェックで状態に変化が無い
-    /// (新着なし・エラー状態も不変)作品の巡回タイムスタンプ前進に使い、全カラム UPDATE を避ける。
+    /// 複数作品の last_checked_at 列のみを 1 トランザクションでまとめて更新する。更新チェックで状態に
+    /// 変化が無い(新着なし・エラー状態も不変)作品の巡回タイムスタンプ前進に使い、全カラム UPDATE と
+    /// 作品ごとの個別コミット(巡回1周＝作品数ぶんの書き込み)を避ける。
     /// </summary>
-    public async Task UpdateLastCheckedAtAsync(int novelId, string lastCheckedAt)
+    public async Task UpdateLastCheckedAtBatchAsync(IReadOnlyList<(int Id, string Ts)> items)
     {
+        if (items.Count == 0) return;
         await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        await _db.ExecuteAsync(
-            "UPDATE novels SET last_checked_at = ? WHERE id = ?",
-            lastCheckedAt, novelId).ConfigureAwait(false);
+        await _db.RunInTransactionAsync(conn =>
+        {
+            foreach (var (id, ts) in items)
+            {
+                conn.Execute("UPDATE novels SET last_checked_at = ? WHERE id = ?", ts, id);
+            }
+        }).ConfigureAwait(false);
     }
 
     public async Task SetFavoriteAsync(int novelId, bool favorite)

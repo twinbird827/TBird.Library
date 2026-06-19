@@ -8,7 +8,7 @@ namespace LanobeReader.Services.Database;
 
 public class DatabaseService : SqliteDatabaseBase
 {
-    private const int CURRENT_SCHEMA_VERSION = 3;
+    private const int CURRENT_SCHEMA_VERSION = 5;
 
     public DatabaseService()
         : base(Path.Combine(FileSystem.AppDataDirectory, "lanobereader.db"), CURRENT_SCHEMA_VERSION)
@@ -17,6 +17,14 @@ public class DatabaseService : SqliteDatabaseBase
 
     protected override async Task CreateTablesAsync(SQLiteAsyncConnection conn)
     {
+        // 0. 並行アクセス対策。前面UI・背景更新チェック(FGS/Worker)・プリフェッチが同一接続へ
+        //    書き込むため、競合時の即時 "database is locked" を抑止する。busy_timeout を先に設定し、
+        //    続く WAL 切替 PRAGMA 自体も競合時に最大 5 秒待機できるようにする(起動時の一時ロックで
+        //    最初の DDL が即失敗→初期化 Task が faulted で固着するのを防ぐ)。WAL は DB ファイルに
+        //    永続化され読取と書込の並行性を上げる。冪等(毎起動の再適用は無害)。
+        await conn.ExecuteAsync("PRAGMA busy_timeout=5000").ConfigureAwait(false);
+        await conn.ExecuteAsync("PRAGMA journal_mode=WAL").ConfigureAwait(false);
+
         // 1. CreateTable は冪等。v0 の新規インストール時の初期化も兼ねる。
         await conn.CreateTableAsync<Novel>().ConfigureAwait(false);
         await conn.CreateTableAsync<Episode>().ConfigureAwait(false);
@@ -29,6 +37,9 @@ public class DatabaseService : SqliteDatabaseBase
         await EnsureColumnAsync(conn, "novels", "last_checked_at", "TEXT NULL").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "episodes", "is_favorite", "INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         await EnsureColumnAsync(conn, "episodes", "favorited_at", "TEXT NULL").ConfigureAwait(false);
+        // サイト側エピソード ID（Kakuyomu の本文取得を位置依存解決から安定 ID へ移行するため）。
+        // 列追加は EnsureColumnAsync で冪等。新規インストールは CreateTableAsync<Episode> が含めて作成する。
+        await EnsureColumnAsync(conn, "episodes", "site_episode_id", "TEXT NULL").ConfigureAwait(false);
 
         // 3. novels の UNIQUE 制約（v1 時点で既に整備済みなので再適用するだけ）
         await conn.ExecuteAsync(
@@ -65,7 +76,7 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
-        => new IMigration[] { new MigrateToV2(), new MigrateToV3() };
+        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5() };
 
     protected override async Task<int> ReadSchemaVersionAsync(SQLiteAsyncConnection conn)
     {
@@ -181,6 +192,100 @@ public class DatabaseService : SqliteDatabaseBase
             catch (Exception ex)
             {
                 MessageService.Warn($"[MigrateToV3] Failed: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// v3 → v4: 更新チェック系クエリ向けのインデックスを整備。
+    /// - episodes(novel_id, is_read, episode_no): GetDeepLinkTargetEpisodeIdsAsync の
+    ///   相関サブクエリ MIN/MAX(episode_no) をインデックス端のシークで解決する covering index。
+    ///   (novel_id, is_read) の上位互換のため旧 idx_episodes_novel_isread は DROP する。
+    /// - novels(last_checked_at): GetAllForCheckAsync の「最終チェック古い順」ソートを索引化する
+    ///   (NULL=未チェックが先頭に来るラウンドロビン順)。
+    /// </summary>
+    private class MigrateToV4 : IMigration
+    {
+        public int FromVersion => 3;
+
+        public async Task ExecuteAsync(SQLiteAsyncConnection conn)
+        {
+            try
+            {
+                // 新インデックスを先に作成し、旧 idx_episodes_novel_isread の DROP は最後に行う。
+                // この 3 文はトランザクション外のため、DROP を先頭に置くと途中失敗(プロセス kill /
+                // ディスク逼迫)で「旧索引は消えたが新索引は未作成」となり、該当クエリがフルスキャンへ
+                // 退化する窓が残る(schema_version 未前進で再実行されるが、その窓が問題)。順序を逆にすれば
+                // 部分失敗時も旧索引が残る(新索引と冗長だが無害)だけで covering index を失わない。
+                await conn.ExecuteAsync(
+                    "CREATE INDEX IF NOT EXISTS idx_episodes_novel_isread_epno " +
+                    "ON episodes (novel_id, is_read, episode_no)"
+                ).ConfigureAwait(false);
+                await conn.ExecuteAsync(
+                    "CREATE INDEX IF NOT EXISTS idx_novels_last_checked " +
+                    "ON novels (last_checked_at)"
+                ).ConfigureAwait(false);
+                await conn.ExecuteAsync("DROP INDEX IF EXISTS idx_episodes_novel_isread")
+                    .ConfigureAwait(false);
+                MessageService.Info("[MigrateToV4] Done.");
+            }
+            catch (Exception ex)
+            {
+                MessageService.Warn($"[MigrateToV4] Failed: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// v4 → v5: 既存 novels.last_updated_at のうち、本PR以前に保存された Narou 由来の生 JST 値
+    /// ("yyyy-MM-dd HH:mm:ss"、オフセット無し)を UTC ISO("o")へ正規化する。
+    /// 本PRで Narou 取得値は <see cref="NarouDateTime.ToUtcIso"/> で UTC 統一されたが、既存行は旧 JST 生値の
+    /// まま残り、UpdateCheckService.SameInstant が両者を UTC 扱いで比較して 9 時間差と誤判定し、既存 Narou 全
+    /// 作品が初回チェックで一斉に無駄なフル再取得を起こす(端末ローカル TZ での誤表示も生む)。移行時に一括
+    /// 正規化して塞ぐ。形式判定: 'T' を含む値(= 既に ISO/UTC。Kakuyomu の UtcNow("o") 含む)は対象外。
+    /// 変換後の値は 'T' を含むため再対象にならず冪等。
+    /// </summary>
+    private class MigrateToV5 : IMigration
+    {
+        public int FromVersion => 4;
+
+        public async Task ExecuteAsync(SQLiteAsyncConnection conn)
+        {
+            try
+            {
+                // 旧形式候補(スペース区切り・'T' 無し)だけを SQL で絞り込む(ISO 値・NULL は対象外)。
+                var legacy = await conn.QueryAsync<Novel>(
+                    "SELECT * FROM novels " +
+                    "WHERE last_updated_at IS NOT NULL " +
+                    "AND last_updated_at LIKE '% %' AND last_updated_at NOT LIKE '%T%'").ConfigureAwait(false);
+
+                // 変換対象を先に確定し 1 トランザクションで一括 UPDATE する。行ごとの個別コミット
+                // (WAL では行ごとに fsync)は起動ホットパスで旧作品が多いと逐次コミットが直列化し起動を
+                // 遅らせるため、他の一括処理(Backfill/UpdateLastCheckedAtBatch)と同じく RunInTransactionAsync に揃える。
+                var pendingUpdates = new List<(string normalized, int id)>();
+                foreach (var novel in legacy)
+                {
+                    var normalized = NarouDateTime.ToUtcIso(novel.LastUpdatedAt);
+                    if (normalized is null || normalized == novel.LastUpdatedAt) continue; // 解析不能/不変はスキップ
+                    pendingUpdates.Add((normalized, novel.Id));
+                }
+                if (pendingUpdates.Count > 0)
+                {
+                    await conn.RunInTransactionAsync(c =>
+                    {
+                        foreach (var (normalized, id) in pendingUpdates)
+                        {
+                            c.Execute("UPDATE novels SET last_updated_at = ? WHERE id = ?", normalized, id);
+                        }
+                    }).ConfigureAwait(false);
+                }
+                MessageService.Info($"[MigrateToV5] Normalized {pendingUpdates.Count} legacy last_updated_at value(s).");
+            }
+            catch (Exception ex)
+            {
+                MessageService.Warn($"[MigrateToV5] Failed: {ex.Message}");
                 throw;
             }
         }

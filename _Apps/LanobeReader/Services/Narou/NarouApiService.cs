@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
 using AngleSharp.Dom;
+using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Network;
 using TBird.Maui.Web;
@@ -12,19 +13,14 @@ public class NarouApiService : INovelService
     private const string API_BASE = "https://api.syosetu.com/novelapi/api/";
     private const string RANK_BASE = "https://api.syosetu.com/rank/rankget/";
     private const string NCODE_BASE = "https://ncode.syosetu.com/";
-    private const string USER_AGENT = "Mozilla/5.0 (compatible; LanobeReader/1.0)";
 
-    private readonly HttpClient _httpClient;
     private readonly NetworkPolicyService _network;
 
-    public NarouApiService(HttpClient httpClient, NetworkPolicyService network)
+    // 全 HTTP は _network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
+    // UA 等のヘッダは SiteRateLimiter 側の HttpClient に集約されるため、ここで HttpClient は持たない。
+    public NarouApiService(NetworkPolicyService network)
     {
-        _httpClient = httpClient;
         _network = network;
-        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
-        {
-            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(USER_AGENT);
-        }
     }
 
     public SiteType SiteType => SiteType.Narou;
@@ -53,15 +49,25 @@ public class NarouApiService : INovelService
         for (int i = 1; i < jsonArray.Length; i++)
         {
             var item = jsonArray[i];
+            // ncode / title を欠く要素(API 仕様変化・通知/エラーオブジェクト混入)は、その 1 件だけ
+            // スキップする。GetProperty は欠落時に例外送出するため、1 件の不正でページ全体(検索/
+            // ランキング結果)が失われていた。TryGetProperty + continue で局所化する。
+            if (!item.TryGetProperty("ncode", out var ncodeEl)
+                || !item.TryGetProperty("title", out var titleEl)) continue;
+            var ncode = ncodeEl.GetString();
+            if (string.IsNullOrEmpty(ncode)) continue;
             results.Add(new SearchResult
             {
                 SiteType = SiteType.Narou,
-                NovelId = item.GetProperty("ncode").GetString()?.ToLower() ?? "",
-                Title = item.GetProperty("title").GetString() ?? "",
+                // ncode はキー(URL・dedup)に使うため、ロケール非依存の ToLowerInvariant で正規化する
+                // (FetchRankingAsync 側と揃える。ToLower だと tr-TR 等で 'I'→'ı' となりキーが分裂する)。
+                NovelId = ncode.ToLowerInvariant(),
+                Title = titleEl.GetString() ?? "",
                 Author = item.TryGetProperty("writer", out var w) ? w.GetString() ?? "" : "",
                 TotalEpisodes = item.TryGetProperty("general_all_no", out var ga) ? ga.GetInt32() : 0,
                 IsCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0,
-                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null,
+                // general_lastup(JST 生値)は UTC ISO へ正規化して保存する。詳細は NarouDateTime 参照。
+                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? NarouDateTime.ToUtcIso(lastup.GetString()) : null,
             });
         }
         return results;
@@ -134,7 +140,9 @@ public class NarouApiService : INovelService
         return episodes;
     }
 
-    public async Task<string> FetchEpisodeContentAsync(string novelId, int episodeNo, CancellationToken ct = default)
+    // Narou は本文 URL を episode_no で直接組めるため siteEpisodeId は使用しない(INovelService 共通シグネチャ)。
+    // 位置依存フォールバックを持たず誤話リスクが無いため、本文は常にキャッシュ可(cacheable=true)。
+    public async Task<(string content, bool cacheable)> FetchEpisodeContentAsync(string novelId, int episodeNo, string? siteEpisodeId, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -152,7 +160,7 @@ public class NarouApiService : INovelService
 
         var paragraphs = honbun.QuerySelectorAll("p");
         var lines = paragraphs.Select(p => p.TextContent);
-        return string.Join("\n", lines).Trim();
+        return (string.Join("\n", lines).Trim(), true);
     }
 
     public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted, string? author)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
@@ -171,7 +179,7 @@ public class NarouApiService : INovelService
 
         var item = jsonArray[1];
         var totalEpisodes = item.GetProperty("general_all_no").GetInt32();
-        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? lastup.GetString() : null;
+        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? NarouDateTime.ToUtcIso(lastup.GetString()) : null;
         var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0;
         var author = item.TryGetProperty("writer", out var writerProp) ? writerProp.GetString() : null;
 
