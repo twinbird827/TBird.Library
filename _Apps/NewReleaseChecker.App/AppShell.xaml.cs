@@ -57,7 +57,7 @@ public partial class AppShell : Shell
         catch (Exception ex)
         {
             MessageService.Exception(ex);
-            await DisplayAlert("初期化エラー", "アプリの初期化に失敗しました。", "OK");
+            await DisplayAlertAsync("初期化エラー", "アプリの初期化に失敗しました。", "OK");
         }
     }
 }
