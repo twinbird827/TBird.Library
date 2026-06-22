@@ -38,7 +38,7 @@ public class NotificationPermissionService<TPermission>
 
         if (Permissions.ShouldShowRationale<TPermission>())
         {
-            var accepted = await Shell.Current.DisplayAlert(_title, _message, _acceptLabel, _declineLabel);
+            var accepted = await Shell.Current.DisplayAlertAsync(_title, _message, _acceptLabel, _declineLabel);
             if (!accepted)
             {
                 MessageService.Info("User dismissed rationale dialog");
