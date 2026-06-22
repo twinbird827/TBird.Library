@@ -39,7 +39,7 @@ public static class BatteryOptimizationHelper
 				if (Preferences.Get(AskedKey, false)) return;
 				Preferences.Set(AskedKey, true);
 
-				var ok = await Shell.Current.DisplayAlert(
+				var ok = await Shell.Current.DisplayAlertAsync(
 					"バックグラウンド更新の許可",
 					"新着をバックグラウンドで確実に通知するため、電池の最適化を無効にすることを推奨します。設定画面を開きますか？",
 					"設定を開く", "後で");

@@ -611,7 +611,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     {
         if (_novel is null) return;
         var enqueued = await _prefetch.EnqueueNovelAsync(_novelDbId, highPriority: true);
-        await Shell.Current.DisplayAlert("一括ダウンロード",
+        await Shell.Current.DisplayAlertAsync("一括ダウンロード",
             enqueued > 0
                 ? $"{enqueued}話をバックグラウンドで取得します（Wi-Fi接続時のみ）"
                 : "新規取得する話はありません",
