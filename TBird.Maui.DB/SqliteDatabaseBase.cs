@@ -44,12 +44,22 @@ public abstract class SqliteDatabaseBase
     /// <summary>
     /// 初回のみ実際の初期化を行う。複数箇所から呼ばれても 1 回しか走らない。
     /// クエリ実行前に必ず呼び出すこと。
+    /// 前回が失敗(faulted/canceled)していた場合は次回呼び出しで再試行する。
     /// </summary>
     public Task EnsureInitializedAsync()
     {
         lock (_initLock)
         {
-            return _initTask ??= InitializeInternalAsync();
+            // 初回、または前回の初期化が失敗(faulted/canceled)していれば(再)実行する。
+            // faulted な Task をそのままキャッシュし続けると、起動時の一時ロック("database is locked")
+            // 等で 1 度初期化に失敗しただけで、以後すべてのクエリが同じ例外を投げ続け(プロセス
+            // 再起動まで回復しない)てしまう。CreateTables/Seed/migration は冪等規約のため再実行は安全。
+            // 進行中(未完了)の Task はそのまま共有し、二重初期化を防ぐ。
+            if (_initTask is null || _initTask.IsFaulted || _initTask.IsCanceled)
+            {
+                _initTask = InitializeInternalAsync();
+            }
+            return _initTask;
         }
     }
 

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0-android</TargetFramework>
+    <TargetFramework>net10.0-android</TargetFramework>
     <SupportedOSPlatformVersion>34</SupportedOSPlatformVersion>
     <!-- UseMaui=true により Microsoft.Maui アセンブリのコア部分を有効化。
          BindableObject / IValueConverter / Color / Colors は Microsoft.Maui.Controls
@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.*" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.*" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <!-- Microsoft.Maui.Controls.Compatibility は意図的に含めない（lib 依存膨張防止）。 -->
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />

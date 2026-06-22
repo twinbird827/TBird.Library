@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- net8.0 を採用: TransientHttpErrorHelper.IsTransient が HttpRequestException.StatusCode
+    <!-- net10.0 を採用: TransientHttpErrorHelper.IsTransient が HttpRequestException.StatusCode
          を参照するため netstandard2.0 不可（StatusCode は .NET 5.0+）。消費側 (LanobeReader /
-         TBird.Maui.Background) はいずれも net9.0-android のため downward 互換 OK。 -->
-    <TargetFramework>net8.0</TargetFramework>
+         TBird.Maui.Background) はいずれも net10.0-android のため downward 互換 OK。 -->
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
