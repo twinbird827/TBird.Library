@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## リポジトリ概要
 
-TBird.Libraryは、WPFアプリケーション、Android MAUIアプリケーション、Webスクレイピング、データベース操作、PDF処理などのユーティリティを提供する包括的な.NETライブラリコレクションです。ソリューションは複数の.NETバージョン（.NET Standard 2.0、.NET Framework 4.8、.NET 5.0、.NET 7.0、.NET 8.0、.NET 9.0-android）をターゲットとしています。
+TBird.Libraryは、WPFアプリケーション、Android MAUIアプリケーション、Webスクレイピング、データベース操作、PDF処理などのユーティリティを提供する包括的な.NETライブラリコレクションです。ソリューションは複数の.NETバージョン（.NET Standard 2.0、.NET Framework 4.8、.NET 5.0、.NET 7.0、.NET 8.0、.NET 10.0-android）をターゲットとしています。
 
 ソリューションファイルは 2 つに分かれており、用途に応じて使い分ける：
 - `TBird.Library.sln` - WPF / Console / Service / DB / IO 等の WPF 系・サーバ系プロジェクト集合（MAUI workload 不要）

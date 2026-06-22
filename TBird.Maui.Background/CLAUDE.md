@@ -4,7 +4,7 @@
 
 ## 開発時の注意
 
-- TFM は `net9.0-android`、`<UseMauiEssentials>true</UseMauiEssentials>` + `Microsoft.Maui.Essentials` PackageReference 明示（.NET 8+ で自動注入が廃止）
+- TFM は `net10.0-android`、`<UseMauiEssentials>true</UseMauiEssentials>` + `Microsoft.Maui.Essentials` PackageReference 明示（.NET 8+ で自動注入が廃止）
 - `MauiNetworkPolicy` / `PriorityJobQueue` は **Singleton 前提** 設計。class header の `[DI-LIFETIME: SINGLETON]` タグで明示（`NetworkPolicyService` はライブラリに存在せず、消費アプリ側が用意するラッパーの想定名。`INetworkPolicy.cs` のコメントが参照する具象もこれを指す）
 - `AddTransient` / `AddScoped` 登録は **禁止**（コンストラクタで Connectivity / INetworkPolicy のイベントを購読し解除コードを持たないため、ハンドラリーク）
 - `INetworkPolicy` は当面 `PriorityJobQueue` 内部の DI 接合専用とし、アプリ層 (Repository / Service / ViewModel) が直接コンストラクタ DI で受け取ることは禁止（消費アプリ側ラッパー経由のみ）
