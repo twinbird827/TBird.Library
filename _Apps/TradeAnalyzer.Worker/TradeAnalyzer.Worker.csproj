@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>10</LangVersion>
+    <UserSecretsId>dotnet-TradeAnalyzer.Worker-8970fed6-8762-4193-aa2c-1778a06c03d6</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TradeAnalyzer.Data\TradeAnalyzer.Data.csproj" />
+    <ProjectReference Include="..\TradeAnalyzer.Core\TradeAnalyzer.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Secrets.json（存在すれば）を出力先へコピー。bin から実行/publish 時も読めるように。 -->
+  <ItemGroup>
+    <None Update="Secrets.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
