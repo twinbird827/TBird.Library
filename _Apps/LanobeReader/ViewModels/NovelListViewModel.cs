@@ -115,7 +115,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
             "未読話数（多い順）",
             "お気に入り優先",
         };
-        var selected = await Shell.Current.DisplayActionSheet("並び順", "キャンセル", null, options);
+        var selected = await Shell.Current.DisplayActionSheetAsync("並び順", "キャンセル", null, options);
         if (string.IsNullOrEmpty(selected) || selected == "キャンセル") return;
 
         SortKey = selected switch
@@ -191,7 +191,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     [RelayCommand]
     private async Task DeleteCache(NovelCardViewModel card)
     {
-        bool confirm = await Shell.Current.DisplayAlert(
+        bool confirm = await Shell.Current.DisplayAlertAsync(
             "確認", "キャッシュを削除しますか？", "OK", "キャンセル");
 
         if (confirm)
@@ -203,7 +203,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     [RelayCommand]
     private async Task DeleteNovel(NovelCardViewModel card)
     {
-        bool confirm = await Shell.Current.DisplayAlert(
+        bool confirm = await Shell.Current.DisplayAlertAsync(
             "確認", "タイトルを削除しますか？この操作は元に戻せません。", "OK", "キャンセル");
 
         if (confirm)

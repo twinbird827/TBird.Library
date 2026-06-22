@@ -68,10 +68,10 @@
 | sqlite-net-pcl | 最新安定版 | SQLiteアクセス（ORM） |
 | SQLitePCLRaw.bundle_green | 最新安定版 | sqlite-net-pclの依存ライブラリ |
 | AngleSharp | 最新安定版 | HTMLパース（スクレイピング） |
-| Microsoft.Extensions.DependencyInjection | .NET9同梱 | DIコンテナ |
-| System.Text.Json | .NET9同梱 | JSONパース（カクヨムAPI等） |
+| Microsoft.Extensions.DependencyInjection | .NET10同梱 | DIコンテナ |
+| System.Text.Json | .NET10同梱 | JSONパース（カクヨムAPI等） |
 
-> HttpClientは.NET9標準のものを使用。NuGet追加不要。
+> HttpClientは.NET10標準のものを使用。NuGet追加不要。
 
 ### 2.3 ソリューション構成
 ```

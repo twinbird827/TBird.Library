@@ -174,7 +174,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
     [RelayCommand]
     private async Task ClearCacheAsync()
     {
-        bool confirm = await Shell.Current.DisplayAlert(
+        bool confirm = await Shell.Current.DisplayAlertAsync(
             "確認", "すべてのキャッシュを削除しますか？", "OK", "キャンセル");
 
         if (!confirm) return;
@@ -184,7 +184,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
         {
             await _cacheRepo.DeleteAllAsync();
             // Snackbar-like notification
-            await Shell.Current.DisplayAlert("完了", "クリアしました", "OK");
+            await Shell.Current.DisplayAlertAsync("完了", "クリアしました", "OK");
         }
         catch (Exception ex)
         {
