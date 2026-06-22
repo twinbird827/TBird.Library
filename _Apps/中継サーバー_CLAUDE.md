@@ -21,9 +21,9 @@
 | 項目 | 内容 |
 |---|---|
 | 言語 | C# 12 |
-| FW | ASP.NET Core 9.0 (Minimal API) |
-| TFM | `net9.0` |
-| IDE | Visual Studio 2022 |
+| FW | ASP.NET Core 10.0 (Minimal API) |
+| TFM | `net10.0` |
+| IDE | Visual Studio 2026 |
 | 配置先 | Windows + IIS（in-process ホスティング） |
 | 外部公開 | `https://kaz.server-on.net:60344/`（ルーター: 外部60344→内部443） |
 

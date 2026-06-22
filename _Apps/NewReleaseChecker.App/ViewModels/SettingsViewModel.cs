@@ -58,7 +58,7 @@ public partial class SettingsViewModel : ObservableObject
             if (status == PermissionStatus.Granted) return;
 
             // 恒久拒否（OS がダイアログを出さない）状態。OS 設定画面へ誘導する。
-            var openSettings = await Shell.Current.DisplayAlert(
+            var openSettings = await Shell.Current.DisplayAlertAsync(
                 "通知が許可されていません",
                 "新刊をお知らせするには、OS の設定でこのアプリの通知を許可してください。",
                 "設定を開く", "あとで");

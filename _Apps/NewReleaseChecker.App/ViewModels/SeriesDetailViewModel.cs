@@ -129,7 +129,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
     private async Task DeleteSeriesAsync()
     {
         if (_model is null) return;
-        var ok = await Shell.Current.DisplayAlert("シリーズ削除",
+        var ok = await Shell.Current.DisplayAlertAsync("シリーズ削除",
             $"「{_model.SeriesKey}」と紐づく全巻を削除します。よろしいですか？", "削除", "キャンセル");
         if (!ok) return;
 

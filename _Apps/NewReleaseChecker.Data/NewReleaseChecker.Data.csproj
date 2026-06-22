@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0-android</TargetFramework>
+    <TargetFramework>net10.0-android</TargetFramework>
     <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
     <!-- データ層（再利用可能基盤）。Core の抽象を実装する（Data→Core の依存性逆転）。 -->
     <ImplicitUsings>enable</ImplicitUsings>
@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Maui.Essentials" Version="9.0.*" />
+    <PackageReference Include="Microsoft.Maui.Essentials" Version="10.0.*" />
   </ItemGroup>
 
   <ItemGroup>

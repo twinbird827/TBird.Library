@@ -133,7 +133,7 @@ public partial class SeriesListViewModel : ObservableObject
     private async Task DeleteSeriesAsync(SeriesListItem? item)
     {
         if (item is null) return;
-        var ok = await Shell.Current.DisplayAlert("シリーズ削除",
+        var ok = await Shell.Current.DisplayAlertAsync("シリーズ削除",
             $"「{item.SeriesKey}」と紐づく全巻を削除します。よろしいですか？", "削除", "キャンセル");
         if (!ok) return;
 

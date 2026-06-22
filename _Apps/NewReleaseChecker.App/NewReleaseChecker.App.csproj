@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0-android</TargetFramework>
+    <TargetFramework>net10.0-android</TargetFramework>
     <OutputType>Exe</OutputType>
     <RootNamespace>NewReleaseChecker.App</RootNamespace>
     <UseMaui>true</UseMaui>
@@ -40,11 +40,13 @@
 
   <ItemGroup>
     <!-- .NET 8 以降 UseMaui=true は Microsoft.Maui.Controls を自動参照しない（MA002）。
-         リポジトリ規約（TBird.Maui と同様）に倣い 9.0.* で明示参照する。 -->
-    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.*" />
+         リポジトリ規約（TBird.Maui と同様）に倣い 10.0.* で明示参照する。 -->
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.*" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
-    <PackageReference Include="CommunityToolkit.Maui" Version="11.*" />
-    <!-- net9 では 13.0.0 で固定（14.x 以降は .NET 10 専用） -->
+    <!-- CommunityToolkit.Maui は 13.x が .NET 10 対応（12.x は .NET 9 専用）。 -->
+    <PackageReference Include="CommunityToolkit.Maui" Version="13.*" />
+    <!-- 13.0.0 は net10.0-android36 もサポート（net10 移行後も据え置き。14.x へ上げる場合は
+         タップ EventArgs 名前空間等の API 変更に注意）。 -->
     <PackageReference Include="Plugin.LocalNotification" Version="13.0.0" />
     <PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.11.2" />
   </ItemGroup>
