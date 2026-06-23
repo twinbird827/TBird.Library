@@ -101,7 +101,7 @@ public class BacktestService
     private async Task<BacktestResult?> SimulateTradeAsync(string code, DateOnly decisionDate, CancellationToken ct)
     {
         // 決定日「翌営業日以降」のバー（エントリ＝先頭、以降で手仕舞い）。
-        var forward = await _db.DailyBars
+        var forward = await _db.DailyBars.AsNoTracking()
             .Where(b => b.Code == code && b.Date > decisionDate)
             .OrderBy(b => b.Date)
             .Take(_opt.MaxHoldDays + 1)
@@ -117,7 +117,7 @@ public class BacktestService
         double? stopLevel = null;
         if (_opt.AtrStopMultiplier > 0)
         {
-            var hist = await _db.DailyBars
+            var hist = await _db.DailyBars.AsNoTracking()
                 .Where(b => b.Code == code && b.Date <= entryBar.Date)
                 .OrderByDescending(b => b.Date)
                 .Take(_opt.AtrPeriod * 3)
@@ -127,25 +127,8 @@ public class BacktestService
             if (atr is double a) stopLevel = entryPrice - _opt.AtrStopMultiplier * a;
         }
 
-        // 手仕舞い判定（エントリ翌バー以降）。
-        var exitBar = forward[forward.Count - 1];
-        string exitReason = "MaxHoldDays";
-        for (int i = 1; i < forward.Count; i++)
-        {
-            var b = forward[i];
-            double low = b.AdjLow ?? b.AdjClose ?? entryPrice;
-            if (stopLevel is double sl && low <= sl)
-            {
-                exitBar = b;
-                exitReason = "AtrStop";
-                break;
-            }
-            exitBar = b;
-        }
-
-        double exitPrice = exitReason == "AtrStop" && stopLevel is double s
-            ? s                                   // ストップ価格で約定（保守的）
-            : (exitBar.AdjClose ?? entryPrice);
+        // 手仕舞いバー・理由・約定価格を純粋関数で決定（DB 非依存・回帰固定可能）。
+        var (exitBar, exitReason, exitPrice) = ResolveExit(forward, entryPrice, stopLevel);
 
         double gross = exitPrice / entryPrice - 1.0;
         double cost = 2 * (_opt.CommissionRate + _opt.SlippageRate);
@@ -161,6 +144,39 @@ public class BacktestService
             Return = net,
             ExitReason = exitReason,
         };
+    }
+
+    /// <summary>
+    /// 手仕舞いバー・理由・約定価格を決める純粋関数（DB 非依存）。
+    /// forward[0]=エントリバー、forward[1..]=手仕舞い候補（昇順）。
+    /// stopLevel を割った（AdjLow≤stop）最初のバーで AtrStop。割らなければ末尾で MaxHoldDays。
+    /// AtrStop の約定はギャップダウンを反映し Min(stopLevel, 当該バー始値)。
+    /// 始値（AdjOpen）欠損時は stopLevel にフォールバック（AdjClose は寄り≠引けで歪むため使わない）。
+    /// </summary>
+    public static (DailyBar exitBar, string exitReason, double exitPrice) ResolveExit(
+        IReadOnlyList<DailyBar> forward, double entryPrice, double? stopLevel)
+    {
+        var exitBar = forward[forward.Count - 1];
+        string exitReason = "MaxHoldDays";
+        for (int i = 1; i < forward.Count; i++)
+        {
+            var b = forward[i];
+            exitBar = b;
+            double low = b.AdjLow ?? b.AdjClose ?? entryPrice;
+            if (stopLevel is double sl && low <= sl)
+            {
+                exitReason = "AtrStop";
+                break;
+            }
+        }
+
+        double exitPrice;
+        if (exitReason == "AtrStop" && stopLevel is double s)
+            exitPrice = exitBar.AdjOpen is double op && op <= s ? op : s; // ギャップダウンは寄り値で約定
+        else
+            exitPrice = exitBar.AdjClose ?? entryPrice;
+
+        return (exitBar, exitReason, exitPrice);
     }
 
     private static double? ComputeLastAtr(IReadOnlyList<DailyBar> bars, int period)

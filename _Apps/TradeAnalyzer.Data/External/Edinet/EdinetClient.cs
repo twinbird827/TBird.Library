@@ -13,6 +13,13 @@ namespace TradeAnalyzer.Data.External.Edinet;
 /// </summary>
 public class EdinetClient
 {
+    /// <summary>
+    /// 認証用クエリパラメータ名。URL 組立とマスク（<see cref="EdinetRedactingHttpLogger"/>）で
+    /// 共有する単一真実源。既定ロガー除去後はこのマスクが唯一の漏洩防止策のため、
+    /// 名前を分散リテラルにせず本定数に集約する（片方更新漏れによるマスク漏れを防ぐ）。
+    /// </summary>
+    internal const string SubscriptionKeyParam = "Subscription-Key";
+
     private readonly HttpClient _http;
     private readonly EdinetOptions _options;
     private readonly ILogger<EdinetClient> _logger;
@@ -28,7 +35,7 @@ public class EdinetClient
     public async Task<List<EdinetDocument>> ListDocumentsAsync(DateOnly date, CancellationToken ct = default)
     {
         // 相対パス（先頭スラッシュ無し）＝ BaseAddress の /api/v2/ を保持させる。
-        var url = $"documents.json?date={Iso(date)}&type=2&Subscription-Key={Key()}";
+        var url = $"documents.json?date={Iso(date)}&type=2&{SubscriptionKeyParam}={Key()}";
         var resp = await _http.GetFromJsonAsync<EdinetDocumentListResponse>(url, ct).ConfigureAwait(false);
         var results = resp?.Results ?? new();
 
@@ -59,7 +66,7 @@ public class EdinetClient
     /// <summary>書類の CSV(ZIP, type=5) をバイト列で取得。</summary>
     public async Task<byte[]> FetchCsvZipAsync(string docId, CancellationToken ct = default)
     {
-        var url = $"documents/{Uri.EscapeDataString(docId)}?type=5&Subscription-Key={Key()}";
+        var url = $"documents/{Uri.EscapeDataString(docId)}?type=5&{SubscriptionKeyParam}={Key()}";
         return await _http.GetByteArrayAsync(url, ct).ConfigureAwait(false);
     }
 

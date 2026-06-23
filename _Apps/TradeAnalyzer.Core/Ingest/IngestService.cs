@@ -89,9 +89,10 @@ public class IngestService
         var items = await _jq.GetEarningsCalendarAsync(ct).ConfigureAwait(false);
         // 全件 upsert（キー重複を避けるため一旦全削除→追加）。
         await _db.EarningsCalendars.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-        _db.EarningsCalendars.AddRange(Dedup(items, x => (x.Code, x.Date)));
+        var deduped = items.DistinctBy(x => (x.Code, x.Date)).ToList();
+        _db.EarningsCalendars.AddRange(deduped);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-        _logger.LogInformation("EarningsCalendar {Count} 行", items.Count);
+        _logger.LogInformation("EarningsCalendar {Count} 行", deduped.Count);
     }
 
     private async Task IngestDailyBarsAsync(IReadOnlyList<DateOnly> tradingDays, CancellationToken ct)
@@ -102,9 +103,10 @@ public class IngestService
             var bars = await _jq.GetDailyBarsAsync(date: d, ct: ct).ConfigureAwait(false);
             if (bars.Count == 0) continue;
             await _db.DailyBars.Where(b => b.Date == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
-            _db.DailyBars.AddRange(Dedup(bars, x => (x.Code, x.Date)));
+            var deduped = bars.DistinctBy(x => (x.Code, x.Date)).ToList();
+            _db.DailyBars.AddRange(deduped);
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            _logger.LogDebug("DailyBar {Date}: {Count} 行", d, bars.Count);
+            _logger.LogDebug("DailyBar {Date}: {Count} 行", d, deduped.Count);
         }
     }
 
@@ -116,9 +118,10 @@ public class IngestService
             var fins = await _jq.GetFinSummaryAsync(date: d, ct: ct).ConfigureAwait(false);
             if (fins.Count == 0) continue;
             await _db.FinSummaries.Where(f => f.DiscloseDate == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
-            _db.FinSummaries.AddRange(Dedup(fins, x => (x.Code, x.DiscloseDate, x.DocType)));
+            var deduped = fins.DistinctBy(x => (x.Code, x.DiscloseDate, x.DocType)).ToList();
+            _db.FinSummaries.AddRange(deduped);
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            _logger.LogDebug("FinSummary {Date}: {Count} 行", d, fins.Count);
+            _logger.LogDebug("FinSummary {Date}: {Count} 行", d, deduped.Count);
         }
     }
 
@@ -203,12 +206,5 @@ public class IngestService
             if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday)
                 days.Add(d);
         return days;
-    }
-
-    private static IEnumerable<T> Dedup<T, TKey>(IEnumerable<T> items, Func<T, TKey> key)
-    {
-        var seen = new HashSet<TKey>();
-        foreach (var i in items)
-            if (seen.Add(key(i))) yield return i;
     }
 }

@@ -14,6 +14,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <!-- F1 レート単体テスト用の決定的 TimeProvider（FakeTimeProvider）。dotnet/extensions 10.7.x 系に合わせる。 -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.7.0" />
   </ItemGroup>
 
   <ItemGroup>

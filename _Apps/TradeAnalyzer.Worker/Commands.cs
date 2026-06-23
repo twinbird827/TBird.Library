@@ -53,7 +53,7 @@ public static class Commands
         bool skipJQuants = opts.ContainsKey("skip-jquants");
         int? edinetLimit = opts.TryGetValue("edinet-limit", out var lv) && int.TryParse(lv, out var l) ? l : null;
 
-        ValidateIngestConfig(sp);
+        ValidateIngestConfig(sp, skipJQuants);
 
         var db = sp.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync(); // 取得前に DB を用意
@@ -131,12 +131,13 @@ public static class Commands
     }
 
     // --- 設定検証 ---
-    private static void ValidateIngestConfig(IServiceProvider sp)
+    private static void ValidateIngestConfig(IServiceProvider sp, bool skipJQuants)
     {
         var jq = sp.GetRequiredService<IOptions<JQuantsOptions>>().Value;
         var ed = sp.GetRequiredService<IOptions<EdinetOptions>>().Value;
         var missing = new List<string>();
-        if (string.IsNullOrWhiteSpace(jq.ApiKey)) missing.Add("JQuants:ApiKey");
+        // --skip-jquants 時は J-Quants キー不要（EDINET のみ取得する宣伝パスを起動可能にする）。
+        if (!skipJQuants && string.IsNullOrWhiteSpace(jq.ApiKey)) missing.Add("JQuants:ApiKey");
         if (string.IsNullOrWhiteSpace(ed.SubscriptionKey)) missing.Add("Edinet:SubscriptionKey");
         if (missing.Count > 0)
         {

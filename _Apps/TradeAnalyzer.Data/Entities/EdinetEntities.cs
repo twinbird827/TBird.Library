@@ -2,6 +2,13 @@ namespace TradeAnalyzer.Data.Entities;
 
 /// <summary>
 /// EDINET 書類一覧の1件（GET /documents.json?type=2 の results[]）。
+/// <para>
+/// 保存方針: 当日提出の全書類メタを保存する（段階2で <c>TargetDocTypeCodes</c> を四半期/半期へ
+/// 拡張する際の検出に有用なため絞り込まない）。したがって本テーブルには対象外の書類も
+/// <see cref="Parsed"/>=false / <see cref="NormalizedCode"/>=null で多数含まれる。
+/// <b>消費契約</b>: 財務事実として利用する側は必ず <see cref="Parsed"/>==true かつ
+/// <see cref="NormalizedCode"/>!=null の行のみを対象とすること（全行件数を母集団に使わない）。
+/// </para>
 /// </summary>
 public class EdinetDocument
 {
@@ -68,10 +75,15 @@ public class EdinetFinFact
     /// <summary>連結値か（true=連結, false=個別）。</summary>
     public bool IsConsolidated { get; set; }
 
-    /// <summary>値（数値化できたもの。テキスト科目は null）。</summary>
+    /// <summary>
+    /// 生値（CSV の「値」をそのまま数値化。桁の正規化はしない）。テキスト科目は null。
+    /// <b>金額の比較・利用時は必ず <see cref="Unit"/> と併せて
+    /// <see cref="External.Edinet.EdinetFinFactConverter"/> で円換算すること</b>
+    /// （会社により円/千円/百万円が混在し、生値同士の比較は 10^3〜10^6 倍の誤差を生む）。
+    /// </summary>
     public double? Value { get; set; }
 
-    /// <summary>単位（`unitRef` 等。JPY/Pure 等）。</summary>
+    /// <summary>単位（`unitRef` 等。JPY/円/千円/百万円/Pure 等）。<see cref="Value"/> の換算係数の根拠。</summary>
     public string? Unit { get; set; }
 
     /// <summary>対象期間終了日（先読み防止の参考。提出日でガードするのが主）。</summary>

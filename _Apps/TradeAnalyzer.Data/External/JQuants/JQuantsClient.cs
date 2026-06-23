@@ -160,15 +160,31 @@ public class JQuantsClient
         Func<TPage, List<TItem>> getData, Func<TPage, string?> getKey, CancellationToken ct)
         where TPage : class
     {
+        // pagination_key が前進しない（同一キーを返し続ける）場合の無限ループ・メモリ膨張・
+        // レート上限消費を防ぐ。直前キーと同一なら打ち切り、安全弁として最大ページ数も設ける。
+        const int MaxPages = 10_000;
         var all = new List<TItem>();
         string? key = null;
+        string? prevKey = null;
+        int pages = 0;
         do
         {
             var url = BuildUrl(path, query, key);
             var page = await _http.GetFromJsonAsync<TPage>(url, ct).ConfigureAwait(false);
             if (page == null) break;
             all.AddRange(getData(page));
+            prevKey = key;
             key = getKey(page);
+            if (!string.IsNullOrEmpty(key) && key == prevKey)
+            {
+                _logger.LogWarning("J-Quants {Path}: pagination_key が前進しないため打ち切り（{Count} 件取得済み）", path, all.Count);
+                break;
+            }
+            if (++pages >= MaxPages)
+            {
+                _logger.LogWarning("J-Quants {Path}: 最大ページ数 {Max} に到達し打ち切り（{Count} 件）", path, MaxPages, all.Count);
+                break;
+            }
         } while (!string.IsNullOrEmpty(key));
 
         _logger.LogDebug("J-Quants {Path}: {Count} 件取得", path, all.Count);
