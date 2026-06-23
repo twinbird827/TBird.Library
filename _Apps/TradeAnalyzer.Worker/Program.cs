@@ -1,0 +1,61 @@
+using System.Reflection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using TradeAnalyzer.Core;
+using TradeAnalyzer.Data;
+using TradeAnalyzer.Worker;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+// APIキーの読み込み元（いずれでも可。後勝ちで Secrets.json が優先）:
+//  1. user-secrets（リポジトリ外。dotnet user-secrets set ...）
+//  2. プロジェクト直下の Secrets.json（.gitignore の **/*Secrets.json で追跡除外）
+builder.Configuration.AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true);
+builder.Configuration.AddJsonFile("Secrets.json", optional: true, reloadOnChange: false);
+
+builder.Services.AddTradeAnalyzerData(builder.Configuration);
+builder.Services.AddTradeAnalyzerCore(builder.Configuration);
+
+var host = builder.Build();
+
+var command = args.Length > 0 ? args[0].ToLowerInvariant() : "help";
+var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Cli");
+
+using var scope = host.Services.CreateScope();
+var sp = scope.ServiceProvider;
+
+try
+{
+    switch (command)
+    {
+        case "migrate":
+            await Commands.MigrateAsync(sp);
+            break;
+        case "ingest":
+            await Commands.IngestAsync(sp, args);
+            break;
+        case "analyze":
+            await Commands.AnalyzeAsync(sp, args);
+            break;
+        case "backtest":
+            await Commands.BacktestAsync(sp, args);
+            break;
+        case "selftest":
+            await SelfTest.RunAsync();
+            break;
+        case "stats":
+            await Commands.StatsAsync(sp, args);
+            break;
+        default:
+            Commands.PrintUsage();
+            break;
+    }
+    return 0;
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, "コマンド '{Command}' が失敗しました", command);
+    return 1;
+}

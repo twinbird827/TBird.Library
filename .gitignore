@@ -257,6 +257,12 @@ ServiceFabricBackup/
 *.ldf
 *.ndf
 
+# SQLite runtime DBs (TradeAnalyzer)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout
@@ -358,4 +364,4 @@ docs/
 
 #secret files
 **/*Secrets.cs
-**/*Secrets.json
+**/*Secrets.json
