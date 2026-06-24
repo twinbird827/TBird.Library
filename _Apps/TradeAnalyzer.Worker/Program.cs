@@ -39,6 +39,9 @@ try
         case "analyze":
             await Commands.AnalyzeAsync(sp, args);
             break;
+        case "signals":
+            await Commands.SignalsAsync(sp, args);
+            break;
         case "backtest":
             await Commands.BacktestAsync(sp, args);
             break;

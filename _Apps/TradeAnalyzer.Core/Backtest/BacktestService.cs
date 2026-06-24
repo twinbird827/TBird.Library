@@ -62,18 +62,30 @@ public class BacktestService
         }
 
         var results = new List<BacktestResult>();
-        int interval = Math.Max(1, _opt.RebalanceIntervalDays);
+        bool useMl = _opt.UseMlScore;
 
-        for (int di = 0; di < tradingDays.Count; di += interval)
+        // リバランス日は signals コマンドと共通の純粋関数で列挙し、ML 有無で母数を一致させる。
+        foreach (var t in EnumerateRebalanceDays(tradingDays, _opt.RebalanceIntervalDays))
         {
             ct.ThrowIfCancellationRequested();
-            var t = tradingDays[di];
 
-            var signals = await _rules.EvaluateAsync(t, ct).ConfigureAwait(false);
-            var picks = signals
-                .Where(s => s.Passed)
-                .OrderByDescending(s => s.RuleScore)
-                .ThenBy(s => s.Code)
+            // 非ML時: RuleEngine をリバランス日 t で評価。
+            // ML時:   signals が保存した Signal（MlScore 入り）を読む（再評価せず保存済み参照）。
+            var rows = useMl
+                ? await _db.Signals.AsNoTracking().Where(s => s.Date == t && s.Passed).ToListAsync(ct).ConfigureAwait(false)
+                : (await _rules.EvaluateAsync(t, ct).ConfigureAwait(false)).Where(s => s.Passed).ToList();
+
+            // silent fallback 禁止: 並べ替え前に null 検査し、未推論を明示エラーで止める
+            // （double.MinValue で黙殺すると未推論銘柄が静かに最下位化し A/B 比較が無言で壊れる）。
+            if (useMl && rows.Any(r => r.MlScore is null))
+                throw new InvalidOperationException(
+                    $"{t}: MlScore 未設定の Passed 行があります。signals 未実行/期間不一致/Python 未書戻しの可能性。"
+                    + " 正しい順序は signals → train → (evaluate) → backtest --use-ml です。");
+
+            var picks = rows
+                .OrderByDescending(r => useMl ? r.MlScore!.Value : r.RuleScore)
+                .ThenByDescending(r => r.RuleScore) // ML時のみ意味を持つ第2キー（非ML時は第1キーと同値で無害）
+                .ThenBy(r => r.Code)
                 .Take(_opt.TopN)
                 .ToList();
 
@@ -95,6 +107,19 @@ public class BacktestService
         _logger.LogInformation("Backtest {Label}: trades={Trades}, winRate={Win:P1}, avgReturn={Avg:P2}",
             label ?? "(no label)", run.TradeCount, run.WinRate, run.AvgReturn);
         return run;
+    }
+
+    /// <summary>
+    /// 取引日リスト（昇順 distinct）の先頭を起点に <paramref name="interval"/> 刻みで間引いて
+    /// リバランス日を列挙する純粋関数（DB 非依存・回帰固定可能）。
+    /// BacktestService と signals コマンドの両方がこれを使い、同一ウィンドウ・同一 interval なら
+    /// 同一日付集合を返すことで ML 有無・C#/Python 間の母数一致を構造的に保証する。
+    /// </summary>
+    public static IEnumerable<DateOnly> EnumerateRebalanceDays(IReadOnlyList<DateOnly> tradingDays, int interval)
+    {
+        int step = Math.Max(1, interval);
+        for (int di = 0; di < tradingDays.Count; di += step)
+            yield return tradingDays[di];
     }
 
     /// <summary>1銘柄を翌営業日始値でエントリし、MaxHoldDays か ATR ストップで手仕舞いする。</summary>

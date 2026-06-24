@@ -27,4 +27,12 @@ public class BacktestOptions
 
     /// <summary>片道スリッページ率（往復で2回計上）。</summary>
     public double SlippageRate { get; set; } = 0.0005;
+
+    /// <summary>
+    /// ML 一次モデルのスコア順で picks を選ぶか（段階2）。
+    /// false（既定）: 従来どおり RuleScore 降順。
+    /// true: 保存済み Signal を読み MlScore 降順（要 signals→train で MlScore 書戻し済み）。
+    /// 同一期間で ML 有無の WinRate/AvgReturn を A/B 比較するための切替フラグ。
+    /// </summary>
+    public bool UseMlScore { get; set; } = false;
 }

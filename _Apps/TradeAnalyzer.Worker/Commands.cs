@@ -25,14 +25,17 @@ public static class Commands
           [--skip-jquants]                   J-Quants をスキップし EDINET のみ取得（既存 Stocks で突合）
           [--edinet-limit N]                 EDINET の日あたり解析件数を N に制限
   analyze --date YYYY-MM-DD                  指定日でルール評価し Signal 保存
+  signals --is <期間> --oos <期間>           IS/OOS 各ウィンドウの全リバランス日でルール評価→Signal 保存（Python 母集団入力。要 ingest 済み DB）
   backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD）
+          [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
   dotnet run -- migrate
   dotnet run -- ingest --from 2024-01-01 --to 2025-12-31
   dotnet run -- analyze --date 2025-06-30
-  dotnet run -- backtest --is 2024 --oos 2025");
+  dotnet run -- signals --is 2024 --oos 2025
+  dotnet run -- backtest --is 2024 --oos 2025 --use-ml true");
     }
 
     public static async Task MigrateAsync(IServiceProvider sp)
@@ -80,16 +83,72 @@ public static class Commands
             date, signals.Count, signals.Count(s => s.Passed));
     }
 
+    /// <summary>
+    /// IS/OOS 各ウィンドウの全リバランス日でルール評価し Signal を保存する（Python への母集団入力生成）。
+    /// リバランス日列挙は BacktestService と同一の純粋関数 EnumerateRebalanceDays に一元化し、
+    /// ML バックテストが読む OOS の日付集合と母数を構造的に一致させる。Passed 絞り込みは読取側が行うため全件保存する。
+    /// </summary>
+    public static async Task SignalsAsync(IServiceProvider sp, string[] args)
+    {
+        var opts = ParseOptions(args);
+        var (isStart, isEnd) = RequireRange(opts, "is");
+        var (oosStart, oosEnd) = RequireRange(opts, "oos");
+
+        var db = sp.GetRequiredService<AppDbContext>();
+        var rules = sp.GetRequiredService<RuleEngine>();
+        var logger = sp.GetRequiredService<ILogger<RuleEngine>>();
+        int interval = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.RebalanceIntervalDays;
+
+        int isCount = await GenerateSignalsForWindowAsync(db, rules, isStart, isEnd, interval);
+        int oosCount = await GenerateSignalsForWindowAsync(db, rules, oosStart, oosEnd, interval);
+
+        logger.LogInformation("signals 完了: IS[{IsStart:yyyy-MM-dd}..{IsEnd:yyyy-MM-dd}]={IsDays}日, OOS[{OosStart:yyyy-MM-dd}..{OosEnd:yyyy-MM-dd}]={OosDays}日 のリバランス日で Signal を生成しました。",
+            isStart, isEnd, isCount, oosStart, oosEnd, oosCount);
+    }
+
+    /// <summary>1ウィンドウのリバランス日を列挙し、各日で date 単位 delete→RuleEngine 評価全件 insert（冪等）。列挙日数を返す。</summary>
+    private static async Task<int> GenerateSignalsForWindowAsync(
+        AppDbContext db, RuleEngine rules, DateOnly start, DateOnly end, int interval)
+    {
+        // 取引日は DailyBar が存在する日付で代理（BacktestService と同一の代理）。DB I/O は呼出側。
+        var tradingDays = await db.DailyBars
+            .Where(b => b.Date >= start && b.Date <= end)
+            .Select(b => b.Date)
+            .Distinct()
+            .OrderBy(d => d)
+            .ToListAsync();
+
+        var rebalanceDays = BacktestService.EnumerateRebalanceDays(tradingDays, interval).ToList();
+        foreach (var t in rebalanceDays)
+        {
+            var signals = await rules.EvaluateAsync(t);
+            await db.Signals.Where(s => s.Date == t).ExecuteDeleteAsync();
+            db.Signals.AddRange(signals);
+            await db.SaveChangesAsync();
+        }
+        return rebalanceDays.Count;
+    }
+
     public static async Task BacktestAsync(IServiceProvider sp, string[] args)
     {
         var opts = ParseOptions(args);
         var (isStart, isEnd) = RequireRange(opts, "is");
         var (oosStart, oosEnd) = RequireRange(opts, "oos");
 
-        var backtest = sp.GetRequiredService<BacktestService>();
-        var run = await backtest.RunAsync(isStart, isEnd, oosStart, oosEnd, label: $"IS{isStart:yyyy}-OOS{oosStart:yyyy}");
+        // --use-ml で MlScore 順／RuleScore 順を A/B 切替（BacktestService 解決前に Options を上書き）。
+        if (opts.TryGetValue("use-ml", out var useMlStr))
+        {
+            if (!bool.TryParse(useMlStr, out var useMl))
+                throw new ArgumentException($"--use-ml は true/false を指定してください: {useMlStr}");
+            sp.GetRequiredService<IOptions<BacktestOptions>>().Value.UseMlScore = useMl;
+        }
 
-        Console.WriteLine($"Backtest 完了: trades={run.TradeCount}, winRate={run.WinRate:P1}, avgReturn={run.AvgReturn:P2}");
+        bool useMlEffective = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.UseMlScore;
+        var backtest = sp.GetRequiredService<BacktestService>();
+        var label = $"IS{isStart:yyyy}-OOS{oosStart:yyyy}-{(useMlEffective ? "ML" : "Rule")}";
+        var run = await backtest.RunAsync(isStart, isEnd, oosStart, oosEnd, label: label);
+
+        Console.WriteLine($"Backtest 完了 [{label}]: trades={run.TradeCount}, winRate={run.WinRate:P1}, avgReturn={run.AvgReturn:P2}");
     }
 
     public static async Task StatsAsync(IServiceProvider sp, string[] args)

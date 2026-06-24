@@ -1,0 +1,16 @@
+[project]
+name = "trade-analyzer-ml"
+version = "0.1.0"
+description = "段階2: LambdaRank 一次モデル（特徴量・学習・推論をすべて Python で完結。境界は trade.db のみ）"
+requires-python = ">=3.11"
+dependencies = [
+    "lightgbm>=4.6.0",
+    "optuna>=4.9.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.5.0",
+]
+
+[tool.uv]
+# .venv はリポジトリ内（gitignore 済み）に作る。
+package = false
