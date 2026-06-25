@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -36,6 +37,10 @@ public static class SelfTest
         failed += await RunSizeFilterDegradeTestsAsync();
         failed += await RunLookAheadTestAsync();
         failed += await RunEntryAfterDecisionTestAsync();
+        failed += RunRebalanceDayDeterminismTests();
+        failed += await RunTradingDayHelperTestAsync();
+        failed += await RunBacktestProvenanceTestsAsync();
+        failed += await RunBacktestMissingDaysTestAsync();
 
         if (failed == 0) Console.WriteLine("SelfTest: 全テスト PASS");
         else
@@ -290,7 +295,11 @@ public static class SelfTest
         return f;
     }
 
-    /// <summary>エントリは必ず判断日より後の営業日（同日・過去を使わない）。</summary>
+    /// <summary>
+    /// エントリは必ず判断日より後の営業日（同日・過去を使わない）。
+    /// F4 対称化後は backtest が両モードとも保存 Signal を読むため、リバランス日ごとに RuleEngine 評価→
+    /// Signal 保存してから RunAsync(useMl:false) を回す（signals コマンドの運用順を SelfTest で再現）。
+    /// </summary>
     private static async Task<int> RunEntryAfterDecisionTestAsync()
     {
         int f = 0;
@@ -308,12 +317,20 @@ public static class SelfTest
                 MinAvailableBars = 100, MinTurnoverYen = 0, MarketCapMode = MarketCapMode.Disabled,
                 RsiLow = 0, RsiHigh = 100, VolumeSpikeMultiplier = 0,
             }), NullLogger<RuleEngine>.Instance);
-            var bt = new TradeAnalyzer.Core.Backtest.BacktestService(db, rules,
-                Options.Create(new TradeAnalyzer.Core.Backtest.BacktestOptions { RebalanceIntervalDays = 20, TopN = 5, MaxHoldDays = 10, AtrStopMultiplier = 0 }),
+            var btOpt = new TradeAnalyzer.Core.Backtest.BacktestOptions { RebalanceIntervalDays = 20, TopN = 5, MaxHoldDays = 10, AtrStopMultiplier = 0 };
+
+            var oosStart = new DateOnly(2025, 1, 1);
+            var oosEnd = new DateOnly(2025, 6, 30);
+            // 本番 signals 経路（Commands.GenerateSignalsForWindowAsync）を直接呼び、テストが本番の
+            // delete→insert 冪等順・全件保存・date 単位スコープを検証する（戻り値の列挙日数は破棄）。
+            await Commands.GenerateSignalsForWindowAsync(db, rules, oosStart, oosEnd, btOpt.RebalanceIntervalDays);
+
+            var bt = new TradeAnalyzer.Core.Backtest.BacktestService(db,
+                Options.Create(btOpt),
                 NullLogger<TradeAnalyzer.Core.Backtest.BacktestService>.Instance);
 
             var run = await bt.RunAsync(new DateOnly(2024, 1, 1), new DateOnly(2024, 12, 31),
-                new DateOnly(2025, 1, 1), new DateOnly(2025, 6, 30), "selftest");
+                oosStart, oosEnd, useMl: false, "selftest");
 
             f += Assert("Backtest: トレード発生", run.TradeCount > 0);
             f += Assert("Backtest: Exit>=Entry", run.Results.All(r => r.ExitDate >= r.EntryDate));
@@ -322,7 +339,203 @@ public static class SelfTest
         return f;
     }
 
+    /// <summary>F6(a): EnumerateRebalanceDays は同一入力で決定論的に同一集合を返す（回帰固定）。</summary>
+    private static int RunRebalanceDayDeterminismTests()
+    {
+        int f = 0;
+        var days = new List<DateOnly>();
+        var d = new DateOnly(2025, 1, 6);
+        for (int i = 0; i < 10; i++) days.Add(d.AddDays(i));
+
+        var r1 = TradeAnalyzer.Core.Backtest.BacktestService.EnumerateRebalanceDays(days, 3).ToList();
+        var r2 = TradeAnalyzer.Core.Backtest.BacktestService.EnumerateRebalanceDays(days, 3).ToList();
+        f += Assert("Rebalance: 決定論的に同一集合", r1.SequenceEqual(r2));
+        // interval=3 → 位置 0,3,6,9 を採用。
+        f += Assert("Rebalance: 期待位置(0,3,6,9)",
+            r1.SequenceEqual(new[] { days[0], days[3], days[6], days[9] }));
+        return f;
+    }
+
+    /// <summary>F6(b): QueryTradingDaysAsync が DailyBar 存在日を昇順 distinct で返し、signals/backtest の母数起点を一致させる。</summary>
+    private static async Task<int> RunTradingDayHelperTestAsync()
+    {
+        int f = 0;
+        var db = NewMemoryDb(out var conn);
+        try
+        {
+            var start = new DateOnly(2025, 1, 1);
+            var end = new DateOnly(2025, 3, 31);
+            // 2銘柄を同一日付集合で投入（distinct 検証）＋窓外の日も混ぜる（範囲フィルタ検証）。
+            db.DailyBars.AddRange(SyntheticBars("AAA", new DateOnly(2025, 6, 30), 400, trendUp: true));
+            db.DailyBars.AddRange(SyntheticBars("BBB", new DateOnly(2025, 6, 30), 400, trendUp: true));
+            await db.SaveChangesAsync();
+
+            var days = await TradeAnalyzer.Core.Backtest.BacktestService.QueryTradingDaysAsync(db, start, end);
+
+            var expected = await db.DailyBars
+                .Where(b => b.Date >= start && b.Date <= end)
+                .Select(b => b.Date).Distinct().OrderBy(x => x).ToListAsync();
+
+            f += Assert("TradingDays: 期待集合（昇順 distinct, 範囲内）", days.SequenceEqual(expected));
+            f += Assert("TradingDays: 重複なし", days.Distinct().Count() == days.Count);
+            f += Assert("TradingDays: 範囲内のみ", days.All(x => x >= start && x <= end));
+        }
+        finally { conn.Dispose(); }
+        return f;
+    }
+
+    /// <summary>
+    /// F6(c)(d)(e): provenance 対称化の回帰。
+    /// (c) ML パスは MlScore=null の Passed 行で InvalidOperationException。
+    /// (d) signals 保存後、非ML と ML backtest が同一 Code 集合の picks 母集団を返す。
+    /// (e) RunAsync(useMl:true/false) で OptionsJson.UseMlScore が引数どおり。
+    /// </summary>
+    private static async Task<int> RunBacktestProvenanceTestsAsync()
+    {
+        int f = 0;
+        var btOpt = new TradeAnalyzer.Core.Backtest.BacktestOptions
+        { RebalanceIntervalDays = 20, TopN = 10, MaxHoldDays = 10, AtrStopMultiplier = 0 };
+        var isStart = new DateOnly(2024, 1, 1);
+        var isEnd = new DateOnly(2024, 12, 31);
+        var oosStart = new DateOnly(2025, 1, 1);
+        var oosEnd = new DateOnly(2025, 3, 31);
+        string[] codes = { "AAA", "BBB", "CCC" };
+
+        // (c) MlScore=null で ML パスが throw。
+        var dbNull = NewMemoryDb(out var cn);
+        try
+        {
+            await SeedBarsAndSignalsAsync(dbNull, codes, oosStart, oosEnd, btOpt.RebalanceIntervalDays,
+                (t, code, _) => new Signal { Date = t, Code = code, Passed = true, RuleScore = 1, MlScore = null });
+
+            var btNull = new TradeAnalyzer.Core.Backtest.BacktestService(dbNull, Options.Create(btOpt),
+                NullLogger<TradeAnalyzer.Core.Backtest.BacktestService>.Instance);
+            bool threw = false;
+            try
+            {
+                await btNull.RunAsync(isStart, isEnd, oosStart, oosEnd, useMl: true, "null-ml");
+            }
+            catch (InvalidOperationException) { threw = true; }
+            f += Assert("Provenance(c): ML+MlScore=null で InvalidOperationException", threw);
+        }
+        finally { cn.Dispose(); }
+
+        // (d)(e) 同一 DB に非null MlScore を保存し、非ML/ML で同一 Code 集合＋OptionsJson 検証。
+        var db = NewMemoryDb(out var conn);
+        try
+        {
+            // RuleScore と MlScore を逆順に振る（順序は変わるが母集団 Code 集合は同一であるべき）。
+            await SeedBarsAndSignalsAsync(db, codes, oosStart, oosEnd, btOpt.RebalanceIntervalDays,
+                (t, code, i) => new Signal { Date = t, Code = code, Passed = true, RuleScore = codes.Length - i, MlScore = i + 1 });
+
+            var bt = new TradeAnalyzer.Core.Backtest.BacktestService(db, Options.Create(btOpt),
+                NullLogger<TradeAnalyzer.Core.Backtest.BacktestService>.Instance);
+
+            var runFalse = await bt.RunAsync(isStart, isEnd, oosStart, oosEnd, useMl: false, "ab-false");
+            var runTrue = await bt.RunAsync(isStart, isEnd, oosStart, oosEnd, useMl: true, "ab-true");
+
+            var setFalse = runFalse.Results.Select(r => r.Code).Distinct().OrderBy(x => x).ToList();
+            var setTrue = runTrue.Results.Select(r => r.Code).Distinct().OrderBy(x => x).ToList();
+            f += Assert("Provenance(d): 非ML/ML が同一 Code 集合の picks 母集団",
+                setFalse.SequenceEqual(setTrue) && setFalse.Count == codes.Length);
+
+            var optFalse = JsonSerializer.Deserialize<TradeAnalyzer.Core.Backtest.BacktestOptions>(runFalse.OptionsJson!)!;
+            var optTrue = JsonSerializer.Deserialize<TradeAnalyzer.Core.Backtest.BacktestOptions>(runTrue.OptionsJson!)!;
+            f += Assert("Provenance(e): OptionsJson.UseMlScore=false（引数どおり）", optFalse.UseMlScore == false);
+            f += Assert("Provenance(e): OptionsJson.UseMlScore=true（引数どおり）", optTrue.UseMlScore == true);
+        }
+        finally { conn.Dispose(); }
+        return f;
+    }
+
+    /// <summary>
+    /// F1-T: 部分 Signal 欠落（missingDays&gt;0）経路の回帰。
+    /// 全 reb 日に Signal を投入後、入口ガードは通過する範囲を保ったまま1 reb 日分の Signal 行を
+    /// ExecuteDelete でゼロにし、RunAsync(useMl:false) が throw せず完走しつつ「未生成リバランス日」
+    /// WARNING が発火する（＝missingDays≥1）ことを捕捉ロガーで実証する。
+    /// 既存 Provenance(c)(d)(e) は全 reb 日に Signal 行が在り missingDays=0 経路のみ通過するため、
+    /// F1 が集約した signalDays 判定の述語を将来変えても捕捉できる回帰網をここで張る。
+    /// </summary>
+    private static async Task<int> RunBacktestMissingDaysTestAsync()
+    {
+        int f = 0;
+        var btOpt = new TradeAnalyzer.Core.Backtest.BacktestOptions
+        { RebalanceIntervalDays = 20, TopN = 10, MaxHoldDays = 10, AtrStopMultiplier = 0 };
+        var isStart = new DateOnly(2024, 1, 1);
+        var isEnd = new DateOnly(2024, 12, 31);
+        var oosStart = new DateOnly(2025, 1, 1);
+        var oosEnd = new DateOnly(2025, 3, 31);
+        string[] codes = { "AAA", "BBB", "CCC" };
+
+        var db = NewMemoryDb(out var conn);
+        try
+        {
+            // 全 reb 日に Signal を投入（入口ガードを通過させる）。
+            await SeedBarsAndSignalsAsync(db, codes, oosStart, oosEnd, btOpt.RebalanceIntervalDays,
+                (t, code, _) => new Signal { Date = t, Code = code, Passed = true, RuleScore = 1, MlScore = 1 });
+
+            // reb 日を再取得し、先頭以外の1日を Signal 行ゼロにする（bars は残るので reb 日には残る）。
+            var tradingDays = await TradeAnalyzer.Core.Backtest.BacktestService.QueryTradingDaysAsync(db, oosStart, oosEnd);
+            var rebDays = TradeAnalyzer.Core.Backtest.BacktestService
+                .EnumerateRebalanceDays(tradingDays, btOpt.RebalanceIntervalDays).ToList();
+            f += Assert("MissingDays: reb 日が2日以上ある（テスト前提）", rebDays.Count >= 2);
+            var tMissing = rebDays[1];
+            // 本番 PersistSignalsForDateAsync と同一の削除プリミティブで tMissing をゼロ行にする。
+            await db.Signals.Where(s => s.Date == tMissing).ExecuteDeleteAsync();
+
+            var captured = new CapturingLogger<TradeAnalyzer.Core.Backtest.BacktestService>();
+            var bt = new TradeAnalyzer.Core.Backtest.BacktestService(db, Options.Create(btOpt), captured);
+
+            // 一部 reb 日に Signal 行ゼロでも入口ガード（signalDays.Count==0）は通過し throw しない。
+            var run = await bt.RunAsync(isStart, isEnd, oosStart, oosEnd, useMl: false, "missing-days");
+            f += Assert("MissingDays: 部分欠落でも throw せず完走", run is not null);
+
+            // missingDays>0 のときだけ出る WARNING（本文に「未生成リバランス日」）を捕捉ロガーで確認。
+            bool warned = captured.Entries.Any(e =>
+                e.Level == LogLevel.Warning && e.Message.Contains("未生成リバランス日"));
+            f += Assert("MissingDays: 未生成リバランス日 WARNING が発火（missingDays≥1）", warned);
+        }
+        finally { conn.Dispose(); }
+        return f;
+    }
+
     // --- helpers ---
+
+    /// <summary>
+    /// WARNING 経路検証用の最小ロガー。レベルと整形済みメッセージのみ記録する。
+    /// </summary>
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = new();
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
+
+    /// <summary>
+    /// Provenance テストの共通 seed: codes の合成 bar 投入 → trading days 取得 → リバランス日 × codes で
+    /// Signal 投入。Signal 構築のみ <paramref name="signalFactory"/>(reb 日, code, code 索引) で差し替える。
+    /// </summary>
+    private static async Task SeedBarsAndSignalsAsync(
+        AppDbContext db, string[] codes, DateOnly oosStart, DateOnly oosEnd, int interval,
+        Func<DateOnly, string, int, Signal> signalFactory)
+    {
+        foreach (var code in codes)
+            db.DailyBars.AddRange(SyntheticBars(code, new DateOnly(2025, 6, 30), 400, trendUp: true));
+        await db.SaveChangesAsync();
+
+        var tradingDays = await TradeAnalyzer.Core.Backtest.BacktestService.QueryTradingDaysAsync(db, oosStart, oosEnd);
+        foreach (var t in TradeAnalyzer.Core.Backtest.BacktestService.EnumerateRebalanceDays(tradingDays, interval))
+        {
+            int i = 0;
+            foreach (var code in codes)
+                db.Signals.Add(signalFactory(t, code, i++));
+        }
+        await db.SaveChangesAsync();
+    }
+
     private static AppDbContext NewMemoryDb(out SqliteConnection conn)
     {
         conn = new SqliteConnection("DataSource=:memory:");

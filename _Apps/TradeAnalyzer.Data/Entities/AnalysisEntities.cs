@@ -20,6 +20,9 @@ public class Signal
 
     /// <summary>判断根拠（通過/不通過の理由を human-readable に連結）。</summary>
     public string? Rationale { get; set; }
+
+    /// <summary>ML 一次モデル（LambdaRank）の out-of-sample スコア。Python が書き戻す。未推論なら null。段階2で追加。</summary>
+    public double? MlScore { get; set; }
 }
 
 /// <summary>バックテスト1回分の実行パラメータと集計結果。</summary>

@@ -313,6 +313,10 @@ paket-files/
 __pycache__/
 *.pyc
 
+# TradeAnalyzer ML（段階2）: 仮想環境とモデル実体（ソースは追跡）
+_Apps/ml/.venv/
+_Apps/ml/models/
+
 # Cake - Uncomment if you are using it
 # tools/**
 # !tools/packages.config
