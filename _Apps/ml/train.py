@@ -87,29 +87,44 @@ def _slice(df: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataF
     return df[(df["Date"] >= start) & (df["Date"] <= end)].sort_values(["Date", "Code"]).reset_index(drop=True)
 
 
-# --------- Purged K-Fold（positional embargo = H 取引日）---------
-def _purged_folds(dates: np.ndarray, k: int, embargo: int) -> list[tuple[np.ndarray, np.ndarray]]:
-    """ユニーク日付の位置を K 連続ブロックに分割し、検証ブロック前後 embargo 本を学習から除外。
+# --------- Purged K-Fold（embargo = H 取引日を「取引日距離の日付窓」で除外）---------
+def _purged_folds(
+    dates: np.ndarray, k: int, all_trading_days: np.ndarray, horizon: int
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """ユニークなリバランス日を K 連続ブロックに分割し、検証ブロック前後 horizon **取引日** を学習から除外。
+
+    embargo はリバランス間隔（位置）でなく全取引日カレンダー上の取引日距離で計算する。各 val ブロック
+    [val_start, val_end] の手前/後ろ horizon 取引日にあたる日付窓を `all_trading_days` から逆引きし、
+    その窓に入るリバランス日を学習から落とす。これにより:
+      - embargo の単位が「取引日」で正確（リバランス位置×間隔の換算ミスで過剰/過小パージしない）、
+      - IS 末尾の未確定ラベル日が間引かれてリバランス間隔が不均一でもリーク防止が崩れない。
 
     返り値: [(train_dates, val_dates), ...]。日付集合（np.datetime64）で返す。
     """
     uniq = np.array(sorted(pd.unique(dates)))
     m = len(uniq)
     folds: list[tuple[np.ndarray, np.ndarray]] = []
-    if m < k:
+    if m < k or len(all_trading_days) == 0:
         return folds
+    n_cal = len(all_trading_days)
     bounds = np.linspace(0, m, k + 1).astype(int)
     for i in range(k):
         a, b = bounds[i], bounds[i + 1]  # 検証ブロック位置 [a, b)
         if b <= a:
             continue
         val = uniq[a:b]
-        lo = max(0, a - embargo)
-        hi = min(m, b + embargo)
-        train_pos = np.concatenate([np.arange(0, lo), np.arange(hi, m)])
-        if len(train_pos) == 0:
+        val_start = uniq[a]
+        val_end = uniq[b - 1]
+        # val_start の horizon 取引日前 / val_end の horizon 取引日後の日付（取引日距離で embargo）。
+        i0 = int(np.searchsorted(all_trading_days, val_start))
+        lo_date = all_trading_days[max(0, i0 - horizon)]
+        i1 = int(np.searchsorted(all_trading_days, val_end, side="right")) - 1
+        hi_date = all_trading_days[min(n_cal - 1, i1 + horizon)]
+        # 学習に残すリバランス日 = [lo_date, hi_date]（val＋前後 horizon 窓）の外側。
+        train = uniq[(uniq < lo_date) | (uniq > hi_date)]
+        if len(train) == 0:
             continue
-        folds.append((uniq[train_pos], val))
+        folds.append((train, val))
     return folds
 
 
@@ -123,7 +138,10 @@ def _make_dataset(df: pd.DataFrame, fcols: list[str]) -> lgb.Dataset:
     )
 
 
-def _objective(trial: optuna.Trial, train_df: pd.DataFrame, fcols: list[str], embargo: int, eval_k: int):
+def _objective(trial: optuna.Trial, train_df: pd.DataFrame, fcols: list[str],
+               folds: list[tuple[np.ndarray, np.ndarray]], eval_k: int):
+    # fold は train_df["Date"]/all_trading_days/horizon のみ依存で trial 不変のため main で1回 precompute し受け取る
+    # （trial ごとの再計算を避け、_objective を CV 分割の生成から切り離す）。
     # netkeiba 確定値（leaves≈15-20, depth≈6-7, lr≈0.02）を中心レンジに（母数が違うので鵜呑みにしない）。
     params = {
         "objective": "lambdarank",
@@ -139,10 +157,6 @@ def _objective(trial: optuna.Trial, train_df: pd.DataFrame, fcols: list[str], em
         "lambda_l2": trial.suggest_float("lambda_l2", 1.0, 15.0),
         "min_child_samples": trial.suggest_int("min_child_samples", 20, 200),
     }
-    folds = _purged_folds(train_df["Date"].to_numpy(), k=4, embargo=embargo)
-    if not folds:
-        raise optuna.TrialPruned()
-
     scores = []
     for tr_dates, va_dates in folds:
         tr = train_df[train_df["Date"].isin(tr_dates)]
@@ -182,6 +196,11 @@ def main() -> None:
     is_df = _slice(df, is_start, is_end)
     oos_df = _slice(df, oos_start, oos_end)
 
+    # Purged K-Fold の embargo を「取引日距離」で計算するための全取引日カレンダー（main で1回 precompute）。
+    # optuna は _objective を trials 回呼ぶため、ここで in-memory 化して trial/fold ごとの DB 往復を避ける。
+    with dbmod.connect(args.db) as conn:
+        all_trading_days = np.array(sorted(dbmod.read_daily_bars(conn)["Date"].unique()))
+
     # 学習母集団＝IS の確定ラベル行（entry 可能 かつ ラベル確定）。
     train_df = is_df[is_df["LabelConfirmed"] & is_df["EntryFeasible"]].copy()
     n_dates = train_df["Date"].nunique()
@@ -194,9 +213,20 @@ def main() -> None:
             "ingest 済みの履歴（複数リバランス日ぶんの DailyBar）が必要です。"
         )
 
-    embargo = args.horizon
+    horizon = args.horizon
+    k = 4  # CV 分割数（_purged_folds とエラーメッセージの単一ソース）
+    # fold は trial 不変（train_df["Date"]/all_trading_days/horizon のみ依存）なので main で1回だけ構成する。
+    folds = _purged_folds(train_df["Date"].to_numpy(), k, all_trading_days, horizon)
+    # F2: optimize 前に fold 構成可否を確認。全 fold 空だと全 trial が pruned になり、
+    # study.best_value 参照時に optuna が ValueError("No trials are completed yet") を投げて不親切に終わる。
+    if not folds:
+        raise SystemExit(
+            f"CV fold を構成できません（リバランス日数 {n_dates} / k={k} / horizon {horizon} 取引日）。"
+            "IS 期間を広げるか --horizon を見直してください。"
+        )
+
     study = optuna.create_study(direction="maximize")
-    study.optimize(lambda t: _objective(t, train_df, fcols, embargo, args.topk),
+    study.optimize(lambda t: _objective(t, train_df, fcols, folds, args.topk),
                    n_trials=args.trials, show_progress_bar=False)
     best_params = {
         "objective": "lambdarank", "metric": "ndcg", "ndcg_eval_at": [args.topk],
@@ -233,7 +263,10 @@ def main() -> None:
         return
 
     with dbmod.connect(args.db) as conn:
-        updated = dbmod.write_mlscores(conn, oos_scored)
+        # expect=len(oos_scored): oos_scored の (Date,Code) は一意（load_dataset の回帰ガードが
+        # signals の重複を弾くため）＝1行1 UPDATE で rowcount は行数と一致する。不一致なら write_mlscores
+        # が rollback して ValueError を投げる（書戻し漏れを原子的に検出）。
+        updated = dbmod.write_mlscores(conn, oos_scored, expect=len(oos_scored))
     print(f"Signal.MlScore 書き戻し: {updated} 行（OOS 全 Passed）")
 
 

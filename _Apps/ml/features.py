@@ -60,9 +60,13 @@ def _atr_pct(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
 
 
 def _per_code_raw(g: pd.DataFrame) -> pd.DataFrame:
-    """1銘柄（Date 昇順）の生特徴量を計算（すべて後ろ向き＝点-in-time）。"""
+    """1銘柄の生特徴量を計算（すべて後ろ向き＝点-in-time）。"""
+    # shift/rolling は Date 昇順前提。呼出側（build_features）はソートしないため、ここで防御的に並べ替える
+    # （冪等・微小コスト・自己完結。read_daily_bars のソート依存に頼らず未ソート入力でも正特徴量）。
+    g = g.sort_values("Date")
     c = g["AdjClose"]
-    v = g["AdjVolume"].fillna(0.0)
+    # 欠損出来高は NaN 保持（fillna(0.0) は rolling 平均を 0 で希釈し vol_ratio 過大化/liquidity 過小化を招く）。
+    v = g["AdjVolume"]
 
     out = pd.DataFrame(index=g.index)
     out["Code"] = g["Code"].values
@@ -84,10 +88,12 @@ def _per_code_raw(g: pd.DataFrame) -> pd.DataFrame:
 
     # 流動性: RuleEngine の流動性フィルタと同じ AdjClose×AdjVolume 近似に揃える
     # （実列 TurnoverValue=Va は分割調整前で連続性が無いため使わない＝ルール層との skew 回避）。
+    # turnover も NaN 伝播（欠損出来高日を 0 として平均に混ぜない）。min_periods で欠損混入時も
+    # 過小サンプルでの平均算出を防ぐ。欠損結果 NaN は _cross_section_normalize の補完（Rank=0.5/Z=0）に乗る。
     turnover = c * v
-    out["liquidity"] = np.log1p(turnover.rolling(LIQUIDITY_WINDOW).mean())
+    out["liquidity"] = np.log1p(turnover.rolling(LIQUIDITY_WINDOW, min_periods=LIQUIDITY_WINDOW // 2).mean())
     # 出来高比: 当日出来高 / 直近平均（当日は分母から除外＝RuleEngine と同方針）。
-    vol_avg = v.shift(1).rolling(VOLUME_WINDOW).mean()
+    vol_avg = v.shift(1).rolling(VOLUME_WINDOW, min_periods=VOLUME_WINDOW // 2).mean()
     out["vol_ratio"] = v / vol_avg.replace(0.0, np.nan)
     return out
 
@@ -103,6 +109,14 @@ def _attach_financials(raw: pd.DataFrame, fin: pd.DataFrame) -> pd.DataFrame:
         raw["pbr_inv"] = np.nan
         raw["equity_ratio"] = np.nan
         return raw
+
+    # F10: FinSummary は複合PK (Code,DiscloseDate,DocType) で (Code,DiscloseDate) は非一意。同一開示日に
+    # 複数 DocType 行があると merge_asof(backward) が入力順最後の行を引き PER/PBR/自己資本比率が非決定的に
+    # なりうる。as-of 前に (Code,DiscloseDate) を決定的に1行へ縮約する（DocType 辞書順最大＝入力順非依存）。
+    # DocType の意味的優先（通期優先等）は実 DocType 値確認後＝段階3送り（keep="last" は決定性確保の暫定規則）。
+    fin = fin.sort_values(["Code", "DiscloseDate", "DocType"]).drop_duplicates(
+        ["Code", "DiscloseDate"], keep="last"
+    )
 
     # merge_asof は by グループごとに left.Date >= right.DiscloseDate の直近を引く（点-in-time）。
     fin_sorted = fin.sort_values("DiscloseDate")

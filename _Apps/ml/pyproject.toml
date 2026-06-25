@@ -11,6 +11,12 @@ dependencies = [
     "scikit-learn>=1.5.0",
 ]
 
+[dependency-groups]
+# 回帰テスト（test_ml.py）。`_Apps/ml` をカレントにして `uv run pytest` で実行する。
+dev = [
+    "pytest>=8.0.0",
+]
+
 [tool.uv]
 # .venv はリポジトリ内（gitignore 済み）に作る。
 package = false

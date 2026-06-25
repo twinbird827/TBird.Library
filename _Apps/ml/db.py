@@ -65,11 +65,19 @@ def read_fin_summaries(conn: sqlite3.Connection) -> pd.DataFrame:
     return df.sort_values(["Code", "DiscloseDate"]).reset_index(drop=True)
 
 
-def write_mlscores(conn: sqlite3.Connection, scores: pd.DataFrame) -> int:
+def write_mlscores(
+    conn: sqlite3.Connection, scores: pd.DataFrame, expect: int | None = None
+) -> int:
     """Signals.MlScore を (Date, Code) で UPDATE。全件を単一トランザクションで一括反映。
 
     scores: 列 Date(datetime/date), Code(str), MlScore(float)。
+    expect: 期待更新行数（既定 None=未検証）。指定時、実際の更新行数と一致しなければ commit せず
+            rollback して ValueError を投げる（書戻し漏れ＝後の C# null 検査で backtest 停止する原因を
+            ここで原子的に検出）。検証を「書込み責務」へ閉じ込め、呼出側の付け忘れを防ぐ。
     戻り値: 更新行数。
+
+    注: ``cur.rowcount`` は CPython の sqlite3 で executemany 完了後に UPDATE の累計修正行数を返す
+        （公式 docs は累計挙動を明文化していないが実機検証で確認済。test_ml.py の in-memory sqlite で固定）。
     """
     rows = [
         (float(r.MlScore), pd.Timestamp(r.Date).strftime("%Y-%m-%d"), str(r.Code))
@@ -81,6 +89,13 @@ def write_mlscores(conn: sqlite3.Connection, scores: pd.DataFrame) -> int:
         cur.executemany(
             "UPDATE Signals SET MlScore = ? WHERE Date = ? AND Code = ?", rows
         )
+        # commit の前に検証する。不一致なら何も書かずに rollback し、部分書込み（一部 MlScore あり/
+        # 一部 null）の中途半端な DB 状態を残さない＝原因（signals/特徴量の不整合）修正→再実行へ誘導。
+        if expect is not None and cur.rowcount != expect:
+            raise ValueError(
+                f"MlScore 書戻し行数が期待と不一致: updated={cur.rowcount} != expect={expect}。"
+                "signals の (Date,Code) と OOS スコアの整合を確認してください（部分書込みは rollback 済み）。"
+            )
         conn.commit()
     except Exception:
         conn.rollback()

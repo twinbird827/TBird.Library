@@ -48,6 +48,12 @@ dotnet run --project ../TradeAnalyzer.Worker -- backtest --is 2024 --oos 2025 --
 正しい運用順序は常に `signals → train → (evaluate) → backtest --use-ml`。
 `RuleOptions` を変えた場合も母集団が変わるので `signals` 再生成→再学習が必要。
 
+**段階2以降は `--use-ml false`（非ML）も `signals` 実行が前提**になった（破壊的変更）。
+backtest は ML/非ML とも母集団を保存済み Signal から読む（provenance 対称化＝同一 OOS で
+ML/非ML が定義上同一 picks 母集団を共有し A/B を公正化する）。OOS ウィンドウに取引日が在るのに
+Signal 行が皆無なら「signals 未実行」として `InvalidOperationException` で停止する（従来の「非ML は
+signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
+
 ## ファイル構成
 
 | ファイル | 役割 |

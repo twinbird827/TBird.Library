@@ -7,6 +7,7 @@ using TradeAnalyzer.Core.Backtest;
 using TradeAnalyzer.Core.Ingest;
 using TradeAnalyzer.Core.Rules;
 using TradeAnalyzer.Data;
+using TradeAnalyzer.Data.Entities;
 using TradeAnalyzer.Data.Options;
 
 namespace TradeAnalyzer.Worker;
@@ -26,8 +27,8 @@ public static class Commands
           [--edinet-limit N]                 EDINET の日あたり解析件数を N に制限
   analyze --date YYYY-MM-DD                  指定日でルール評価し Signal 保存
   signals --is <期間> --oos <期間>           IS/OOS 各ウィンドウの全リバランス日でルール評価→Signal 保存（Python 母集団入力。要 ingest 済み DB）
-  backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD）
-          [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替
+  backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD。両モードとも要 signals 済み）
+          [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替（母集団は両モードとも保存 Signal）
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
@@ -74,10 +75,7 @@ public static class Commands
         var rules = sp.GetRequiredService<RuleEngine>();
         var logger = sp.GetRequiredService<ILogger<RuleEngine>>();
 
-        var signals = await rules.EvaluateAsync(date);
-        await db.Signals.Where(s => s.Date == date).ExecuteDeleteAsync();
-        db.Signals.AddRange(signals);
-        await db.SaveChangesAsync();
+        var signals = await PersistSignalsForDateAsync(db, rules, date);
 
         logger.LogInformation("analyze {Date}: {Total} 件保存 ({Passed} 通過)",
             date, signals.Count, signals.Count(s => s.Passed));
@@ -106,27 +104,39 @@ public static class Commands
             isStart, isEnd, isCount, oosStart, oosEnd, oosCount);
     }
 
-    /// <summary>1ウィンドウのリバランス日を列挙し、各日で date 単位 delete→RuleEngine 評価全件 insert（冪等）。列挙日数を返す。</summary>
-    private static async Task<int> GenerateSignalsForWindowAsync(
+    /// <summary>
+    /// 1ウィンドウのリバランス日を列挙し、各日で <see cref="PersistSignalsForDateAsync"/> による
+    /// date 単位 delete→insert（冪等）で Signal を保存する。列挙日数を返す。
+    /// SelfTest からも本番経路を検証するため internal で公開する（同一 TradeAnalyzer.Worker アセンブリ内）。
+    /// </summary>
+    internal static async Task<int> GenerateSignalsForWindowAsync(
         AppDbContext db, RuleEngine rules, DateOnly start, DateOnly end, int interval)
     {
-        // 取引日は DailyBar が存在する日付で代理（BacktestService と同一の代理）。DB I/O は呼出側。
-        var tradingDays = await db.DailyBars
-            .Where(b => b.Date >= start && b.Date <= end)
-            .Select(b => b.Date)
-            .Distinct()
-            .OrderBy(d => d)
-            .ToListAsync();
+        // 取引日は BacktestService と共通のヘルパで取得し、母数起点を1箇所に閉じ込める
+        // （SignalsAsync は ct を持たないため CancellationToken.None＝既定を渡す）。
+        var tradingDays = await BacktestService.QueryTradingDaysAsync(db, start, end);
 
         var rebalanceDays = BacktestService.EnumerateRebalanceDays(tradingDays, interval).ToList();
         foreach (var t in rebalanceDays)
-        {
-            var signals = await rules.EvaluateAsync(t);
-            await db.Signals.Where(s => s.Date == t).ExecuteDeleteAsync();
-            db.Signals.AddRange(signals);
-            await db.SaveChangesAsync();
-        }
+            await PersistSignalsForDateAsync(db, rules, t);
         return rebalanceDays.Count;
+    }
+
+    /// <summary>
+    /// 単一リバランス日 <paramref name="t"/> の冪等保存プリミティブ。RuleEngine で評価し、
+    /// 既存 Signal を date 単位で delete してから全件 insert する（delete→insert の冪等順・
+    /// Passed 絞り込みなしの全件保存・date 単位スコープの契約をここ1箇所に閉じ込める）。
+    /// 評価済み <see cref="Signal"/> リストを返し、呼出側がログ用件数を導出できるようにする。
+    /// analyze（単一日）/ signals（ウィンドウ）/ SelfTest が同一コードを共有する。
+    /// </summary>
+    private static async Task<List<Signal>> PersistSignalsForDateAsync(
+        AppDbContext db, RuleEngine rules, DateOnly t)
+    {
+        var signals = await rules.EvaluateAsync(t);
+        await db.Signals.Where(s => s.Date == t).ExecuteDeleteAsync();
+        db.Signals.AddRange(signals);
+        await db.SaveChangesAsync();
+        return signals;
     }
 
     public static async Task BacktestAsync(IServiceProvider sp, string[] args)
@@ -135,18 +145,18 @@ public static class Commands
         var (isStart, isEnd) = RequireRange(opts, "is");
         var (oosStart, oosEnd) = RequireRange(opts, "oos");
 
-        // --use-ml で MlScore 順／RuleScore 順を A/B 切替（BacktestService 解決前に Options を上書き）。
+        // --use-ml で MlScore 順／RuleScore 順を A/B 切替。既定は Options.UseMlScore（appsettings）。
+        // DI singleton の破壊書換えはせず、引数で RunAsync に渡す（常駐/テスト再利用での前回値漏れを防ぐ）。
+        bool useMl = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.UseMlScore;
         if (opts.TryGetValue("use-ml", out var useMlStr))
         {
-            if (!bool.TryParse(useMlStr, out var useMl))
+            if (!bool.TryParse(useMlStr, out useMl))
                 throw new ArgumentException($"--use-ml は true/false を指定してください: {useMlStr}");
-            sp.GetRequiredService<IOptions<BacktestOptions>>().Value.UseMlScore = useMl;
         }
 
-        bool useMlEffective = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.UseMlScore;
         var backtest = sp.GetRequiredService<BacktestService>();
-        var label = $"IS{isStart:yyyy}-OOS{oosStart:yyyy}-{(useMlEffective ? "ML" : "Rule")}";
-        var run = await backtest.RunAsync(isStart, isEnd, oosStart, oosEnd, label: label);
+        var label = $"IS{isStart:yyyy}-OOS{oosStart:yyyy}-{(useMl ? "ML" : "Rule")}";
+        var run = await backtest.RunAsync(isStart, isEnd, oosStart, oosEnd, useMl, label: label);
 
         Console.WriteLine($"Backtest 完了 [{label}]: trades={run.TradeCount}, winRate={run.WinRate:P1}, avgReturn={run.AvgReturn:P2}");
     }

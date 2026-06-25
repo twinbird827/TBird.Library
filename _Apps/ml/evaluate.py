@@ -112,8 +112,7 @@ def main() -> None:
     ap.add_argument("--topk", type=int, default=10)
     args = ap.parse_args()
 
-    _, oos_end = parse_window(args.oos_window)
-    oos_start, _ = parse_window(args.oos_window)
+    oos_start, oos_end = parse_window(args.oos_window)
 
     df = load_dataset(args.db, args.horizon)
     oos = _slice(df, oos_start, oos_end)
