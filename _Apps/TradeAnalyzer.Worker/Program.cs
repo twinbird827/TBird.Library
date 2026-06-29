@@ -45,6 +45,9 @@ try
         case "backtest":
             await Commands.BacktestAsync(sp, args);
             break;
+        case "run-today":
+            await Commands.RunTodayAsync(sp, args);
+            break;
         case "selftest":
             await SelfTest.RunAsync();
             break;

@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,6 +32,8 @@ public static class Commands
   signals --is <期間> --oos <期間>           IS/OOS 各ウィンドウの全リバランス日でルール評価→Signal 保存（Python 母集団入力。要 ingest 済み DB）
   backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD。両モードとも要 signals 済み）
           [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替（母集団は両モードとも保存 Signal）
+  run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力（要 migrate 済み DB）
+          [--skip-jquants]                   当日 ingest 済みの再実行時のみ（当日 bar を足さず既存 DB 最新営業日を採点）
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
@@ -36,7 +41,8 @@ public static class Commands
   dotnet run -- ingest --from 2024-01-01 --to 2025-12-31
   dotnet run -- analyze --date 2025-06-30
   dotnet run -- signals --is 2024 --oos 2025
-  dotnet run -- backtest --is 2024 --oos 2025 --use-ml true");
+  dotnet run -- backtest --is 2024 --oos 2025 --use-ml true
+  dotnet run -- run-today");
     }
 
     public static async Task MigrateAsync(IServiceProvider sp)
@@ -197,6 +203,161 @@ public static class Commands
             foreach (var f in facts)
                 Console.WriteLine($"  Code={f.Code} {f.FactName}={f.Value} ({(f.IsConsolidated ? "連結" : "個別")}, ctx={f.ContextId}, unit={f.Unit})");
         }
+    }
+
+    /// <summary>
+    /// 段階3a 当日 EOD 推論オーケストレータ。当日 ingest→最新営業日 t の解決→t の analyze→Python 採点
+    /// （predict.py）→ MlScore null 検査→ Top-K 標準出力 を単一プロセスで逐次実行する。各段は失敗で即 throw
+    /// （silent fallback 禁止）。Process 分離で Python を起動し ExitCode で成否を判定する（pythonnet 不採用）。
+    /// </summary>
+    public static async Task RunTodayAsync(IServiceProvider sp, string[] args)
+    {
+        var opts = ParseOptions(args);
+        bool skipJQuants = opts.ContainsKey("skip-jquants");
+
+        var db = sp.GetRequiredService<AppDbContext>();
+        var rules = sp.GetRequiredService<RuleEngine>();
+        var ingest = sp.GetRequiredService<IngestService>();
+        var config = sp.GetRequiredService<IConfiguration>();
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("run-today");
+
+        // 1. 当日 ingest（型付き IngestService を直接呼ぶ＝CLI ラッパの MigrateAsync は同梱しない）。
+        //    Migrate を呼ばないのはコールドスタート前提（段階1/2 で migrate/ingest 済みの trade.db）＋
+        //    3a は新規マイグレーションを導入しないため。空/未マイグレーション DB だと ingest 内の
+        //    ExecuteDeleteAsync が no such table で停止する（run-today.ps1 冒頭に「要 migrate 済み DB」明記）。
+        ValidateIngestConfig(sp, skipJQuants);
+        var today = DateOnly.FromDateTime(DateTime.Today); // JST 開発機前提（将来 TZ 厳密化）。
+        // --edinet-limit 0 相当（EDINET CSV 解析を止める。文書一覧 API は日次で残る＝段階2と同じ）。
+        await ingest.IngestAsync(today, today, skipJQuants, edinetLimitPerDay: 0);
+
+        // 2. 最新営業日 t の解決＝DailyBar 存在日の最新（当日 EOD が入っていれば今日、未反映なら直近営業日）。
+        //    窓 -10 暦日は年末年始/GW（連続休場最大≈6日）を十分カバーする。
+        var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today);
+        if (tradingDays.Count == 0)
+            throw new InvalidOperationException(
+                "直近10暦日に DailyBar がありません（コールドスタート/DB が10日以上未更新）。"
+                + "採点には複数年 ingest 済みの履歴が必要です。広期間 ingest でバックフィルしてください。");
+        var t = tradingDays[^1];
+        if (t < today)
+            logger.LogWarning(
+                "当日 {Today} の EOD が DB に未反映のため直近営業日 {T} を採点対象にします（EOD 反映時刻/休場日の可能性）。",
+                today, t);
+
+        // 3. 当日 analyze（delete→insert で冪等）。MlScore=null で再挿入されるため次段の predict が必須。
+        var signals = await PersistSignalsForDateAsync(db, rules, t);
+        logger.LogInformation("analyze {T}: {Total} 件保存 ({Passed} 通過)",
+            t, signals.Count, signals.Count(s => s.Passed));
+
+        // 4. Python 採点。trade.db の絶対パスは C# が実際に使う接続から導出する（U-DBPATH 方式 A）。
+        //    接続文字列は相対 Data Source=trade.db で SQLite は C# プロセスの CWD 基準で解決するため、
+        //    DbConnection.DataSource（EF Core Relational の面のみ＝Microsoft.Data.Sqlite を直接参照しない）の
+        //    値を Path.GetFullPath で絶対化し、Python の CWD（MlDir）と別ファイルを開かないようにする。
+        string dbPath = Path.GetFullPath(db.Database.GetDbConnection().DataSource);
+        string predictScript = config["Python:PredictScript"] ?? "predict.py";
+        await RunPythonAsync(config, logger, predictScript, new[]
+        {
+            ("--db", dbPath),
+            ("--date", t.ToString("yyyy-MM-dd")),
+        });
+
+        // 5. null 検査＋6. Top-K 読取を AsNoTracking で1回にまとめる。
+        //    重要: step3 の PersistSignalsForDateAsync は同一 scoped AppDbContext に MlScore=null の Signal を
+        //    トラッキングしたまま SaveChanges する。トラッキングのまま読むと EF Core は識別マップ上の追跡済み
+        //    インスタンス（MlScore=null）を返し Python 更新値で上書きしない＝null 検査が誤発火する。
+        //    AsNoTracking（DB 行から新規生成）で Python が書いた MlScore を正しく反映する（BacktestService:97 と同作法）。
+        var passed = await db.Signals.AsNoTracking()
+            .Where(s => s.Date == t && s.Passed)
+            .ToListAsync();
+        if (passed.Any(r => r.MlScore is null))
+            throw new InvalidOperationException(
+                $"{t}: MlScore 未設定の Passed 行があります（Python 書戻し漏れ）。predict.py の出力を確認してください。");
+
+        // 6. Top-K 出力（MlScore 降順・ThenByDescending(RuleScore)・ThenBy(Code)）。3a の成果物はここまで（配信なし）。
+        int topK = int.TryParse(config["Output:TopK"], out var k) ? k : 10;
+        var top = passed
+            .OrderByDescending(r => r.MlScore!.Value)
+            .ThenByDescending(r => r.RuleScore)
+            .ThenBy(r => r.Code)
+            .Take(topK)
+            .ToList();
+
+        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topK}（MlScore 降順, Passed {passed.Count} 件中）===");
+        Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
+        foreach (var s in top)
+            Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
+    }
+
+    /// <summary>
+    /// uv run python &lt;script&gt; &lt;args...&gt; を Python:MlDir を作業ディレクトリに起動し、ExitCode≠0 なら
+    /// stderr を添えて throw する小ヘルパ。stdout/stderr を逐次ログ、タイムアウト（既定10分）超過で kill＋throw。
+    /// double.MinValue 等での黙殺は禁止（段階2 silent fallback 禁止方針を Process 境界にも適用）。
+    /// run-today と将来の 3b が共有する Python 起動点。設定はスカラ4項目のみのため IConfiguration 直読み。
+    /// </summary>
+    private static async Task RunPythonAsync(
+        IConfiguration config, ILogger logger, string scriptPath,
+        IReadOnlyList<(string key, string value)> options, CancellationToken ct = default)
+    {
+        string uvPath = config["Python:UvPath"] ?? "uv"; // PATH 非依存にしたい場合は絶対パス指定可。
+        string mlDir = Path.GetFullPath(config["Python:MlDir"]
+            ?? throw new InvalidOperationException("Python:MlDir が未設定です（appsettings.json）。"));
+        int timeoutMinutes = int.TryParse(config["Python:TimeoutMinutes"], out var tm) && tm > 0 ? tm : 10;
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = uvPath,
+            WorkingDirectory = mlDir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            // Python の print は日本語を含む。Windows 既定 console は cp932 のため、双方を UTF-8 に固定して
+            // ログ文字化けを防ぐ（PYTHONUTF8=1 で Python が UTF-8 出力、Standard*Encoding で C# が UTF-8 読取）。
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+        psi.Environment["PYTHONUTF8"] = "1";
+        psi.ArgumentList.Add("run");
+        psi.ArgumentList.Add("python");
+        psi.ArgumentList.Add(scriptPath);
+        foreach (var (key, value) in options)
+        {
+            psi.ArgumentList.Add(key);
+            psi.ArgumentList.Add(value);
+        }
+
+        var stderr = new StringBuilder();
+        using var proc = new Process { StartInfo = psi };
+        proc.OutputDataReceived += (_, e) => { if (e.Data != null) logger.LogInformation("[python] {Line}", e.Data); };
+        proc.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data == null) return;
+            stderr.AppendLine(e.Data);
+            logger.LogWarning("[python:err] {Line}", e.Data);
+        };
+
+        logger.LogInformation("Python 起動: {Uv} run python {Script} {Args} (cwd={Cwd})",
+            uvPath, scriptPath, string.Join(' ', options.Select(o => $"{o.key} {o.value}")), mlDir);
+
+        if (!proc.Start())
+            throw new InvalidOperationException($"Python プロセスを起動できません: {uvPath}（Python:UvPath を確認）。");
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromMinutes(timeoutMinutes));
+        try
+        {
+            await proc.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            try { proc.Kill(entireProcessTree: true); }
+            catch (Exception killEx) { logger.LogDebug(killEx, "Python プロセス kill 失敗（既に終了済みの可能性）。"); }
+            throw new TimeoutException($"Python 実行が {timeoutMinutes} 分でタイムアウトしました: {scriptPath}");
+        }
+
+        if (proc.ExitCode != 0)
+            throw new InvalidOperationException(
+                $"Python が ExitCode={proc.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{stderr}");
     }
 
     // --- 設定検証 ---

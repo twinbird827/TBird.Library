@@ -1,7 +1,10 @@
 """ウォークフォワード学習（LambdaRank）＋optuna＋Purged K-Fold ＋ OOS スコア書き戻し。
 
-実行:
+実行（ウォークフォワード A/B 用）:
   uv run python train.py --db ../TradeAnalyzer.Worker/trade.db --is 2024 --oos 2025
+
+実行（段階3a 当日運用の再学習＝全確定ラベルで1モデル）:
+  uv run python train.py --db ../TradeAnalyzer.Worker/trade.db --full --train-end 2025-06-27 [--retune]
 
 ワークフロー（境界は trade.db のみ・プロセス連携なし）:
   1. signals が保存した Passed 母集団（IS/OOS）を読む。
@@ -12,10 +15,16 @@
        （ラベル除外は学習専用。書かないと C# の null 検査で backtest が止まる）。
 
 OOS スコアは「その区間より前の IS で学習したモデル」の出力＝先読みなし。
+
+--full 経路（段階3a）: IS/OOS 窓に切らず `Date <= train-end` の全確定ラベル行で `lgb.train` を1回呼び、
+  models/lambdarank_FULL_<train-end>.txt を保存する（OOS スコア書戻しはしない＝当日採点は predict.py の責務）。
+  ハイパラは既定で models/best_params.json を読む（初回は --retune で seed → 以降の --full はこれを読む）。
+  --retune 指定時のみ optuna を再探索し best_params.json を更新する（週次再学習で毎回 optuna は重く不安定なため）。
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from datetime import date
 
@@ -31,6 +40,8 @@ import labels as labmod
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
+# --full のハイパラ永続化先（--retune が書き、以降の --full が読む）。
+BEST_PARAMS_PATH = os.path.join(MODELS_DIR, "best_params.json")
 
 
 # --------- 期間パース（C# RequireRange と同形式: YYYY または YYYY-MM-DD:YYYY-MM-DD）---------
@@ -177,17 +188,65 @@ def _objective(trial: optuna.Trial, train_df: pd.DataFrame, fcols: list[str],
     return float(np.mean(scores))
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="段階2 LambdaRank 学習＋OOS スコア書き戻し")
-    ap.add_argument("--db", required=True, help="trade.db のパス")
-    ap.add_argument("--is", dest="is_window", required=True, help="IS 期間（YYYY または FROM:TO）")
-    ap.add_argument("--oos", dest="oos_window", required=True, help="OOS 期間")
-    ap.add_argument("--horizon", type=int, default=labmod.DEFAULT_HORIZON, help="ラベルホライズン（既定=MaxHoldDays=20）")
-    ap.add_argument("--trials", type=int, default=40, help="optuna 試行数")
-    ap.add_argument("--topk", type=int, default=10, help="NDCG@K の K（既定=TopN=10）")
-    ap.add_argument("--no-write", action="store_true", help="MlScore を書き戻さず学習のみ（検証用）")
-    args = ap.parse_args()
+K_FOLDS = 4  # CV 分割数（_purged_folds とエラーメッセージの単一ソース）
 
+
+def _build_lgb_params(tunable: dict, topk: int) -> dict:
+    """optuna が探索する tunable subset に固定の lambdarank 既定を合成した完全パラメータ。
+
+    ウォークフォワード（IS/OOS）と --full の双方が同じ合成規則を使い、両経路のモデル定義を一致させる。
+    """
+    return {
+        "objective": "lambdarank", "metric": "ndcg", "ndcg_eval_at": [topk],
+        "verbosity": -1, "bagging_freq": 1, **tunable,
+    }
+
+
+def _tune_hyperparams(
+    train_df: pd.DataFrame, fcols: list[str], all_trading_days: np.ndarray,
+    horizon: int, topk: int, trials: int,
+) -> dict:
+    """Purged K-Fold CV を optuna で最大化し、最良の tunable ハイパラ（study.best_params）を返す。
+
+    ウォークフォワードの学習と --full --retune が共有する（fold 構成・F2 ガード・optuna 起動の単一ソース）。
+    """
+    # fold は trial 不変（train_df["Date"]/all_trading_days/horizon のみ依存）なので1回だけ構成する。
+    folds = _purged_folds(train_df["Date"].to_numpy(), K_FOLDS, all_trading_days, horizon)
+    # F2: optimize 前に fold 構成可否を確認。全 fold 空だと全 trial が pruned になり、
+    # study.best_value 参照時に optuna が ValueError("No trials are completed yet") を投げて不親切に終わる。
+    if not folds:
+        raise SystemExit(
+            f"CV fold を構成できません（リバランス日数 {train_df['Date'].nunique()} / k={K_FOLDS} / "
+            f"horizon {horizon} 取引日）。学習期間を広げるか --horizon を見直してください。"
+        )
+    study = optuna.create_study(direction="maximize")
+    study.optimize(lambda t: _objective(t, train_df, fcols, folds, topk),
+                   n_trials=trials, show_progress_bar=False)
+    print(f"best CV NDCG@{topk}={study.best_value:.4f}, params={study.best_params}")
+    return study.best_params
+
+
+def _save_best_params(tunable: dict) -> None:
+    """best_params.json に tunable ハイパラを保存（--retune 経路のみ。--full はこれを読む）。"""
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    with open(BEST_PARAMS_PATH, "w", encoding="utf-8") as f:
+        json.dump(tunable, f, ensure_ascii=False, indent=2)
+    print(f"ハイパラ保存: {BEST_PARAMS_PATH}")
+
+
+def _load_best_params() -> dict:
+    """best_params.json を読む。無ければ silent fallback せず原因明示で SystemExit（bootstrap 手順を案内）。"""
+    if not os.path.exists(BEST_PARAMS_PATH):
+        raise SystemExit(
+            f"{BEST_PARAMS_PATH} がありません。初回は --retune を付けて optuna でハイパラを seed してください:\n"
+            "  uv run python train.py --full --db <trade.db> --train-end <YYYY-MM-DD> --retune"
+        )
+    with open(BEST_PARAMS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _run_walkforward(args: argparse.Namespace) -> None:
+    """既存のウォークフォワード経路（--is/--oos）。IS で optuna→最終学習し OOS を採点・書戻し。"""
     is_start, is_end = parse_window(args.is_window)
     oos_start, oos_end = parse_window(args.oos_window)
     fcols = featmod.feature_columns()
@@ -196,7 +255,7 @@ def main() -> None:
     is_df = _slice(df, is_start, is_end)
     oos_df = _slice(df, oos_start, oos_end)
 
-    # Purged K-Fold の embargo を「取引日距離」で計算するための全取引日カレンダー（main で1回 precompute）。
+    # Purged K-Fold の embargo を「取引日距離」で計算するための全取引日カレンダー（1回 precompute）。
     # optuna は _objective を trials 回呼ぶため、ここで in-memory 化して trial/fold ごとの DB 往復を避ける。
     with dbmod.connect(args.db) as conn:
         all_trading_days = np.array(sorted(dbmod.read_daily_bars(conn)["Date"].unique()))
@@ -213,26 +272,10 @@ def main() -> None:
             "ingest 済みの履歴（複数リバランス日ぶんの DailyBar）が必要です。"
         )
 
-    horizon = args.horizon
-    k = 4  # CV 分割数（_purged_folds とエラーメッセージの単一ソース）
-    # fold は trial 不変（train_df["Date"]/all_trading_days/horizon のみ依存）なので main で1回だけ構成する。
-    folds = _purged_folds(train_df["Date"].to_numpy(), k, all_trading_days, horizon)
-    # F2: optimize 前に fold 構成可否を確認。全 fold 空だと全 trial が pruned になり、
-    # study.best_value 参照時に optuna が ValueError("No trials are completed yet") を投げて不親切に終わる。
-    if not folds:
-        raise SystemExit(
-            f"CV fold を構成できません（リバランス日数 {n_dates} / k={k} / horizon {horizon} 取引日）。"
-            "IS 期間を広げるか --horizon を見直してください。"
-        )
-
-    study = optuna.create_study(direction="maximize")
-    study.optimize(lambda t: _objective(t, train_df, fcols, folds, args.topk),
-                   n_trials=args.trials, show_progress_bar=False)
-    best_params = {
-        "objective": "lambdarank", "metric": "ndcg", "ndcg_eval_at": [args.topk],
-        "verbosity": -1, "bagging_freq": 1, **study.best_params,
-    }
-    print(f"best CV NDCG@{args.topk}={study.best_value:.4f}, params={study.best_params}")
+    best_params = _build_lgb_params(
+        _tune_hyperparams(train_df, fcols, all_trading_days, args.horizon, args.topk, args.trials),
+        args.topk,
+    )
 
     # 全 IS で最終学習（num_boost_round は CV の早期停止傾向を踏まえ控えめ固定）。
     dtrain = _make_dataset(train_df, fcols)
@@ -268,6 +311,75 @@ def main() -> None:
         # が rollback して ValueError を投げる（書戻し漏れを原子的に検出）。
         updated = dbmod.write_mlscores(conn, oos_scored, expect=len(oos_scored))
     print(f"Signal.MlScore 書き戻し: {updated} 行（OOS 全 Passed）")
+
+
+def _run_full(args: argparse.Namespace) -> None:
+    """段階3a 再学習経路（--full）。train-end までの全確定ラベルで1モデル学習し FULL モデルを保存する。
+
+    IS/OOS 窓は使わず `Date <= train-end` で母集団を切る。OOS スコア書戻しはしない（当日採点は predict.py）。
+    """
+    train_end = pd.Timestamp(args.train_end)
+    fcols = featmod.feature_columns()
+
+    df = load_dataset(args.db, args.horizon)
+    # train-end 以前かつラベル確定・entry 可能な行のみ（labels.py が直近 H 日を未確定として除外済み）。
+    pop = df[(df["Date"] <= train_end) & df["LabelConfirmed"] & df["EntryFeasible"]].copy()
+    n_dates = pop["Date"].nunique()
+    print(f"FULL 学習可能行={len(pop)}（{n_dates} リバランス日, train-end={train_end:%Y-%m-%d}）")
+
+    if len(pop) == 0 or n_dates < 2:
+        raise SystemExit(
+            f"学習データ不足（確定ラベル {len(pop)} 行 / {n_dates} 日）。"
+            "ingest 済みの履歴と --train-end の妥当性を確認してください。"
+        )
+
+    if args.retune:
+        with dbmod.connect(args.db) as conn:
+            all_trading_days = np.array(sorted(dbmod.read_daily_bars(conn)["Date"].unique()))
+        tunable = _tune_hyperparams(pop, fcols, all_trading_days, args.horizon, args.topk, args.trials)
+        _save_best_params(tunable)
+    else:
+        tunable = _load_best_params()
+
+    params = _build_lgb_params(tunable, args.topk)
+    dtrain = _make_dataset(pop, fcols)
+    booster = lgb.train(params, dtrain, num_boost_round=800, callbacks=[lgb.log_evaluation(0)])
+
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    model_path = os.path.join(MODELS_DIR, f"lambdarank_FULL_{train_end:%Y%m%d}.txt")
+    booster.save_model(model_path)
+    print(f"FULL モデル保存: {model_path}（旧モデルは手動ロールバック用に残す）")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="段階2/3a LambdaRank 学習（ウォークフォワード A/B ＋ --full 再学習）")
+    ap.add_argument("--db", required=True, help="trade.db のパス")
+    # --is/--oos は --full 以外で必須。argparse は「--full 時のみ条件付き」を宣言的に書けないため
+    # required=False にし、parse 後に main() の手動検証（ap.error）で条件付き必須を表現する。
+    ap.add_argument("--is", dest="is_window", default=None, help="IS 期間（YYYY または FROM:TO。--full 以外で必須）")
+    ap.add_argument("--oos", dest="oos_window", default=None, help="OOS 期間（--full 以外で必須）")
+    ap.add_argument("--full", action="store_true",
+                    help="段階3a 再学習: train-end までの全確定ラベルで1モデル学習（ウォークフォワードなし）")
+    ap.add_argument("--train-end", dest="train_end", default=None, help="--full の学習データ終端（YYYY-MM-DD）")
+    ap.add_argument("--retune", action="store_true",
+                    help="--full 時に optuna 再探索しハイパラ（best_params.json）を更新")
+    ap.add_argument("--horizon", type=int, default=labmod.DEFAULT_HORIZON, help="ラベルホライズン（既定=MaxHoldDays=20）")
+    ap.add_argument("--trials", type=int, default=40, help="optuna 試行数")
+    ap.add_argument("--topk", type=int, default=10, help="NDCG@K の K（既定=TopN=10）")
+    ap.add_argument("--no-write", action="store_true", help="MlScore を書き戻さず学習のみ（検証用。--full は元から書戻し無し）")
+    args = ap.parse_args()
+
+    if args.full:
+        # --full は IS/OOS 窓を使わないため --is/--oos は不要・無視。--train-end のみ条件付き必須。
+        if not args.train_end:
+            ap.error("--full 指定時は --train-end YYYY-MM-DD が必要です。")
+        _run_full(args)
+        return
+
+    # 通常のウォークフォワード経路（--full 不在）では --is/--oos を条件付き必須にする。
+    if not args.is_window or not args.oos_window:
+        ap.error("--is と --oos が必要です（--full を指定しない通常のウォークフォワード経路）。")
+    _run_walkforward(args)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,11 @@
 
 書き戻し（Signals.MlScore）は **C# プロセス完全終了後** に手動バッチで実行する前提
 （段階2は逐次手動運用なので SQLite 書き込みロックは衝突しない）。万一の locked は busy_timeout で吸収。
+
+段階3a の run-today は同一プロセスで ingest→analyze→predict を逐次実行するが、これも安全:
+逐次チェーン＝C# が予測中に能動的 DB 操作をしなければ（EF Core は各操作後に接続を閉じ、SaveChanges 完了後は
+アイドル接続でロック非保持）、同一プロセスでも書き込み衝突しない。「C# プロセス完全終了後」はより強い十分条件で、
+本経路はより弱い十分条件（Python 書込み中に C# が能動的 DB 操作をしない）で足りる。
 """
 from __future__ import annotations
 
