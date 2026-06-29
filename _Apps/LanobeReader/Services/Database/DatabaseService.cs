@@ -22,8 +22,12 @@ public class DatabaseService : SqliteDatabaseBase
         //    続く WAL 切替 PRAGMA 自体も競合時に最大 5 秒待機できるようにする(起動時の一時ロックで
         //    最初の DDL が即失敗→初期化 Task が faulted で固着するのを防ぐ)。WAL は DB ファイルに
         //    永続化され読取と書込の並行性を上げる。冪等(毎起動の再適用は無害)。
-        await conn.ExecuteAsync("PRAGMA busy_timeout=5000").ConfigureAwait(false);
-        await conn.ExecuteAsync("PRAGMA journal_mode=WAL").ConfigureAwait(false);
+        // これらの PRAGMA は「設定後の値」を結果行として返すため、行を読まない ExecuteAsync
+        // (=ExecuteNonQuery) で実行すると Step() が Row(100) を返し、sqlite-net が無条件 throw する
+        // ("not an error" = SQLITE_OK の errmsg)。結果行を読む ExecuteScalarAsync<T> を使う
+        // (journal_mode=WAL の有効化は sqlite-net 公式もこの呼び方)。
+        await conn.ExecuteScalarAsync<int>("PRAGMA busy_timeout=5000").ConfigureAwait(false);
+        await conn.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL").ConfigureAwait(false);
 
         // 1. CreateTable は冪等。v0 の新規インストール時の初期化も兼ねる。
         await conn.CreateTableAsync<Novel>().ConfigureAwait(false);
