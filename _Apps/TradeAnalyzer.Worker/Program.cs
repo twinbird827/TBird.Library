@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -6,6 +7,10 @@ using Microsoft.Extensions.Logging;
 using TradeAnalyzer.Core;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Worker;
+
+// 日本語ログ/出力を UTF-8 に固定（Windows 既定 console は cp932＝run-today.ps1 の Tee/リダイレクトで
+// 文字化けし監視ログが読めなくなるのを防ぐ）。コンソール非対応環境では best-effort で既定のまま。
+try { Console.OutputEncoding = Encoding.UTF8; } catch (IOException) { }
 
 var builder = Host.CreateApplicationBuilder(args);
 

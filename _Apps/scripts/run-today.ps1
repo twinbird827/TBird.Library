@@ -33,9 +33,23 @@ $logFile = Join-Path $logDir ("run-today-{0}.log" -f (Get-Date -Format "yyyyMMdd
 # CWD を Worker dir に固定（相対 trade.db / appsettings.json / MlDir(../ml) の解決基点）。
 Set-Location $workerDir
 
-"=== run-today 開始 {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss") | Tee-Object -FilePath $logFile -Append
-dotnet run --project $workerDir -- run-today *>&1 | Tee-Object -FilePath $logFile -Append
+# 子プロセス(dotnet)の UTF-8 stdout を正しく取り込み、ログも UTF-8 で書く（cp932 二重エンコードによる
+# 日本語ログ文字化けの回避。Program.cs が Console.OutputEncoding=UTF8 を設定し、こちらは PS 側の
+# 取り込み/書込みエンコーディングを揃える。Tee-Object は Windows PowerShell 5.1 で UTF-16 固定のため使わない）。
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+# 1行ずつ console へ echo しつつ UTF-8 でログ追記する。
+# 注: ヘッダ/フッタの出力リテラルは ASCII に限定する。Windows PowerShell 5.1 は BOM 無し .ps1 を
+#     ANSI(cp932) として解釈し日本語リテラルを壊すため（C# 子プロセスの出力は実行時 UTF-8 取り込みで無事）。
+function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
+
+Write-Log ("=== run-today START {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
+dotnet run --project $workerDir -- run-today 2>&1 | ForEach-Object {
+    $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }
+    Write-Log $line
+}
 $code = $LASTEXITCODE
-"=== run-today 終了 ExitCode={0} ({1}) ===" -f $code, (Get-Date -Format "yyyy-MM-dd HH:mm:ss") | Tee-Object -FilePath $logFile -Append
+Write-Log ("=== run-today END ExitCode={0} ({1}) ===" -f $code, (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 
 exit $code
