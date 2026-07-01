@@ -4,7 +4,10 @@ namespace TradeAnalyzer.Data.Entities;
 /// EDINET 書類一覧の1件（GET /documents.json?type=2 の results[]）。
 /// <para>
 /// 保存方針: 当日提出の全書類メタを保存する（段階2で <c>TargetDocTypeCodes</c> を四半期/半期へ
-/// 拡張する際の検出に有用なため絞り込まない）。したがって本テーブルには対象外の書類も
+/// 拡張する際の検出に有用なため絞り込まない）。同一 docID が複数のファイル日付一覧に再掲された場合
+/// （提出処理日＋書類情報修正日＋開示不開示区分変更日）は、PK=<see cref="DocId"/> 単独ゆえ最初に取り込んだ
+/// 一覧の <see cref="SubmitDate"/>（取込順依存で最小日付とは限らない）の行のみ保持し、再掲日の再挿入はスキップする（IngestEdinetAsync 参照）。
+/// したがって本テーブルには対象外の書類も
 /// <see cref="Parsed"/>=false / <see cref="NormalizedCode"/>=null で多数含まれる。
 /// <b>消費契約</b>: 財務事実として利用する側は必ず <see cref="Parsed"/>==true かつ
 /// <see cref="NormalizedCode"/>!=null の行のみを対象とすること（全行件数を母集団に使わない）。

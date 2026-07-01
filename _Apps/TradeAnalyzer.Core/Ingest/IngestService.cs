@@ -157,10 +157,23 @@ public class IngestService
                 targets = targets.Take(lim).ToList();
             }
 
-            // 書類メタを保存（delete-insert by submit date）。
+            // 書類メタを保存。EDINET は同一 docID を複数のファイル日付一覧に返す（提出処理日＋書類情報修正日＋
+            // 開示不開示区分変更日。公式仕様 ESE140206.pdf の date 注記）。PK は DocId 単独のため、SubmitDate 単位の
+            // delete-insert だけでは「他日に既存の同一 DocId」と UNIQUE 衝突する。対策として、同日分は置換（冪等維持）
+            // しつつ、他日に既に存在する DocId はスキップして衝突を避ける（既存メタ行を書き換えない）。
+            var ids = docs.Select(x => x.DocId).ToList();
             await _db.EdinetDocuments.Where(x => x.SubmitDate == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
-            _db.EdinetDocuments.AddRange(docs);
+            // 重要（順序の不変条件）: existingIds は上の同日 delete の「後」に取得する。ExecuteDeleteAsync は即時
+            // 実行なので、この時点で ids に一致して残るのは他日 SubmitDate の既存行のみ。この照会を delete より前へ
+            // 動かす／delete を外すと、当日 DocId まで existingIds に入り toInsert から落ちて当日メタが二度と挿入
+            // されなくなる（同日再取得でデータ消失）。順序を変えないこと。
+            var existingIds = (await _db.EdinetDocuments.Where(x => ids.Contains(x.DocId))
+                    .Select(x => x.DocId).ToListAsync(ct).ConfigureAwait(false))
+                .ToHashSet(StringComparer.Ordinal);
+            var toInsert = docs.DistinctBy(x => x.DocId).Where(x => !existingIds.Contains(x.DocId)).ToList();
+            _db.EdinetDocuments.AddRange(toInsert);
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("EDINET {Date}: 一覧 {Listed} 件・新規 {New} 件", d, docs.Count, toInsert.Count);
 
             foreach (var doc in targets)
             {
