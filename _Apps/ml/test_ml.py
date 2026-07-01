@@ -13,11 +13,13 @@ import sqlite3
 import sys
 
 import numpy as np
+import optuna
 import pandas as pd
 import pytest
 
 import db as dbmod
 import features
+import ml_common
 import predict
 import train
 
@@ -211,6 +213,68 @@ def test_walkforward_dispatches_with_is_oos(monkeypatch):
     assert captured["args"].is_window == "2024" and captured["args"].oos_window == "2025"
 
 
+# ---------- F7/F8: 意図的 SystemExit（OOS 空 / 全 trial pruned）の回帰固定 ----------
+class _NoopBooster:
+    """_run_walkforward の save 経路を無害化する最小スタブ（OOS 空ガードまで到達させるのが目的）。"""
+
+    def save_model(self, _path):
+        pass
+
+    def predict(self, x):
+        return np.zeros(len(x))
+
+
+def _walkforward_df() -> pd.DataFrame:
+    """_run_walkforward が OOS 空ガードへ到達する最小 df（IS に確定ラベル ≥2 日、OOS は別年で空）。
+
+    dtype 要件: Date=datetime64（_slice の比較互換）, feature_columns 全列=float かつ NaN なし
+    （_make_dataset の to_numpy 用）, LabelGain=int, EntryFeasible/LabelConfirmed=bool（is_df のブール索引用）。
+    """
+    fcols = features.feature_columns()
+    dates = pd.to_datetime(["2024-03-01", "2024-03-04", "2024-03-05"])
+    rows = [{"Date": d, "Code": code} for d in dates for code in ("A", "B")]
+    df = pd.DataFrame(rows)
+    df["RuleScore"] = 1.0
+    df["MlScore"] = np.nan
+    for c in fcols:
+        df[c] = 0.0
+    df["FwdReturn"] = 0.0
+    df["LabelGain"] = 0
+    df["EntryFeasible"] = True
+    df["LabelConfirmed"] = True
+    return df
+
+
+def test_run_walkforward_oos_empty_systemexit(monkeypatch):
+    # load_dataset を手組み df に差し替え、IS=2024（df を含む）/ OOS=2099（空）で oos_df.empty ガード(F7)を固定。
+    # _tune_hyperparams/_make_dataset/lgb.train/_ensure_models_dir/save_model を no-op 化し実 DB・実 models/・実学習に触れない。
+    df = _walkforward_df()
+    bars = pd.DataFrame({"Date": df["Date"].unique()})  # all_trading_days 算出用（値は stub 経路で未使用）。
+    monkeypatch.setattr(train, "load_dataset", lambda db, horizon: (df, bars))
+    monkeypatch.setattr(train, "_tune_hyperparams", lambda *a, **k: {})
+    monkeypatch.setattr(train, "_make_dataset", lambda *a, **k: None)  # dtrain は stub lgb.train で未使用。
+    monkeypatch.setattr(train.lgb, "train", lambda *a, **k: _NoopBooster())
+    monkeypatch.setattr(train, "_ensure_models_dir", lambda: None)  # hermetic（実 models/ を作らない）。
+    monkeypatch.setattr(sys, "argv", ["train.py", "--db", "x.db", "--is", "2024", "--oos", "2099"])
+    with pytest.raises(SystemExit):
+        train.main()
+
+
+def test_tune_hyperparams_all_trials_pruned_systemexit(monkeypatch):
+    # fold は構成可（_purged_folds stub で非空）だが全 trial が pruned → 完了 trial ゼロガード(F8)で SystemExit。
+    # _objective を常時 TrialPruned に差し替え lgb を実行しない（決定的・高速）。lambda は global _objective を
+    # 実行時解決するため monkeypatch.setattr(train, "_objective", ...) が効く。
+    train_df = pd.DataFrame({"Date": pd.to_datetime(["2024-01-01", "2024-01-02"])})
+    monkeypatch.setattr(train, "_purged_folds", lambda *a, **k: [(np.array([0]), np.array([1]))])
+
+    def _always_pruned(*_a, **_k):
+        raise optuna.TrialPruned()
+
+    monkeypatch.setattr(train, "_objective", _always_pruned)
+    with pytest.raises(SystemExit):
+        train._tune_hyperparams(train_df, [], np.array([]), horizon=5, topk=10, trials=2)
+
+
 # ---------- 段階3a: predict.py の FULL モデル自動解決（降順最新）・不在時 SystemExit ----------
 def test_resolve_latest_model_descending(monkeypatch, tmp_path):
     models = tmp_path / "models"
@@ -256,3 +320,136 @@ def test_resolve_target_date_empty_raises(tmp_path):
     conn.close()
     with pytest.raises(SystemExit):
         predict._resolve_target_date(db_path)
+
+
+# ---------- F6: predict.py の --date 厳格パース（不正値は SystemExit、NaT 不使用）----------
+def test_parse_target_date_valid():
+    assert predict._parse_target_date("2025-06-27") == pd.Timestamp("2025-06-27")
+
+
+def test_parse_target_date_invalid_raises_systemexit():
+    # 不正な月日（errors="raise" が ValueError）/ 非日付文字列（ParserError=ValueError 派生）→ SystemExit。
+    with pytest.raises(SystemExit):
+        predict._parse_target_date("2025-13-99")
+    with pytest.raises(SystemExit):
+        predict._parse_target_date("not-a-date")
+
+
+# ---------- F9: ml_common.score_and_write（採点→NaN ガード→書戻し）----------
+class _StubBooster:
+    """score_and_write は booster.predict(ndarray) のみ呼ぶため、固定配列を返す最小スタブで十分。"""
+
+    def __init__(self, values):
+        self._values = values
+
+    def predict(self, _x):
+        return np.asarray(self._values, dtype=float)
+
+
+def _scores_frame() -> pd.DataFrame:
+    return pd.DataFrame({
+        "Date": pd.to_datetime(["2025-01-06", "2025-01-06"]),
+        "Code": ["A", "B"],
+        "f0_rank": [0.1, 0.2],
+    })
+
+
+def test_score_and_write_writes_rows_and_returns_count():
+    conn = _make_signals_db()
+    try:
+        n = ml_common.score_and_write(_StubBooster([0.7, 0.8]), _scores_frame(), ["f0_rank"], conn, expect=2)
+        assert n == 2
+        assert conn.execute("SELECT MlScore FROM Signals WHERE Code='A'").fetchone()[0] == 0.7
+    finally:
+        conn.close()
+
+
+def test_score_and_write_nan_raises_systemexit():
+    conn = _make_signals_db()
+    try:
+        with pytest.raises(SystemExit):
+            ml_common.score_and_write(_StubBooster([0.7, np.nan]), _scores_frame(), ["f0_rank"], conn, expect=2)
+        # rollback 不要（NaN は書込み前に弾く）＝MlScore は依然 null。
+        assert conn.execute("SELECT MlScore FROM Signals WHERE Code='A'").fetchone()[0] is None
+    finally:
+        conn.close()
+
+
+def test_score_and_write_no_write_skips_but_still_guards_nan():
+    conn = _make_signals_db()
+    try:
+        # write=False: 書込まず採点行数を返す（NaN なしは正常）。conn は使われない。
+        n = ml_common.score_and_write(_StubBooster([0.7, 0.8]), _scores_frame(), ["f0_rank"], None, write=False)
+        assert n == 2
+        assert conn.execute("SELECT MlScore FROM Signals WHERE Code='A'").fetchone()[0] is None
+        # write=False でも NaN ガードは走る（--no-write 経路でも特徴量欠損を検出）。
+        with pytest.raises(SystemExit):
+            ml_common.score_and_write(_StubBooster([0.7, np.nan]), _scores_frame(), ["f0_rank"], None, write=False)
+    finally:
+        conn.close()
+
+
+# ---------- F4: load_one_day が全期間ロード（load_dataset）と t 行でビット等価 ----------
+def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
+    """ビット等価検証用の小さな trade.db を作る。
+
+    A,B,C は t+ まで bar を持つ（Date>t bar が t 行の後ろ向き特徴量に影響しないことを検証）。
+    D は t-5 までしか bar が無いが t で Passed（停止間際銘柄＝per-code 全履歴読みでビット等価を検証）。
+    返り値: (db_path, t, t0)。
+    """
+    cal = pd.bdate_range("2024-06-03", periods=160)
+    t = cal[140]
+    t0 = cal[120]
+    db_path = str(tmp_path / "trade.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE Signals (Date TEXT, Code TEXT, Passed INTEGER, RuleScore REAL, MlScore REAL)"
+    )
+    conn.execute(
+        "CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjOpen REAL, AdjHigh REAL, "
+        "AdjLow REAL, AdjClose REAL, AdjVolume REAL)"
+    )
+    conn.execute(
+        "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
+        "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL)"
+    )
+
+    # (bar 本数, 価格 base, slope)。D は 136 本＝cal[0..135]（=t-5 まで）で t に bar 無し。
+    code_specs = {"A": (160, 100.0, 1.0), "B": (160, 120.0, 0.8), "C": (160, 90.0, 1.2), "D": (136, 110.0, 0.5)}
+    bar_rows, fin_rows = [], []
+    for code, (n, base, slope) in code_specs.items():
+        for i in range(n):
+            px = base + i * slope
+            bar_rows.append((code, cal[i].strftime("%Y-%m-%d"), px, px + 1.0, px - 1.0, px, 1_000_000.0))
+        fin_rows.append((code, cal[100].strftime("%Y-%m-%d"), "FY", 10.0, 50.0, 1000.0, 2000.0))
+    conn.executemany("INSERT INTO DailyBars VALUES (?,?,?,?,?,?,?)", bar_rows)
+    conn.executemany("INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)", fin_rows)
+
+    sig_rows = [(t0.strftime("%Y-%m-%d"), c, 1, 3.0, None) for c in ("A", "B", "C")]
+    sig_rows += [(t.strftime("%Y-%m-%d"), c, 1, float(j + 1), None) for j, c in enumerate(("A", "B", "C", "D"))]
+    conn.executemany("INSERT INTO Signals (Date, Code, Passed, RuleScore, MlScore) VALUES (?,?,?,?,?)", sig_rows)
+    conn.commit()
+    conn.close()
+    return db_path, t, t0
+
+
+def test_load_one_day_bit_equivalent_to_full_load(tmp_path):
+    db_path, t, _ = _build_trade_db(tmp_path)
+    fcols = features.feature_columns()
+    cols = ["Date", "Code", "RuleScore"] + fcols
+
+    df_full, _bars = train.load_dataset(db_path, horizon=20)
+    day_full = train._slice(df_full, t, t)[cols].sort_values(["Date", "Code"]).reset_index(drop=True)
+    day_scoped = train.load_one_day(db_path, t, horizon=20)[cols].sort_values(["Date", "Code"]).reset_index(drop=True)
+
+    # 停止間際銘柄 D（t に bar 無し）も両者に含まれる（per-code 全履歴読みで as-of 被覆）。
+    assert "D" in day_scoped["Code"].values
+    # t 行の特徴量・RuleScore が全期間ロードと date-scope ロードでビット等価。
+    pd.testing.assert_frame_equal(day_full, day_scoped)
+
+
+def test_load_one_day_empty_when_no_passed_signals(tmp_path):
+    db_path, t, _ = _build_trade_db(tmp_path)
+    # signals 未投入の日（t の翌営業日）は空フレーム＝predict.main が .empty を見て SystemExit する経路。
+    next_bday = pd.bdate_range(t, periods=2)[1]
+    assert train.load_one_day(db_path, next_bday, horizon=20).empty

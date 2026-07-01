@@ -22,7 +22,12 @@ import pandas as pd
 
 @contextmanager
 def connect(db_path: str):
-    """busy_timeout を設定した接続をコンテキストで返す。"""
+    """busy_timeout を設定した接続をコンテキストで返す。
+
+    ロック待機は二層: timeout=10.0 は Python sqlite3 ドライバ側のロック獲得ポーリング上限（秒）、
+    PRAGMA busy_timeout=5000 は SQLite エンジン側の busy ハンドラ待機上限（ミリ秒）。両者で
+    一時ロック（同一プロセス内の逐次 ingest→predict 書込み等）を吸収する。
+    """
     conn = sqlite3.connect(db_path, timeout=10.0)
     try:
         conn.execute("PRAGMA busy_timeout=5000")
@@ -39,21 +44,59 @@ def _parse_dates(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     return df
 
 
-def read_signals(conn: sqlite3.Connection, passed_only: bool = True) -> pd.DataFrame:
-    """Signals を読む。passed_only=True で Passed=1（スコアリング対象母集団）に絞る。"""
-    where = "WHERE Passed = 1" if passed_only else ""
+def read_signals(
+    conn: sqlite3.Connection, passed_only: bool = True, date: pd.Timestamp | None = None
+) -> pd.DataFrame:
+    """Signals を読む。passed_only=True で Passed=1（スコアリング対象母集団）に絞る。
+
+    date 指定時は Date==date（yyyy-MM-dd）にも絞る（当日採点 load_one_day 用）。省略時は全期間＝
+    既存の学習経路（load_dataset）の挙動を不変に保つ。
+    """
+    clauses: list[str] = []
+    params: list = []
+    if passed_only:
+        clauses.append("Passed = 1")
+    if date is not None:
+        clauses.append("Date = ?")
+        params.append(pd.Timestamp(date).strftime("%Y-%m-%d"))
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     df = pd.read_sql(
-        f"SELECT Date, Code, Passed, RuleScore, MlScore FROM Signals {where}", conn
+        f"SELECT Date, Code, Passed, RuleScore, MlScore FROM Signals {where}",
+        conn,
+        params=params,
     )
     return _parse_dates(df, ["Date"])
 
 
-def read_daily_bars(conn: sqlite3.Connection) -> pd.DataFrame:
-    """DailyBars 全件（調整後 Adj* を特徴量・ラベルに使う）。"""
+def read_daily_bars(
+    conn: sqlite3.Connection,
+    codes: list[str] | None = None,
+    end: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """DailyBars を読む（調整後 Adj* を特徴量・ラベルに使う）。
+
+    codes 指定時は Code IN (...)、end 指定時は Date<=end（yyyy-MM-dd）に絞る（当日採点の per-code
+    全履歴読み＝load_one_day 用。各 code の Date<=t 全履歴で as-of bar の後ろ向き特徴量をビット等価に保つ）。
+    既定（両省略）は全件＝既存の学習経路（load_dataset）の挙動を不変に保つ。
+
+    呼出側契約: codes に空 list を渡さないこと（呼出側が universe 非空を保証する。空だと Code IN () で不正 SQL。
+    現状 load_one_day は signals.empty を先にガードするため到達不能）。None（既定）は絞り込み無し＝全件。
+    """
+    clauses: list[str] = []
+    params: list = []
+    if codes is not None:
+        placeholders = ",".join("?" for _ in codes)
+        clauses.append(f"Code IN ({placeholders})")
+        params.extend(str(c) for c in codes)
+    if end is not None:
+        clauses.append("Date <= ?")
+        params.append(pd.Timestamp(end).strftime("%Y-%m-%d"))
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     df = pd.read_sql(
         "SELECT Code, Date, AdjOpen, AdjHigh, AdjLow, AdjClose, AdjVolume "
-        "FROM DailyBars",
+        f"FROM DailyBars {where}",
         conn,
+        params=params,
     )
     df = _parse_dates(df, ["Date"])
     return df.sort_values(["Code", "Date"]).reset_index(drop=True)

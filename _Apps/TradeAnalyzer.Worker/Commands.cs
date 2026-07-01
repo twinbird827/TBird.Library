@@ -1,8 +1,8 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -218,7 +218,8 @@ public static class Commands
         var db = sp.GetRequiredService<AppDbContext>();
         var rules = sp.GetRequiredService<RuleEngine>();
         var ingest = sp.GetRequiredService<IngestService>();
-        var config = sp.GetRequiredService<IConfiguration>();
+        var pythonOptions = sp.GetRequiredService<IOptions<PythonOptions>>();
+        int topN = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.TopN;
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("run-today");
 
         // 1. 当日 ingest（型付き IngestService を直接呼ぶ＝CLI ラッパの MigrateAsync は同梱しない）。
@@ -226,7 +227,10 @@ public static class Commands
         //    3a は新規マイグレーションを導入しないため。空/未マイグレーション DB だと ingest 内の
         //    ExecuteDeleteAsync が no such table で停止する（run-today.ps1 冒頭に「要 migrate 済み DB」明記）。
         ValidateIngestConfig(sp, skipJQuants);
-        var today = DateOnly.FromDateTime(DateTime.Today); // JST 開発機前提（将来 TZ 厳密化）。
+        // 当日は JST 固定で導出する（ホストローカル日付に依存させない＝非 JST ホスト移植でも1日ズレない）。
+        // TimeProvider は既存 JQuantsRateLimiter と同じ「DI 未登録時は TimeProvider.System」方針で入手する。
+        var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+        var today = ResolveTodayJst(timeProvider);
         // --edinet-limit 0 相当（EDINET CSV 解析を止める。文書一覧 API は日次で残る＝段階2と同じ）。
         await ingest.IngestAsync(today, today, skipJQuants, edinetLimitPerDay: 0);
 
@@ -253,8 +257,8 @@ public static class Commands
         //    DbConnection.DataSource（EF Core Relational の面のみ＝Microsoft.Data.Sqlite を直接参照しない）の
         //    値を Path.GetFullPath で絶対化し、Python の CWD（MlDir）と別ファイルを開かないようにする。
         string dbPath = Path.GetFullPath(db.Database.GetDbConnection().DataSource);
-        string predictScript = config["Python:PredictScript"] ?? "predict.py";
-        await RunPythonAsync(config, logger, predictScript, new[]
+        string predictScript = pythonOptions.Value.PredictScript;
+        await RunPythonAsync(pythonOptions.Value, logger, predictScript, new[]
         {
             ("--db", dbPath),
             ("--date", t.ToString("yyyy-MM-dd")),
@@ -272,16 +276,12 @@ public static class Commands
             throw new InvalidOperationException(
                 $"{t}: MlScore 未設定の Passed 行があります（Python 書戻し漏れ）。predict.py の出力を確認してください。");
 
-        // 6. Top-K 出力（MlScore 降順・ThenByDescending(RuleScore)・ThenBy(Code)）。3a の成果物はここまで（配信なし）。
-        int topK = int.TryParse(config["Output:TopK"], out var k) ? k : 10;
-        var top = passed
-            .OrderByDescending(r => r.MlScore!.Value)
-            .ThenByDescending(r => r.RuleScore)
-            .ThenBy(r => r.Code)
-            .Take(topK)
-            .ToList();
+        // 6. Top-K 出力。並べ替え／件数は純粋関数 SelectTopPicks（バックテスト picks と同一規則）に共通化し、
+        //    本番出力と戦略の乖離を防ぐ（ソートキーの正典は SelectTopPicks の XML doc）。
+        //    件数は当日 Top-K＝バックテスト TopN（同一概念。F11 で統合）の単一ノブを使う。
+        var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
-        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topK}（MlScore 降順, Passed {passed.Count} 件中）===");
+        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
         Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
@@ -291,16 +291,16 @@ public static class Commands
     /// uv run python &lt;script&gt; &lt;args...&gt; を Python:MlDir を作業ディレクトリに起動し、ExitCode≠0 なら
     /// stderr を添えて throw する小ヘルパ。stdout/stderr を逐次ログ、タイムアウト（既定10分）超過で kill＋throw。
     /// double.MinValue 等での黙殺は禁止（段階2 silent fallback 禁止方針を Process 境界にも適用）。
-    /// run-today と将来の 3b が共有する Python 起動点。設定はスカラ4項目のみのため IConfiguration 直読み。
+    /// run-today と将来の 3b が共有する Python 起動点。設定は型付き <see cref="PythonOptions"/> から受ける。
     /// </summary>
     private static async Task RunPythonAsync(
-        IConfiguration config, ILogger logger, string scriptPath,
+        PythonOptions opt, ILogger logger, string scriptPath,
         IReadOnlyList<(string key, string value)> options, CancellationToken ct = default)
     {
-        string uvPath = config["Python:UvPath"] ?? "uv"; // PATH 非依存にしたい場合は絶対パス指定可。
-        string mlDir = Path.GetFullPath(config["Python:MlDir"]
+        string uvPath = string.IsNullOrWhiteSpace(opt.UvPath) ? "uv" : opt.UvPath; // PATH 非依存なら絶対パス指定可。
+        string mlDir = Path.GetFullPath(opt.MlDir
             ?? throw new InvalidOperationException("Python:MlDir が未設定です（appsettings.json）。"));
-        int timeoutMinutes = int.TryParse(config["Python:TimeoutMinutes"], out var tm) && tm > 0 ? tm : 10;
+        int timeoutMinutes = opt.TimeoutMinutes > 0 ? opt.TimeoutMinutes : 10;
 
         var psi = new ProcessStartInfo
         {
@@ -325,39 +325,112 @@ public static class Commands
         }
 
         var stderr = new StringBuilder();
+        // stderr(StringBuilder=非スレッドセーフ) を ErrorDataReceived の append と全読取（timeout/ExitCode 両経路）で保護する。
+        // StringBuilder インスタンス自身を lock 対象にする公開ロックを避け、専用オブジェクトを用意する。
+        object stderrLock = new();
         using var proc = new Process { StartInfo = psi };
         proc.OutputDataReceived += (_, e) => { if (e.Data != null) logger.LogInformation("[python] {Line}", e.Data); };
         proc.ErrorDataReceived += (_, e) =>
         {
             if (e.Data == null) return;
-            stderr.AppendLine(e.Data);
+            lock (stderrLock) { stderr.AppendLine(e.Data); }
             logger.LogWarning("[python:err] {Line}", e.Data);
         };
 
         logger.LogInformation("Python 起動: {Uv} run python {Script} {Args} (cwd={Cwd})",
             uvPath, scriptPath, string.Join(' ', options.Select(o => $"{o.key} {o.value}")), mlDir);
 
-        if (!proc.Start())
-            throw new InvalidOperationException($"Python プロセスを起動できません: {uvPath}（Python:UvPath を確認）。");
+        // UseShellExecute=false の Process.Start() は実行ファイル不在時 false を返さず Win32Exception を
+        // throw する（旧 `if (!proc.Start())` の親切メッセージは dead-code だった）。例外を捕捉し原因明示で包む。
+        try
+        {
+            proc.Start();
+        }
+        catch (Win32Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Python プロセスを起動できません: {uvPath}（Python:UvPath を確認）。", ex);
+        }
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(TimeSpan.FromMinutes(timeoutMinutes));
+        // BeginOutput/ErrorReadLine と CancelOutput/ErrorRead をペア化し購読寿命を明示する。
+        // 正常終了経路では下の引数なし WaitForExit() の flush 完了までにハンドラが発火し切る。
+        // timeout の bounded-drain false 経路（孫プロセス未終了で引数なし WaitForExit() を意図的にスキップ）では
+        // 読取がアクティブなまま本 finally の Cancel で明示停止する。post-EOF/Kill 後でも _output/_error は
+        // using Dispose まで非 null ゆえ Cancel は throw せず、伝播中の例外を握り潰さない。
+        // ハンドラが参照する logger は DI 管理で本メソッドより寿命が長い。
         try
         {
-            await proc.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            try { proc.Kill(entireProcessTree: true); }
-            catch (Exception killEx) { logger.LogDebug(killEx, "Python プロセス kill 失敗（既に終了済みの可能性）。"); }
-            throw new TimeoutException($"Python 実行が {timeoutMinutes} 分でタイムアウトしました: {scriptPath}");
-        }
+            try
+            {
+                await proc.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                // Kill 後、受信済み stderr を診断として例外へ添付する（ExitCode≠0 経路と対称化＝Python トレースバック保持）。
+                // 単に {stderr} を読むと Kill 後も発火しうる ErrorDataReceived ハンドラと並行 read になり torn read を招くため、
+                // 非同期リーダを bounded に flush してから locked snapshot を読む。drain 失敗でも throw を保証するよう try/catch で囲む。
+                // Kill/flush の例外は握り潰さず TimeoutException の innerException に連鎖させる（Win32Exception 等の原因を保持）。
+                Exception? killEx = null;
+                try
+                {
+                    proc.Kill(entireProcessTree: true);
+                    // WaitForExit(TimeSpan) は非同期 ErrorDataReceived の flush を保証しない（MS docs: WaitForExit(Int32) の
+                    // Remarks。true を受けた後に引数なし WaitForExit() を呼べ）。5 秒内に終了済(true)のときだけ続けて引数なし
+                    // WaitForExit() で EOF flush を完了させる（終了済みなので即 return＝bounded 意図と両立）。false（孫プロセス
+                    // wedge で 5 秒内に未終了）なら無限ブロック回避のため引数なし呼出を避け、受信済み分のみ添付する。
+                    if (proc.WaitForExit(TimeSpan.FromSeconds(5)))
+                        proc.WaitForExit();
+                }
+                catch (Exception ex) { killEx = ex; logger.LogWarning(ex, "Python プロセス kill/flush 失敗（既に終了済みの可能性）。"); }
+                string tail;
+                lock (stderrLock) { tail = stderr.ToString(); }
+                throw new TimeoutException(
+                    $"Python 実行が {timeoutMinutes} 分でタイムアウトしました: {scriptPath}\nstderr(タイムアウトまで):\n{tail}",
+                    killEx);
+            }
 
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException(
-                $"Python が ExitCode={proc.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{stderr}");
+            // WaitForExitAsync は非同期 stdout/stderr リーダの EOF flush を保証しない（ExitCode≠0 時に throw する
+            // stderr 末尾＝Python トレースバック最重要行が欠落しうる）。引数なし同期 WaitForExit() を1回呼び、
+            // 非同期バッファを完全 flush してから ExitCode/stderr を参照する（正常終了済みなので即時 return）。
+            proc.WaitForExit();
+
+            if (proc.ExitCode != 0)
+            {
+                // 直前の引数なし WaitForExit() が非同期イベント処理の完了を保証するため並行 writer は不在だが、
+                // 読取作法を timeout 経路と統一して locked snapshot で読む。
+                string tail;
+                lock (stderrLock) { tail = stderr.ToString(); }
+                throw new InvalidOperationException(
+                    $"Python が ExitCode={proc.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{tail}");
+            }
+        }
+        finally
+        {
+            // Begin/Cancel をペア化し購読寿命を明示。post-EOF/Kill 後でも _output/_error は using Dispose まで
+            // 非 null（BeginOutput/ErrorReadLine は Start 後・proc.Start の Win32Exception catch が Begin 前に return）
+            // ゆえ Cancel は throw せず、伝播中の TimeoutException/InvalidOperationException を握り潰さない。
+            proc.CancelOutputRead();
+            proc.CancelErrorRead();
+        }
+    }
+
+    /// <summary>
+    /// JST（Asia/Tokyo）の当日を <see cref="TimeProvider"/> から導出する純粋関数（DB/プロセス非依存・
+    /// SelfTest で固定可能）。ホストローカル日付に依存せず、非 JST ホスト（VPS/クラウド）でも当日が
+    /// JST 基準で一意に決まる。"Asia/Tokyo" は .NET6+ が ICU で IANA/Windows ID を相互解決する。
+    /// ICU を無効化した旧構成では <see cref="TimeZoneInfo.FindSystemTimeZoneById"/> が
+    /// TimeZoneNotFoundException で起動時に明示失敗する（silent fallback しないため気付ける）。
+    /// </summary>
+    internal static DateOnly ResolveTodayJst(TimeProvider timeProvider)
+    {
+        var nowJst = TimeZoneInfo.ConvertTimeFromUtc(
+            timeProvider.GetUtcNow().UtcDateTime,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo"));
+        return DateOnly.FromDateTime(nowJst);
     }
 
     // --- 設定検証 ---
@@ -386,7 +459,7 @@ public static class Commands
         for (int i = 1; i < args.Length; i++) // args[0] はコマンド名
         {
             if (!args[i].StartsWith("--", StringComparison.Ordinal)) continue;
-            var key = args[i].Substring(2);
+            var key = args[i][2..];
             var value = (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
                 ? args[++i] : "true";
             dict[key] = value;

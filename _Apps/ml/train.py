@@ -36,12 +36,28 @@ import pandas as pd
 import db as dbmod
 import features as featmod
 import labels as labmod
+from ml_common import score_and_write
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 # --full のハイパラ永続化先（--retune が書き、以降の --full が読む）。
 BEST_PARAMS_PATH = os.path.join(MODELS_DIR, "best_params.json")
+
+
+def _ensure_models_dir() -> None:
+    """MODELS_DIR を用意（makedirs の唯一の発生点＝保存先生成の単一ソース）。
+
+    import 時には呼ばず、実際に保存する経路（_save_model / _save_best_params）からのみ呼ぶ。これで
+    predict.py / evaluate.py の採点・評価専用 import で models/ を生成する副作用（I/O が import に漏れる）を避ける。
+    """
+    os.makedirs(MODELS_DIR, exist_ok=True)
+
+
+def _save_model(booster: lgb.Booster, model_path: str) -> None:
+    """models/ を用意してから booster を保存する（モデル保存経路の単一ソース）。"""
+    _ensure_models_dir()
+    booster.save_model(model_path)
 
 
 # --------- 期間パース（C# RequireRange と同形式: YYYY または YYYY-MM-DD:YYYY-MM-DD）---------
@@ -54,10 +70,39 @@ def parse_window(s: str) -> tuple[pd.Timestamp, pd.Timestamp]:
 
 
 # --------- データ組み立て（train/evaluate 共通）---------
-def load_dataset(db_path: str, horizon: int) -> pd.DataFrame:
-    """Passed 母集団に特徴量・ラベルを結合した1枚のフレームを返す。
+def _merge_features_and_guard(
+    signals: pd.DataFrame, feats: pd.DataFrame, where: str = ""
+) -> pd.DataFrame:
+    """signals(Date/Code/RuleScore/MlScore) を feats に inner merge し、universe 完全被覆を回帰ガードする。
 
-    列: Date, Code, RuleScore, {feature cols}, FwdReturn, LabelGain, EntryFeasible, LabelConfirmed。
+    train（load_dataset）と当日採点（load_one_day）が共有する skew 検出契約の単一ソース。inner merge で
+    Passed 行が欠落すると Python はその行に MlScore を書けず、C# の ML backtest/run-today が Passed かつ
+    MlScore=null で停止する。それを silent fallback させず原因明示の SystemExit に変える。
+
+    where: 診断文脈（非空なら例外文に差し込む。例 ``t=2025-06-27`` で run-today のどの採点対象日で
+           universe 被覆が崩れたかを保持）。空（既定）なら t 非依存の汎用文言。
+    """
+    df = signals[["Date", "Code", "RuleScore", "MlScore"]].merge(
+        feats, on=["Date", "Code"], how="inner"
+    )
+    n_universe = signals[["Date", "Code"]].drop_duplicates().shape[0]
+    if len(df) != n_universe:
+        mid = f" {where} の " if where else " "
+        raise SystemExit(
+            f"特徴量結合で{mid}Passed 行が欠落: signals(unique)={n_universe} != joined={len(df)}。"
+            "features.build_features の as-of 結合が universe を完全被覆しているか確認してください。"
+        )
+    return df
+
+
+def load_dataset(db_path: str, horizon: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Passed 母集団に特徴量・ラベルを結合した1枚のフレームと、全 DailyBars を返す。
+
+    返り値: (df, bars)。
+      df  : 列 Date, Code, RuleScore, MlScore, {feature cols}, FwdReturn, LabelGain,
+            EntryFeasible, LabelConfirmed。
+      bars: read_daily_bars の全件。PS1: 呼出側が embargo 用の全取引日カレンダー（all_trading_days）を
+            再読込せず使い回せるよう返す（DB 往復削減。train 経路の取引日は全期間必須なので date-scope しない）。
     """
     with dbmod.connect(db_path) as conn:
         signals = dbmod.read_signals(conn, passed_only=True)
@@ -72,20 +117,39 @@ def load_dataset(db_path: str, horizon: int) -> pd.DataFrame:
     feats = featmod.build_features(bars, fin, signals)
     labs = labmod.build_labels(bars, signals, horizon=horizon)
 
-    df = (
-        signals[["Date", "Code", "RuleScore", "MlScore"]]
-        .merge(feats, on=["Date", "Code"], how="inner")
-        .merge(labs, on=["Date", "Code"], how="left")
-    )
+    # 特徴量 inner merge＋universe 完全被覆ガード（load_one_day と共通）。labs の how="left" は build_labels が
+    # uni=universe.drop_duplicates() 由来で (Date,Code) 一意ゆえ行数不変＝ガードを labs 前に置いても判定は不変。
+    df = _merge_features_and_guard(signals, feats).merge(labs, on=["Date", "Code"], how="left")
+    return df.sort_values(["Date", "Code"]).reset_index(drop=True), bars
 
-    # 回帰ガード: 特徴量結合(inner)で Passed 行が欠落していないこと。落ちると Python は
-    # その行に MlScore を書けず、C# ML backtest が Passed かつ MlScore=null で停止する。
-    n_universe = signals[["Date", "Code"]].drop_duplicates().shape[0]
-    if len(df) != n_universe:
-        raise SystemExit(
-            f"特徴量結合で Passed 行が欠落: signals(unique)={n_universe} != joined={len(df)}。"
-            "features.build_features の as-of 結合が universe を完全被覆しているか確認してください。"
-        )
+
+def load_one_day(db_path: str, t: pd.Timestamp, horizon: int) -> pd.DataFrame:
+    """採点専用に「当日 t の Passed universe」だけを組み立てる軽量ローダ（predict.py が使う）。
+
+    load_dataset が全期間を読む（universe が単調増加する run-today では履歴長に比例してコスト増）のに対し、
+    t の Passed 行だけを採点するための最小データに絞る。スコアは全期間ロードとビット等価:
+      - signals は Date==t の Passed に絞る（efficiency の主因＝全履歴の数万行→当日の数百行）。
+      - bars は t の universe code に限定し、各 code は Date<=t の**全履歴**を読む（as-of bar の後ろ向き
+        特徴量 sma75/mom60 等が全期間ロードと同一履歴で計算されビット等価。停止間際で t に bar が無い
+        Passed 銘柄も最新 bar の全履歴を持つため NaN 化しない）。
+      - fin は全件（_attach_financials の as-of backward が直近開示を窓に依らず引くため、絞ると
+        四半期開示の直近1件を落とし per_inv/pbr_inv/equity_ratio が NaN 化しスコアが変わる。fin は安価）。
+    ラベルは採点に不要なので build_labels を呼ばない（戻り列 = Date/Code/RuleScore/MlScore/{feature cols}）。
+    horizon は load_dataset と署名を揃えるためだけに受ける（採点はラベル不要で未使用）。
+    """
+    with dbmod.connect(db_path) as conn:
+        signals = dbmod.read_signals(conn, passed_only=True, date=t)
+        if signals.empty:
+            # 当日 t に Passed 行が無い（analyze 未実行/対象日誤り）。呼出側 predict.main が .empty を
+            # 見て親切メッセージで SystemExit するため、空フレームを返す（bars 読みは不要）。
+            return signals
+        codes = signals["Code"].unique().tolist()
+        bars = dbmod.read_daily_bars(conn, codes=codes, end=t)
+        fin = dbmod.read_fin_summaries(conn)
+
+    feats = featmod.build_features(bars, fin, signals)
+    # load_dataset と同一の特徴量 inner merge＋回帰ガード（共通ヘルパ）。where で当日 t の診断文脈を保持する。
+    df = _merge_features_and_guard(signals, feats, where=f"t={t:%Y-%m-%d}")
     return df.sort_values(["Date", "Code"]).reset_index(drop=True)
 
 
@@ -222,13 +286,24 @@ def _tune_hyperparams(
     study = optuna.create_study(direction="maximize")
     study.optimize(lambda t: _objective(t, train_df, fcols, folds, topk),
                    n_trials=trials, show_progress_bar=False)
+    # F8: fold は構成できても各 fold で tr/va が空だと全 trial が pruned になり、study.best_value が
+    # ValueError("No trials are completed yet") を **raise** する（best_trial is None 比較では機能しない＝
+    # 完了 trial ゼロ時 best_trial/best_value も同例外を投げるため）。完了 trial の有無で先に判定して原因明示。
+    if not any(t.state == optuna.trial.TrialState.COMPLETE for t in study.trials):
+        raise SystemExit(
+            f"全 {trials} trial が pruned（各 fold で学習/検証データが空）。fold は構成できたがリバランス日"
+            "あたり銘柄数 or 学習期間が不足しています。学習期間を広げるか --horizon を見直してください。"
+        )
     print(f"best CV NDCG@{topk}={study.best_value:.4f}, params={study.best_params}")
     return study.best_params
 
 
 def _save_best_params(tunable: dict) -> None:
-    """best_params.json に tunable ハイパラを保存（--retune 経路のみ。--full はこれを読む）。"""
-    os.makedirs(MODELS_DIR, exist_ok=True)
+    """best_params.json に tunable ハイパラを保存（--retune 経路のみ。--full はこれを読む）。
+
+    保存先 MODELS_DIR は `_ensure_models_dir()` で用意（makedirs の単一ソース）。
+    """
+    _ensure_models_dir()
     with open(BEST_PARAMS_PATH, "w", encoding="utf-8") as f:
         json.dump(tunable, f, ensure_ascii=False, indent=2)
     print(f"ハイパラ保存: {BEST_PARAMS_PATH}")
@@ -251,14 +326,13 @@ def _run_walkforward(args: argparse.Namespace) -> None:
     oos_start, oos_end = parse_window(args.oos_window)
     fcols = featmod.feature_columns()
 
-    df = load_dataset(args.db, args.horizon)
+    df, bars = load_dataset(args.db, args.horizon)
     is_df = _slice(df, is_start, is_end)
     oos_df = _slice(df, oos_start, oos_end)
 
-    # Purged K-Fold の embargo を「取引日距離」で計算するための全取引日カレンダー（1回 precompute）。
-    # optuna は _objective を trials 回呼ぶため、ここで in-memory 化して trial/fold ごとの DB 往復を避ける。
-    with dbmod.connect(args.db) as conn:
-        all_trading_days = np.array(sorted(dbmod.read_daily_bars(conn)["Date"].unique()))
+    # Purged K-Fold の embargo を「取引日距離」で計算するための全取引日カレンダー。
+    # PS1: load_dataset が読んだ bars を再利用し DailyBars 再読込を省く（DB 往復削減）。
+    all_trading_days = np.array(sorted(bars["Date"].unique()))
 
     # 学習母集団＝IS の確定ラベル行（entry 可能 かつ ラベル確定）。
     train_df = is_df[is_df["LabelConfirmed"] & is_df["EntryFeasible"]].copy()
@@ -281,36 +355,28 @@ def _run_walkforward(args: argparse.Namespace) -> None:
     dtrain = _make_dataset(train_df, fcols)
     booster = lgb.train(best_params, dtrain, num_boost_round=800, callbacks=[lgb.log_evaluation(0)])
 
-    os.makedirs(MODELS_DIR, exist_ok=True)
     model_path = os.path.join(MODELS_DIR, f"lambdarank_IS{is_start:%Y%m%d}-{is_end:%Y%m%d}.txt")
-    booster.save_model(model_path)
+    _save_model(booster, model_path)
     print(f"モデル保存: {model_path}")
 
+    # F7: OOS Passed 行が 0 件なら原因明示で異常終了（exit 0→非0）。サイレント成功させると後続 C#
+    # backtest --use-ml が MlScore 全 null で停止して初めて原因（OOS データ不足）が露見するため。
     if oos_df.empty:
-        print("OOS Passed 行が 0 です（書き戻しスキップ）。")
-        return
-
-    # OOS 全 Passed 行を out-of-sample スコアリング（ラベル不要＝特徴量だけで書ける）。
-    oos_scored = oos_df[["Date", "Code"]].copy()
-    oos_scored["MlScore"] = booster.predict(oos_df[fcols].to_numpy())
-
-    # 回帰ガード: 全 OOS Passed 行にスコアが付いたこと（NaN は C# null 検査で backtest を止める）。
-    n_null = int(np.isnan(oos_scored["MlScore"].to_numpy()).sum())
-    if n_null:
         raise SystemExit(
-            f"OOS スコアに NaN が {n_null} 件＝特徴量欠損の疑い。C# null 検査で backtest が停止します。"
+            f"OOS 期間 {oos_start:%Y-%m-%d}..{oos_end:%Y-%m-%d} の Passed 行が 0 件＝後続 backtest が"
+            " MlScore 全 null で停止します。--oos 期間に ingest 済み履歴があるか確認してください。"
         )
 
+    # OOS 全 Passed 行を out-of-sample スコアリング（ラベル不要＝特徴量だけで書ける）。NaN ガード→書戻しは
+    # predict と共通の score_and_write に集約する（write=not no_write で --no-write でも NaN ガードは走る）。
+    with dbmod.connect(args.db) as conn:
+        updated = score_and_write(
+            booster, oos_df, fcols, conn, expect=len(oos_df), write=not args.no_write
+        )
     if args.no_write:
         print("--no-write 指定: MlScore 書き戻しをスキップしました。")
-        return
-
-    with dbmod.connect(args.db) as conn:
-        # expect=len(oos_scored): oos_scored の (Date,Code) は一意（load_dataset の回帰ガードが
-        # signals の重複を弾くため）＝1行1 UPDATE で rowcount は行数と一致する。不一致なら write_mlscores
-        # が rollback して ValueError を投げる（書戻し漏れを原子的に検出）。
-        updated = dbmod.write_mlscores(conn, oos_scored, expect=len(oos_scored))
-    print(f"Signal.MlScore 書き戻し: {updated} 行（OOS 全 Passed）")
+    else:
+        print(f"Signal.MlScore 書き戻し: {updated} 行（OOS 全 Passed）")
 
 
 def _run_full(args: argparse.Namespace) -> None:
@@ -321,7 +387,7 @@ def _run_full(args: argparse.Namespace) -> None:
     train_end = pd.Timestamp(args.train_end)
     fcols = featmod.feature_columns()
 
-    df = load_dataset(args.db, args.horizon)
+    df, bars = load_dataset(args.db, args.horizon)
     # train-end 以前かつラベル確定・entry 可能な行のみ（labels.py が直近 H 日を未確定として除外済み）。
     pop = df[(df["Date"] <= train_end) & df["LabelConfirmed"] & df["EntryFeasible"]].copy()
     n_dates = pop["Date"].nunique()
@@ -334,8 +400,8 @@ def _run_full(args: argparse.Namespace) -> None:
         )
 
     if args.retune:
-        with dbmod.connect(args.db) as conn:
-            all_trading_days = np.array(sorted(dbmod.read_daily_bars(conn)["Date"].unique()))
+        # PS1: load_dataset が読んだ bars を再利用（embargo 用の全取引日カレンダー。DB 往復削減）。
+        all_trading_days = np.array(sorted(bars["Date"].unique()))
         tunable = _tune_hyperparams(pop, fcols, all_trading_days, args.horizon, args.topk, args.trials)
         _save_best_params(tunable)
     else:
@@ -345,9 +411,8 @@ def _run_full(args: argparse.Namespace) -> None:
     dtrain = _make_dataset(pop, fcols)
     booster = lgb.train(params, dtrain, num_boost_round=800, callbacks=[lgb.log_evaluation(0)])
 
-    os.makedirs(MODELS_DIR, exist_ok=True)
     model_path = os.path.join(MODELS_DIR, f"lambdarank_FULL_{train_end:%Y%m%d}.txt")
-    booster.save_model(model_path)
+    _save_model(booster, model_path)
     print(f"FULL モデル保存: {model_path}（旧モデルは手動ロールバック用に残す）")
 
 

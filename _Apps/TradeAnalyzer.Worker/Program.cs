@@ -23,6 +23,11 @@ builder.Configuration.AddJsonFile("Secrets.json", optional: true, reloadOnChange
 builder.Services.AddTradeAnalyzerData(builder.Configuration);
 builder.Services.AddTradeAnalyzerCore(builder.Configuration);
 
+// Worker 固有の Python 採点設定（run-today / 将来 3b が共有）。Worker は composition root のため
+// Core/Data の「Configure は拡張メソッドに集約」規約とは別に Program.cs で直接バインドする。
+builder.Services.Configure<PythonOptions>(
+    builder.Configuration.GetSection(PythonOptions.SectionName));
+
 var host = builder.Build();
 
 var command = args.Length > 0 ? args[0].ToLowerInvariant() : "help";
