@@ -41,6 +41,9 @@ public static class SelfTest
         failed += await RunTradingDayHelperTestAsync();
         failed += await RunBacktestProvenanceTestsAsync();
         failed += await RunBacktestMissingDaysTestAsync();
+        failed += RunSelectTopPicksTests();
+        failed += await RunAsNoTrackingReflectsUpdateTestAsync();
+        failed += RunResolveTodayJstTests();
 
         if (failed == 0) Console.WriteLine("SelfTest: 全テスト PASS");
         else
@@ -334,6 +337,25 @@ public static class SelfTest
 
             f += Assert("Backtest: トレード発生", run.TradeCount > 0);
             f += Assert("Backtest: Exit>=Entry", run.Results.All(r => r.ExitDate >= r.EntryDate));
+
+            // F-r3-1: ATR ストップ有効（AtrStopMultiplier>0）かつ AtrPeriod<=0 の誤設定は、RunAsync 最上部の
+            // 入口ガードが ArgumentOutOfRangeException で fail-loud にする（DB アクセス前に即 throw）。
+            // topN<=0 ガード（SelectTopPicks）と対称の設定検証回帰。型名は当該 using 不在のため完全修飾。
+            var atrBadOpt = new TradeAnalyzer.Core.Backtest.BacktestOptions
+            {
+                RebalanceIntervalDays = 20, TopN = 5, MaxHoldDays = 10, AtrStopMultiplier = 2.0, AtrPeriod = 0,
+            };
+            var btAtrBad = new TradeAnalyzer.Core.Backtest.BacktestService(db,
+                Options.Create(atrBadOpt),
+                NullLogger<TradeAnalyzer.Core.Backtest.BacktestService>.Instance);
+            bool atrGuardThrew = false;
+            try
+            {
+                await btAtrBad.RunAsync(new DateOnly(2024, 1, 1), new DateOnly(2024, 12, 31),
+                    oosStart, oosEnd, useMl: false, "selftest-atr-bad");
+            }
+            catch (ArgumentOutOfRangeException) { atrGuardThrew = true; }
+            f += Assert("Backtest: AtrPeriod<=0 && AtrStopMultiplier>0 は ArgumentOutOfRangeException", atrGuardThrew);
         }
         finally { conn.Dispose(); }
         return f;
@@ -496,6 +518,100 @@ public static class SelfTest
             f += Assert("MissingDays: 未生成リバランス日 WARNING が発火（missingDays≥1）", warned);
         }
         finally { conn.Dispose(); }
+        return f;
+    }
+
+    /// <summary>
+    /// F14-1: run-today の Top-K 選択（F10 抽出物 SelectTopPicks）の回帰。
+    /// 並べ替えキー（MlScore 降順→RuleScore 降順→Code 昇順）・Take(topN)・非ML 経路を in-memory リストで固定。
+    /// null 検査は呼出側責務（U3）＝useMl+MlScore=null は SelectTopPicks 内 .Value で throw することも固定する。
+    /// </summary>
+    private static int RunSelectTopPicksTests()
+    {
+        int f = 0;
+        var rows = new List<Signal>
+        {
+            new() { Code = "AAA", Passed = true, RuleScore = 1, MlScore = 0.5 },
+            new() { Code = "BBB", Passed = true, RuleScore = 9, MlScore = 0.9 },
+            new() { Code = "CCC", Passed = true, RuleScore = 5, MlScore = 0.9 }, // 同 MlScore→RuleScore で BBB>CCC
+            new() { Code = "DDD", Passed = true, RuleScore = 5, MlScore = 0.9 }, // 同 MlScore/RuleScore→Code で CCC<DDD
+        };
+
+        var top = TradeAnalyzer.Core.Backtest.BacktestService.SelectTopPicks(rows, topN: 3, useMl: true);
+        f += Assert("SelectTopPicks: Take(topN)=3", top.Count == 3);
+        f += Assert("SelectTopPicks: ML 降順→RuleScore→Code (BBB,CCC,DDD)",
+            top[0].Code == "BBB" && top[1].Code == "CCC" && top[2].Code == "DDD");
+
+        // 非ML 経路は RuleScore 降順（先頭は RuleScore 最大の BBB）。
+        var topRule = TradeAnalyzer.Core.Backtest.BacktestService.SelectTopPicks(rows, topN: 1, useMl: false);
+        f += Assert("SelectTopPicks: useMl=false は RuleScore 最大(BBB)", topRule[0].Code == "BBB");
+
+        // null 検査は呼出側の責務。useMl=true で MlScore=null 行を渡すと .Value で throw する
+        //（SelectTopPicks は null 安全でない＝呼出側が事前に null 検査する契約を固定）。
+        var withNull = new List<Signal> { new() { Code = "X", Passed = true, RuleScore = 1, MlScore = null } };
+        bool threw = false;
+        try { TradeAnalyzer.Core.Backtest.BacktestService.SelectTopPicks(withNull, topN: 1, useMl: true); }
+        catch (InvalidOperationException) { threw = true; }
+        f += Assert("SelectTopPicks: useMl+MlScore=null は throw（呼出側 null 検査が必須）", threw);
+
+        // topN<=0 の誤設定は silent 空返しでなく ArgumentOutOfRangeException で fail-loud（意図的挙動変更の回帰固定）。
+        bool guardThrew = false;
+        try { TradeAnalyzer.Core.Backtest.BacktestService.SelectTopPicks(rows, topN: 0, useMl: false); }
+        catch (ArgumentOutOfRangeException) { guardThrew = true; }
+        f += Assert("SelectTopPicks: topN<=0 は ArgumentOutOfRangeException", guardThrew);
+        return f;
+    }
+
+    /// <summary>
+    /// F14-2: run-today の AsNoTracking 罠の回帰。同一 scoped DbContext で MlScore=null の Signal を
+    /// SaveChanges（識別マップに追跡される）→ Python 書戻しを模した生 SQL UPDATE → 追跡読みは旧 null を
+    /// 返すが AsNoTracking は DB 行から新規生成して書戻し値を反映することを固定する（run-today の読み方が正しい根拠）。
+    /// </summary>
+    private static async Task<int> RunAsNoTrackingReflectsUpdateTestAsync()
+    {
+        int f = 0;
+        var db = NewMemoryDb(out var conn);
+        try
+        {
+            var t = new DateOnly(2025, 6, 27);
+            db.Signals.Add(new Signal { Date = t, Code = "AAA", Passed = true, RuleScore = 1, MlScore = null });
+            await db.SaveChangesAsync(); // 追跡されたまま（識別マップに MlScore=null インスタンスが残る）。
+
+            // Python 書戻しを模した生 SQL UPDATE（C# の追跡外で MlScore を埋める経路）。DateOnly は TEXT(yyyy-MM-dd)。
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t:yyyy-MM-dd}' AND Code = 'AAA'";
+                f += Assert("AsNoTracking 罠: 生 SQL UPDATE が 1 行", cmd.ExecuteNonQuery() == 1);
+            }
+
+            // 追跡したまま読むと識別マップ上の MlScore=null を返す（罠＝null 検査が誤発火する原因）。
+            var tracked = await db.Signals.Where(s => s.Date == t && s.Passed).ToListAsync();
+            f += Assert("AsNoTracking 罠: 追跡読みは UPDATE 前の null を返す", tracked.Single().MlScore is null);
+
+            // AsNoTracking は DB 行から新規生成し書戻し値 0.42 を反映する（run-today が採る読み方）。
+            var noTrack = await db.Signals.AsNoTracking().Where(s => s.Date == t && s.Passed).ToListAsync();
+            f += Assert("AsNoTracking 罠: AsNoTracking は UPDATE 後の 0.42 を反映", noTrack.Single().MlScore == 0.42);
+        }
+        finally { conn.Dispose(); }
+        return f;
+    }
+
+    /// <summary>
+    /// F14-3: run-today の当日解決 ResolveTodayJst（F5 抽出物）の回帰。FakeTimeProvider で UTC 日界またぎを
+    /// 与え、当日が JST(+9) 基準で導出されることを固定する（RunTodayAsync 全体は起動せず純粋関数を直接検証）。
+    /// </summary>
+    private static int RunResolveTodayJstTests()
+    {
+        int f = 0;
+        // UTC 2025-06-26 23:30 は JST では 2025-06-27 08:30 → 当日は UTC 日付の翌日（日界またぎ）。
+        var fake = new FakeTimeProvider(new DateTimeOffset(2025, 6, 26, 23, 30, 0, TimeSpan.Zero));
+        f += Assert("ResolveTodayJst: UTC 23:30 → JST 翌日(2025-06-27)",
+            Commands.ResolveTodayJst(fake) == new DateOnly(2025, 6, 27));
+
+        // UTC 2025-06-27 02:00 は JST 11:00 → 同日。
+        var fake2 = new FakeTimeProvider(new DateTimeOffset(2025, 6, 27, 2, 0, 0, TimeSpan.Zero));
+        f += Assert("ResolveTodayJst: UTC 02:00 → JST 同日(2025-06-27)",
+            Commands.ResolveTodayJst(fake2) == new DateOnly(2025, 6, 27));
         return f;
     }
 

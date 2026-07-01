@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -6,6 +7,10 @@ using Microsoft.Extensions.Logging;
 using TradeAnalyzer.Core;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Worker;
+
+// 日本語ログ/出力を UTF-8 に固定（Windows 既定 console は cp932＝run-today.ps1 の Tee/リダイレクトで
+// 文字化けし監視ログが読めなくなるのを防ぐ）。コンソール非対応環境では best-effort で既定のまま。
+try { Console.OutputEncoding = Encoding.UTF8; } catch (IOException) { }
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -17,6 +22,11 @@ builder.Configuration.AddJsonFile("Secrets.json", optional: true, reloadOnChange
 
 builder.Services.AddTradeAnalyzerData(builder.Configuration);
 builder.Services.AddTradeAnalyzerCore(builder.Configuration);
+
+// Worker 固有の Python 採点設定（run-today / 将来 3b が共有）。Worker は composition root のため
+// Core/Data の「Configure は拡張メソッドに集約」規約とは別に Program.cs で直接バインドする。
+builder.Services.Configure<PythonOptions>(
+    builder.Configuration.GetSection(PythonOptions.SectionName));
 
 var host = builder.Build();
 
@@ -44,6 +54,9 @@ try
             break;
         case "backtest":
             await Commands.BacktestAsync(sp, args);
+            break;
+        case "run-today":
+            await Commands.RunTodayAsync(sp, args);
             break;
         case "selftest":
             await SelfTest.RunAsync();

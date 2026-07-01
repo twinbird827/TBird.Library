@@ -38,6 +38,15 @@ public class BacktestService
         DateOnly isStart, DateOnly isEnd, DateOnly oosStart, DateOnly oosEnd,
         bool useMl, string? label = null, CancellationToken ct = default)
     {
+        // ATR ストップ有効時（AtrStopMultiplier>0）に AtrPeriod<=0 だと Take(0)→ComputeLastAtr=null で
+        // ストップが無言で無効化される。設定起因の無効化は silent fallback 禁止方針（SelectTopPicks の
+        // topN<=0 ガードと対称）で fail-loud にする。設定検証なので DB アクセス（空 tradingDays の空 run
+        // 早期 return 含む）より前に置き、データの有無に依らず常に弾く。
+        if (_opt.AtrStopMultiplier > 0 && _opt.AtrPeriod <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(_opt.AtrPeriod), _opt.AtrPeriod,
+                "AtrStopMultiplier>0 のとき AtrPeriod は 1 以上が必要です（BacktestOptions.AtrPeriod を確認）。");
+
         // 営業日は signals 経路と共通のヘルパで取得（母数起点を1箇所に閉じ込める）。
         var tradingDays = await QueryTradingDaysAsync(_db, oosStart, oosEnd, ct).ConfigureAwait(false);
 
@@ -111,12 +120,7 @@ public class BacktestService
                     $"{t}: MlScore 未設定の Passed 行があります。signals 未実行/期間不一致/Python 未書戻しの可能性。"
                     + " 正しい順序は signals → train → (evaluate) → backtest --use-ml です。");
 
-            var picks = rows
-                .OrderByDescending(r => useMl ? r.MlScore!.Value : r.RuleScore)
-                .ThenByDescending(r => r.RuleScore) // ML時のみ意味を持つ第2キー（非ML時は第1キーと同値で無害）
-                .ThenBy(r => r.Code)
-                .Take(_opt.TopN)
-                .ToList();
+            var picks = SelectTopPicks(rows, _opt.TopN, useMl);
 
             foreach (var pick in picks)
             {
@@ -174,6 +178,28 @@ public class BacktestService
         int step = Math.Max(1, interval);
         for (int di = 0; di < tradingDays.Count; di += step)
             yield return tradingDays[di];
+    }
+
+    /// <summary>
+    /// Passed 行を選択キー（<paramref name="useMl"/>=true は MlScore、false は RuleScore）降順・
+    /// ThenByDescending(RuleScore)・ThenBy(Code) で並べ <paramref name="topN"/> 件返す純粋関数（DB 非依存）。
+    /// バックテスト picks（<see cref="RunAsync"/>）と run-today の当日 Top-K 出力が同一の並べ替え規則を共有し、
+    /// 本番出力とバックテスト戦略の乖離を構造的に防ぐ。<paramref name="useMl"/>=true で MlScore=null 行が混ざると
+    /// <c>.Value</c> が throw するため、null 検査は呼出側に残す（文言が backtest/run-today で異なるため＝U3）。
+    /// </summary>
+    public static List<Signal> SelectTopPicks(IReadOnlyList<Signal> passedRows, int topN, bool useMl)
+    {
+        // topN<=0 は Take(topN) が無言で空を返す＝当日 Top-K/backtest picks が黙って0件（silent fallback 禁止方針と
+        // 非整合）。誤設定（BacktestOptions.TopN）を原因明示で fail-loud にする。共通関数なので run-today/backtest 両経路を一度に守る。
+        if (topN <= 0)
+            throw new ArgumentOutOfRangeException(nameof(topN), topN, "TopN は 1 以上が必要です（BacktestOptions.TopN を確認）。");
+
+        return passedRows
+            .OrderByDescending(r => useMl ? r.MlScore!.Value : r.RuleScore)
+            .ThenByDescending(r => r.RuleScore) // ML時のみ意味を持つ第2キー（非ML時は第1キーと同値で無害）
+            .ThenBy(r => r.Code)
+            .Take(topN)
+            .ToList();
     }
 
     /// <summary>1銘柄を翌営業日始値でエントリし、MaxHoldDays か ATR ストップで手仕舞いする。</summary>

@@ -114,7 +114,7 @@ def main() -> None:
 
     oos_start, oos_end = parse_window(args.oos_window)
 
-    df = load_dataset(args.db, args.horizon)
+    df, _ = load_dataset(args.db, args.horizon)  # PS1: load_dataset は (df, bars) を返す（bars は評価では未使用）。
     oos = _slice(df, oos_start, oos_end)
     # Rank-IC/NDCG は確定ラベル行で評価（FwdReturn が無い末尾行は除外）。
     eval_df = oos[oos["LabelConfirmed"]].copy()
