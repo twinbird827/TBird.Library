@@ -4,7 +4,10 @@ namespace TradeAnalyzer.Data.Entities;
 /// EDINET 書類一覧の1件（GET /documents.json?type=2 の results[]）。
 /// <para>
 /// 保存方針: 当日提出の全書類メタを保存する（段階2で <c>TargetDocTypeCodes</c> を四半期/半期へ
-/// 拡張する際の検出に有用なため絞り込まない）。したがって本テーブルには対象外の書類も
+/// 拡張する際の検出に有用なため絞り込まない）。同一 docID が複数のファイル日付一覧に再掲された場合
+/// （提出処理日＋書類情報修正日＋開示不開示区分変更日）は、PK=<see cref="DocId"/> 単独ゆえ最初に取り込んだ
+/// 一覧の <see cref="SubmitDate"/>（取込順依存で最小日付とは限らない）の行のみ保持し、再掲日の再挿入はスキップする（IngestEdinetAsync 参照）。
+/// したがって本テーブルには対象外の書類も
 /// <see cref="Parsed"/>=false / <see cref="NormalizedCode"/>=null で多数含まれる。
 /// <b>消費契約</b>: 財務事実として利用する側は必ず <see cref="Parsed"/>==true かつ
 /// <see cref="NormalizedCode"/>!=null の行のみを対象とすること（全行件数を母集団に使わない）。
@@ -30,7 +33,9 @@ public class EdinetDocument
     /// <summary>様式コード（`formCode`）。</summary>
     public string? FormCode { get; set; }
 
-    /// <summary>提出日（一覧取得対象日）。先読み防止の基準日に使用。</summary>
+    /// <summary>提出日（一覧取得対象日）。※現状 look-ahead ゲートには未使用（ゲートは DailyBar.Date 側で実装）。
+    /// 再掲 docID は最初に取り込んだ一覧日（取込順依存で最小とは限らない）になるため、将来 look-ahead に使うなら
+    /// submitDateTime 導入 or 最小提出日保持が必要。</summary>
     public DateOnly SubmitDate { get; set; }
 
     /// <summary>対象期間開始（`periodStart`）。</summary>
@@ -86,6 +91,8 @@ public class EdinetFinFact
     /// <summary>単位（`unitRef` 等。JPY/円/千円/百万円/Pure 等）。<see cref="Value"/> の換算係数の根拠。</summary>
     public string? Unit { get; set; }
 
-    /// <summary>対象期間終了日（先読み防止の参考。提出日でガードするのが主）。</summary>
+    /// <summary>対象期間終了日。※現状 look-ahead ゲートには未使用（ゲートは DailyBar.Date 側で実装）。
+    /// 由来 docID が再掲の場合は取込順依存の日付になりうるため、将来 look-ahead に使うなら submitDateTime 導入
+    /// or 最小提出日保持が必要。</summary>
     public DateOnly? PeriodEnd { get; set; }
 }
