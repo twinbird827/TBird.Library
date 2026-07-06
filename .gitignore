@@ -257,7 +257,7 @@ ServiceFabricBackup/
 *.ldf
 *.ndf
 
-# SQLite runtime DBs (TradeAnalyzer)
+# SQLite runtime DBs (app data)
 *.db
 *.db-wal
 *.db-shm
@@ -312,9 +312,10 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+.pytest_cache/
 
-# TradeAnalyzer ML（段階2）: 仮想環境とモデル実体（ソースは追跡）
-_Apps/ml/.venv/
+# App ML artifacts: virtualenv & trained models (sources are tracked)
+.venv/
 _Apps/ml/models/
 
 # Cake - Uncomment if you are using it
@@ -368,4 +369,4 @@ docs/
 
 #secret files
 **/*Secrets.cs
-**/*Secrets.json
+**/*Secrets.json
