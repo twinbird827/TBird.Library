@@ -145,7 +145,10 @@ public class IngestService
                 continue;
             }
 
-            var targets = docs
+            // EDINET は同一 docID を同日一覧内でも再掲しうるため重複排除（targets 抽出・スキップ数算出の基準）。
+            var distinct = docs.DistinctBy(x => x.DocId).ToList();
+
+            var targets = distinct
                 .Where(x => x.DocTypeCode != null && TargetDocTypeCodes.Contains(x.DocTypeCode))
                 .Where(x => x.CsvFlag == "1")
                 .Where(x => x.NormalizedCode != null && MatchesKnown(x.NormalizedCode, codeSet))
@@ -157,23 +160,11 @@ public class IngestService
                 targets = targets.Take(lim).ToList();
             }
 
-            // 書類メタを保存。EDINET は同一 docID を複数のファイル日付一覧に返す（提出処理日＋書類情報修正日＋
-            // 開示不開示区分変更日。公式仕様 ESE140206.pdf の date 注記）。PK は DocId 単独のため、SubmitDate 単位の
-            // delete-insert だけでは「他日に既存の同一 DocId」と UNIQUE 衝突する。対策として、同日分は置換（冪等維持）
-            // しつつ、他日に既に存在する DocId はスキップして衝突を避ける（既存メタ行を書き換えない）。
-            var ids = docs.Select(x => x.DocId).ToList();
-            await _db.EdinetDocuments.Where(x => x.SubmitDate == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
-            // 重要（順序の不変条件）: existingIds は上の同日 delete の「後」に取得する。ExecuteDeleteAsync は即時
-            // 実行なので、この時点で ids に一致して残るのは他日 SubmitDate の既存行のみ。この照会を delete より前へ
-            // 動かす／delete を外すと、当日 DocId まで existingIds に入り toInsert から落ちて当日メタが二度と挿入
-            // されなくなる（同日再取得でデータ消失）。順序を変えないこと。
-            var existingIds = (await _db.EdinetDocuments.Where(x => ids.Contains(x.DocId))
-                    .Select(x => x.DocId).ToListAsync(ct).ConfigureAwait(false))
-                .ToHashSet(StringComparer.Ordinal);
-            var toInsert = docs.DistinctBy(x => x.DocId).Where(x => !existingIds.Contains(x.DocId)).ToList();
-            _db.EdinetDocuments.AddRange(toInsert);
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            _logger.LogInformation("EDINET {Date}: 一覧 {Listed} 件・新規 {New} 件", d, docs.Count, toInsert.Count);
+            // 書類メタを保存（衝突回避コアは SaveEdinetMetaAsync に抽出）。生の docs を渡す（メソッド内で dedup）。
+            var toInsert = await SaveEdinetMetaAsync(_db, docs, d, ct).ConfigureAwait(false);
+            var skippedExisting = distinct.Count - toInsert.Count;
+            _logger.LogInformation("EDINET {Date}: 一覧 {Listed} 件（実 {Distinct} 件）・新規 {New} 件・他日既存スキップ {Skipped} 件",
+                d, docs.Count, distinct.Count, toInsert.Count, skippedExisting);
 
             foreach (var doc in targets)
             {
@@ -198,6 +189,35 @@ public class IngestService
             if (targets.Count > 0)
                 _logger.LogInformation("EDINET {Date}: 対象 {Count} 件解析", d, targets.Count);
         }
+    }
+
+    /// <summary>
+    /// EDINET 書類メタの衝突回避保存コア。EDINET は同一 docID を複数のファイル日付一覧に返す（提出処理日＋
+    /// 書類情報修正日＋開示不開示区分変更日。公式仕様 ESE140206.pdf の date 注記）。PK は
+    /// <see cref="EdinetDocument.DocId"/> 単独のため、<paramref name="d"/> 単位の delete-insert だけでは
+    /// 「他日に既存の同一 DocId」と UNIQUE 衝突する。対策として同日分は置換（冪等維持）しつつ、他日
+    /// <see cref="EdinetDocument.SubmitDate"/> に既存の DocId はスキップして衝突を避ける（既存メタ行を書き換えない）。
+    /// <c>SubmitDate != d</c> でフィルタするため delete と照会の実行順に依存しない。引数 <paramref name="docs"/> は
+    /// 同一 DocID の再掲を含みうる生の一覧でよい（メソッド内で DocId 重複排除するため呼び出し側の dedup 規律に
+    /// 依存しない＝misuse-proof）。SelfTest（別アセンブリ TradeAnalyzer.Worker）から in-memory DB で検証するため public。
+    /// </summary>
+    /// <returns>実際に挿入した（他日既存でスキップされなかった）メタ行。</returns>
+    public static async Task<List<EdinetDocument>> SaveEdinetMetaAsync(
+        AppDbContext db, IReadOnlyList<EdinetDocument> docs, DateOnly d, CancellationToken ct)
+    {
+        // 防御的 dedup: 生 docs 混入（同日重複 DocId）でも AddRange の identity-resolution 衝突
+        // （InvalidOperationException）を招かない（PR #181 が根絶した構造的クラッシュ免疫を維持）。
+        var deduped = docs.DistinctBy(x => x.DocId).ToList();
+        await db.EdinetDocuments.Where(x => x.SubmitDate == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
+        var ids = deduped.Select(x => x.DocId).ToList();
+        var otherDayIds = (await db.EdinetDocuments
+                .Where(x => ids.Contains(x.DocId) && x.SubmitDate != d)
+                .Select(x => x.DocId).ToListAsync(ct).ConfigureAwait(false))
+            .ToHashSet(StringComparer.Ordinal);
+        var toInsert = deduped.Where(x => !otherDayIds.Contains(x.DocId)).ToList();
+        db.EdinetDocuments.AddRange(toInsert);
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return toInsert;
     }
 
     /// <summary>EDINET 正規化コード（4桁）が J-Quants Code 集合（4桁/5桁）に一致するか。</summary>

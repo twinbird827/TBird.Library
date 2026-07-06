@@ -33,7 +33,9 @@ public class EdinetDocument
     /// <summary>様式コード（`formCode`）。</summary>
     public string? FormCode { get; set; }
 
-    /// <summary>提出日（一覧取得対象日）。先読み防止の基準日に使用。</summary>
+    /// <summary>提出日（一覧取得対象日）。※現状 look-ahead ゲートには未使用（ゲートは DailyBar.Date 側で実装）。
+    /// 再掲 docID は最初に取り込んだ一覧日（取込順依存で最小とは限らない）になるため、将来 look-ahead に使うなら
+    /// submitDateTime 導入 or 最小提出日保持が必要。</summary>
     public DateOnly SubmitDate { get; set; }
 
     /// <summary>対象期間開始（`periodStart`）。</summary>
@@ -89,6 +91,8 @@ public class EdinetFinFact
     /// <summary>単位（`unitRef` 等。JPY/円/千円/百万円/Pure 等）。<see cref="Value"/> の換算係数の根拠。</summary>
     public string? Unit { get; set; }
 
-    /// <summary>対象期間終了日（先読み防止の参考。提出日でガードするのが主）。</summary>
+    /// <summary>対象期間終了日。※現状 look-ahead ゲートには未使用（ゲートは DailyBar.Date 側で実装）。
+    /// 由来 docID が再掲の場合は取込順依存の日付になりうるため、将来 look-ahead に使うなら submitDateTime 導入
+    /// or 最小提出日保持が必要。</summary>
     public DateOnly? PeriodEnd { get; set; }
 }

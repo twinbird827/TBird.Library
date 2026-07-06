@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using TradeAnalyzer.Core.Indicators;
+using TradeAnalyzer.Core.Ingest;
 using TradeAnalyzer.Core.Rules;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Data.Entities;
@@ -43,6 +44,7 @@ public static class SelfTest
         failed += await RunBacktestMissingDaysTestAsync();
         failed += RunSelectTopPicksTests();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
+        failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
 
         if (failed == 0) Console.WriteLine("SelfTest: 全テスト PASS");
@@ -593,6 +595,91 @@ public static class SelfTest
             f += Assert("AsNoTracking 罠: AsNoTracking は UPDATE 後の 0.42 を反映", noTrack.Single().MlScore == 0.42);
         }
         finally { conn.Dispose(); }
+        return f;
+    }
+
+    /// <summary>
+    /// PR #181 回帰: EDINET 同一 docID 再掲による PK(DocId 単独) UNIQUE 衝突クラッシュを固定する。
+    /// <see cref="IngestService.SaveEdinetMetaAsync"/> を in-memory SQLite（実 EF 挙動）で直接検証する。
+    /// ケース1: 別 SubmitDate 再掲でも例外なし・最初の行のみ保持。ケース2: 同日2回で冪等（行数不変）。
+    /// ケース3: 他日既存 DocId はスキップし既存行の SubmitDate を上書きしない。ケース4: 同一リスト内の
+    /// 重複 DocId でも防御 dedup で例外なし・1行。revert 判定は otherDayIds フィルタ除去（ケース1/3 FAIL）と
+    /// メソッド内 DistinctBy 除去（ケース4 FAIL）の2軸。
+    /// </summary>
+    private static async Task<int> RunEdinetMetaCollisionTestAsync()
+    {
+        int f = 0;
+        static EdinetDocument Doc(string id, DateOnly submit) => new() { DocId = id, SubmitDate = submit };
+
+        // ケース1: 同一 DocId=X を別 SubmitDate で保存 → 例外なし・行数1・最初の行(d1)を保持。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                var d1 = new DateOnly(2025, 6, 20);
+                var d2 = new DateOnly(2025, 6, 21);
+                await IngestService.SaveEdinetMetaAsync(db, new[] { Doc("X", d1) }, d1, default);
+                db.ChangeTracker.Clear();
+                await IngestService.SaveEdinetMetaAsync(db, new[] { Doc("X", d2) }, d2, default);
+                var rows = await db.EdinetDocuments.AsNoTracking().ToListAsync();
+                f += Assert("SaveEdinetMeta 衝突: 再掲でも例外なし・行数1", rows.Count == 1);
+                f += Assert("SaveEdinetMeta 衝突: 最初の一覧日(d1)を保持", rows.Single().SubmitDate == d1);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        // ケース2（冪等）: DocId で dedup 済みの同一リストを同日 d で2回呼ぶ → 例外なし・行数不変。
+        // cross-call の追跡衝突（same key already tracked）を避けるため呼び出し間に ChangeTracker.Clear()。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                var d = new DateOnly(2025, 6, 20);
+                var list = new[] { Doc("X", d), Doc("Y", d) };
+                await IngestService.SaveEdinetMetaAsync(db, list, d, default);
+                db.ChangeTracker.Clear();
+                await IngestService.SaveEdinetMetaAsync(db, list, d, default);
+                f += Assert("SaveEdinetMeta 冪等: 同日2回で例外なし・行数不変(2)",
+                    await db.EdinetDocuments.CountAsync() == 2);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        // ケース3（他日既存スキップ）: Y を他日 d_prev で事前投入 → 当日 d の一覧(X 新規 + Y 他日既存)を渡す
+        // → 戻りに X を含み Y を含まない・Y 行の SubmitDate は d_prev のまま。事前投入と本命の間に Clear()。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                var dPrev = new DateOnly(2025, 6, 19);
+                var d = new DateOnly(2025, 6, 20);
+                await IngestService.SaveEdinetMetaAsync(db, new[] { Doc("Y", dPrev) }, dPrev, default);
+                db.ChangeTracker.Clear();
+                var toInsert = await IngestService.SaveEdinetMetaAsync(
+                    db, new[] { Doc("X", d), Doc("Y", d) }, d, default);
+                f += Assert("SaveEdinetMeta 他日スキップ: 戻りに X を含む", toInsert.Any(x => x.DocId == "X"));
+                f += Assert("SaveEdinetMeta 他日スキップ: 戻りに Y を含まない", toInsert.All(x => x.DocId != "Y"));
+                var yRow = await db.EdinetDocuments.AsNoTracking().SingleAsync(x => x.DocId == "Y");
+                f += Assert("SaveEdinetMeta 他日スキップ: Y の SubmitDate は d_prev のまま(上書きしない)",
+                    yRow.SubmitDate == dPrev);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        // ケース4（防御的 dedup）: 1回の呼び出しに同一 DocId=X を2件含む生リスト → 例外なし・行数1
+        // （メソッド内 DistinctBy 除去なら AddRange の identity-resolution 衝突で FAIL＝防御を固定）。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                var d = new DateOnly(2025, 6, 20);
+                await IngestService.SaveEdinetMetaAsync(db, new[] { Doc("X", d), Doc("X", d) }, d, default);
+                f += Assert("SaveEdinetMeta 防御dedup: 同日重複でも例外なし・行数1",
+                    await db.EdinetDocuments.CountAsync() == 1);
+            }
+            finally { conn.Dispose(); }
+        }
+
         return f;
     }
 
