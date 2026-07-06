@@ -8,9 +8,10 @@
 #   - 事前に `dotnet run --project <Worker> -- migrate` 済みの trade.db が必要（コールドスタート＝
 #     段階1/2 で複数年 ingest 済み）。run-today は当日 1 日分の bar しか足さない増分運用のため、
 #     空/未マイグレーション DB だと ingest 内の ExecuteDeleteAsync が no such table で停止する。
-#   - CWD 固定の理由: 接続文字列は相対 "Data Source=trade.db" で SQLite は CWD 基準で解決するため、
-#     タスクスケジューラの不定 CWD のままだと空 DB を誤った場所に作る。Worker dir 固定で canonical な
-#     _Apps/TradeAnalyzer.Worker/trade.db（段階1/2 の trade.db 置き場・train.py の慣行と一致）に解決する。
+#   - trade.db / Secrets.json / ML モデルは _Tools/TradeAnalyzer/ 配下に集約され、C# の AppPaths が
+#     実行ファイル位置からリポジトリルートを求めて絶対解決する（CWD 非依存＝_Apps 削除やブランチ切替で消えない）。
+#   - CWD 固定の理由: appsettings.json は ContentRoot(=CWD) 基準でロードされるため、Worker dir 固定で
+#     _Apps/TradeAnalyzer.Worker/appsettings.json（追跡ソース）を確実に読ませる（DB 位置は CWD に依存しない）。
 #   - 起動時刻は J-Quants Light の当日 EOD 反映後（19:00〜20:00 目安）。仕様で反映時刻を確認すること
 #     （早すぎると当日 bar 未反映で採点対象 t が前営業日に落ちる＝アプリは警告のみでクラッシュしない）。
 #
@@ -26,7 +27,10 @@ $ErrorActionPreference = "Stop"
 
 # スクリプト位置基準で解決（タスクスケジューラの作業ディレクトリに依存しない絶対パス化）。
 $workerDir = (Resolve-Path (Join-Path $PSScriptRoot "..\TradeAnalyzer.Worker")).Path
-$logDir = Join-Path $PSScriptRoot "logs"
+# ログは実行時成果物なので _Tools/TradeAnalyzer/logs（.gitignore 済＝_Apps 削除でも残る）へ集約。
+# $PSScriptRoot=_Apps/scripts のため ..\.. がリポジトリルート。
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$logDir = Join-Path $repoRoot "_Tools\TradeAnalyzer\logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir ("run-today-{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 

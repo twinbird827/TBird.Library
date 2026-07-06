@@ -7,7 +7,8 @@
 # 当日採点との先読み防止規約 (train-end < 採点日) を常に満たす。
 # 本タスクは日次 run-today(22:30)より後(23:00以降)に走らせること（当日採点に使うモデルは前日以前＝先読みなし）。
 #
-# 前提: uv が PATH 上にあること（ログオンユーザーで実行）。models/ への書込みは _Apps/ml/ 内（gitignore 済み）。
+# 前提: uv が PATH 上にあること（ログオンユーザーで実行）。models/ への書込みは
+#       _Tools/TradeAnalyzer/ml/models（train.py が __file__ から解決。.gitignore 済み＝_Apps 削除でも残る）。
 #
 # タスクスケジューラ登録例（管理者不要 PowerShell。<repo> は実パスに置換。-File は絶対パス必須）:
 #   週次: schtasks /Create /TN "TradeAnalyzer-RetrainWeekly" /SC WEEKLY /D SUN /ST 23:00 `
@@ -19,10 +20,13 @@ param([switch]$Retune)
 
 $ErrorActionPreference = "Stop"
 
-# スクリプト位置基準で解決（タスクスケジューラの不定 CWD に依存しない）。
+# スクリプト位置基準で解決（タスクスケジューラの不定 CWD に依存しない）。$PSScriptRoot=_Apps/scripts。
 $mlDir  = (Resolve-Path (Join-Path $PSScriptRoot "..\ml")).Path
-$dbPath = (Resolve-Path (Join-Path $mlDir "..\TradeAnalyzer.Worker\trade.db")).Path
-$logDir = Join-Path $PSScriptRoot "logs"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+# trade.db は _Tools/TradeAnalyzer 配下（C# AppPaths と一致）。未作成でも失敗しないよう GetFullPath で正規化
+# （Resolve-Path は不在パスで例外）。ログも同じく _Tools/TradeAnalyzer/logs へ。
+$dbPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot "_Tools\TradeAnalyzer\trade.db"))
+$logDir = Join-Path $repoRoot "_Tools\TradeAnalyzer\logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir ("retrain-{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 

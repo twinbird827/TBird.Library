@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    TradeAnalyzer の全ビルド成果物（bin / obj / publish）を _Tools/TradeAnalyzer/ に集約する。
+
+    目的: _Apps 直下に git 追跡外の成果物を残さないこと。ブランチ切替や「_Apps 内 TradeAnalyzer 一括削除 →
+    復元」を行っても、DB・モデル・ビルド成果物の置き場（_Tools/TradeAnalyzer、.gitignore 済）が _Tools 側に
+    生存し、再 ingest / 再学習なしで再開できるようにする。
+
+    ArtifactsPath を指定すると .NET 8+ の artifacts output layout が有効化され、出力は
+      <ArtifactsPath>/<bin|obj|publish>/<プロジェクト名>/<pivot(=構成)>/
+    に自動で振り分けられる（プロジェクト名で衝突回避）。MSBuildThisFileDirectory は本ファイルのある _Apps/。
+
+    注: このファイルは app-trade-analyzer ブランチ固有の _Apps 内容（他ブランチには存在しない）。_Apps 直下の
+    全プロジェクトに適用されるが、App.sln に含まれ実ビルドされるのは TradeAnalyzer.* の 3 プロジェクトのみ。
+  -->
+  <PropertyGroup>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)..\_Tools\TradeAnalyzer</ArtifactsPath>
+  </PropertyGroup>
+
+</Project>

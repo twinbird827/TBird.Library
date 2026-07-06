@@ -15,7 +15,10 @@ public static class DataServiceCollectionExtensions
     /// <summary>永続層・外部APIクライアントを DI 登録する。</summary>
     public static IServiceCollection AddTradeAnalyzerData(this IServiceCollection services, IConfiguration config)
     {
-        var conn = config.GetConnectionString("TradeDb") ?? "Data Source=trade.db";
+        // 既定は _Tools/TradeAnalyzer/trade.db の絶対パス（AppPaths＝CWD 非依存）。appsettings 等で
+        // ConnectionStrings:TradeDb を明示した場合のみそれを優先する（テスト/別配置向けの上書き余地）。
+        var configured = config.GetConnectionString("TradeDb");
+        var conn = string.IsNullOrWhiteSpace(configured) ? AppPaths.TradeDbConnectionString : configured;
         services.AddDbContext<AppDbContext>(o => o.UseSqlite(conn));
 
         services.Configure<JQuantsOptions>(config.GetSection(JQuantsOptions.SectionName));

@@ -2,8 +2,8 @@
 Signal.MlScore へ書き戻す。
 
 実行:
-  uv run python predict.py --db ../TradeAnalyzer.Worker/trade.db --date 2025-06-27
-  uv run python predict.py --db ../TradeAnalyzer.Worker/trade.db          # --date 省略=DB 最新営業日
+  uv run python predict.py --db ../../_Tools/TradeAnalyzer/trade.db --date 2025-06-27
+  uv run python predict.py --db ../../_Tools/TradeAnalyzer/trade.db          # --date 省略=DB 最新営業日
 
 設計の要点:
   - train.py の load_one_day/features をそのまま通すため train-serve skew は定義上ゼロ（load_one_day は

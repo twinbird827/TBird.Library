@@ -12,7 +12,8 @@ public class PythonOptions
     /// <summary>uv 実行ファイル。PATH 非依存にしたい場合は絶対パス指定可。</summary>
     public string UvPath { get; set; } = "uv";
 
-    /// <summary>ml スクリプト群のディレクトリ（相対は Worker CWD 基準。消費側で <c>Path.GetFullPath</c> 絶対化）。</summary>
+    /// <summary>ml スクリプト群のディレクトリ。未指定（既定）は <c>AppPaths.MlScriptsDir</c>（<c>_Apps/ml</c> の
+    /// 絶対パス・CWD 非依存）。相対指定した場合はリポジトリルート基準で絶対化する（消費側 RunPythonAsync）。</summary>
     public string? MlDir { get; set; }
 
     /// <summary>採点スクリプト名（既定 <c>predict.py</c>）。</summary>
