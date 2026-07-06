@@ -16,9 +16,10 @@ var builder = Host.CreateApplicationBuilder(args);
 
 // APIキーの読み込み元（いずれでも可。後勝ちで Secrets.json が優先）:
 //  1. user-secrets（リポジトリ外。dotnet user-secrets set ...）
-//  2. プロジェクト直下の Secrets.json（.gitignore の **/*Secrets.json で追跡除外）
+//  2. _Tools/TradeAnalyzer/Secrets.json（AppPaths.SecretsPath＝絶対パス・CWD 非依存。.gitignore の
+//     _Tools/ で追跡除外。_Apps 削除やブランチ切替でも生存する置き場）
 builder.Configuration.AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true);
-builder.Configuration.AddJsonFile("Secrets.json", optional: true, reloadOnChange: false);
+builder.Configuration.AddJsonFile(AppPaths.SecretsPath, optional: true, reloadOnChange: false);
 
 builder.Services.AddTradeAnalyzerData(builder.Configuration);
 builder.Services.AddTradeAnalyzerCore(builder.Configuration);

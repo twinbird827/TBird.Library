@@ -12,8 +12,10 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     public AppDbContext CreateDbContext(string[] args)
     {
+        // 実行時と同じ _Tools/TradeAnalyzer/trade.db を指す（設計時 ef database update が CWD に
+        // 迷子の trade.db を作らないよう AppPaths に一元化。migrations add はモデルのみで DB は開かない）。
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite("Data Source=trade.db")
+            .UseSqlite(AppPaths.TradeDbConnectionString)
             .Options;
         return new AppDbContext(options);
     }

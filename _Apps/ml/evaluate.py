@@ -1,7 +1,7 @@
 """OOS 検証レポート（Rank-IC / NDCG@K）。
 
 実行:
-  uv run python evaluate.py --db ../TradeAnalyzer.Worker/trade.db --is 2024 --oos 2025
+  uv run python evaluate.py --db ../../_Tools/TradeAnalyzer/trade.db --is 2024 --oos 2025
 
 評価は OOS の Rank-IC（スコア vs 実 FwdReturn の Spearman 相関）と NDCG@K（設計§6）。
 単一累積リターン曲線は信用しない。「ML スコア順 vs ルール RuleScore 順」を比較し、

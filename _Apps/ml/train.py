@@ -1,10 +1,10 @@
 """ウォークフォワード学習（LambdaRank）＋optuna＋Purged K-Fold ＋ OOS スコア書き戻し。
 
 実行（ウォークフォワード A/B 用）:
-  uv run python train.py --db ../TradeAnalyzer.Worker/trade.db --is 2024 --oos 2025
+  uv run python train.py --db ../../_Tools/TradeAnalyzer/trade.db --is 2024 --oos 2025
 
 実行（段階3a 当日運用の再学習＝全確定ラベルで1モデル）:
-  uv run python train.py --db ../TradeAnalyzer.Worker/trade.db --full --train-end 2025-06-27 [--retune]
+  uv run python train.py --db ../../_Tools/TradeAnalyzer/trade.db --full --train-end 2025-06-27 [--retune]
 
 ワークフロー（境界は trade.db のみ・プロセス連携なし）:
   1. signals が保存した Passed 母集団（IS/OOS）を読む。
@@ -40,7 +40,30 @@ from ml_common import score_and_write
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
+def _resolve_models_dir() -> str:
+    """モデル/best_params の置き場を ``_Tools/TradeAnalyzer/ml/models`` に解決する。
+
+    これらは追跡外だが再学習コストの高い成果物。_Apps 内 TradeAnalyzer の一括削除やブランチ切替でも
+    生存させるため _Tools（.gitignore 済）側に置く（C# の AppPaths.MlModelsDir と一致）。__file__
+    （``_Apps/ml``）から上位の ``_Apps`` を持つディレクトリ=リポジトリルートを探し
+    ``<root>/_Tools/TradeAnalyzer/ml/models`` を返す。環境変数 ``TRADEANALYZER_DATA_DIR`` で上書き可。
+    リポ外に置かれた場合は従来どおりスクリプト隣の ``models/`` にフォールバックする。
+    """
+    override = os.environ.get("TRADEANALYZER_DATA_DIR")
+    if override:
+        return os.path.join(override, "ml", "models")
+    here = os.path.dirname(os.path.abspath(__file__))
+    d = here
+    while True:
+        if os.path.isdir(os.path.join(d, "_Apps")):
+            return os.path.join(d, "_Tools", "TradeAnalyzer", "ml", "models")
+        parent = os.path.dirname(d)
+        if parent == d:  # ルート到達（_Apps 不検出）＝リポ外。従来挙動へフォールバック。
+            return os.path.join(here, "models")
+        d = parent
+
+
+MODELS_DIR = _resolve_models_dir()
 # --full のハイパラ永続化先（--retune が書き、以降の --full が読む）。
 BEST_PARAMS_PATH = os.path.join(MODELS_DIR, "best_params.json")
 

@@ -23,8 +23,6 @@
     <ProjectReference Include="..\TradeAnalyzer.Core\TradeAnalyzer.Core.csproj" />
   </ItemGroup>
 
-  <!-- Secrets.json（存在すれば）を出力先へコピー。bin から実行/publish 時も読めるように。 -->
-  <ItemGroup>
-    <None Update="Secrets.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <!-- Secrets.json は _Tools/TradeAnalyzer/Secrets.json（AppPaths.SecretsPath）から絶対パスで直接ロードするため
+       出力先へのコピーは不要（Program.cs 参照）。 -->
 </Project>
