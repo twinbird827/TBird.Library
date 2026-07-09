@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -289,9 +288,10 @@ public static class Commands
 
     /// <summary>
     /// uv run python &lt;script&gt; &lt;args...&gt; を Python:MlDir を作業ディレクトリに起動し、ExitCode≠0 なら
-    /// stderr を添えて throw する小ヘルパ。stdout/stderr を逐次ログ、タイムアウト（既定10分）超過で kill＋throw。
-    /// double.MinValue 等での黙殺は禁止（段階2 silent fallback 禁止方針を Process 境界にも適用）。
-    /// run-today と将来の 3b が共有する Python 起動点。設定は型付き <see cref="PythonOptions"/> から受ける。
+    /// stderr を添えて throw する小ヘルパ。Process 起動の堅牢化（逐次ログ/timeout kill/EOF flush/起動失敗の
+    /// 包み込み）は共有起動点 <see cref="ProcessRunner.RunAsync"/> へ委譲し、本メソッドは psi 構築と
+    /// fail-fast 判断のみ持つ。double.MinValue 等での黙殺は禁止（段階2 silent fallback 禁止方針を Process
+    /// 境界にも適用）。設定は型付き <see cref="PythonOptions"/> から受ける。
     /// </summary>
     private static async Task RunPythonAsync(
         PythonOptions opt, ILogger logger, string scriptPath,
@@ -309,9 +309,7 @@ public static class Commands
         {
             FileName = uvPath,
             WorkingDirectory = mlDir,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
+            // Redirect*/UseShellExecute は ProcessRunner.RunAsync が強制する（ここでは設定しない）。
             // Python の print は日本語を含む。Windows 既定 console は cp932 のため、双方を UTF-8 に固定して
             // ログ文字化けを防ぐ（PYTHONUTF8=1 で Python が UTF-8 出力、Standard*Encoding で C# が UTF-8 読取）。
             StandardOutputEncoding = Encoding.UTF8,
@@ -327,98 +325,13 @@ public static class Commands
             psi.ArgumentList.Add(value);
         }
 
-        var stderr = new StringBuilder();
-        // stderr(StringBuilder=非スレッドセーフ) を ErrorDataReceived の append と全読取（timeout/ExitCode 両経路）で保護する。
-        // StringBuilder インスタンス自身を lock 対象にする公開ロックを避け、専用オブジェクトを用意する。
-        object stderrLock = new();
-        using var proc = new Process { StartInfo = psi };
-        proc.OutputDataReceived += (_, e) => { if (e.Data != null) logger.LogInformation("[python] {Line}", e.Data); };
-        proc.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data == null) return;
-            lock (stderrLock) { stderr.AppendLine(e.Data); }
-            logger.LogWarning("[python:err] {Line}", e.Data);
-        };
-
-        logger.LogInformation("Python 起動: {Uv} run python {Script} {Args} (cwd={Cwd})",
-            uvPath, scriptPath, string.Join(' ', options.Select(o => $"{o.key} {o.value}")), mlDir);
-
-        // UseShellExecute=false の Process.Start() は実行ファイル不在時 false を返さず Win32Exception を
-        // throw する（旧 `if (!proc.Start())` の親切メッセージは dead-code だった）。例外を捕捉し原因明示で包む。
-        try
-        {
-            proc.Start();
-        }
-        catch (Win32Exception ex)
-        {
+        var result = await ProcessRunner.RunAsync(psi, logger, timeoutMinutes, stdin: null,
+            stdoutLogPrefix: "[python]", stderrLogPrefix: "[python:err]",
+            displayName: $"Python 実行: {scriptPath}", ct: ct);
+        // Python 経路は stdout を捨てる（DB 書戻しが結果）。ExitCode≠0 の fail-fast 判断は呼び手＝ここに残す。
+        if (result.ExitCode != 0)
             throw new InvalidOperationException(
-                $"Python プロセスを起動できません: {uvPath}（Python:UvPath を確認）。", ex);
-        }
-        proc.BeginOutputReadLine();
-        proc.BeginErrorReadLine();
-
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(TimeSpan.FromMinutes(timeoutMinutes));
-        // BeginOutput/ErrorReadLine と CancelOutput/ErrorRead をペア化し購読寿命を明示する。
-        // 正常終了経路では下の引数なし WaitForExit() の flush 完了までにハンドラが発火し切る。
-        // timeout の bounded-drain false 経路（孫プロセス未終了で引数なし WaitForExit() を意図的にスキップ）では
-        // 読取がアクティブなまま本 finally の Cancel で明示停止する。post-EOF/Kill 後でも _output/_error は
-        // using Dispose まで非 null ゆえ Cancel は throw せず、伝播中の例外を握り潰さない。
-        // ハンドラが参照する logger は DI 管理で本メソッドより寿命が長い。
-        try
-        {
-            try
-            {
-                await proc.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-            {
-                // Kill 後、受信済み stderr を診断として例外へ添付する（ExitCode≠0 経路と対称化＝Python トレースバック保持）。
-                // 単に {stderr} を読むと Kill 後も発火しうる ErrorDataReceived ハンドラと並行 read になり torn read を招くため、
-                // 非同期リーダを bounded に flush してから locked snapshot を読む。drain 失敗でも throw を保証するよう try/catch で囲む。
-                // Kill/flush の例外は握り潰さず TimeoutException の innerException に連鎖させる（Win32Exception 等の原因を保持）。
-                Exception? killEx = null;
-                try
-                {
-                    proc.Kill(entireProcessTree: true);
-                    // WaitForExit(TimeSpan) は非同期 ErrorDataReceived の flush を保証しない（MS docs: WaitForExit(Int32) の
-                    // Remarks。true を受けた後に引数なし WaitForExit() を呼べ）。5 秒内に終了済(true)のときだけ続けて引数なし
-                    // WaitForExit() で EOF flush を完了させる（終了済みなので即 return＝bounded 意図と両立）。false（孫プロセス
-                    // wedge で 5 秒内に未終了）なら無限ブロック回避のため引数なし呼出を避け、受信済み分のみ添付する。
-                    if (proc.WaitForExit(TimeSpan.FromSeconds(5)))
-                        proc.WaitForExit();
-                }
-                catch (Exception ex) { killEx = ex; logger.LogWarning(ex, "Python プロセス kill/flush 失敗（既に終了済みの可能性）。"); }
-                string tail;
-                lock (stderrLock) { tail = stderr.ToString(); }
-                throw new TimeoutException(
-                    $"Python 実行が {timeoutMinutes} 分でタイムアウトしました: {scriptPath}\nstderr(タイムアウトまで):\n{tail}",
-                    killEx);
-            }
-
-            // WaitForExitAsync は非同期 stdout/stderr リーダの EOF flush を保証しない（ExitCode≠0 時に throw する
-            // stderr 末尾＝Python トレースバック最重要行が欠落しうる）。引数なし同期 WaitForExit() を1回呼び、
-            // 非同期バッファを完全 flush してから ExitCode/stderr を参照する（正常終了済みなので即時 return）。
-            proc.WaitForExit();
-
-            if (proc.ExitCode != 0)
-            {
-                // 直前の引数なし WaitForExit() が非同期イベント処理の完了を保証するため並行 writer は不在だが、
-                // 読取作法を timeout 経路と統一して locked snapshot で読む。
-                string tail;
-                lock (stderrLock) { tail = stderr.ToString(); }
-                throw new InvalidOperationException(
-                    $"Python が ExitCode={proc.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{tail}");
-            }
-        }
-        finally
-        {
-            // Begin/Cancel をペア化し購読寿命を明示。post-EOF/Kill 後でも _output/_error は using Dispose まで
-            // 非 null（BeginOutput/ErrorReadLine は Start 後・proc.Start の Win32Exception catch が Begin 前に return）
-            // ゆえ Cancel は throw せず、伝播中の TimeoutException/InvalidOperationException を握り潰さない。
-            proc.CancelOutputRead();
-            proc.CancelErrorRead();
-        }
+                $"Python が ExitCode={result.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{result.Stderr}");
     }
 
     /// <summary>
