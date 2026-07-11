@@ -303,7 +303,6 @@ public static class Commands
         string mlDir = string.IsNullOrWhiteSpace(opt.MlDir)
             ? AppPaths.MlScriptsDir
             : Path.GetFullPath(opt.MlDir, AppPaths.RepoRoot);
-        int timeoutMinutes = opt.TimeoutMinutes > 0 ? opt.TimeoutMinutes : 10;
 
         var psi = new ProcessStartInfo
         {
@@ -325,9 +324,10 @@ public static class Commands
             psi.ArgumentList.Add(value);
         }
 
-        var result = await ProcessRunner.RunAsync(psi, logger, timeoutMinutes, stdin: null,
+        // TimeoutMinutes の非正値クランプはしない（RunAsync が ArgumentOutOfRangeException で fail-fast＝設定ミスの顕在化）。
+        var result = await ProcessRunner.RunAsync(psi, logger, TimeSpan.FromMinutes(opt.TimeoutMinutes), stdin: null,
             stdoutLogPrefix: "[python]", stderrLogPrefix: "[python:err]",
-            displayName: $"Python 実行: {scriptPath}", ct: ct);
+            displayName: $"Python 実行: {scriptPath}", startErrorHint: "Python:UvPath を確認", ct: ct);
         // Python 経路は stdout を捨てる（DB 書戻しが結果）。ExitCode≠0 の fail-fast 判断は呼び手＝ここに残す。
         if (result.ExitCode != 0)
             throw new InvalidOperationException(
