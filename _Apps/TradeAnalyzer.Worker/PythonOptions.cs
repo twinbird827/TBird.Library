@@ -3,8 +3,10 @@ namespace TradeAnalyzer.Worker;
 /// <summary>
 /// 段階3a の Python 採点プロセス起動設定（<c>uv run python predict.py …</c>）。
 /// Python 関心は Worker 固有（Core/Data は Python を知らない）のため Worker プロジェクトに置く。
-/// プロパティはプレーンに保ち、MlDir の絶対化は消費側（RunPythonAsync）で行う。TimeoutMinutes は非正値だと
-/// ProcessRunner.RunAsync が ArgumentOutOfRangeException（fail-fast。黙示フォールバックはしない）。
+/// プロパティはプレーンに保ち、MlDir の絶対化は消費側（RunPythonAsync）で行う。TimeoutMinutes は非正値・
+/// 上限（ProcessRunner.MaxTimeout）超過だと ProcessRunner.RunAsync が ArgumentOutOfRangeException
+///（fail-fast。黙示フォールバックはしない）。run-today は起動直後に ValidatePythonConfig が
+/// config キー名（Python:TimeoutMinutes）つきで事前検証する。
 /// </summary>
 public class PythonOptions
 {
@@ -20,7 +22,8 @@ public class PythonOptions
     /// <summary>採点スクリプト名（既定 <c>predict.py</c>）。</summary>
     public string PredictScript { get; set; } = "predict.py";
 
-    /// <summary>Python 実行のタイムアウト（分）。0 以下は ProcessRunner.RunAsync が
-    /// ArgumentOutOfRangeException（fail-fast＝設定ミスの顕在化。黙示フォールバックはしない）。</summary>
+    /// <summary>Python 実行のタイムアウト（分）。0 以下・上限（ProcessRunner.MaxTimeout）超過は
+    /// ProcessRunner.RunAsync が ArgumentOutOfRangeException（fail-fast＝設定ミスの顕在化。黙示フォールバックは
+    /// しない）。run-today は起動直後に ValidatePythonConfig が config キー名つきで事前検証する。</summary>
     public int TimeoutMinutes { get; set; } = 10;
 }

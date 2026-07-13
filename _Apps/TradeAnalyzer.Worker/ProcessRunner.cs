@@ -13,22 +13,29 @@ internal readonly record struct ProcessResult(int ExitCode, string Stdout, strin
 /// 受信済み分＋警告で続行＝出力末尾が欠落しうる）を一元化する共有起動点。ExitCode≠0 は throw せず
 /// <see cref="ProcessResult"/> で返す（致命/非致命ポリシーは各消費者に置く）。
 /// throw するのは次の場合のみ: 不正 timeout 引数（<see cref="ArgumentOutOfRangeException"/>＝プロセス起動前の
-/// fail-fast、停止すべき子プロセスなし）・起動失敗（<see cref="InvalidOperationException"/>）・
+/// fail-fast、停止すべき子プロセスなし）・stdin なしでの StandardInputEncoding 設定（<see cref="ArgumentException"/>＝
+/// 同じく起動前 fail-fast）・起動失敗（<see cref="InvalidOperationException"/>）・
 /// timeout（<see cref="TimeoutException"/>）・外部 ct キャンセル（<see cref="OperationCanceledException"/> 再スロー。
 /// ただし子プロセス正常終了後の grace 窓での ct 発火は OCE を投げず完了済み ProcessResult を返す＝kill 経路のみ再スロー）。
 /// 起動後の throw はいずれも子プロセスを停止させてから行う（孤児化回避）。run-today(uv run python) と 3b(claude -p) が共有する。
-/// Redirect*/UseShellExecute は本クラスが強制し、FileName/ArgumentList/WorkingDirectory/Encoding/Environment は
-/// 呼び手が psi に設定する（例: Python 経路の PYTHONUTF8=1、3b の StandardInputEncoding=UTF-8）。
+/// Redirect*/UseShellExecute は本クラスが強制し、stdin 供給時の StandardInputEncoding は本クラスが BOM なし UTF-8 を
+/// 既定適用する（呼び手明示があれば尊重）。FileName/ArgumentList/WorkingDirectory/stdout・stderr の Encoding/
+/// Environment は呼び手が psi に設定する（例: Python 経路の PYTHONUTF8=1）。
 /// </summary>
 internal static class ProcessRunner
 {
     // EOF drain の上限。magic number の散在はドリフト源のため名前付き定数に集約する。
     // 正常終了後: 子が handle を継承した孫プロセスを残すと EOF が来ず、成功した実行が timeout まで停滞して
-    // 誤失敗化するのを防ぐ上限。
-    private static readonly TimeSpan NormalExitEofGrace = TimeSpan.FromSeconds(15);
+    // 誤失敗化するのを防ぐ上限。internal は SelfTest がケース (7)(8) の時間境界を導出参照するため
+    //（生リテラル再エンコードによる grace 調整時のドリフト防止）。
+    internal static readonly TimeSpan NormalExitEofGrace = TimeSpan.FromSeconds(15);
     // kill 後: Kill(entireProcessTree) を逃れた（double-fork/再親付けの）孫が EOF を握るケースの上限
     //（旧実装の WaitForExit(5秒) を踏襲）。
     private static readonly TimeSpan KilledEofGrace = TimeSpan.FromSeconds(5);
+    // timeout の上限: CancelAfter が受理する最大遅延（net10 の Timer.MaxSupportedTimeout=0xFFFFFFFE ms ≈ 49.7 日）。
+    // 超過は冒頭ガードで起動前に fail-fast する（超過値が CancelAfter まで届くと起動後・try/finally 外の
+    // AOORE で子プロセスが孤児化する）。internal は Commands の設定境界検証が上限導出に参照するため。
+    internal static readonly TimeSpan MaxTimeout = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
 
     public static async Task<ProcessResult> RunAsync(
         ProcessStartInfo psi,
@@ -42,17 +49,33 @@ internal static class ProcessRunner
         string? startErrorHint = null,
         CancellationToken ct = default)
     {
-        // 非正 timeout は「0=無制限」等の誤解や設定ミスを黙って既定値へ書き換えず fail-fast で顕在化する
+        // 非正/上限超過 timeout は「0=無制限」等の誤解や設定ミスを黙って既定値へ書き換えず fail-fast で顕在化する
         //（silent-fallback 禁止方針）。psi の変異より前に検証し、引数不正時は psi を無傷のまま throw する。
-        if (timeout <= TimeSpan.Zero)
+        if (timeout <= TimeSpan.Zero || timeout > MaxTimeout)
             throw new ArgumentOutOfRangeException(nameof(timeout), timeout,
-                "タイムアウトは正の値を指定してください（非正値の黙示フォールバックはしない）。");
+                $"タイムアウトは正の値かつ {MaxTimeout} 以下を指定してください（範囲外の黙示フォールバックはしない）。");
+
+        // stdin なしでの StandardInputEncoding 設定は stdin の渡し忘れの可能性が高く、silent に null リセットすると
+        // 呼び手バグを隠蔽するため fail-fast で顕在化する（放置すると下の RedirectStandardInput=false 強制と
+        // ProcessStartInfo の整合検査が衝突し、Start() が startErrorHint 包装外の生 InvalidOperationException を投げる）。
+        // timeout ガードと同じく psi の変異より前・起動前に検証する。
+        if (stdin == null && psi.StandardInputEncoding != null)
+            throw new ArgumentException(
+                "stdin なしで StandardInputEncoding が設定されています（stdin の渡し忘れの可能性。黙示リセットはしない）。",
+                nameof(stdin));
 
         // redirect 設定は呼び手が忘れないようここで強制する。
         psi.RedirectStandardOutput = true;
         psi.RedirectStandardError = true;
         psi.UseShellExecute = false;
         psi.RedirectStandardInput = stdin != null;
+        // stdin 供給時の StandardInputEncoding は未指定なら BOM なし UTF-8 を既定適用する（呼び手明示があれば尊重。
+        // Redirect* 強制と同型パターン）。既定化しないと Windows 実装は GetConsoleCP()（日本語環境で cp932）を使い、
+        // 非 ASCII プロンプトが silent に文字化けする。Encoding.UTF8（BOM 付き）は不可: 明示指定は
+        // ConsoleEncoding（preamble 抑止）包装を経ず StreamWriter へ素通しされ、非シーク pipe への初回書込みで
+        // BOM（EF BB BF）が子プロセス stdin の先頭に silent 混入する。
+        if (stdin != null)
+            psi.StandardInputEncoding ??= new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
@@ -113,23 +136,24 @@ internal static class ProcessRunner
         proc.BeginErrorReadLine();
 
         // stdout/stderr の EOF（*DataReceived の最終発火）を grace 上限付きで待つ共通ヘルパ（正常経路/kill 経路で共用）。
-        // EOF 未達のまま grace 満了（または外部 ct 発火＝即打ち切り扱い）なら受信済み分で続行し、黙殺せず警告する。
-        // Task.Delay のトークンは「外部 ct のみ」とリンクした CTS から作る — timeoutCts とリンクすると timeout kill
-        // 経路では catch 到達時点で Cancel 済みのため drain が 0 秒に潰れ、診断のため drain を保持したい経路が死ぬ。
-        // linked CTS は using で確実に Dispose し（外部 ct への callback 登録のリーク防止）、EOF 先着時は Cancel して
-        // timer を回収する。
+        // EOF 未達のまま grace 満了（TimeoutException）または外部 ct 発火（TaskCanceledException＝即打ち切り扱い）なら
+        // 受信済み分で続行し、黙殺せず警告する。TCS は TrySetResult のみで fault しないため WhenAll は成功完了のみ＝
+        // 下の catch フィルタが予期せぬ例外を握り潰すことはない。
         async Task DrainOutputsAsync(TimeSpan grace)
         {
-            var eof = Task.WhenAll(stdoutEofTcs.Task, stderrEofTcs.Task);
-            if (eof.IsCompleted) return;
-            using var graceCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var delay = Task.Delay(grace, graceCts.Token);
-            await Task.WhenAny(eof, delay).ConfigureAwait(false);
-            if (eof.IsCompleted) { graceCts.Cancel(); return; }
-            // grace 満了 or 外部 ct 発火（cancel 起因と孫プロセス保持起因の区別は必須でないため文言は共通）。
-            logger.LogWarning(
-                "{Name}: stdout/stderr の EOF 待ちを {Grace:0.#} 秒で打ち切りました。孫プロセスが stdout/stderr を保持している可能性があり、出力末尾が欠落しえます（受信済み分で続行）。",
-                displayName, grace.TotalSeconds);
+            try
+            {
+                // 打ち切りトークンは「外部 ct のみ」— timeoutCts を使うと timeout kill 経路では catch 到達時点で
+                // 既発火のため drain が 0 秒に潰れ、TimeoutException へ添付する末尾 stderr 診断が失われる。
+                await Task.WhenAll(stdoutEofTcs.Task, stderrEofTcs.Task).WaitAsync(grace, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
+            {
+                // grace 満了 or 外部 ct 発火（cancel 起因と孫プロセス保持起因の区別は必須でないため文言は共通）。
+                logger.LogWarning(
+                    "{Name}: stdout/stderr の EOF 待ちを {Grace:0.#} 秒で打ち切りました。孫プロセスが stdout/stderr を保持している可能性があり、出力末尾が欠落しえます（受信済み分で続行）。",
+                    displayName, grace.TotalSeconds);
+            }
         }
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -167,6 +191,10 @@ internal static class ProcessRunner
             }
             catch (OperationCanceledException)
             {
+                // 分類（timeout か外部 ct か）は catch 冒頭＝throw 伝播直後に固定する。Kill＋最大 5 秒の drain の
+                // 後に評価すると、真正 timeout の直後にホスト shutdown 等で外部 ct が発火した場合に素の OCE へ
+                // 誤分類され TimeoutException＋stderr 診断が失われる（旧 exception filter の throw 時点評価を復元）。
+                bool isTimeout = timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested;
                 // フィルタなしで捕捉し、原因（timeout/外部 ct/理論上の spurious OCE）を問わずまず子を確実に停止する
                 //（孤児化回避）。kill の例外は握り潰さず innerException に連鎖させる（no-swallow）。
                 Exception? killEx = null;
@@ -181,7 +209,7 @@ internal static class ProcessRunner
                 // のため drain は即 0 秒＝キャンセル即応答を優先する意図的仕様（代償: 末尾 stderr 診断が失われうる）。
                 await DrainOutputsAsync(KilledEofGrace).ConfigureAwait(false);
 
-                if (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                if (isTimeout)
                 {
                     // timeout 由来。受信済み stderr を診断として例外へ添付する（トレースバック等の保持）。
                     string tail;

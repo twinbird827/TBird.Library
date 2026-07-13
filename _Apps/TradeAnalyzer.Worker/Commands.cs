@@ -226,6 +226,9 @@ public static class Commands
         //    3a は新規マイグレーションを導入しないため。空/未マイグレーション DB だと ingest 内の
         //    ExecuteDeleteAsync が no such table で停止する（run-today.ps1 冒頭に「要 migrate 済み DB」明記）。
         ValidateIngestConfig(sp, skipJQuants);
+        // Python 設定は数分の ingest/analyze が完走した後の Python 段で汎用 AOORE として死ぬ前に、
+        // 起動直後に config キー名つきで fail-fast する（run-today 専用＝Python を使わない ingest 単体には課さない）。
+        ValidatePythonConfig(pythonOptions.Value);
         // 当日は JST 固定で導出する（ホストローカル日付に依存させない＝非 JST ホスト移植でも1日ズレない）。
         // TimeProvider は既存 JQuantsRateLimiter と同じ「DI 未登録時は TimeProvider.System」方針で入手する。
         var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
@@ -366,6 +369,21 @@ public static class Commands
                 "  dotnet user-secrets set \"JQuants:ApiKey\" <key>\n" +
                 "  dotnet user-secrets set \"Edinet:SubscriptionKey\" <key>");
         }
+    }
+
+    /// <summary>
+    /// run-today 専用の Python 設定検証。RunAsync の timeout ガードは最終防衛線として残る（paramName=timeout の
+    /// 汎用文言でしか語れない）ため、設定境界では config キー名（Python:TimeoutMinutes）つきで診断する。
+    /// 上限は <see cref="ProcessRunner.MaxTimeout"/> からの導出（生リテラルの再エンコードはドリフト源のためしない）。
+    /// 共有 ValidateIngestConfig には入れない — Python を使わない ingest 単体実行が無関係な誤設定で
+    /// 偽 fail-fast する結合を避けるため。
+    /// </summary>
+    private static void ValidatePythonConfig(PythonOptions py)
+    {
+        int maxMinutes = (int)ProcessRunner.MaxTimeout.TotalMinutes;
+        if (py.TimeoutMinutes <= 0 || py.TimeoutMinutes > maxMinutes)
+            throw new InvalidOperationException(
+                $"Python:TimeoutMinutes は 1〜{maxMinutes} の範囲で指定してください（現在値: {py.TimeoutMinutes}）。");
     }
 
     // --- 引数パース ---
