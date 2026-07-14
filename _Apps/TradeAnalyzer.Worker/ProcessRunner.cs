@@ -16,7 +16,8 @@ internal readonly record struct ProcessResult(int ExitCode, string Stdout, strin
 /// fail-fast、停止すべき子プロセスなし）・stdin なしでの StandardInputEncoding 設定（<see cref="ArgumentException"/>＝
 /// 同じく起動前 fail-fast）・起動失敗（<see cref="InvalidOperationException"/>）・
 /// timeout（<see cref="TimeoutException"/>）・外部 ct キャンセル（<see cref="OperationCanceledException"/> 再スロー。
-/// ただし子プロセス正常終了後の grace 窓での ct 発火は OCE を投げず完了済み ProcessResult を返す＝kill 経路のみ再スロー）。
+/// ただし子プロセス正常終了後の grace 窓での ct 発火は OCE を投げず完了済み ProcessResult を返し、timeout/ct の
+/// catch 到達時に子が既に終了済み（HasExited）の場合も kill 経路へ入らず完了済み ProcessResult を返す＝kill 経路のみ再スロー）。
 /// 起動後の throw はいずれも子プロセスを停止させてから行う（孤児化回避）。run-today(uv run python) と 3b(claude -p) が共有する。
 /// Redirect*/UseShellExecute は本クラスが強制し、stdin 供給時の StandardInputEncoding は本クラスが BOM なし UTF-8 を
 /// 既定適用する（呼び手明示があれば尊重）。FileName/ArgumentList/WorkingDirectory/stdout・stderr の Encoding/
@@ -115,9 +116,10 @@ internal static class ProcessRunner
             logger.LogWarning("{Prefix} {Line}", stderrLogPrefix, e.Data);
         };
 
-        // 実行ファイル＋全引数＋cwd を保全する（診断情報の維持）。
-        logger.LogInformation("{Name} 起動: {File} {Args} (cwd={Cwd})",
-            displayName, psi.FileName, string.Join(' ', psi.ArgumentList), psi.WorkingDirectory);
+        // 実行ファイル＋全引数＋cwd を保全する（診断情報の維持）。{Name} は付けない — 起動行は File/Args/cwd で
+        // 自己記述的で、Args に script パスを含む消費者では二重表示＋動詞衝突になる（displayName は例外/警告の主語専用）。
+        logger.LogInformation("起動: {File} {Args} (cwd={Cwd})",
+            psi.FileName, string.Join(' ', psi.ArgumentList), psi.WorkingDirectory);
 
         // UseShellExecute=false の Process.Start() は実行ファイル不在時 false を返さず Win32Exception を
         // throw する（false 判定は dead-code）。例外を捕捉し原因明示で包む。修正手がかりは呼び手が
@@ -136,20 +138,22 @@ internal static class ProcessRunner
         proc.BeginErrorReadLine();
 
         // stdout/stderr の EOF（*DataReceived の最終発火）を grace 上限付きで待つ共通ヘルパ（正常経路/kill 経路で共用）。
-        // EOF 未達のまま grace 満了（TimeoutException）または外部 ct 発火（TaskCanceledException＝即打ち切り扱い）なら
-        // 受信済み分で続行し、黙殺せず警告する。TCS は TrySetResult のみで fault しないため WhenAll は成功完了のみ＝
+        // EOF 未達のまま grace 満了（TimeoutException）または打ち切りトークン発火（TaskCanceledException＝即打ち切り扱い）
+        // なら受信済み分で続行し、黙殺せず警告する。打ち切りトークンは呼び手が経路ごとに渡す — 正常経路は外部 ct
+        //（grace 窓のキャンセル即応答）、timeout kill 経路は None（bounded 保証で末尾 stderr 診断を保全）、純粋外部 ct
+        // kill 経路は ct（即打ち切り）。TCS は TrySetResult のみで fault しないため WhenAll は成功完了のみ＝
         // 下の catch フィルタが予期せぬ例外を握り潰すことはない。
-        async Task DrainOutputsAsync(TimeSpan grace)
+        async Task DrainOutputsAsync(TimeSpan grace, CancellationToken drainCt)
         {
             try
             {
-                // 打ち切りトークンは「外部 ct のみ」— timeoutCts を使うと timeout kill 経路では catch 到達時点で
-                // 既発火のため drain が 0 秒に潰れ、TimeoutException へ添付する末尾 stderr 診断が失われる。
-                await Task.WhenAll(stdoutEofTcs.Task, stderrEofTcs.Task).WaitAsync(grace, ct).ConfigureAwait(false);
+                // timeoutCts は使わない — timeout kill 経路では catch 到達時点で既発火のため drain が 0 秒に潰れ、
+                // TimeoutException へ添付する末尾 stderr 診断が失われる（呼び手が None/ct を明示的に呼び分ける）。
+                await Task.WhenAll(stdoutEofTcs.Task, stderrEofTcs.Task).WaitAsync(grace, drainCt).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
             {
-                // grace 満了 or 外部 ct 発火（cancel 起因と孫プロセス保持起因の区別は必須でないため文言は共通）。
+                // grace 満了 or 打ち切りトークン発火（cancel 起因と孫プロセス保持起因の区別は必須でないため文言は共通）。
                 logger.LogWarning(
                     "{Name}: stdout/stderr の EOF 待ちを {Grace:0.#} 秒で打ち切りました。孫プロセスが stdout/stderr を保持している可能性があり、出力末尾が欠落しえます（受信済み分で続行）。",
                     displayName, grace.TotalSeconds);
@@ -191,44 +195,56 @@ internal static class ProcessRunner
             }
             catch (OperationCanceledException)
             {
-                // 分類（timeout か外部 ct か）は catch 冒頭＝throw 伝播直後に固定する。Kill＋最大 5 秒の drain の
-                // 後に評価すると、真正 timeout の直後にホスト shutdown 等で外部 ct が発火した場合に素の OCE へ
-                // 誤分類され TimeoutException＋stderr 診断が失われる（旧 exception filter の throw 時点評価を復元）。
-                bool isTimeout = timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested;
-                // フィルタなしで捕捉し、原因（timeout/外部 ct/理論上の spurious OCE）を問わずまず子を確実に停止する
-                //（孤児化回避）。kill の例外は握り潰さず innerException に連鎖させる（no-swallow）。
-                Exception? killEx = null;
-                try
+                // catch 到達時に子が既に終了済みなら第 3 の早期離脱カテゴリ: timeout/外部 ct の発火と正常終了の
+                // マイクロ秒競合で WaitAsync のキャンセル側が勝ったケース。kill/throw をスキップして catch を素通りし、
+                // 外側 try の正常経路（EOF drain → ProcessResult 返却）へ合流する（成功した実行＝DB 書戻し済みの
+                // 誤失敗化を防ぐ）。判定は Exited イベント（exitTcs）でなく OS プロセス状態を直接見る HasExited —
+                // 物理終了済みだがイベント未配送の残余窓も同一コストで閉じる。チェックは Kill より前が必須
+                //（Kill 後は kill 起因の終了と「timeout 前に終了」を判別できなくなる）。
+                if (!proc.HasExited)
                 {
-                    proc.Kill(entireProcessTree: true);
-                }
-                catch (Exception ex) { killEx = ex; logger.LogWarning(ex, "{Name}: 子プロセス kill 失敗（既に終了済みの可能性）。", displayName); }
+                    // 分類（timeout か外部 ct か）は早期離脱チェック直後＝throw 伝播直後に固定する。Kill＋最大 5 秒の
+                    // drain の後に評価すると、真正 timeout の直後にホスト shutdown 等で外部 ct が発火した場合に素の OCE へ
+                    // 誤分類され TimeoutException＋stderr 診断が失われる（旧 exception filter の throw 時点評価を復元）。
+                    bool isTimeout = timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested;
+                    // フィルタなしで捕捉し、原因（timeout/外部 ct/理論上の spurious OCE）を問わずまず子を確実に停止する
+                    //（孤児化回避）。kill の例外は握り潰さず innerException に連鎖させる（no-swallow）。
+                    Exception? killEx = null;
+                    try
+                    {
+                        proc.Kill(entireProcessTree: true);
+                    }
+                    catch (Exception ex) { killEx = ex; logger.LogWarning(ex, "{Name}: 子プロセス kill 失敗（既に終了済みの可能性）。", displayName); }
 
-                // kill で子ツリーのパイプは通常すぐ閉じ EOF が来る。Kill(entireProcessTree) を逃れた孫が write handle を
-                // 握るケースに備え KilledEofGrace で bounded に drain し、無限待ちを排除する。外部 ct 由来なら ct 発火済み
-                // のため drain は即 0 秒＝キャンセル即応答を優先する意図的仕様（代償: 末尾 stderr 診断が失われうる）。
-                await DrainOutputsAsync(KilledEofGrace).ConfigureAwait(false);
+                    // kill で子ツリーのパイプは通常すぐ閉じ EOF が来る。Kill(entireProcessTree) を逃れた孫が write handle を
+                    // 握るケースに備え KilledEofGrace で bounded に drain し、無限待ちを排除する。打ち切りトークンは呼び分ける:
+                    // timeout 経路は None＝ct 非連動で KilledEofGrace の bounded 保証を確保し、分類確定後に外部 ct が発火しても
+                    // TimeoutException へ添付する末尾 stderr 診断を保全する（旧同期 WaitForExit(5秒) 相当の保証。代償:
+                    // ホスト shutdown が最大 5 秒待たされうる）。純粋外部 ct 経路は ct＝発火済みのため drain は即 0 秒で
+                    // キャンセル即応答を優先する意図的仕様（代償: 末尾 stderr 診断が失われうる）。
+                    await DrainOutputsAsync(KilledEofGrace, isTimeout ? CancellationToken.None : ct).ConfigureAwait(false);
 
-                if (isTimeout)
-                {
-                    // timeout 由来。受信済み stderr を診断として例外へ添付する（トレースバック等の保持）。
-                    string tail;
-                    lock (stderrLock) { tail = stderr.ToString(); }
-                    throw new TimeoutException(
-                        $"{displayName} が {timeout.TotalMinutes:0.##} 分でタイムアウトしました\nstderr(タイムアウトまで):\n{tail}", killEx);
+                    if (isTimeout)
+                    {
+                        // timeout 由来。受信済み stderr を診断として例外へ添付する（トレースバック等の保持）。
+                        string tail;
+                        lock (stderrLock) { tail = stderr.ToString(); }
+                        throw new TimeoutException(
+                            $"{displayName} が {timeout.TotalMinutes:0.##} 分でタイムアウトしました\nstderr(タイムアウトまで):\n{tail}", killEx);
+                    }
+                    // それ以外＝実運用では外部 ct 由来（timeoutCts は linked ゆえ ct キャンセルでも発火する）。子は kill 済み。
+                    // kill 失敗は innerException 連鎖で顕在化させ、成功時は元 OCE を再スローしキャンセルを honor する。
+                    // この経路が必ず送出して終わることで、kill 済みプロセスの ProcessResult を返す事故を防ぐ。
+                    if (killEx != null)
+                        throw new OperationCanceledException("キャンセル中の子プロセス kill に失敗", killEx, ct);
+                    throw;
                 }
-                // それ以外＝実運用では外部 ct 由来（timeoutCts は linked ゆえ ct キャンセルでも発火する）。子は kill 済み。
-                // kill 失敗は innerException 連鎖で顕在化させ、成功時は元 OCE を再スローしキャンセルを honor する。
-                // この経路が必ず送出して終わることで、kill 済みプロセスの ProcessResult を返す事故を防ぐ。
-                if (killEx != null)
-                    throw new OperationCanceledException("キャンセル中の子プロセス kill に失敗", killEx, ct);
-                throw;
             }
 
             // 子は正常終了済み。WaitForExitAsync は EOF drain を timeout まで内包してしまうため exit-only 待ちに分離し、
             // EOF はここで NormalExitEofGrace を上限に bounded に待つ。grace 超過（または外部 ct 発火）でも完了済みの
             // 実行結果は破棄せず、警告のうえ受信済み分の ProcessResult を返す（新規の OCE は投げない契約）。
-            await DrainOutputsAsync(NormalExitEofGrace).ConfigureAwait(false);
+            await DrainOutputsAsync(NormalExitEofGrace, ct).ConfigureAwait(false);
 
             // EOF 到達済みなら並行 writer は不在だが、grace 打ち切り時はハンドラが遅延発火しうるため
             // 読取作法を kill 経路と統一して locked snapshot で読む。captureStdout=false は蓄積自体を
