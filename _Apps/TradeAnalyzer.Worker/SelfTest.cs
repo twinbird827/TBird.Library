@@ -710,11 +710,15 @@ public static class SelfTest
     /// <summary>
     /// WARNING 経路検証用の最小ロガー。レベルと整形済みメッセージのみ記録する。
     /// ProcessRunner の *DataReceived ハンドラ（スレッドプール）からも Add されるため lock で保護する。
-    /// 並行 writer がありうるケース（(7)(8)）の読取は lock 下で ToList スナップショットを取ってから評価すること。
+    /// 並行 writer がありうるケース（(7)(8)）の読取は Snapshot() を使うこと。
     /// </summary>
     private sealed class CapturingLogger<T> : ILogger<T>
     {
         public List<(LogLevel Level, string Message)> Entries { get; } = new();
+
+        /// <summary>並行 writer 下の安全な読取: lock 下で ToList スナップショットを取って返す。</summary>
+        public List<(LogLevel Level, string Message)> Snapshot() { lock (Entries) { return Entries.ToList(); } }
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
@@ -909,23 +913,31 @@ public static class SelfTest
         catch (InvalidOperationException ex) when (ex.Message.Contains("テスト用ヒント")) { startFailed = true; }
         f += Assert("Proc: 起動失敗 → InvalidOperationException + startErrorHint", startFailed);
 
-        // (7) grace 満了経路（F1 回帰）: start /b の孫 ping が継承した stdout write handle を ~29 秒保持するため
-        //     EOF が来ず、NormalExitEofGrace 満了の警告＋受信済み分で成功復帰する。所要時間の下限（grace−2s）は
-        //     タイマ解像度・丸めの境界一致による偽 FAIL 防止のスラック、上限（grace＋10s）は旧実装（WaitForExitAsync の
-        //     内包 EOF drain で ~29s）との判別。孤児 ping は ~30 秒で自然消滅しプロセスリークしない。
+        // (7)(8) 共通の handle 保持手段: start /b の孫 ping が継承した stdout write handle を保持し EOF を遅らせる。
+        //     "ping -n N" は 1s 間隔 ×(N−1) ≈ 29s 保持（pingHold）。Cmd へは pingCount を補間し、時間前提
+        //     （grace/ctDelay が保持満了より先着すること）は pingHold から導出して生リテラルの二重管理を排除する。
+        int pingCount = 30;
+        var pingHold = TimeSpan.FromSeconds(pingCount - 1);
+
+        // (7) grace 満了経路（F1 回帰）: 孫 ping の handle 保持で EOF が来ず、NormalExitEofGrace 満了の警告＋
+        //     受信済み分で成功復帰する。所要時間の下限（grace−2s）はタイマ解像度・丸めの境界一致による偽 FAIL
+        //     防止のスラック、上限（grace＋10s）は旧実装（WaitForExitAsync の内包 EOF drain で ~pingHold）との判別。
+        //     孤児 ping は pingHold 経過で自然消滅しプロセスリークしない。
         var log7 = new CapturingLogger<TradeAnalyzer.Core.Backtest.BacktestService>();
         var lower7 = ProcessRunner.NormalExitEofGrace - TimeSpan.FromSeconds(2);
         var upper7 = ProcessRunner.NormalExitEofGrace + TimeSpan.FromSeconds(10);
+        // 前提: grace 満了が孫 ping の EOF（pingHold）より判別余地（5s — (8) の「grace−3s」と同水準の壁時計スラック）
+        // をもって先着すること。破れると警告 assert だけが原因不明 FAIL するため、ここで自明に FAIL させる。
+        f += Assert("(7) 前提: grace は ping 保持より判別余地をもって小さい",
+            ProcessRunner.NormalExitEofGrace <= pingHold - TimeSpan.FromSeconds(5));
         var sw = Stopwatch.StartNew();
-        var r7 = await ProcessRunner.RunAsync(Cmd("start /b ping -n 30 localhost & exit"), log7, min1);
+        var r7 = await ProcessRunner.RunAsync(Cmd($"start /b ping -n {pingCount} localhost & exit"), log7, min1);
         sw.Stop();
         f += Assert("Proc: 孫の handle 保持でも成功復帰(ExitCode=0)", r7.ExitCode == 0);
         f += Assert($"Proc: 所要 {lower7.TotalSeconds:0}-{upper7.TotalSeconds:0}s（実測 {sw.Elapsed.TotalSeconds:0.#}s）",
             sw.Elapsed >= lower7 && sw.Elapsed < upper7);
-        List<(LogLevel Level, string Message)> entries7;
-        lock (log7.Entries) { entries7 = log7.Entries.ToList(); }
         f += Assert("Proc: grace 満了の警告発火",
-            entries7.Any(e => e.Level >= LogLevel.Warning && e.Message.Contains("EOF")));
+            log7.Snapshot().Any(e => e.Level >= LogLevel.Warning && e.Message.Contains("EOF")));
 
         // (8) grace 窓中の外部 ct 発火（F1 B 案契約の回帰固定）: 親 cmd は即終了＝exit-only 待ちは ct 発火の
         //     はるか前に完了済み（kill 経路に入らない）。~8s 時点の ct が drain を即打ち切り、OCE を投げず
@@ -939,21 +951,22 @@ public static class SelfTest
         // ct 発火がこの上限未満であることが (8) の前提 — 破れたら時間 assert の偽 FAIL でなくここで自明に FAIL させる。
         var drainCutoff8 = ProcessRunner.NormalExitEofGrace - TimeSpan.FromSeconds(3);
         f += Assert("(8) 前提: ctDelay は判別上限（grace−3s）未満", ctDelay < drainCutoff8);
+        // 前提: ct 発火時点で孫 ping がまだ handle を保持していること（保持満了なら EOF 完了で警告不発になる）。
+        f += Assert("(8) 前提: ctDelay は ping 保持より判別余地をもって小さい",
+            ctDelay < pingHold - TimeSpan.FromSeconds(5));
         using var cts8 = new CancellationTokenSource(ctDelay);
         sw.Restart();
         bool oceThrown = false;
         ProcessResult r8 = default;
-        try { r8 = await ProcessRunner.RunAsync(Cmd("start /b ping -n 30 localhost & exit"), log8, min1, ct: cts8.Token); }
+        try { r8 = await ProcessRunner.RunAsync(Cmd($"start /b ping -n {pingCount} localhost & exit"), log8, min1, ct: cts8.Token); }
         catch (OperationCanceledException) { oceThrown = true; }
         sw.Stop();
         f += Assert("Proc: grace 窓中の ct でも OCE を投げない", !oceThrown);
         f += Assert("Proc: ct 打ち切りでも完了済み結果(ExitCode=0)", r8.ExitCode == 0);
         f += Assert($"Proc: ct が drain を即打ち切り <{drainCutoff8.TotalSeconds:0}s（実測 {sw.Elapsed.TotalSeconds:0.#}s）",
             sw.Elapsed < drainCutoff8);
-        List<(LogLevel Level, string Message)> entries8;
-        lock (log8.Entries) { entries8 = log8.Entries.ToList(); }
         f += Assert("Proc: ct 打ち切りの警告発火",
-            entries8.Any(e => e.Level >= LogLevel.Warning && e.Message.Contains("EOF")));
+            log8.Snapshot().Any(e => e.Level >= LogLevel.Warning && e.Message.Contains("EOF")));
 
         // (9) timeout 上限超過（> MaxTimeout ≈ 49.7 日）も起動前に fail-fast（F1 R2 回帰）。paramName まで検査する:
         //     型のみだと冒頭ガードを外しても起動後の CancelAfter が同型 AOORE（paramName=delay・孤児化経路）を

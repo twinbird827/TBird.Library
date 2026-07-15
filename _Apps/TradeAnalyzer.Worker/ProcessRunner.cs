@@ -154,6 +154,7 @@ internal static class ProcessRunner
             catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
             {
                 // grace 満了 or 打ち切りトークン発火（cancel 起因と孫プロセス保持起因の区別は必須でないため文言は共通）。
+                // 文言中の "EOF" トークンは SelfTest (7)(8) が警告発火の照合に使う — 言い換え時はテストも更新すること。
                 logger.LogWarning(
                     "{Name}: stdout/stderr の EOF 待ちを {Grace:0.#} 秒で打ち切りました。孫プロセスが stdout/stderr を保持している可能性があり、出力末尾が欠落しえます（受信済み分で続行）。",
                     displayName, grace.TotalSeconds);
