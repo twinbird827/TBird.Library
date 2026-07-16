@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +48,7 @@ public static class SelfTest
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
+        failed += await RunProcessRunnerTestsAsync();
 
         if (failed == 0) Console.WriteLine("SelfTest: 全テスト PASS");
         else
@@ -706,15 +709,23 @@ public static class SelfTest
 
     /// <summary>
     /// WARNING 経路検証用の最小ロガー。レベルと整形済みメッセージのみ記録する。
+    /// ProcessRunner の *DataReceived ハンドラ（スレッドプール）からも Add されるため lock で保護する。
+    /// 並行 writer がありうるケース（(7)(8)）の読取は Snapshot() を使うこと。
     /// </summary>
     private sealed class CapturingLogger<T> : ILogger<T>
     {
         public List<(LogLevel Level, string Message)> Entries { get; } = new();
+
+        /// <summary>並行 writer 下の安全な読取: lock 下で ToList スナップショットを取って返す。</summary>
+        public List<(LogLevel Level, string Message)> Snapshot() { lock (Entries) { return Entries.ToList(); } }
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
-            => Entries.Add((logLevel, formatter(state, exception)));
+        {
+            lock (Entries) { Entries.Add((logLevel, formatter(state, exception))); }
+        }
     }
 
     /// <summary>
@@ -834,6 +845,147 @@ public static class SelfTest
         var jq = scope.ServiceProvider.GetRequiredService<JQuantsClient>();
         f += Assert("DI: EdinetClient 解決", edinet is not null);
         f += Assert("DI: JQuantsClient 解決", jq is not null);
+        return f;
+    }
+
+    /// <summary>
+    /// process-runner F5: ProcessRunner.RunAsync の堅牢コア回帰（cmd/findstr/ping ベース・API キー不要）。
+    /// timeout kill・bounded EOF drain・ExitCode≠0・stdin 供給・非正/上限超過 timeout fail-fast・
+    /// stdin encoding 不整合 fail-fast・起動失敗ヒントを固定する。ケース (7)(8) は実時間 ~15s/~8s を要する
+    ///（grace 満了経路検証の意図的コスト）。cmd/findstr/ping は Windows 専用だが本 Worker は de-facto
+    /// Windows（cp932 対策・run-today.ps1）のため許容。
+    /// </summary>
+    private static async Task<int> RunProcessRunnerTestsAsync()
+    {
+        int f = 0;
+        var log = NullLogger.Instance;
+        var min1 = TimeSpan.FromMinutes(1);
+
+        static ProcessStartInfo Cmd(string commandLine)
+        {
+            var psi = new ProcessStartInfo { FileName = "cmd" };
+            psi.ArgumentList.Add("/c");
+            psi.ArgumentList.Add(commandLine);
+            return psi;
+        }
+
+        // (1) 正常終了 → ExitCode=0（timeout は必須 positional のため主眼でないケースも十分大きい正値を渡す）。
+        var r1 = await ProcessRunner.RunAsync(Cmd("exit 0"), log, min1);
+        f += Assert("Proc: exit 0 → ExitCode=0", r1.ExitCode == 0);
+
+        // (2) ExitCode≠0 は throw せず結果で返り、stdout/stderr を捕捉する（Stdout 読取は captureStdout 明示）。
+        //     cmd の echo は & 直前の空白を保持し AppendLine が改行を足すため、assert は Contains で書く。
+        var r2 = await ProcessRunner.RunAsync(Cmd("echo out & echo err 1>&2 & exit 3"), log, min1, captureStdout: true);
+        f += Assert("Proc: exit 3 → ExitCode=3", r2.ExitCode == 3);
+        f += Assert("Proc: stdout 捕捉", r2.Stdout.Contains("out"));
+        f += Assert("Proc: stderr 捕捉", r2.Stderr.Contains("err"));
+
+        // (3) timeout → TimeoutException（kill 完了）。長時間実行の手段は ping（timeout コマンドは非対話 stdin
+        //     環境で "Input redirection not supported" になりうるため、実行環境に依存しない ping が安定）。
+        bool timedOut = false;
+        try { await ProcessRunner.RunAsync(Cmd("ping -n 600 localhost"), log, TimeSpan.FromSeconds(2)); }
+        catch (TimeoutException) { timedOut = true; }
+        f += Assert("Proc: timeout → TimeoutException", timedOut);
+
+        // (4) stdin 供給（3b claude -p 経路の先行検証）: findstr は stdin の一致行を echo back して ExitCode=0
+        //     （全行非一致だと ExitCode=1 になる点に注意）。echo back の確認は Stdout 読取＝captureStdout: true。
+        var psiFind = new ProcessStartInfo { FileName = "findstr" };
+        psiFind.ArgumentList.Add("hello");
+        var r4 = await ProcessRunner.RunAsync(psiFind, log, min1, stdin: "hello world\r\nignore me\r\n", captureStdout: true);
+        f += Assert("Proc: stdin → findstr ExitCode=0", r4.ExitCode == 0);
+        f += Assert("Proc: stdin → 一致行 echo back", r4.Stdout.Contains("hello world"));
+
+        // (5) 非正 timeout は起動前に fail-fast（F4: silent 10 分フォールバック撤廃の回帰固定。
+        //     SelectTopPicks topN<=0 / AtrPeriod<=0 ガードテストと同型）。プロセスは起動されない。
+        bool guardThrew = false;
+        try { await ProcessRunner.RunAsync(Cmd("exit 0"), log, TimeSpan.Zero); }
+        catch (ArgumentOutOfRangeException) { guardThrew = true; }
+        f += Assert("Proc: timeout<=0 は ArgumentOutOfRangeException", guardThrew);
+
+        // (6) 起動失敗（実行ファイル不在）は InvalidOperationException で包み、startErrorHint がメッセージに
+        //     載る（F2 回帰）。実プロセスは起動されない。
+        bool startFailed = false;
+        try
+        {
+            await ProcessRunner.RunAsync(new ProcessStartInfo { FileName = "nonexistent-exe-selftest" }, log, min1,
+                startErrorHint: "テスト用ヒント");
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("テスト用ヒント")) { startFailed = true; }
+        f += Assert("Proc: 起動失敗 → InvalidOperationException + startErrorHint", startFailed);
+
+        // (7)(8) 共通の handle 保持手段: start /b の孫 ping が継承した stdout write handle を保持し EOF を遅らせる。
+        //     "ping -n N" は 1s 間隔 ×(N−1) ≈ 29s 保持（pingHold）。Cmd へは pingCount を補間し、時間前提
+        //     （grace/ctDelay が保持満了より先着すること）は pingHold から導出して生リテラルの二重管理を排除する。
+        int pingCount = 30;
+        var pingHold = TimeSpan.FromSeconds(pingCount - 1);
+
+        // (7) grace 満了経路（F1 回帰）: 孫 ping の handle 保持で EOF が来ず、NormalExitEofGrace 満了の警告＋
+        //     受信済み分で成功復帰する。所要時間の下限（grace−2s）はタイマ解像度・丸めの境界一致による偽 FAIL
+        //     防止のスラック、上限（grace＋10s）は旧実装（WaitForExitAsync の内包 EOF drain で ~pingHold）との判別。
+        //     孤児 ping は pingHold 経過で自然消滅しプロセスリークしない。
+        var log7 = new CapturingLogger<TradeAnalyzer.Core.Backtest.BacktestService>();
+        var lower7 = ProcessRunner.NormalExitEofGrace - TimeSpan.FromSeconds(2);
+        var upper7 = ProcessRunner.NormalExitEofGrace + TimeSpan.FromSeconds(10);
+        // 前提: grace 満了が孫 ping の EOF（pingHold）より判別余地（5s — (8) の「grace−3s」と同水準の壁時計スラック）
+        // をもって先着すること。破れると警告 assert だけが原因不明 FAIL するため、ここで自明に FAIL させる。
+        f += Assert("(7) 前提: grace は ping 保持より判別余地をもって小さい",
+            ProcessRunner.NormalExitEofGrace <= pingHold - TimeSpan.FromSeconds(5));
+        var sw = Stopwatch.StartNew();
+        var r7 = await ProcessRunner.RunAsync(Cmd($"start /b ping -n {pingCount} localhost & exit"), log7, min1);
+        sw.Stop();
+        f += Assert("Proc: 孫の handle 保持でも成功復帰(ExitCode=0)", r7.ExitCode == 0);
+        f += Assert($"Proc: 所要 {lower7.TotalSeconds:0}-{upper7.TotalSeconds:0}s（実測 {sw.Elapsed.TotalSeconds:0.#}s）",
+            sw.Elapsed >= lower7 && sw.Elapsed < upper7);
+        f += Assert("Proc: grace 満了の警告発火",
+            log7.Snapshot().Any(e => e.Level >= LogLevel.Warning && e.Message.Contains("EOF")));
+
+        // (8) grace 窓中の外部 ct 発火（F1 B 案契約の回帰固定）: 親 cmd は即終了＝exit-only 待ちは ct 発火の
+        //     はるか前に完了済み（kill 経路に入らない）。~8s 時点の ct が drain を即打ち切り、OCE を投げず
+        //     警告＋完了済み ProcessResult を返す。ct 遅延 8s は cmd spawn スラック（spawn がこれを超えると
+        //     exit-only 待ち未完了のまま kill 経路に入り偽 FAIL）で、R1 確定の ~10s スラック水準に揃えた値。
+        //     grace からは導出しない — 8s は spawn 由来で grace とは不等式の関係しかなく、導出すると grace
+        //     引下げ時にスラックが黙って縮む偽の依存になる。
+        var log8 = new CapturingLogger<TradeAnalyzer.Core.Backtest.BacktestService>();
+        var ctDelay = TimeSpan.FromSeconds(8);
+        // 「drain 即打ち切り」の判別上限は grace 満了経路（≥grace）と 3s の判別余地を置いた grace−3s。
+        // ct 発火がこの上限未満であることが (8) の前提 — 破れたら時間 assert の偽 FAIL でなくここで自明に FAIL させる。
+        var drainCutoff8 = ProcessRunner.NormalExitEofGrace - TimeSpan.FromSeconds(3);
+        f += Assert("(8) 前提: ctDelay は判別上限（grace−3s）未満", ctDelay < drainCutoff8);
+        // 前提: ct 発火時点で孫 ping がまだ handle を保持していること（保持満了なら EOF 完了で警告不発になる）。
+        f += Assert("(8) 前提: ctDelay は ping 保持より判別余地をもって小さい",
+            ctDelay < pingHold - TimeSpan.FromSeconds(5));
+        using var cts8 = new CancellationTokenSource(ctDelay);
+        sw.Restart();
+        bool oceThrown = false;
+        ProcessResult r8 = default;
+        try { r8 = await ProcessRunner.RunAsync(Cmd($"start /b ping -n {pingCount} localhost & exit"), log8, min1, ct: cts8.Token); }
+        catch (OperationCanceledException) { oceThrown = true; }
+        sw.Stop();
+        f += Assert("Proc: grace 窓中の ct でも OCE を投げない", !oceThrown);
+        f += Assert("Proc: ct 打ち切りでも完了済み結果(ExitCode=0)", r8.ExitCode == 0);
+        f += Assert($"Proc: ct が drain を即打ち切り <{drainCutoff8.TotalSeconds:0}s（実測 {sw.Elapsed.TotalSeconds:0.#}s）",
+            sw.Elapsed < drainCutoff8);
+        f += Assert("Proc: ct 打ち切りの警告発火",
+            log8.Snapshot().Any(e => e.Level >= LogLevel.Warning && e.Message.Contains("EOF")));
+
+        // (9) timeout 上限超過（> MaxTimeout ≈ 49.7 日）も起動前に fail-fast（F1 R2 回帰）。paramName まで検査する:
+        //     型のみだと冒頭ガードを外しても起動後の CancelAfter が同型 AOORE（paramName=delay・孤児化経路）を
+        //     投げて緑のままになり、回帰を固定できない。プロセスは起動されない。
+        bool upperGuardThrew = false;
+        try { await ProcessRunner.RunAsync(Cmd("exit 0"), log, TimeSpan.FromMilliseconds(uint.MaxValue)); }
+        catch (ArgumentOutOfRangeException ex) { upperGuardThrew = ex.ParamName == "timeout"; }
+        f += Assert("Proc: timeout>上限 は起動前 ArgumentOutOfRangeException（paramName=timeout）", upperGuardThrew);
+
+        // (10) stdin なし＋StandardInputEncoding 設定は起動前に ArgumentException で fail-fast（F4 R2 回帰:
+        //      stdin 渡し忘れの顕在化。silent リセットしない）。timeout は有効値を渡す — 非正値だと隣接の
+        //      timeout ガード（AOORE）が先に発火し検証対象がすり替わる。この Encoding.UTF8 は書込み前に
+        //      throw させる検証専用値のため BOM 混入とは無関係。プロセスは起動されない。
+        var psi10 = Cmd("exit 0");
+        psi10.StandardInputEncoding = Encoding.UTF8;
+        bool encGuardThrew = false;
+        try { await ProcessRunner.RunAsync(psi10, log, min1); }
+        catch (ArgumentException ex) { encGuardThrew = ex is not ArgumentOutOfRangeException; }
+        f += Assert("Proc: stdin なし＋StandardInputEncoding は ArgumentException", encGuardThrew);
         return f;
     }
 
