@@ -4,8 +4,9 @@ namespace TradeAnalyzer.Worker;
 /// 段階3b の Claude 定性層プロセス起動設定（既定 <c>claude -p --output-format json</c>）。
 /// <see cref="PythonOptions"/> と対の型付き設定で、Worker 固有（Core/Data は Claude を知らない）。
 /// <para>
-/// <see cref="Route"/> で経路を切替: <c>cli</c>（既定＝claude CLI・Max クレジット）/ <c>sdk</c>（公式 Anthropic SDK・
-/// 従量課金・未実装＝要件化時に配線）。<see cref="TimeoutMinutes"/> は非正値・上限（<see cref="ProcessRunner.MaxTimeout"/>）
+/// 経路は claude CLI（Max クレジット）直結の1実装のみ（公式 Anthropic SDK 経路が要件化した時点で
+/// 経路スイッチを再導入。旧 <c>Claude:Route</c> キーが設定に残っていても未知キーとして無視される）。
+/// <see cref="TimeoutMinutes"/> は非正値・上限（<see cref="ProcessRunner.MaxTimeout"/>）
 /// 超過だと ProcessRunner.RunAsync が ArgumentOutOfRangeException（fail-fast・黙示フォールバックはしない）。
 /// explain-today は起動直後に ValidateClaudeConfig が config キー名（Claude:TimeoutMinutes 等）つきで事前検証する。
 /// </para>
@@ -13,9 +14,6 @@ namespace TradeAnalyzer.Worker;
 public class ClaudeOptions
 {
     public const string SectionName = "Claude";
-
-    /// <summary>経路。<c>cli</c>（既定・claude CLI）/ <c>sdk</c>（公式 SDK・未実装）。</summary>
-    public string Route { get; set; } = "cli";
 
     /// <summary>claude 実行ファイル。Windows 既定は npm 導入の <c>claude.cmd</c> シム
     /// （<c>UseShellExecute=false</c> 下は CreateProcess が <c>.cmd</c> 拡張子を要求する）。

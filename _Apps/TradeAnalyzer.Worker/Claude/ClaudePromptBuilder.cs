@@ -23,9 +23,9 @@ internal static class ClaudePromptBuilder
         sb.AppendLine();
         sb.AppendLine("# 入力データ（実データ・改変不可）");
         sb.AppendLine($"銘柄コード: {facts.Code}");
-        sb.AppendLine($"会社名: {facts.CompanyName ?? "データなし"}");
+        sb.AppendLine($"会社名: {Flatten(facts.CompanyName) ?? "データなし"}");
         foreach (var line in facts.Lines)
-            sb.AppendLine($"{line.Label}: {line.Value ?? "データなし"}");
+            sb.AppendLine($"{line.Label}: {Flatten(line.Value) ?? "データなし"}");
         sb.AppendLine();
         sb.AppendLine("# 出力形式（JSON のみ・前後に説明文やコードフェンスを付けない）");
         sb.AppendLine("{\"summary\":\"2〜3文の根拠要約\",\"risks\":[\"リスク2〜4項目\"],\"used_facts\":[\"引用した入力データのラベル\"]}");
@@ -33,4 +33,12 @@ internal static class ClaudePromptBuilder
         sb.AppendLine("- used_facts には根拠に使った入力データのラベルを列挙する（監査用）。");
         return sb.ToString();
     }
+
+    /// <summary>
+    /// 外部データ由来の埋め込み値（会社名＝J-Quants CoName、Sector/DocType 等の passthrough）を1行へ平坦化する
+    /// プロンプトインジェクションガード。改行/制御文字を空白化し、細工された値が「# 厳守ルール」等の指示行に
+    /// 化けるのを防ぐ（全埋め込み値が通る唯一の連結点＝ここに単一ガードを置く。正当な値は改行を含まず動作不変）。
+    /// </summary>
+    private static string? Flatten(string? value) =>
+        value is null ? null : string.Concat(value.Select(c => char.IsControl(c) ? ' ' : c));
 }

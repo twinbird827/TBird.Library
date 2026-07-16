@@ -241,13 +241,8 @@ public static class Commands
         await ingest.IngestAsync(today, today, skipJQuants, edinetLimitPerDay: 0);
 
         // 2. 最新営業日 t の解決＝DailyBar 存在日の最新（当日 EOD が入っていれば今日、未反映なら直近営業日）。
-        //    窓 -10 暦日は年末年始/GW（連続休場最大≈6日）を十分カバーする。
-        var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today);
-        if (tradingDays.Count == 0)
-            throw new InvalidOperationException(
-                "直近10暦日に DailyBar がありません（コールドスタート/DB が10日以上未更新）。"
-                + "採点には複数年 ingest 済みの履歴が必要です。広期間 ingest でバックフィルしてください。");
-        var t = tradingDays[^1];
+        var t = await ResolveLatestTradingDayAsync(db, today,
+            "採点には複数年 ingest 済みの履歴が必要です。広期間 ingest でバックフィルしてください。");
         if (t < today)
             logger.LogWarning(
                 "当日 {Today} の EOD が DB に未反映のため直近営業日 {T} を採点対象にします（EOD 反映時刻/休場日の可能性）。",
@@ -306,14 +301,14 @@ public static class Commands
         var db = sp.GetRequiredService<AppDbContext>();
         int topN = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.TopN;
         var claudeOpt = sp.GetRequiredService<IOptions<ClaudeOptions>>().Value;
-        var claude = sp.GetRequiredService<IClaudeAnalysisService>();
+        var claude = sp.GetRequiredService<ClaudeCliAnalysisService>();
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("explain-today");
 
         // Claude 設定はループ前に config キー名つきで fail-fast（誤設定を per-銘柄 catch が飲んで全銘柄スキップ→
         // ExitCode=0 に偽装するのを防ぐ。config 誤設定=fatal／Claude 実行時失敗=非致命）。
         ValidateClaudeConfig(claudeOpt);
 
-        // 1. 対象日 t の解決（--date 指定 or 直近営業日。run-today と同ロジック）。取引日皆無は前提破綻＝fail-fast。
+        // 1. 対象日 t の解決（--date 指定 or 直近営業日＝run-today と共通ヘルパ）。取引日皆無は前提破綻＝fail-fast。
         DateOnly t;
         if (opts.TryGetValue("date", out _))
         {
@@ -323,11 +318,7 @@ public static class Commands
         {
             var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
             var today = ResolveTodayJst(timeProvider);
-            var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today);
-            if (tradingDays.Count == 0)
-                throw new InvalidOperationException(
-                    "直近10暦日に DailyBar がありません（コールドスタート/DB 未更新）。run-today 済みの DB が前提です。");
-            t = tradingDays[^1];
+            t = await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
         }
 
         // 2. 当日 Passed 行を AsNoTracking で読取（run-today と別プロセスなら EF 一次キャッシュの罠は無いが射影で明示）。
@@ -351,9 +342,8 @@ public static class Commands
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
         // JST の生成時刻（provenance）。書戻し JSON に含める。
-        var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
         var generatedAt = TimeZoneInfo.ConvertTime(
-            (sp.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow(), jst);
+            (sp.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow(), Jst);
 
         var results = new Dictionary<string, ClaudeAnalysisResult>();
         foreach (var signal in top)
@@ -371,7 +361,9 @@ public static class Commands
                 risks = res.Risks,
                 usedFacts = res.UsedFacts,
                 model = res.Model,
-                route = claudeOpt.Route,
+                // 経路は CLI 直結の1実装のみだが provenance の JSON 契約（route フィールド）は維持する
+                // （SDK 経路を再導入したらここも実経路値に戻す）。
+                route = "cli",
                 generatedAt = generatedAt.ToString("o"),
                 numericUnverified = res.NumericUnverified,
             });
@@ -446,19 +438,38 @@ public static class Commands
                 $"Python が ExitCode={result.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{result.Stderr}");
     }
 
+    /// <summary>JST タイムゾーンの単一定義（"Asia/Tokyo" リテラルの散在＝市場/TZ 変更時の片直しドリフトを防ぐ）。
+    /// "Asia/Tokyo" は .NET6+ が ICU で IANA/Windows ID を相互解決する。ICU を無効化した旧構成では
+    /// FindSystemTimeZoneById の TimeZoneNotFoundException が型初期化時の TypeInitializationException に
+    /// 包まれて初回利用時に明示失敗する（silent fallback しないため気付ける）。</summary>
+    private static readonly TimeZoneInfo Jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+
     /// <summary>
     /// JST（Asia/Tokyo）の当日を <see cref="TimeProvider"/> から導出する純粋関数（DB/プロセス非依存・
     /// SelfTest で固定可能）。ホストローカル日付に依存せず、非 JST ホスト（VPS/クラウド）でも当日が
-    /// JST 基準で一意に決まる。"Asia/Tokyo" は .NET6+ が ICU で IANA/Windows ID を相互解決する。
-    /// ICU を無効化した旧構成では <see cref="TimeZoneInfo.FindSystemTimeZoneById"/> が
-    /// TimeZoneNotFoundException で起動時に明示失敗する（silent fallback しないため気付ける）。
+    /// JST 基準で一意に決まる。TZ 未解決時の fail-loud 挙動は <see cref="Jst"/> を参照。
     /// </summary>
     internal static DateOnly ResolveTodayJst(TimeProvider timeProvider)
     {
-        var nowJst = TimeZoneInfo.ConvertTimeFromUtc(
-            timeProvider.GetUtcNow().UtcDateTime,
-            TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo"));
+        var nowJst = TimeZoneInfo.ConvertTimeFromUtc(timeProvider.GetUtcNow().UtcDateTime, Jst);
         return DateOnly.FromDateTime(nowJst);
+    }
+
+    /// <summary>
+    /// 直近の営業日（DailyBar 存在日の最新）を解決する。窓 -10 暦日は年末年始/GW（連続休場最大≈6日）を
+    /// 十分カバーする。取引日皆無は前提破綻＝fail-fast（共通コア文言＋<paramref name="hint"/> で throw）。
+    /// run-today と explain-today の --date 未指定パスで共有し、-10 窓と fail-fast 文言のドリフトを防ぐ。
+    /// </summary>
+    /// <param name="hint">呼び手固有の復旧誘導（run-today＝広期間 ingest でバックフィル /
+    /// explain-today＝run-today 実行が前提。2つの障害は復旧手順が異なるため呼び手が渡す）。</param>
+    internal static async Task<DateOnly> ResolveLatestTradingDayAsync(
+        AppDbContext db, DateOnly today, string hint, CancellationToken ct = default)
+    {
+        var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today, ct);
+        if (tradingDays.Count == 0)
+            throw new InvalidOperationException(
+                "直近10暦日に DailyBar がありません（コールドスタート/DB が10日以上未更新）。" + hint);
+        return tradingDays[^1];
     }
 
     // --- 設定検証 ---

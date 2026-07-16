@@ -2,7 +2,10 @@
 #
 # 何をするか:
 #   CWD を Worker プロジェクト dir に固定し `dotnet run -- explain-today` を起動、stdout/stderr を
-#   logs/explain-today-<date>.log に追記する。Claude 失敗でタスクを「失敗」にしない（非致命チェーン）。
+#   logs/explain-today-<date>.log に追記する。Claude 実行時失敗（per-銘柄スキップ）は C# 側が ExitCode=0 で
+#   表現済み＝非致命。C# が ExitCode=1 を返すのは設定エラー/取引日皆無など真に起動不能な条件のみで、
+#   それはタスクの前回結果として可視化する（exit $code。握り潰すと QualitativeJson が永久に埋まらないのに
+#   タスクが緑のままになる）。
 #
 # 前提（重要）:
 #   - run-today が当日 Top-K（MlScore）を確定した「後」に走らせる（explain-today は Top-K を読むだけ）。
@@ -17,7 +20,7 @@
 #   schtasks /create /tn "TradeAnalyzer-ExplainToday" /sc daily /st 19:40 ^
 #     /tr "powershell.exe -NoProfile -File <repo>\_Apps\scripts\explain-today.ps1"
 
-# 非致命: Claude 障害でタスクを失敗させない（run-today と独立）。ExitCode は常に 0 を返す。
+# Claude 障害（per-銘柄スキップ）は C# が exit 0 で表現済み。ここで止めない（run-today と独立）。
 $ErrorActionPreference = "Continue"
 
 $workerDir = (Resolve-Path (Join-Path $PSScriptRoot "..\TradeAnalyzer.Worker")).Path
@@ -42,5 +45,6 @@ dotnet run --project $workerDir -- explain-today 2>&1 | ForEach-Object {
 $code = $LASTEXITCODE
 Write-Log ("=== explain-today END ExitCode={0} ({1}) ===" -f $code, (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 
-# 非致命: explain-today 自体のエラーでもタスクを失敗にしない（run-today の成果を阻害しない）。
-exit 0
+# ExitCode をそのまま返す（run-today.ps1 と同じ）: 非致命スキップは C# が既に 0 で表現済みのため丸め不要。
+# ExitCode=1（config/data の起動不能）を 0 に丸めるとスケジューラから真の障害が見えなくなる。
+exit $code

@@ -7,9 +7,11 @@ using Microsoft.Extensions.Options;
 namespace TradeAnalyzer.Worker.Claude;
 
 /// <summary>
-/// 既定の Claude 経路（<c>claude -p --output-format json</c>）。プロンプトを stdin へ流し、stdout の JSON
-/// エンベロープから <c>result</c>（モデル応答）を取り出し、その中の JSON（summary/risks/used_facts）を防御的に
-/// パースする。<see cref="ProcessRunner"/> の堅牢コア（timeout/kill/stderr/UTF-8）を共有する。
+/// 当日 Top-K 候補に実データを注入して定性根拠文／リスクを生成する定性層（<c>claude -p --output-format json</c>）。
+/// プロンプトを stdin へ流し、stdout の JSON エンベロープから <c>result</c>（モデル応答）を取り出し、その中の
+/// JSON（summary/risks/used_facts）を防御的にパースする。<see cref="ProcessRunner"/> の堅牢コア
+/// （timeout/kill/stderr/UTF-8）を共有する。現状 CLI 直結の1実装のみ（公式 SDK 経路が要件化した時点で
+/// interface seam を再導入して差し替え可能にする）。
 /// <para>
 /// 失敗は throw せず <c>null</c>（フォールバック契約）。捕捉対象: (i) 非0終了（認証切れ・クレジット枯渇）、
 /// (ii) RunAsync が投げる例外＝CLI 不在/起動失敗（<see cref="InvalidOperationException"/>）・timeout
@@ -18,7 +20,7 @@ namespace TradeAnalyzer.Worker.Claude;
 /// fail-fast 済み（誤設定を飲んで全銘柄スキップ→ExitCode=0 に偽装しない）。
 /// </para>
 /// </summary>
-internal sealed class ClaudeCliAnalysisService : IClaudeAnalysisService
+internal sealed class ClaudeCliAnalysisService
 {
     private readonly ClaudeOptions _opt;
     private readonly ILogger<ClaudeCliAnalysisService> _logger;
@@ -80,8 +82,10 @@ internal sealed class ClaudeCliAnalysisService : IClaudeAnalysisService
             _opt.Model, unverified);
     }
 
-    /// <summary>エンベロープ→result→モデル JSON を防御的にパースする。失敗は null。</summary>
-    private ModelOutput? ParseModelOutput(string stdout)
+    /// <summary>エンベロープ→result→モデル JSON を防御的にパースする。失敗は null。
+    /// internal static は SelfTest が CLI 版ブレ（エンベロープ有無・フェンス・非JSON）の4フォールバックを
+    /// 直接検証するため（<see cref="Commands.ResolveTodayJst"/> の内部公開と同じ前例）。</summary>
+    internal static ModelOutput? ParseModelOutput(string stdout)
     {
         string candidate;
         try
@@ -119,7 +123,7 @@ internal sealed class ClaudeCliAnalysisService : IClaudeAnalysisService
         return start >= 0 && end > start ? s.Substring(start, end - start + 1) : null;
     }
 
-    private sealed record ModelOutput(
+    internal sealed record ModelOutput(
         [property: JsonPropertyName("summary")] string? Summary,
         [property: JsonPropertyName("risks")] List<string>? Risks,
         [property: JsonPropertyName("used_facts")] List<string>? UsedFacts);

@@ -25,7 +25,7 @@ internal static class QualitativeNumberGuard
                 foreach (Match m in NumberToken.Matches(line.Value))
                     allowed.Add(Normalize(m.Value));
 
-        foreach (var text in Prepend(summary, risks))
+        foreach (var text in risks.Prepend(summary))
             foreach (Match m in NumberToken.Matches(text))
             {
                 var norm = Normalize(m.Value);
@@ -38,10 +38,4 @@ internal static class QualitativeNumberGuard
 
     // カンマと末尾 % を除去して比較キーにする（表記揺れの吸収。丸め/単位差までは吸収しない＝既知の限界）。
     private static string Normalize(string token) => token.Replace(",", "").TrimEnd('%');
-
-    private static IEnumerable<string> Prepend(string head, IEnumerable<string> tail)
-    {
-        yield return head;
-        foreach (var t in tail) yield return t;
-    }
 }
