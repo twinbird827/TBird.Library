@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using TradeAnalyzer.Core;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Worker;
+using TradeAnalyzer.Worker.Claude;
 
 // 日本語ログ/出力を UTF-8 に固定（Windows 既定 console は cp932＝run-today.ps1 の Tee/リダイレクトで
 // 文字化けし監視ログが読めなくなるのを防ぐ）。コンソール非対応環境では best-effort で既定のまま。
@@ -28,6 +29,23 @@ builder.Services.AddTradeAnalyzerCore(builder.Configuration);
 // Core/Data の「Configure は拡張メソッドに集約」規約とは別に Program.cs で直接バインドする。
 builder.Services.Configure<PythonOptions>(
     builder.Configuration.GetSection(PythonOptions.SectionName));
+
+// 段階3b の Claude 定性層設定＋経路分岐 DI（explain-today が使う）。Route=cli を既定・SDK は未実装（要件化時に配線）。
+builder.Services.Configure<ClaudeOptions>(
+    builder.Configuration.GetSection(ClaudeOptions.SectionName));
+var claudeRoute = builder.Configuration.GetSection(ClaudeOptions.SectionName)["Route"] ?? "cli";
+switch (claudeRoute.ToLowerInvariant())
+{
+    case "cli":
+        builder.Services.AddScoped<IClaudeAnalysisService, ClaudeCliAnalysisService>();
+        break;
+    case "sdk":
+        // 公式 Anthropic SDK 経路は未実装（数値安全性が要件化した時点で ClaudeSdkAnalysisService＋Anthropic NuGet を配線）。
+        throw new NotSupportedException(
+            "Claude:Route=sdk は未実装です。Route=cli を使用してください（SDK 経路は要件化時に配線）。");
+    default:
+        throw new InvalidOperationException($"Claude:Route が不正です: {claudeRoute}（cli を指定してください）。");
+}
 
 var host = builder.Build();
 
@@ -58,6 +76,9 @@ try
             break;
         case "run-today":
             await Commands.RunTodayAsync(sp, args);
+            break;
+        case "explain-today":
+            await Commands.ExplainTodayAsync(sp, args);
             break;
         case "selftest":
             await SelfTest.RunAsync();

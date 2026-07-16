@@ -17,6 +17,7 @@ using TradeAnalyzer.Data.Entities;
 using TradeAnalyzer.Data.External.Edinet;
 using TradeAnalyzer.Data.External.JQuants;
 using TradeAnalyzer.Data.Options;
+using TradeAnalyzer.Worker.Claude;
 
 namespace TradeAnalyzer.Worker;
 
@@ -45,6 +46,7 @@ public static class SelfTest
         failed += await RunBacktestProvenanceTestsAsync();
         failed += await RunBacktestMissingDaysTestAsync();
         failed += RunSelectTopPicksTests();
+        failed += RunQualitativeNumberGuardTests();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
@@ -986,6 +988,29 @@ public static class SelfTest
         try { await ProcessRunner.RunAsync(psi10, log, min1); }
         catch (ArgumentException ex) { encGuardThrew = ex is not ArgumentOutOfRangeException; }
         f += Assert("Proc: stdin なし＋StandardInputEncoding は ArgumentException", encGuardThrew);
+        return f;
+    }
+
+    /// <summary>
+    /// 段階3b 数値ガード（<see cref="QualitativeNumberGuard"/>）のヒューリスティック検証。注入数値の引用は許容し、
+    /// 捏造数値（注入外）を検出し、散文の1桁整数を誤検知しないことを確認する（airtight でない緩和策の下限保証）。
+    /// </summary>
+    private static int RunQualitativeNumberGuardTests()
+    {
+        int f = 0;
+        var facts = new ClaudeFacts("7203", "トヨタ", new List<FactLine>
+        {
+            new("PER（近似）", "15.2 倍"),
+            new("最新株価", "1,234 円"),
+            new("ルール通過理由", "トレンドOK(SMA25>75)"),
+        });
+        f += Assert("NumberGuard: 注入数値のみは false",
+            !QualitativeNumberGuard.HasUnverifiedNumbers(
+                "PERは15.2倍、株価1,234円。", new[] { "SMA25>75 の順張り局面。" }, facts));
+        f += Assert("NumberGuard: 捏造数値(2500)は true",
+            QualitativeNumberGuard.HasUnverifiedNumbers("目標株価は2,500円。", Array.Empty<string>(), facts));
+        f += Assert("NumberGuard: 散文の1桁整数は誤検知しない",
+            !QualitativeNumberGuard.HasUnverifiedNumbers("リスクは3点ある。", Array.Empty<string>(), facts));
         return f;
     }
 

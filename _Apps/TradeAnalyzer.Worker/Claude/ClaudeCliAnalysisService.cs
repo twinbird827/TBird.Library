@@ -1,0 +1,126 @@
+using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace TradeAnalyzer.Worker.Claude;
+
+/// <summary>
+/// 既定の Claude 経路（<c>claude -p --output-format json</c>）。プロンプトを stdin へ流し、stdout の JSON
+/// エンベロープから <c>result</c>（モデル応答）を取り出し、その中の JSON（summary/risks/used_facts）を防御的に
+/// パースする。<see cref="ProcessRunner"/> の堅牢コア（timeout/kill/stderr/UTF-8）を共有する。
+/// <para>
+/// 失敗は throw せず <c>null</c>（フォールバック契約）。捕捉対象: (i) 非0終了（認証切れ・クレジット枯渇）、
+/// (ii) RunAsync が投げる例外＝CLI 不在/起動失敗（<see cref="InvalidOperationException"/>）・timeout
+/// （<see cref="TimeoutException"/>）、(iii) パース不能（<see cref="JsonException"/>）。config 誤設定の
+/// <see cref="ArgumentOutOfRangeException"/>（timeout 範囲外）は捕捉しない＝ループ前 ValidateClaudeConfig で
+/// fail-fast 済み（誤設定を飲んで全銘柄スキップ→ExitCode=0 に偽装しない）。
+/// </para>
+/// </summary>
+internal sealed class ClaudeCliAnalysisService : IClaudeAnalysisService
+{
+    private readonly ClaudeOptions _opt;
+    private readonly ILogger<ClaudeCliAnalysisService> _logger;
+
+    public ClaudeCliAnalysisService(IOptions<ClaudeOptions> opt, ILogger<ClaudeCliAnalysisService> logger)
+    {
+        _opt = opt.Value;
+        _logger = logger;
+    }
+
+    public async Task<ClaudeAnalysisResult?> AnalyzeAsync(ClaudeFacts facts, CancellationToken ct = default)
+    {
+        string prompt = ClaudePromptBuilder.Build(facts);
+        var psi = new ProcessStartInfo { FileName = _opt.ExecutablePath };
+        psi.ArgumentList.Add("-p");
+        psi.ArgumentList.Add("--output-format");
+        psi.ArgumentList.Add("json");
+        psi.ArgumentList.Add("--model");
+        psi.ArgumentList.Add(_opt.Model);
+
+        ProcessResult result;
+        try
+        {
+            result = await ProcessRunner.RunAsync(
+                psi, _logger, TimeSpan.FromMinutes(_opt.TimeoutMinutes), stdin: prompt,
+                stdoutLogPrefix: "[claude]", stderrLogPrefix: "[claude:err]",
+                displayName: $"Claude 実行: {facts.Code}", captureStdout: true,
+                // stdout=巨大 JSON エンベロープ（機微含む）は Debug へ降格し既定 Information ログへ流さない。
+                stdoutLogLevel: LogLevel.Debug,
+                startErrorHint: "Claude:ExecutablePath を確認（Windows は claude.cmd）", ct: ct);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or TimeoutException)
+        {
+            // CLI 不在/起動失敗・timeout。非致命＝当該銘柄スキップし ML のみで継続。
+            _logger.LogWarning(ex, "Claude 実行に失敗（{Code}）。当該銘柄をスキップします。", facts.Code);
+            return null;
+        }
+
+        if (result.ExitCode != 0)
+        {
+            _logger.LogWarning("Claude が ExitCode={Code} で失敗（{Sym}・認証切れ/クレジット枯渇の可能性）。スキップします。\nstderr:\n{Err}",
+                result.ExitCode, facts.Code, result.Stderr);
+            return null;
+        }
+
+        var model = ParseModelOutput(result.Stdout);
+        if (model?.Summary is not { Length: > 0 })
+        {
+            _logger.LogWarning("Claude 出力をパースできませんでした（{Code}）。スキップします。", facts.Code);
+            return null;
+        }
+
+        var risks = model.Risks ?? new List<string>();
+        bool unverified = QualitativeNumberGuard.HasUnverifiedNumbers(model.Summary, risks, facts);
+        if (unverified)
+            _logger.LogWarning("Claude 出力に注入外の数値が混入した疑い（{Code}）。numericUnverified を立てます。", facts.Code);
+
+        return new ClaudeAnalysisResult(model.Summary, risks, model.UsedFacts ?? new List<string>(),
+            _opt.Model, unverified);
+    }
+
+    /// <summary>エンベロープ→result→モデル JSON を防御的にパースする。失敗は null。</summary>
+    private ModelOutput? ParseModelOutput(string stdout)
+    {
+        string candidate;
+        try
+        {
+            // 外側エンベロープ（--output-format json）から result を取り出す。CLI 版差に備え、result が無ければ
+            // stdout 全体をモデル JSON 候補として扱う（防御）。
+            using var env = JsonDocument.Parse(stdout);
+            candidate = env.RootElement.ValueKind == JsonValueKind.Object
+                && env.RootElement.TryGetProperty("result", out var r) && r.ValueKind == JsonValueKind.String
+                    ? r.GetString() ?? stdout
+                    : stdout;
+        }
+        catch (JsonException)
+        {
+            candidate = stdout; // エンベロープが JSON でない版もありうる＝素の出力から抽出を試す。
+        }
+
+        string? json = ExtractJsonObject(candidate);
+        if (json == null) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<ModelOutput>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>コードフェンス除去＋先頭 '{'〜末尾 '}' 抽出（モデル/CLI 出力のブレに耐える）。</summary>
+    private static string? ExtractJsonObject(string s)
+    {
+        int start = s.IndexOf('{');
+        int end = s.LastIndexOf('}');
+        return start >= 0 && end > start ? s.Substring(start, end - start + 1) : null;
+    }
+
+    private sealed record ModelOutput(
+        [property: JsonPropertyName("summary")] string? Summary,
+        [property: JsonPropertyName("risks")] List<string>? Risks,
+        [property: JsonPropertyName("used_facts")] List<string>? UsedFacts);
+}

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,7 @@ using TradeAnalyzer.Core.Rules;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Data.Entities;
 using TradeAnalyzer.Data.Options;
+using TradeAnalyzer.Worker.Claude;
 
 namespace TradeAnalyzer.Worker;
 
@@ -33,6 +35,8 @@ public static class Commands
           [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替（母集団は両モードとも保存 Signal）
   run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力（要 migrate 済み DB）
           [--skip-jquants]                   当日 ingest 済みの再実行時のみ（当日 bar を足さず既存 DB 最新営業日を採点）
+  explain-today                              段階3b 当日定性層: run-today 後の Top-K に実データ注入→Claude 根拠文生成→QualitativeJson 書戻し
+          [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
@@ -290,6 +294,111 @@ public static class Commands
     }
 
     /// <summary>
+    /// 段階3b 当日定性層オーケストレータ。run-today が確定した当日 t の Top-K に実データを注入して Claude で
+    /// 根拠文／リスクを生成し、<see cref="Signal.QualitativeJson"/> へ書戻して標準出力に付す。run-today と別コマンド
+    /// ＝フォールバック隔離（Claude が落ちても ML パイプラインは無傷）。Claude 失敗は throw せず当該銘柄スキップ
+    /// （非必須層＝フォールバック契約）。ただしデータ前提未達（取引日なし）は run-today と同型に fail-fast（ExitCode=1）。
+    /// </summary>
+    public static async Task ExplainTodayAsync(IServiceProvider sp, string[] args)
+    {
+        var opts = ParseOptions(args);
+
+        var db = sp.GetRequiredService<AppDbContext>();
+        int topN = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.TopN;
+        var claudeOpt = sp.GetRequiredService<IOptions<ClaudeOptions>>().Value;
+        var claude = sp.GetRequiredService<IClaudeAnalysisService>();
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("explain-today");
+
+        // Claude 設定はループ前に config キー名つきで fail-fast（誤設定を per-銘柄 catch が飲んで全銘柄スキップ→
+        // ExitCode=0 に偽装するのを防ぐ。config 誤設定=fatal／Claude 実行時失敗=非致命）。
+        ValidateClaudeConfig(claudeOpt);
+
+        // 1. 対象日 t の解決（--date 指定 or 直近営業日。run-today と同ロジック）。取引日皆無は前提破綻＝fail-fast。
+        DateOnly t;
+        if (opts.TryGetValue("date", out _))
+        {
+            t = RequireDate(opts, "date");
+        }
+        else
+        {
+            var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+            var today = ResolveTodayJst(timeProvider);
+            var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today);
+            if (tradingDays.Count == 0)
+                throw new InvalidOperationException(
+                    "直近10暦日に DailyBar がありません（コールドスタート/DB 未更新）。run-today 済みの DB が前提です。");
+            t = tradingDays[^1];
+        }
+
+        // 2. 当日 Passed 行を AsNoTracking で読取（run-today と別プロセスなら EF 一次キャッシュの罠は無いが射影で明示）。
+        var passed = await db.Signals.AsNoTracking()
+            .Where(s => s.Date == t && s.Passed)
+            .ToListAsync();
+        if (passed.Count == 0)
+        {
+            // 対象日に Passed 行が皆無＝run-today 未実行 or --date 指定違いの可能性。無言 no-op を避け診断を出す（非致命）。
+            logger.LogWarning("{T}: Passed 行がありません（run-today 未実行 or --date 指定違いの可能性）。", t);
+            return;
+        }
+        // null 検査は SelectTopPicks(useMl:true) の .Value 前に置く（null 混入で InvalidOperationException＝非致命に到達不可）。
+        if (passed.Any(r => r.MlScore is null))
+        {
+            logger.LogWarning("{T}: MlScore 未設定の Passed 行があります（run-today 未実行の可能性）。ML 採点後に再実行してください。", t);
+            return;
+        }
+
+        // 3. Top-K（run-today と同一の純粋関数で並べ替え）。Claude に回すのは Top-K のみ＝コスト/クレジットを bound。
+        var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
+
+        // JST の生成時刻（provenance）。書戻し JSON に含める。
+        var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+        var generatedAt = TimeZoneInfo.ConvertTime(
+            (sp.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow(), jst);
+
+        var results = new Dictionary<string, ClaudeAnalysisResult>();
+        foreach (var signal in top)
+        {
+            // 4. 実データ収集（DB 実数＋C# 派生指標）。
+            var facts = await ClaudeFactGatherer.GatherAsync(db, t, signal);
+            // 5. Claude 採点。null（失敗）なら当該銘柄はスキップ（ML のみ・ログのみ）。1 銘柄の失敗が他を止めない。
+            var res = await claude.AnalyzeAsync(facts);
+            if (res == null) continue;
+
+            // 6. 根拠文の書戻し（追跡回避 UPDATE。AsNoTracking で読んだ行の部分更新）。
+            string json = JsonSerializer.Serialize(new
+            {
+                summary = res.Summary,
+                risks = res.Risks,
+                usedFacts = res.UsedFacts,
+                model = res.Model,
+                route = claudeOpt.Route,
+                generatedAt = generatedAt.ToString("o"),
+                numericUnverified = res.NumericUnverified,
+            });
+            await db.Signals.Where(s => s.Date == t && s.Code == signal.Code)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.QualitativeJson, json));
+            results[signal.Code] = res;
+        }
+
+        // 7. Top-K 出力（summary/risks/numericUnverified を付す）。
+        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN} 定性レビュー（Passed {passed.Count} 件中・{results.Count}/{top.Count} 件生成）===");
+        foreach (var s in top)
+        {
+            Console.WriteLine($"\n[{s.Code}] MlScore={s.MlScore!.Value:F4} RuleScore={s.RuleScore}");
+            if (results.TryGetValue(s.Code, out var res))
+            {
+                Console.WriteLine($"  要約: {res.Summary}");
+                foreach (var risk in res.Risks) Console.WriteLine($"  リスク: {risk}");
+                if (res.NumericUnverified) Console.WriteLine("  ⚠ numericUnverified（注入外の数値が混入した疑い）");
+            }
+            else
+            {
+                Console.WriteLine("  （Claude 生成なし・ML のみ）");
+            }
+        }
+    }
+
+    /// <summary>
     /// uv run python &lt;script&gt; &lt;args...&gt; を Python:MlDir を作業ディレクトリに起動し、ExitCode≠0 なら
     /// stderr を添えて throw する小ヘルパ。Process 起動の堅牢化（逐次ログ/timeout kill/EOF flush/起動失敗の
     /// 包み込み）は共有起動点 <see cref="ProcessRunner.RunAsync"/> へ委譲し、本メソッドは psi 構築と
@@ -384,6 +493,21 @@ public static class Commands
         if (py.TimeoutMinutes <= 0 || py.TimeoutMinutes > maxMinutes)
             throw new InvalidOperationException(
                 $"Python:TimeoutMinutes は 1〜{maxMinutes} の範囲で指定してください（現在値: {py.TimeoutMinutes}）。");
+    }
+
+    /// <summary>
+    /// explain-today 専用の Claude 設定検証（<see cref="ValidatePythonConfig"/> の対）。TimeoutMinutes の下限＋上限を
+    /// config キー名（Claude:TimeoutMinutes）つきで事前検証する（下限のみだと上限超過値がループ内 RunAsync の
+    /// AOORE→全銘柄スキップ偽装に至るため上限も弾く）。ExecutablePath 非空も確認する（誤設定=ExitCode1）。
+    /// </summary>
+    private static void ValidateClaudeConfig(ClaudeOptions cl)
+    {
+        int maxMinutes = (int)ProcessRunner.MaxTimeout.TotalMinutes;
+        if (cl.TimeoutMinutes <= 0 || cl.TimeoutMinutes > maxMinutes)
+            throw new InvalidOperationException(
+                $"Claude:TimeoutMinutes は 1〜{maxMinutes} の範囲で指定してください（現在値: {cl.TimeoutMinutes}）。");
+        if (string.IsNullOrWhiteSpace(cl.ExecutablePath))
+            throw new InvalidOperationException("Claude:ExecutablePath が空です（Windows は claude.cmd を指定）。");
     }
 
     // --- 引数パース ---
