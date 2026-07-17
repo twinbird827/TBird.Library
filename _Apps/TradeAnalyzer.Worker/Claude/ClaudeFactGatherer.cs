@@ -64,7 +64,7 @@ internal static class ClaudeFactGatherer
             new("終値（生値）", FmtNum(bar?.Close, "円")),
             new("出来高", FmtNum(bar?.Volume, "株")),
             new("売買代金", FmtNum(bar?.TurnoverValue, "円")),
-            new($"財務開示日", FmtDate(fin?.DiscloseDate)),
+            new("財務開示日", FmtDate(fin?.DiscloseDate)),
             new("書類種別", fin?.DocType),
             new("売上高", FmtNum(fin?.Sales, "円")),
             new("営業利益", FmtNum(fin?.OperatingProfit, "円")),

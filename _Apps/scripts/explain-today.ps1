@@ -9,6 +9,8 @@
 #
 # 前提（重要）:
 #   - run-today が当日 Top-K（MlScore）を確定した「後」に走らせる（explain-today は Top-K を読むだけ）。
+#   - スキーマ変更（migration 追加。QualitativeJson 列など）を含む更新の取込後は migrate を再実行すること
+#     （未 migrate だと Signals 読取が no such column で ExitCode=1）。
 #   - 認証: `claude login` した「同一ユーザアカウント」でタスクを走らせる（無人運用の最大の弱点＝設計）。
 #     別アカウント/SYSTEM だと認証が無く全銘柄スキップ（ML のみ・非致命）。
 #   - 実行ファイル解決（Windows）: Claude:ExecutablePath は既定 claude.cmd（npm シム。UseShellExecute=false 下で

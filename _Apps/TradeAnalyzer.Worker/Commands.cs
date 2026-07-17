@@ -332,11 +332,13 @@ public static class Commands
             return;
         }
         // null 検査は SelectTopPicks(useMl:true) の .Value 前に置く（null 混入で InvalidOperationException＝非致命に到達不可）。
+        // Passed=0（上）と非対称に throw＝ExitCode=1: Passed=0 は全面下落局面で正当に全滅し得る（run-today も
+        // Top-0 を緑出力する契約）が、MlScore null の Passed 行は run-today 成功時に同条件で既に throw 済み（L276-278）
+        // ＝この状態は常にパイプライン障害であり、警告のままだとスケジューラが緑で真の障害が見えない。
         if (passed.Any(r => r.MlScore is null))
-        {
-            logger.LogWarning("{T}: MlScore 未設定の Passed 行があります（run-today 未実行の可能性）。ML 採点後に再実行してください。", t);
-            return;
-        }
+            throw new InvalidOperationException(
+                $"{t}: MlScore 未設定の Passed 行があります（run-today の ML 採点が未完了＝パイプライン障害）。" +
+                "run-today を成功させてから explain-today を再実行してください。");
 
         // 3. Top-K（run-today と同一の純粋関数で並べ替え）。Claude に回すのは Top-K のみ＝コスト/クレジットを bound。
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
@@ -509,7 +511,8 @@ public static class Commands
     /// <summary>
     /// explain-today 専用の Claude 設定検証（<see cref="ValidatePythonConfig"/> の対）。TimeoutMinutes の下限＋上限を
     /// config キー名（Claude:TimeoutMinutes）つきで事前検証する（下限のみだと上限超過値がループ内 RunAsync の
-    /// AOORE→全銘柄スキップ偽装に至るため上限も弾く）。ExecutablePath 非空も確認する（誤設定=ExitCode1）。
+    /// AOORE→全銘柄スキップ偽装に至るため上限も弾く）。ExecutablePath / Model の非空も確認する（誤設定=ExitCode1。
+    /// 空 Model は `--model ""` のまま CLI に渡り毎回非0終了→全銘柄「非致命スキップ」→ExitCode=0 偽装に至る）。
     /// </summary>
     private static void ValidateClaudeConfig(ClaudeOptions cl)
     {
@@ -519,6 +522,8 @@ public static class Commands
                 $"Claude:TimeoutMinutes は 1〜{maxMinutes} の範囲で指定してください（現在値: {cl.TimeoutMinutes}）。");
         if (string.IsNullOrWhiteSpace(cl.ExecutablePath))
             throw new InvalidOperationException("Claude:ExecutablePath が空です（Windows は claude.cmd を指定）。");
+        if (string.IsNullOrWhiteSpace(cl.Model))
+            throw new InvalidOperationException("Claude:Model が空です（例: claude-opus-4-8）。");
     }
 
     // --- 引数パース ---

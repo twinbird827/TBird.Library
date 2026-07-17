@@ -107,7 +107,15 @@ internal sealed class ClaudeCliAnalysisService
         if (json == null) return null;
         try
         {
-            return JsonSerializer.Deserialize<ModelOutput>(json);
+            var md = JsonSerializer.Deserialize<ModelOutput>(json);
+            // risks/used_facts の null 要素はここ（JSON→ModelOutput の唯一の信頼境界）で除去する。NRT は
+            // コンパイル時のみで、["リスクA",null] は既定 JsonSerializer が無例外で List<string> に混入させ、
+            // 数値ガード照合の ArgumentNullException がバッチ全滅（非致命契約違反）に至るため。
+            return md is null ? null : md with
+            {
+                Risks = md.Risks?.Where(r => r is not null).ToList(),
+                UsedFacts = md.UsedFacts?.Where(u => u is not null).ToList(),
+            };
         }
         catch (JsonException)
         {
@@ -115,7 +123,9 @@ internal sealed class ClaudeCliAnalysisService
         }
     }
 
-    /// <summary>コードフェンス除去＋先頭 '{'〜末尾 '}' 抽出（モデル/CLI 出力のブレに耐える）。</summary>
+    /// <summary>コードフェンス除去＋先頭 '{'〜末尾 '}' 抽出（モデル/CLI 出力のブレに耐える）。
+    /// 既知限界: prose 中に別の brace ペアが混在すると抽出範囲が不正 JSON 化し per-銘柄スキップに落ちる
+    /// （「JSON のみ」指示への二重違反が前提の狭い tail＝ログ付きスキップで許容）。</summary>
     private static string? ExtractJsonObject(string s)
     {
         int start = s.IndexOf('{');
