@@ -45,6 +45,13 @@ dotnet run --project $workerDir -- explain-today 2>&1 | ForEach-Object {
     Write-Log $line
 }
 $code = $LASTEXITCODE
+# dotnet コマンド解決自体の失敗（タスク実行ユーザの PATH に無い等）では $LASTEXITCODE が未設定（$null）のまま
+# 流れ、exit $null = exit 0 に化けてタスクが緑のまま QualitativeJson が永久に埋まらない。$null は 1 へ倒す
+# （ErrorActionPreference=Continue の本スクリプト固有の穴。run-today.ps1 は Stop のため -File が exit 1 を返す）。
+if ($null -eq $code) {
+    Write-Log "=== explain-today FAILED: dotnet did not start (check PATH / installation) ==="
+    exit 1
+}
 Write-Log ("=== explain-today END ExitCode={0} ({1}) ===" -f $code, (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 
 # ExitCode をそのまま返す（run-today.ps1 と同じ）: 非致命スキップは C# が既に 0 で表現済みのため丸め不要。
