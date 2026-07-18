@@ -15,8 +15,10 @@ namespace TradeAnalyzer.Worker.Claude;
 /// </summary>
 internal static class QualitativeNumberGuard
 {
-    // 数値トークン: 先頭数字＋(数字/カンマ/ピリオド)＋任意の末尾 %。
-    private static readonly Regex NumberToken = new(@"\d[\d,\.]*%?", RegexOptions.Compiled);
+    // 数値トークン: 先頭数字＋(数字/カンマ/ピリオド)＋任意の末尾 %（半角/全角）。
+    private static readonly Regex NumberToken = new(@"\d[\d,\.]*[%％]?", RegexOptions.Compiled);
+
+    private static readonly char[] PercentChars = { '%', '％' };
 
     /// <summary>出力に注入外の数値が含まれる疑いがあれば true。</summary>
     public static bool HasUnverifiedNumbers(string summary, IEnumerable<string> risks, ClaudeFacts facts)
@@ -35,12 +37,14 @@ internal static class QualitativeNumberGuard
             {
                 var norm = Normalize(m.Value);
                 // 素の1桁整数（0-9）は散文の個数表現（「2つのリスク」等）で頻出＝誤検知源のため除外する。
-                if (norm.Length <= 1 && !norm.Contains('.')) continue;
+                // ただし %/％ 付き（「5%改善」等の比率主張）は捏造検出対象なので、生トークン基準で判定して
+                // スキップさせない（Normalize が % を剥がした後の norm だけ見ると "5%" が素通りする）。
+                if (norm.Length <= 1 && !norm.Contains('.') && m.Value.IndexOfAny(PercentChars) < 0) continue;
                 if (!allowed.Contains(norm)) return true;
             }
         return false;
     }
 
-    // カンマと末尾 % を除去して比較キーにする（表記揺れの吸収。丸め/単位差までは吸収しない＝既知の限界）。
-    private static string Normalize(string token) => token.Replace(",", "").TrimEnd('%');
+    // カンマと末尾 %/％ を除去して比較キーにする（表記揺れの吸収。丸め/単位差までは吸収しない＝既知の限界）。
+    private static string Normalize(string token) => token.Replace(",", "").TrimEnd('%', '％');
 }

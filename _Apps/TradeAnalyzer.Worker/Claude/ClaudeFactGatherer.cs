@@ -60,8 +60,11 @@ internal static class ClaudeFactGatherer
             new("33業種コード", stock?.Sector33),
             new("市場区分", stock?.MarketCode),
             new("規模区分", stock?.ScaleCategory),
-            new($"最新株価（調整後終値・{FmtDate(bar?.Date)}）", FmtNum(adjClose, "円")),
-            new("終値（生値）", FmtNum(bar?.Close, "円")),
+            // 日付は Label でなく Value に置く: Label はコンパイル時定数（許可集合・Flatten の対象外）という
+            // 不変条件を保ち、Claude が株価日付を引用しても許可集合（Value 側）で正当化されるようにする。
+            new("最新株価（調整後終値）", FmtNum(adjClose, "円", DecimalFmt)),
+            new("株価日付", FmtDate(bar?.Date)),
+            new("終値（生値）", FmtNum(bar?.Close, "円", DecimalFmt)),
             new("出来高", FmtNum(bar?.Volume, "株")),
             new("売買代金", FmtNum(bar?.TurnoverValue, "円")),
             new("財務開示日", FmtDate(fin?.DiscloseDate)),
@@ -69,8 +72,8 @@ internal static class ClaudeFactGatherer
             new("売上高", FmtNum(fin?.Sales, "円")),
             new("営業利益", FmtNum(fin?.OperatingProfit, "円")),
             new("純利益", FmtNum(fin?.NetProfit, "円")),
-            new("EPS（1株利益）", FmtNum(fin?.Eps, "円")),
-            new("BPS（1株純資産）", FmtNum(fin?.Bps, "円")),
+            new("EPS（1株利益）", FmtNum(fin?.Eps, "円", DecimalFmt)),
+            new("BPS（1株純資産）", FmtNum(fin?.Bps, "円", DecimalFmt)),
             new("純資産", FmtNum(fin?.Equity, "円")),
             new("総資産", FmtNum(fin?.TotalAssets, "円")),
             new("PER（調整後終値÷EPS・C#計算・近似）", Ratio(adjClose, fin?.Eps, splitBetween)),
@@ -93,8 +96,12 @@ internal static class ClaudeFactGatherer
         return (p / d).ToString("F1", CultureInfo.InvariantCulture) + " 倍";
     }
 
-    private static string? FmtNum(double? v, string unit) =>
-        v is double d ? d.ToString("N0", CultureInfo.InvariantCulture) + " " + unit : null;
+    /// <summary>小数を持ち得る系列（EPS/BPS/株価）用の書式（カンマ維持・小数最大2桁）。"N0" の整数丸めで注入すると
+    /// 「表示株価÷表示EPS ≠ 表示PER」の不整合が注入事実内に生じ、許可集合も実値とずれるため小数を保存する。</summary>
+    private const string DecimalFmt = "#,0.##";
+
+    private static string? FmtNum(double? v, string unit, string format = "N0") =>
+        v is double d ? d.ToString(format, CultureInfo.InvariantCulture) + " " + unit : null;
 
     private static string? FmtDate(DateOnly? d) => d?.ToString("yyyy-MM-dd");
 }

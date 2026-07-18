@@ -49,6 +49,7 @@ public static class SelfTest
         failed += RunQualitativeNumberGuardTests();
         failed += RunClaudePromptFlattenTests();
         failed += RunParseModelOutputTests();
+        failed += RunExtractErrorInfoTests();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
@@ -1004,6 +1005,7 @@ public static class SelfTest
         {
             new("PER（近似）", "15.2 倍"),
             new("最新株価", "1,234 円"),
+            new("株価日付", "2026-05-14"),
             new("ルール通過理由", "トレンドOK(SMA25>75)"),
         });
         f += Assert("NumberGuard: 注入数値のみは false",
@@ -1017,6 +1019,16 @@ public static class SelfTest
         f += Assert("NumberGuard: 銘柄コード/会社名の引用は false",
             !QualitativeNumberGuard.HasUnverifiedNumbers(
                 "銘柄7203（トヨタ）は順張り局面。", Array.Empty<string>(), facts));
+        // r3-F1 回帰: 1桁%は散文1桁スキップに落とさず捏造として検出する（norm 基準だと "5%"→"5"→continue で素通り）。
+        // 全角％も NumberToken/Normalize の両方で対称に扱う（半角のみだと「8％」がスキップに落ちる）。
+        f += Assert("NumberGuard: 捏造の1桁%（5%）は true",
+            QualitativeNumberGuard.HasUnverifiedNumbers("営業利益率が5%改善した。", Array.Empty<string>(), facts));
+        f += Assert("NumberGuard: 捏造の全角1桁％（8％）も true",
+            QualitativeNumberGuard.HasUnverifiedNumbers("ROEは8％と高い。", Array.Empty<string>(), facts));
+        // r3-F3 回帰: 株価日付は Label でなく Value（許可集合）に注入されるため、忠実な日付引用は誤発火しない。
+        f += Assert("NumberGuard: 注入済み株価日付の引用は false",
+            !QualitativeNumberGuard.HasUnverifiedNumbers(
+                "2026-05-14時点の終値1,234円を基準とする。", Array.Empty<string>(), facts));
         return f;
     }
 
@@ -1092,6 +1104,30 @@ public static class SelfTest
             m6?.Summary == "根拠要約"
             && m6.Risks != null && m6.Risks.SequenceEqual(new[] { "リスクA" })
             && m6.UsedFacts != null && m6.UsedFacts.Count == 0);
+        return f;
+    }
+
+    /// <summary>
+    /// r3-F2 回帰: 失敗理由（認証切れ等）は stderr でなく stdout エンベロープに載り、stdout は Debug 降格済み
+    /// のため、非 success 経路の警告へ併記する <see cref="ClaudeCliAnalysisService.ExtractErrorInfo"/> を
+    /// 純関数として固定する（ExitCode≠0／パース不能の両分岐がこれを呼ぶ配線は目視確認）。
+    /// </summary>
+    private static int RunExtractErrorInfoTests()
+    {
+        int f = 0;
+        // (1) エラーエンベロープ → is_error/subtype/result を抽出（真因が1行に載る）。
+        var info = ClaudeCliAnalysisService.ExtractErrorInfo(
+            "{\"is_error\":true,\"subtype\":\"authentication_failed\",\"result\":\"OAuth token expired\"}");
+        f += Assert("ExtractErrorInfo: is_error/subtype/result を抽出",
+            info == "is_error=true subtype=authentication_failed result=OAuth token expired");
+
+        // (2) 非 JSON stdout → null（呼び手は「抽出不可」表示に落とす）。
+        f += Assert("ExtractErrorInfo: 非JSON→null",
+            ClaudeCliAnalysisService.ExtractErrorInfo("claude: plain text") == null);
+
+        // (3) 対象キーが無い JSON オブジェクト → null（cost/session 等のノイズを警告へ流さない）。
+        f += Assert("ExtractErrorInfo: 対象キー無し→null",
+            ClaudeCliAnalysisService.ExtractErrorInfo("{\"session_id\":\"x\",\"cost_usd\":0.1}") == null);
         return f;
     }
 

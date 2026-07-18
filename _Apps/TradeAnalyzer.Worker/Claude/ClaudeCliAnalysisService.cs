@@ -61,15 +61,18 @@ internal sealed class ClaudeCliAnalysisService
 
         if (result.ExitCode != 0)
         {
-            _logger.LogWarning("Claude が ExitCode={Code} で失敗（{Sym}・認証切れ/クレジット枯渇の可能性）。スキップします。\nstderr:\n{Err}",
-                result.ExitCode, facts.Code, result.Stderr);
+            _logger.LogWarning("Claude が ExitCode={Code} で失敗（{Sym}・認証切れ/クレジット枯渇の可能性）。スキップします。\nstderr:\n{Err}\nエンベロープ: {Env}",
+                result.ExitCode, facts.Code, result.Stderr, ExtractErrorInfo(result.Stdout) ?? "（抽出不可）");
             return null;
         }
 
         var model = ParseModelOutput(result.Stdout);
         if (model?.Summary is not { Length: > 0 })
         {
-            _logger.LogWarning("Claude 出力をパースできませんでした（{Code}）。スキップします。", facts.Code);
+            // API エラーは ExitCode=0＋is_error:true で返ることもあり（exit code 契約は docs 未記載）、
+            // その場合 summary 空でこの分岐に落ちるため、ここでもエンベロープの真因を併記する。
+            _logger.LogWarning("Claude 出力をパースできませんでした（{Code}）。スキップします。\nエンベロープ: {Env}",
+                facts.Code, ExtractErrorInfo(result.Stdout) ?? "（抽出不可）");
             return null;
         }
 
@@ -116,6 +119,32 @@ internal sealed class ClaudeCliAnalysisService
                 Risks = md.Risks?.Where(r => r is not null).ToList(),
                 UsedFacts = md.UsedFacts?.Where(u => u is not null).ToList(),
             };
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>非 success 経路の診断用に、stdout エンベロープから is_error/subtype/result を1行へ抽出する。
+    /// 失敗理由（認証切れ authentication_failed・クレジット枯渇 billing_error・model_not_found）は stderr でなく
+    /// stdout の JSON エンベロープ側に載り、stdout は Debug 降格済み＝既定 Information ログに出ないため、
+    /// 警告へ真因のみ併記する（stdout 全体の盲目切詰めは serialize 順次第で result が切れるので抽出方式）。
+    /// internal static は SelfTest が純関数として直接検証するため（ParseModelOutput の内部公開と同じ前例）。
+    /// エンベロープが JSON でない/対象キーが無いときは null。</summary>
+    internal static string? ExtractErrorInfo(string stdout)
+    {
+        try
+        {
+            using var env = JsonDocument.Parse(stdout);
+            if (env.RootElement.ValueKind != JsonValueKind.Object) return null;
+            var parts = new List<string>();
+            if (env.RootElement.TryGetProperty("is_error", out var e)) parts.Add("is_error=" + e.GetRawText());
+            if (env.RootElement.TryGetProperty("subtype", out var s) && s.ValueKind == JsonValueKind.String)
+                parts.Add("subtype=" + s.GetString());
+            if (env.RootElement.TryGetProperty("result", out var r) && r.ValueKind == JsonValueKind.String)
+                parts.Add("result=" + r.GetString());
+            return parts.Count > 0 ? string.Join(" ", parts) : null;
         }
         catch (JsonException)
         {
