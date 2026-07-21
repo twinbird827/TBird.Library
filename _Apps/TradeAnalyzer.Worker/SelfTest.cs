@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
@@ -590,7 +591,7 @@ public static class SelfTest
             // Python 書戻しを模した生 SQL UPDATE（C# の追跡外で MlScore を埋める経路）。DateOnly は TEXT(yyyy-MM-dd)。
             using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t:yyyy-MM-dd}' AND Code = 'AAA'";
+                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}' AND Code = 'AAA'";
                 f += Assert("AsNoTracking 罠: 生 SQL UPDATE が 1 行", cmd.ExecuteNonQuery() == 1);
             }
 
