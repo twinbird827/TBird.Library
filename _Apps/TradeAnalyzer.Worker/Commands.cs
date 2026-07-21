@@ -263,7 +263,7 @@ public static class Commands
         await RunPythonAsync(pythonOptions.Value, logger, predictScript, new[]
         {
             ("--db", dbPath),
-            ("--date", t.ToString("yyyy-MM-dd")),
+            ("--date", t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
         });
 
         // 5. null 検査＋6. Top-K 読取を AsNoTracking で1回にまとめる。
