@@ -30,22 +30,11 @@ builder.Services.AddTradeAnalyzerCore(builder.Configuration);
 builder.Services.Configure<PythonOptions>(
     builder.Configuration.GetSection(PythonOptions.SectionName));
 
-// 段階3b の Claude 定性層設定＋経路分岐 DI（explain-today が使う）。Route=cli を既定・SDK は未実装（要件化時に配線）。
+// 段階3b の Claude 定性層設定（explain-today が使う）。現状 claude CLI 直結の1実装のみ＝具象を直登録する
+// （公式 SDK 経路が要件化した時点で interface seam＋経路スイッチを再導入。旧 Claude:Route キーは無視される）。
 builder.Services.Configure<ClaudeOptions>(
     builder.Configuration.GetSection(ClaudeOptions.SectionName));
-var claudeRoute = builder.Configuration.GetSection(ClaudeOptions.SectionName)["Route"] ?? "cli";
-switch (claudeRoute.ToLowerInvariant())
-{
-    case "cli":
-        builder.Services.AddScoped<IClaudeAnalysisService, ClaudeCliAnalysisService>();
-        break;
-    case "sdk":
-        // 公式 Anthropic SDK 経路は未実装（数値安全性が要件化した時点で ClaudeSdkAnalysisService＋Anthropic NuGet を配線）。
-        throw new NotSupportedException(
-            "Claude:Route=sdk は未実装です。Route=cli を使用してください（SDK 経路は要件化時に配線）。");
-    default:
-        throw new InvalidOperationException($"Claude:Route が不正です: {claudeRoute}（cli を指定してください）。");
-}
+builder.Services.AddScoped<ClaudeCliAnalysisService>();
 
 var host = builder.Build();
 

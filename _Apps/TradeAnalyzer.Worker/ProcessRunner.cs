@@ -49,7 +49,6 @@ internal static class ProcessRunner
         bool captureStdout = false,
         string? startErrorHint = null,
         LogLevel stdoutLogLevel = LogLevel.Information,
-        LogLevel stderrLogLevel = LogLevel.Warning,
         CancellationToken ct = default)
     {
         // 非正/上限超過 timeout は「0=無制限」等の誤解や設定ミスを黙って既定値へ書き換えず fail-fast で顕在化する
@@ -100,9 +99,10 @@ internal static class ProcessRunner
         proc.EnableRaisingEvents = true;
         proc.Exited += (_, _) => exitTcs.TrySetResult();
 
-        // 逐次ログレベルは呼び手が注入する（既定 stdout=Information / stderr=Warning で現行 RunPythonAsync を保存）。
-        // 3b の claude 経路は stdout=巨大 JSON エンベロープ（機微含む）を Debug へ降格して Information ログへの
-        // 流出を止める。prefix は必ずテンプレ引数として渡す（文字列連結でメッセージテンプレートを動的化しない）。
+        // stdout の逐次ログレベルは呼び手が注入する（既定 Information。3b の claude 経路は stdout=巨大 JSON
+        // エンベロープ（機微含む）を Debug へ降格して Information ログへの流出を止める）。stderr は Warning 固定
+        //（非既定値を渡す呼び手が現れた時点でパラメータ化する）。prefix は必ずテンプレ引数として渡す
+        //（文字列連結でメッセージテンプレートを動的化しない）。
         // EOF シグナル（e.Data==null → TCS 完了）と逐次ログは captureStdout に関わらず常時実行し、条件化するのは
         // 蓄積（AppendLine）のみ（EOF シグナルまで条件化すると captureStdout=false で毎回 grace 満了まで待つ退行になる）。
         proc.OutputDataReceived += (_, e) =>
@@ -116,7 +116,7 @@ internal static class ProcessRunner
             // stderr は例外添付（timeout 時の診断）に必要なため captureStdout に関わらず常時蓄積する。
             if (e.Data == null) { stderrEofTcs.TrySetResult(); return; }
             lock (stderrLock) { stderr.AppendLine(e.Data); }
-            logger.Log(stderrLogLevel, "{Prefix} {Line}", stderrLogPrefix, e.Data);
+            logger.LogWarning("{Prefix} {Line}", stderrLogPrefix, e.Data);
         };
 
         // 実行ファイル＋全引数＋cwd を保全する（診断情報の維持）。{Name} は付けない — 起動行は File/Args/cwd で
