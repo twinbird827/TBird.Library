@@ -40,7 +40,11 @@ internal static class ClaudeFactGatherer
             .OrderByDescending(f => f.DiscloseDate)
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
-        double? adjClose = bar?.AdjClose ?? bar?.Close;
+        // 生 Close へフォールバックしない: RuleEngine（EvaluateStock）は AdjClose 非 null の bar だけで判定するため、
+        // 生値を「調整後終値」「ルール判定に使用」ラベルで注入すると実判定と食い違う事実になる。null は正直に
+        // 「データなし」/算出不可とし、生値は既存の「終値（生値）」行が示す。なお J-Quants 仕様では取引なし日は
+        // 四本値（生・調整とも）同時に Null＝「AdjClose のみ null」の帯は仕様上存在せず、通常運用は挙動不変。
+        double? adjClose = bar?.AdjClose;
 
         // 開示日〜t の間に分割（AdjustmentFactor≠1）があったか。あれば EPS/BPS の株数基準が AdjClose と食い違うため
         // PER/PBR の算出を見送る（この DB では係数補正が不整合で信頼できない）。
@@ -103,5 +107,7 @@ internal static class ClaudeFactGatherer
     private static string? FmtNum(double? v, string unit, string format = "N0") =>
         v is double d ? d.ToString(format, CultureInfo.InvariantCulture) + " " + unit : null;
 
-    private static string? FmtDate(DateOnly? d) => d?.ToString("yyyy-MM-dd");
+    // InvariantCulture 必須: "yyyy" は現在カルチャの暦の年を出すため、非グレゴリオ暦カルチャ（th-TH=仏暦等）の
+    // ホストでは「2569-07-16」等の誤った年を「実データ」として注入してしまう（FmtNum/RuleScore と同じ方針）。
+    private static string? FmtDate(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }
