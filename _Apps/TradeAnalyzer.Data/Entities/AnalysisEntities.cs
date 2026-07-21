@@ -23,6 +23,13 @@ public class Signal
 
     /// <summary>ML 一次モデル（LambdaRank）の out-of-sample スコア。Python が書き戻す。未推論なら null。段階2で追加。</summary>
     public double? MlScore { get; set; }
+
+    /// <summary>
+    /// Claude 定性層（段階3b）の根拠文＋リスク＋provenance を1列にまとめた JSON。未生成/失敗なら null。
+    /// <c>{summary,risks,usedFacts,model,route,generatedAt,numericUnverified}</c>。表示ペイロードなので個別列に
+    /// 分けず JSON blob で持つ（列スプロール回避）。<see cref="Rationale"/>（ルール通過理由）とは別物。
+    /// </summary>
+    public string? QualitativeJson { get; set; }
 }
 
 /// <summary>バックテスト1回分の実行パラメータと集計結果。</summary>

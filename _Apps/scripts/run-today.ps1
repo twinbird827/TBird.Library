@@ -8,6 +8,8 @@
 #   - 事前に `dotnet run --project <Worker> -- migrate` 済みの trade.db が必要（コールドスタート＝
 #     段階1/2 で複数年 ingest 済み）。run-today は当日 1 日分の bar しか足さない増分運用のため、
 #     空/未マイグレーション DB だと ingest 内の ExecuteDeleteAsync が no such table で停止する。
+#   - スキーマ変更（migration 追加）を含む更新の取込後も migrate を再実行すること（未 migrate のまま日次タスクが
+#     走ると Signals を読む全経路が no such column で ExitCode=1 になる。run-today は自動 migrate しない方針）。
 #   - trade.db / Secrets.json / ML モデルは _Tools/TradeAnalyzer/ 配下に集約され、C# の AppPaths が
 #     実行ファイル位置からリポジトリルートを求めて絶対解決する（CWD 非依存＝_Apps 削除やブランチ切替で消えない）。
 #   - CWD 固定の理由: appsettings.json は ContentRoot(=CWD) 基準でロードされるため、Worker dir 固定で

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,7 @@ using TradeAnalyzer.Core.Rules;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Data.Entities;
 using TradeAnalyzer.Data.Options;
+using TradeAnalyzer.Worker.Claude;
 
 namespace TradeAnalyzer.Worker;
 
@@ -33,6 +35,9 @@ public static class Commands
           [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替（母集団は両モードとも保存 Signal）
   run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力（要 migrate 済み DB）
           [--skip-jquants]                   当日 ingest 済みの再実行時のみ（当日 bar を足さず既存 DB 最新営業日を採点）
+  explain-today                              段階3b 当日定性層: run-today 後の Top-K に実データ注入→Claude 根拠文生成→QualitativeJson 書戻し
+          [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
+          [--force]                          生成済み（QualitativeJson あり）銘柄も再生成（既定は再利用スキップ＝クレジット節約）
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
@@ -237,13 +242,8 @@ public static class Commands
         await ingest.IngestAsync(today, today, skipJQuants, edinetLimitPerDay: 0);
 
         // 2. 最新営業日 t の解決＝DailyBar 存在日の最新（当日 EOD が入っていれば今日、未反映なら直近営業日）。
-        //    窓 -10 暦日は年末年始/GW（連続休場最大≈6日）を十分カバーする。
-        var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today);
-        if (tradingDays.Count == 0)
-            throw new InvalidOperationException(
-                "直近10暦日に DailyBar がありません（コールドスタート/DB が10日以上未更新）。"
-                + "採点には複数年 ingest 済みの履歴が必要です。広期間 ingest でバックフィルしてください。");
-        var t = tradingDays[^1];
+        var t = await ResolveLatestTradingDayAsync(db, today,
+            "採点には複数年 ingest 済みの履歴が必要です。広期間 ingest でバックフィルしてください。");
         if (t < today)
             logger.LogWarning(
                 "当日 {Today} の EOD が DB に未反映のため直近営業日 {T} を採点対象にします（EOD 反映時刻/休場日の可能性）。",
@@ -263,7 +263,7 @@ public static class Commands
         await RunPythonAsync(pythonOptions.Value, logger, predictScript, new[]
         {
             ("--db", dbPath),
-            ("--date", t.ToString("yyyy-MM-dd")),
+            ("--date", t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
         });
 
         // 5. null 検査＋6. Top-K 読取を AsNoTracking で1回にまとめる。
@@ -283,10 +283,147 @@ public static class Commands
         //    件数は当日 Top-K＝バックテスト TopN（同一概念。F11 で統合）の単一ノブを使う。
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
-        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
+        // 日付は Invariant 明示（explain-today ヘッダと同型。非グレゴリオ暦カルチャ対策・表示専用）。
+        Console.WriteLine($"=== {t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
         Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
+    }
+
+    /// <summary>
+    /// 段階3b 当日定性層オーケストレータ。run-today が確定した当日 t の Top-K に実データを注入して Claude で
+    /// 根拠文／リスクを生成し、<see cref="Signal.QualitativeJson"/> へ書戻して標準出力に付す。run-today と別コマンド
+    /// ＝フォールバック隔離（Claude が落ちても ML パイプラインは無傷）。Claude 失敗は throw せず当該銘柄スキップ
+    /// （非必須層＝フォールバック契約）。ただしデータ前提未達（取引日なし）は run-today と同型に fail-fast（ExitCode=1）。
+    /// 同一 t への再実行は生成済み（QualitativeJson あり）銘柄を既定でスキップし <c>--force</c> で再生成
+    /// （facts は同一 t で決定論的＝再生成は情報利得ゼロのクレジット消費。run-today 再実行は date 単位
+    /// delete→insert で QualitativeJson=null に戻るため、このスキップは run-today を挟まない再実行でのみ発動）。
+    /// </summary>
+    public static async Task ExplainTodayAsync(IServiceProvider sp, string[] args)
+    {
+        var opts = ParseOptions(args);
+        bool force = opts.ContainsKey("force");
+
+        var db = sp.GetRequiredService<AppDbContext>();
+        int topN = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.TopN;
+        var claudeOpt = sp.GetRequiredService<IOptions<ClaudeOptions>>().Value;
+        var claude = sp.GetRequiredService<ClaudeCliAnalysisService>();
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("explain-today");
+        var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+
+        // Claude 設定はループ前に config キー名つきで fail-fast（誤設定を per-銘柄 catch が飲んで全銘柄スキップ→
+        // ExitCode=0 に偽装するのを防ぐ。config 誤設定=fatal／Claude 実行時失敗=非致命）。
+        ValidateClaudeConfig(claudeOpt);
+
+        // 1. 対象日 t の解決（--date 指定 or 直近営業日＝run-today と共通ヘルパ）。取引日皆無は前提破綻＝fail-fast。
+        DateOnly t;
+        if (opts.ContainsKey("date"))
+        {
+            t = RequireDate(opts, "date");
+        }
+        else
+        {
+            var today = ResolveTodayJst(timeProvider);
+            t = await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
+        }
+
+        // 2. 当日 Passed 行を AsNoTracking で読取（run-today と別プロセスなら EF 一次キャッシュの罠は無いが射影で明示）。
+        var passed = await db.Signals.AsNoTracking()
+            .Where(s => s.Date == t && s.Passed)
+            .ToListAsync();
+        if (passed.Count == 0)
+        {
+            // 対象日に Passed 行が皆無＝run-today 未実行 or --date 指定違いの可能性。無言 no-op を避け診断を出す（非致命）。
+            logger.LogWarning("{T}: Passed 行がありません（run-today 未実行 or --date 指定違いの可能性）。", t);
+            return;
+        }
+        // null 検査は SelectTopPicks(useMl:true) の .Value 前に置く（null 混入で InvalidOperationException＝非致命に到達不可）。
+        // Passed=0（上）と非対称に throw＝ExitCode=1: Passed=0 は全面下落局面で正当に全滅し得る（run-today も
+        // Top-0 を緑出力する契約）が、MlScore null の Passed 行は run-today 成功時に同条件で既に throw 済み（L276-278）
+        // ＝この状態は常にパイプライン障害であり、警告のままだとスケジューラが緑で真の障害が見えない。
+        if (passed.Any(r => r.MlScore is null))
+            throw new InvalidOperationException(
+                $"{t}: MlScore 未設定の Passed 行があります（run-today の ML 採点が未完了＝パイプライン障害）。" +
+                "run-today を成功させてから explain-today を再実行してください。");
+
+        // 3. Top-K（run-today と同一の純粋関数で並べ替え）。Claude に回すのは Top-K のみ＝コスト/クレジットを bound。
+        var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
+
+        var results = new Dictionary<string, ClaudeAnalysisResult>();
+        var reused = new HashSet<string>();
+        // --force 再生成失敗だが旧 QualitativeJson が残存（last-good 保持）した銘柄数。表示と DB 状態の一致用。
+        int kept = 0;
+        foreach (var signal in top)
+        {
+            // 生成済み銘柄は既定でスキップ（--force で上書き再生成）。部分失敗の回復・二重トリガの再実行で
+            // 成功済み銘柄まで Claude を払い直さない（クレジット節約）＋残存 JSON と表示の食い違いも防ぐ。
+            if (!force && signal.QualitativeJson != null)
+            {
+                reused.Add(signal.Code);
+                continue;
+            }
+            // 4. 実データ収集（DB 実数＋C# 派生指標）。
+            var facts = await ClaudeFactGatherer.GatherAsync(db, t, signal);
+            // 5. Claude 採点。null（失敗）なら当該銘柄はスキップ（ML のみ・ログのみ）。1 銘柄の失敗が他を止めない。
+            //    旧 JSON あり（--force 再生成失敗）なら DB は last-good を保持したまま＝「保持」として集計する。
+            var res = await claude.AnalyzeAsync(facts);
+            if (res == null)
+            {
+                if (signal.QualitativeJson != null) kept++;
+                continue;
+            }
+
+            // JST の生成時刻（provenance）。銘柄ごとに書戻し直前で評価する（Claude 実行は 1 銘柄あたり最大
+            // TimeoutMinutes かかるため、ループ前の一括取得では後半の銘柄で実生成時刻と大きくずれる）。
+            var generatedAt = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), Jst);
+
+            // 6. 根拠文の書戻し（追跡回避 UPDATE。AsNoTracking で読んだ行の部分更新）。
+            string json = JsonSerializer.Serialize(new
+            {
+                summary = res.Summary,
+                risks = res.Risks,
+                usedFacts = res.UsedFacts,
+                model = res.Model,
+                // 経路は CLI 直結の1実装のみだが provenance の JSON 契約（route フィールド）は維持する
+                // （SDK 経路を再導入したらここも実経路値に戻す）。
+                route = "cli",
+                generatedAt = generatedAt.ToString("o"),
+                numericUnverified = res.NumericUnverified,
+            });
+            await db.Signals.Where(s => s.Date == t && s.Code == signal.Code)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.QualitativeJson, json));
+            results[signal.Code] = res;
+        }
+
+        // 7. Top-K 出力（summary/risks/numericUnverified を付す）。日付は Invariant 明示（非グレゴリオ暦
+        //    カルチャのホストで年が仏暦等になるのを防ぐ。r4-F4 と同機序・表示専用）。
+        string tStr = t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        string keptSuffix = kept > 0 ? $"・保持(再生成失敗) {kept} 件" : "";
+        Console.WriteLine($"=== {tStr} Top-{topN} 定性レビュー（Passed {passed.Count} 件中・{results.Count}/{top.Count} 件生成・既存再利用 {reused.Count} 件{keptSuffix}）===");
+        foreach (var s in top)
+        {
+            Console.WriteLine($"\n[{s.Code}] MlScore={s.MlScore!.Value:F4} RuleScore={s.RuleScore}");
+            if (results.TryGetValue(s.Code, out var res))
+            {
+                Console.WriteLine($"  要約: {res.Summary}");
+                foreach (var risk in res.Risks) Console.WriteLine($"  リスク: {risk}");
+                if (res.NumericUnverified) Console.WriteLine("  ⚠ numericUnverified（注入外の数値が混入した疑い）");
+            }
+            else if (reused.Contains(s.Code))
+            {
+                Console.WriteLine("  （既存生成あり・再利用。--force で再生成）");
+            }
+            else if (s.QualitativeJson != null)
+            {
+                // --force 再生成失敗。DB は旧 JSON（last-good）を保持したまま＝「生成なし」ではない。
+                // 失敗理由は ClaudeCliAnalysisService の per-銘柄 LogWarning 側にある。
+                Console.WriteLine("  （再生成失敗・既存生成を保持。ログ参照）");
+            }
+            else
+            {
+                Console.WriteLine("  （Claude 生成なし・ML のみ）");
+            }
+        }
     }
 
     /// <summary>
@@ -337,19 +474,38 @@ public static class Commands
                 $"Python が ExitCode={result.ExitCode} で失敗しました: {scriptPath}\nstderr:\n{result.Stderr}");
     }
 
+    /// <summary>JST タイムゾーンの単一定義（"Asia/Tokyo" リテラルの散在＝市場/TZ 変更時の片直しドリフトを防ぐ）。
+    /// "Asia/Tokyo" は .NET6+ が ICU で IANA/Windows ID を相互解決する。ICU を無効化した旧構成では
+    /// FindSystemTimeZoneById の TimeZoneNotFoundException が型初期化時の TypeInitializationException に
+    /// 包まれて初回利用時に明示失敗する（silent fallback しないため気付ける）。</summary>
+    private static readonly TimeZoneInfo Jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+
     /// <summary>
     /// JST（Asia/Tokyo）の当日を <see cref="TimeProvider"/> から導出する純粋関数（DB/プロセス非依存・
     /// SelfTest で固定可能）。ホストローカル日付に依存せず、非 JST ホスト（VPS/クラウド）でも当日が
-    /// JST 基準で一意に決まる。"Asia/Tokyo" は .NET6+ が ICU で IANA/Windows ID を相互解決する。
-    /// ICU を無効化した旧構成では <see cref="TimeZoneInfo.FindSystemTimeZoneById"/> が
-    /// TimeZoneNotFoundException で起動時に明示失敗する（silent fallback しないため気付ける）。
+    /// JST 基準で一意に決まる。TZ 未解決時の fail-loud 挙動は <see cref="Jst"/> を参照。
     /// </summary>
     internal static DateOnly ResolveTodayJst(TimeProvider timeProvider)
     {
-        var nowJst = TimeZoneInfo.ConvertTimeFromUtc(
-            timeProvider.GetUtcNow().UtcDateTime,
-            TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo"));
+        var nowJst = TimeZoneInfo.ConvertTimeFromUtc(timeProvider.GetUtcNow().UtcDateTime, Jst);
         return DateOnly.FromDateTime(nowJst);
+    }
+
+    /// <summary>
+    /// 直近の営業日（DailyBar 存在日の最新）を解決する。窓 -10 暦日は年末年始/GW（連続休場最大≈6日）を
+    /// 十分カバーする。取引日皆無は前提破綻＝fail-fast（共通コア文言＋<paramref name="hint"/> で throw）。
+    /// run-today と explain-today の --date 未指定パスで共有し、-10 窓と fail-fast 文言のドリフトを防ぐ。
+    /// </summary>
+    /// <param name="hint">呼び手固有の復旧誘導（run-today＝広期間 ingest でバックフィル /
+    /// explain-today＝run-today 実行が前提。2つの障害は復旧手順が異なるため呼び手が渡す）。</param>
+    internal static async Task<DateOnly> ResolveLatestTradingDayAsync(
+        AppDbContext db, DateOnly today, string hint, CancellationToken ct = default)
+    {
+        var tradingDays = await BacktestService.QueryTradingDaysAsync(db, today.AddDays(-10), today, ct);
+        if (tradingDays.Count == 0)
+            throw new InvalidOperationException(
+                "直近10暦日に DailyBar がありません（コールドスタート/DB が10日以上未更新）。" + hint);
+        return tradingDays[^1];
     }
 
     // --- 設定検証 ---
@@ -384,6 +540,24 @@ public static class Commands
         if (py.TimeoutMinutes <= 0 || py.TimeoutMinutes > maxMinutes)
             throw new InvalidOperationException(
                 $"Python:TimeoutMinutes は 1〜{maxMinutes} の範囲で指定してください（現在値: {py.TimeoutMinutes}）。");
+    }
+
+    /// <summary>
+    /// explain-today 専用の Claude 設定検証（<see cref="ValidatePythonConfig"/> の対）。TimeoutMinutes の下限＋上限を
+    /// config キー名（Claude:TimeoutMinutes）つきで事前検証する（下限のみだと上限超過値がループ内 RunAsync の
+    /// AOORE→全銘柄スキップ偽装に至るため上限も弾く）。ExecutablePath / Model の非空も確認する（誤設定=ExitCode1。
+    /// 空 Model は `--model ""` のまま CLI に渡り毎回非0終了→全銘柄「非致命スキップ」→ExitCode=0 偽装に至る）。
+    /// </summary>
+    private static void ValidateClaudeConfig(ClaudeOptions cl)
+    {
+        int maxMinutes = (int)ProcessRunner.MaxTimeout.TotalMinutes;
+        if (cl.TimeoutMinutes <= 0 || cl.TimeoutMinutes > maxMinutes)
+            throw new InvalidOperationException(
+                $"Claude:TimeoutMinutes は 1〜{maxMinutes} の範囲で指定してください（現在値: {cl.TimeoutMinutes}）。");
+        if (string.IsNullOrWhiteSpace(cl.ExecutablePath))
+            throw new InvalidOperationException("Claude:ExecutablePath が空です（Windows は claude.cmd を指定）。");
+        if (string.IsNullOrWhiteSpace(cl.Model))
+            throw new InvalidOperationException("Claude:Model が空です（例: claude-opus-4-8）。");
     }
 
     // --- 引数パース ---

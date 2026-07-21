@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using TradeAnalyzer.Core;
 using TradeAnalyzer.Data;
 using TradeAnalyzer.Worker;
+using TradeAnalyzer.Worker.Claude;
 
 // 日本語ログ/出力を UTF-8 に固定（Windows 既定 console は cp932＝run-today.ps1 の Tee/リダイレクトで
 // 文字化けし監視ログが読めなくなるのを防ぐ）。コンソール非対応環境では best-effort で既定のまま。
@@ -28,6 +29,12 @@ builder.Services.AddTradeAnalyzerCore(builder.Configuration);
 // Core/Data の「Configure は拡張メソッドに集約」規約とは別に Program.cs で直接バインドする。
 builder.Services.Configure<PythonOptions>(
     builder.Configuration.GetSection(PythonOptions.SectionName));
+
+// 段階3b の Claude 定性層設定（explain-today が使う）。現状 claude CLI 直結の1実装のみ＝具象を直登録する
+// （公式 SDK 経路が要件化した時点で interface seam＋経路スイッチを再導入。旧 Claude:Route キーは無視される）。
+builder.Services.Configure<ClaudeOptions>(
+    builder.Configuration.GetSection(ClaudeOptions.SectionName));
+builder.Services.AddScoped<ClaudeCliAnalysisService>();
 
 var host = builder.Build();
 
@@ -58,6 +65,9 @@ try
             break;
         case "run-today":
             await Commands.RunTodayAsync(sp, args);
+            break;
+        case "explain-today":
+            await Commands.ExplainTodayAsync(sp, args);
             break;
         case "selftest":
             await SelfTest.RunAsync();
