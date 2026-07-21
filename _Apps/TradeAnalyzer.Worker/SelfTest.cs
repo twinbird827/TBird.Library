@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
@@ -49,6 +50,7 @@ public static class SelfTest
         failed += RunQualitativeNumberGuardTests();
         failed += RunClaudePromptFlattenTests();
         failed += RunParseModelOutputTests();
+        failed += RunExtractErrorInfoTests();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
@@ -589,7 +591,7 @@ public static class SelfTest
             // Python 書戻しを模した生 SQL UPDATE（C# の追跡外で MlScore を埋める経路）。DateOnly は TEXT(yyyy-MM-dd)。
             using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t:yyyy-MM-dd}' AND Code = 'AAA'";
+                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}' AND Code = 'AAA'";
                 f += Assert("AsNoTracking 罠: 生 SQL UPDATE が 1 行", cmd.ExecuteNonQuery() == 1);
             }
 
@@ -1004,7 +1006,10 @@ public static class SelfTest
         {
             new("PER（近似）", "15.2 倍"),
             new("最新株価", "1,234 円"),
+            new("株価日付", "2026-05-14"),
             new("ルール通過理由", "トレンドOK(SMA25>75)"),
+            // RuleScore は 0〜3 で必ず注入される＝許可集合に素の "3" が常在する（r4-F1 の照合素通り再現に必須）。
+            new("ルールスコア（通過ゲート数）", "3"),
         });
         f += Assert("NumberGuard: 注入数値のみは false",
             !QualitativeNumberGuard.HasUnverifiedNumbers(
@@ -1017,6 +1022,26 @@ public static class SelfTest
         f += Assert("NumberGuard: 銘柄コード/会社名の引用は false",
             !QualitativeNumberGuard.HasUnverifiedNumbers(
                 "銘柄7203（トヨタ）は順張り局面。", Array.Empty<string>(), facts));
+        // r3-F1 回帰: 1桁%は散文1桁スキップに落とさず捏造として検出する（Normalize が % を保持するため
+        // norm="5%" は長さ2→スキップに落ちず not-in-allowed 経路で true）。全角％も NumberToken が対称に取り込む。
+        f += Assert("NumberGuard: 捏造の1桁%（5%）は true",
+            QualitativeNumberGuard.HasUnverifiedNumbers("営業利益率が5%改善した。", Array.Empty<string>(), facts));
+        f += Assert("NumberGuard: 捏造の全角1桁％（8％）も true",
+            QualitativeNumberGuard.HasUnverifiedNumbers("ROEは8％と高い。", Array.Empty<string>(), facts));
+        // r4-F1 回帰: Normalize は % を剥がさない。剥がすと捏造%値が非%事実へ照合成立して素通りする
+        // （「3%成長」→"3"→常在の RuleScore "3"、「利益率15.2%」→PER の "15.2"）。
+        f += Assert("NumberGuard: 捏造%がRuleScoreの素値に照合されない（3%成長は true）",
+            QualitativeNumberGuard.HasUnverifiedNumbers("売上は3%成長した。", Array.Empty<string>(), facts));
+        f += Assert("NumberGuard: 捏造%がPERの素値に照合されない（利益率15.2%は true）",
+            QualitativeNumberGuard.HasUnverifiedNumbers("利益率15.2%を確保。", Array.Empty<string>(), facts));
+        // r4-F1 回帰: NumberToken は文末の半角ピリオドまで取り込む（"1,234."）ため、末尾 '.' を除去しないと
+        // 正当な引用が不一致になる FP（トークン化起因・文書化済み限界とは別）。
+        f += Assert("NumberGuard: 文末ピリオドを取り込んだ正当引用（株価は1,234.）は false",
+            !QualitativeNumberGuard.HasUnverifiedNumbers("株価は1,234.", Array.Empty<string>(), facts));
+        // r3-F3 回帰: 株価日付は Label でなく Value（許可集合）に注入されるため、忠実な日付引用は誤発火しない。
+        f += Assert("NumberGuard: 注入済み株価日付の引用は false",
+            !QualitativeNumberGuard.HasUnverifiedNumbers(
+                "2026-05-14時点の終値1,234円を基準とする。", Array.Empty<string>(), facts));
         return f;
     }
 
@@ -1092,6 +1117,43 @@ public static class SelfTest
             m6?.Summary == "根拠要約"
             && m6.Risks != null && m6.Risks.SequenceEqual(new[] { "リスクA" })
             && m6.UsedFacts != null && m6.UsedFacts.Count == 0);
+        return f;
+    }
+
+    /// <summary>
+    /// r3-F2 回帰: 失敗理由（認証切れ等）は stderr でなく stdout エンベロープに載り、stdout は Debug 降格済み
+    /// のため、非 success 経路の警告へ併記する <see cref="ClaudeCliAnalysisService.ExtractErrorInfo"/> を
+    /// 純関数として固定する（ExitCode≠0／パース不能の両分岐がこれを呼ぶ配線は目視確認）。
+    /// </summary>
+    private static int RunExtractErrorInfoTests()
+    {
+        int f = 0;
+        // (1) エラーエンベロープ → is_error/subtype/result を抽出（真因が1行に載る）。
+        var info = ClaudeCliAnalysisService.ExtractErrorInfo(
+            "{\"is_error\":true,\"subtype\":\"authentication_failed\",\"result\":\"OAuth token expired\"}");
+        f += Assert("ExtractErrorInfo: is_error/subtype/result を抽出",
+            info == "is_error=true subtype=authentication_failed result=OAuth token expired");
+
+        // (2) 非 JSON stdout → null（呼び手は「抽出不可」表示に落とす）。
+        f += Assert("ExtractErrorInfo: 非JSON→null",
+            ClaudeCliAnalysisService.ExtractErrorInfo("claude: plain text") == null);
+
+        // (3) 対象キーが無い JSON オブジェクト → null（cost/session 等のノイズを警告へ流さない）。
+        f += Assert("ExtractErrorInfo: 対象キー無し→null",
+            ClaudeCliAnalysisService.ExtractErrorInfo("{\"session_id\":\"x\",\"cost_usd\":0.1}") == null);
+
+        // r4-F2 回帰: is_error は受理拒否ゲート（AnalyzeAsync がパース前に拒否）。result に brace 含みテキストが
+        // 載っても防御的パーサが偶然 summary を取り出しエラー応答を正規結果化しない（1回パース集約の要）。
+        var env = ClaudeCliAnalysisService.ParseEnvelope(
+            "{\"is_error\":true,\"subtype\":\"error_during_execution\",\"result\":\"{\\\"summary\\\":\\\"偽\\\"}\"}");
+        f += Assert("ParseEnvelope: is_error:true をゲートへ返す（候補が summary 含みでも受理拒否可能）", env.IsError);
+        f += Assert("ParseEnvelope: is_error 無しの正常エンベロープは IsError=false",
+            !ClaudeCliAnalysisService.ParseEnvelope("{\"result\":\"{\\\"summary\\\":\\\"正\\\"}\"}").IsError);
+        // r4-F2 回帰: パース不能分岐で Debug 降格済みの result 全文（数 KB になりうる）が警告へ無制限流出しない。
+        var longEnv = ClaudeCliAnalysisService.ParseEnvelope(
+            "{\"is_error\":true,\"result\":\"" + new string('x', 2000) + "\"}");
+        f += Assert("ParseEnvelope: 長大 result の診断1行は有界化される",
+            longEnv.ErrorInfo != null && longEnv.ErrorInfo.Length < 400 && longEnv.ErrorInfo.EndsWith("…"));
         return f;
     }
 

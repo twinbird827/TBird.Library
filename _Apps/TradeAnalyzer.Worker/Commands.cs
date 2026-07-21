@@ -37,6 +37,7 @@ public static class Commands
           [--skip-jquants]                   当日 ingest 済みの再実行時のみ（当日 bar を足さず既存 DB 最新営業日を採点）
   explain-today                              段階3b 当日定性層: run-today 後の Top-K に実データ注入→Claude 根拠文生成→QualitativeJson 書戻し
           [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
+          [--force]                          生成済み（QualitativeJson あり）銘柄も再生成（既定は再利用スキップ＝クレジット節約）
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
@@ -262,7 +263,7 @@ public static class Commands
         await RunPythonAsync(pythonOptions.Value, logger, predictScript, new[]
         {
             ("--db", dbPath),
-            ("--date", t.ToString("yyyy-MM-dd")),
+            ("--date", t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
         });
 
         // 5. null 検査＋6. Top-K 読取を AsNoTracking で1回にまとめる。
@@ -282,7 +283,8 @@ public static class Commands
         //    件数は当日 Top-K＝バックテスト TopN（同一概念。F11 で統合）の単一ノブを使う。
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
-        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
+        // 日付は Invariant 明示（explain-today ヘッダと同型。非グレゴリオ暦カルチャ対策・表示専用）。
+        Console.WriteLine($"=== {t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
         Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
@@ -293,16 +295,21 @@ public static class Commands
     /// 根拠文／リスクを生成し、<see cref="Signal.QualitativeJson"/> へ書戻して標準出力に付す。run-today と別コマンド
     /// ＝フォールバック隔離（Claude が落ちても ML パイプラインは無傷）。Claude 失敗は throw せず当該銘柄スキップ
     /// （非必須層＝フォールバック契約）。ただしデータ前提未達（取引日なし）は run-today と同型に fail-fast（ExitCode=1）。
+    /// 同一 t への再実行は生成済み（QualitativeJson あり）銘柄を既定でスキップし <c>--force</c> で再生成
+    /// （facts は同一 t で決定論的＝再生成は情報利得ゼロのクレジット消費。run-today 再実行は date 単位
+    /// delete→insert で QualitativeJson=null に戻るため、このスキップは run-today を挟まない再実行でのみ発動）。
     /// </summary>
     public static async Task ExplainTodayAsync(IServiceProvider sp, string[] args)
     {
         var opts = ParseOptions(args);
+        bool force = opts.ContainsKey("force");
 
         var db = sp.GetRequiredService<AppDbContext>();
         int topN = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.TopN;
         var claudeOpt = sp.GetRequiredService<IOptions<ClaudeOptions>>().Value;
         var claude = sp.GetRequiredService<ClaudeCliAnalysisService>();
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("explain-today");
+        var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
 
         // Claude 設定はループ前に config キー名つきで fail-fast（誤設定を per-銘柄 catch が飲んで全銘柄スキップ→
         // ExitCode=0 に偽装するのを防ぐ。config 誤設定=fatal／Claude 実行時失敗=非致命）。
@@ -310,13 +317,12 @@ public static class Commands
 
         // 1. 対象日 t の解決（--date 指定 or 直近営業日＝run-today と共通ヘルパ）。取引日皆無は前提破綻＝fail-fast。
         DateOnly t;
-        if (opts.TryGetValue("date", out _))
+        if (opts.ContainsKey("date"))
         {
             t = RequireDate(opts, "date");
         }
         else
         {
-            var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
             var today = ResolveTodayJst(timeProvider);
             t = await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
         }
@@ -343,18 +349,33 @@ public static class Commands
         // 3. Top-K（run-today と同一の純粋関数で並べ替え）。Claude に回すのは Top-K のみ＝コスト/クレジットを bound。
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
-        // JST の生成時刻（provenance）。書戻し JSON に含める。
-        var generatedAt = TimeZoneInfo.ConvertTime(
-            (sp.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow(), Jst);
-
         var results = new Dictionary<string, ClaudeAnalysisResult>();
+        var reused = new HashSet<string>();
+        // --force 再生成失敗だが旧 QualitativeJson が残存（last-good 保持）した銘柄数。表示と DB 状態の一致用。
+        int kept = 0;
         foreach (var signal in top)
         {
+            // 生成済み銘柄は既定でスキップ（--force で上書き再生成）。部分失敗の回復・二重トリガの再実行で
+            // 成功済み銘柄まで Claude を払い直さない（クレジット節約）＋残存 JSON と表示の食い違いも防ぐ。
+            if (!force && signal.QualitativeJson != null)
+            {
+                reused.Add(signal.Code);
+                continue;
+            }
             // 4. 実データ収集（DB 実数＋C# 派生指標）。
             var facts = await ClaudeFactGatherer.GatherAsync(db, t, signal);
             // 5. Claude 採点。null（失敗）なら当該銘柄はスキップ（ML のみ・ログのみ）。1 銘柄の失敗が他を止めない。
+            //    旧 JSON あり（--force 再生成失敗）なら DB は last-good を保持したまま＝「保持」として集計する。
             var res = await claude.AnalyzeAsync(facts);
-            if (res == null) continue;
+            if (res == null)
+            {
+                if (signal.QualitativeJson != null) kept++;
+                continue;
+            }
+
+            // JST の生成時刻（provenance）。銘柄ごとに書戻し直前で評価する（Claude 実行は 1 銘柄あたり最大
+            // TimeoutMinutes かかるため、ループ前の一括取得では後半の銘柄で実生成時刻と大きくずれる）。
+            var generatedAt = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), Jst);
 
             // 6. 根拠文の書戻し（追跡回避 UPDATE。AsNoTracking で読んだ行の部分更新）。
             string json = JsonSerializer.Serialize(new
@@ -374,8 +395,11 @@ public static class Commands
             results[signal.Code] = res;
         }
 
-        // 7. Top-K 出力（summary/risks/numericUnverified を付す）。
-        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN} 定性レビュー（Passed {passed.Count} 件中・{results.Count}/{top.Count} 件生成）===");
+        // 7. Top-K 出力（summary/risks/numericUnverified を付す）。日付は Invariant 明示（非グレゴリオ暦
+        //    カルチャのホストで年が仏暦等になるのを防ぐ。r4-F4 と同機序・表示専用）。
+        string tStr = t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        string keptSuffix = kept > 0 ? $"・保持(再生成失敗) {kept} 件" : "";
+        Console.WriteLine($"=== {tStr} Top-{topN} 定性レビュー（Passed {passed.Count} 件中・{results.Count}/{top.Count} 件生成・既存再利用 {reused.Count} 件{keptSuffix}）===");
         foreach (var s in top)
         {
             Console.WriteLine($"\n[{s.Code}] MlScore={s.MlScore!.Value:F4} RuleScore={s.RuleScore}");
@@ -384,6 +408,16 @@ public static class Commands
                 Console.WriteLine($"  要約: {res.Summary}");
                 foreach (var risk in res.Risks) Console.WriteLine($"  リスク: {risk}");
                 if (res.NumericUnverified) Console.WriteLine("  ⚠ numericUnverified（注入外の数値が混入した疑い）");
+            }
+            else if (reused.Contains(s.Code))
+            {
+                Console.WriteLine("  （既存生成あり・再利用。--force で再生成）");
+            }
+            else if (s.QualitativeJson != null)
+            {
+                // --force 再生成失敗。DB は旧 JSON（last-good）を保持したまま＝「生成なし」ではない。
+                // 失敗理由は ClaudeCliAnalysisService の per-銘柄 LogWarning 側にある。
+                Console.WriteLine("  （再生成失敗・既存生成を保持。ログ参照）");
             }
             else
             {
