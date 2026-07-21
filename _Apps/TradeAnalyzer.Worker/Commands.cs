@@ -263,7 +263,7 @@ public static class Commands
         await RunPythonAsync(pythonOptions.Value, logger, predictScript, new[]
         {
             ("--db", dbPath),
-            ("--date", t.ToString("yyyy-MM-dd")),
+            ("--date", t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
         });
 
         // 5. null 検査＋6. Top-K 読取を AsNoTracking で1回にまとめる。
@@ -283,7 +283,8 @@ public static class Commands
         //    件数は当日 Top-K＝バックテスト TopN（同一概念。F11 で統合）の単一ノブを使う。
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
-        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
+        // 日付は Invariant 明示（explain-today ヘッダと同型。非グレゴリオ暦カルチャ対策・表示専用）。
+        Console.WriteLine($"=== {t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} Top-{topN}（MlScore 降順, Passed {passed.Count} 件中）===");
         Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
@@ -348,11 +349,10 @@ public static class Commands
         // 3. Top-K（run-today と同一の純粋関数で並べ替え）。Claude に回すのは Top-K のみ＝コスト/クレジットを bound。
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
 
-        // JST の生成時刻（provenance）。書戻し JSON に含める。
-        var generatedAt = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), Jst);
-
         var results = new Dictionary<string, ClaudeAnalysisResult>();
         var reused = new HashSet<string>();
+        // --force 再生成失敗だが旧 QualitativeJson が残存（last-good 保持）した銘柄数。表示と DB 状態の一致用。
+        int kept = 0;
         foreach (var signal in top)
         {
             // 生成済み銘柄は既定でスキップ（--force で上書き再生成）。部分失敗の回復・二重トリガの再実行で
@@ -365,8 +365,17 @@ public static class Commands
             // 4. 実データ収集（DB 実数＋C# 派生指標）。
             var facts = await ClaudeFactGatherer.GatherAsync(db, t, signal);
             // 5. Claude 採点。null（失敗）なら当該銘柄はスキップ（ML のみ・ログのみ）。1 銘柄の失敗が他を止めない。
+            //    旧 JSON あり（--force 再生成失敗）なら DB は last-good を保持したまま＝「保持」として集計する。
             var res = await claude.AnalyzeAsync(facts);
-            if (res == null) continue;
+            if (res == null)
+            {
+                if (signal.QualitativeJson != null) kept++;
+                continue;
+            }
+
+            // JST の生成時刻（provenance）。銘柄ごとに書戻し直前で評価する（Claude 実行は 1 銘柄あたり最大
+            // TimeoutMinutes かかるため、ループ前の一括取得では後半の銘柄で実生成時刻と大きくずれる）。
+            var generatedAt = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), Jst);
 
             // 6. 根拠文の書戻し（追跡回避 UPDATE。AsNoTracking で読んだ行の部分更新）。
             string json = JsonSerializer.Serialize(new
@@ -386,8 +395,11 @@ public static class Commands
             results[signal.Code] = res;
         }
 
-        // 7. Top-K 出力（summary/risks/numericUnverified を付す）。
-        Console.WriteLine($"=== {t:yyyy-MM-dd} Top-{topN} 定性レビュー（Passed {passed.Count} 件中・{results.Count}/{top.Count} 件生成・既存再利用 {reused.Count} 件）===");
+        // 7. Top-K 出力（summary/risks/numericUnverified を付す）。日付は Invariant 明示（非グレゴリオ暦
+        //    カルチャのホストで年が仏暦等になるのを防ぐ。r4-F4 と同機序・表示専用）。
+        string tStr = t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        string keptSuffix = kept > 0 ? $"・保持(再生成失敗) {kept} 件" : "";
+        Console.WriteLine($"=== {tStr} Top-{topN} 定性レビュー（Passed {passed.Count} 件中・{results.Count}/{top.Count} 件生成・既存再利用 {reused.Count} 件{keptSuffix}）===");
         foreach (var s in top)
         {
             Console.WriteLine($"\n[{s.Code}] MlScore={s.MlScore!.Value:F4} RuleScore={s.RuleScore}");
@@ -400,6 +412,12 @@ public static class Commands
             else if (reused.Contains(s.Code))
             {
                 Console.WriteLine("  （既存生成あり・再利用。--force で再生成）");
+            }
+            else if (s.QualitativeJson != null)
+            {
+                // --force 再生成失敗。DB は旧 JSON（last-good）を保持したまま＝「生成なし」ではない。
+                // 失敗理由は ClaudeCliAnalysisService の per-銘柄 LogWarning 側にある。
+                Console.WriteLine("  （再生成失敗・既存生成を保持。ログ参照）");
             }
             else
             {
