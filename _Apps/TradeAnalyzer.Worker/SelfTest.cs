@@ -19,6 +19,7 @@ using TradeAnalyzer.Data.External.Edinet;
 using TradeAnalyzer.Data.External.JQuants;
 using TradeAnalyzer.Data.Options;
 using TradeAnalyzer.Worker.Claude;
+using TradeAnalyzer.Worker.Notify;
 
 namespace TradeAnalyzer.Worker;
 
@@ -51,6 +52,7 @@ public static class SelfTest
         failed += RunClaudePromptFlattenTests();
         failed += RunParseModelOutputTests();
         failed += RunExtractErrorInfoTests();
+        failed += RunParseQualitativeTests();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
@@ -708,6 +710,41 @@ public static class SelfTest
         var fake2 = new FakeTimeProvider(new DateTimeOffset(2025, 6, 27, 2, 0, 0, TimeSpan.Zero));
         f += Assert("ResolveTodayJst: UTC 02:00 → JST 同日(2025-06-27)",
             Commands.ResolveTodayJst(fake2) == new DateOnly(2025, 6, 27));
+        return f;
+    }
+
+    /// <summary>
+    /// 3c STEP1: DeliveryReportBuilder.ParseQualitative の回帰。3b の保存 JSON は camelCase＝case-insensitive
+    /// 明示が効いていること（既定 case-sensitive なら Summary=null で corrupt 扱いになり正常系が FAIL）、
+    /// 構文不正の警告降格、構文妥当でも summary/risks キー欠落は JsonException なしで null バインドされるため
+    /// デシリアライズ後の null 検査で corrupt 扱いになること、を固定する。
+    /// </summary>
+    private static int RunParseQualitativeTests()
+    {
+        int f = 0;
+        var logger = NullLogger.Instance;
+
+        // 正常系: 3b が保存する camelCase＋余剰 provenance キー（usedFacts 等）を読める。
+        var ok = DeliveryReportBuilder.ParseQualitative(
+            "{\"summary\":\"S\",\"risks\":[\"R1\",\"R2\"],\"usedFacts\":[\"F\"],\"model\":\"m\",\"route\":\"cli\"," +
+            "\"generatedAt\":\"2026-07-21T18:00:00+09:00\",\"numericUnverified\":true}",
+            "AAA", logger);
+        f += Assert("ParseQualitative: camelCase 正常系（summary/risks/numericUnverified 復元）",
+            ok is { Summary: "S", NumericUnverified: true } && ok.Risks.SequenceEqual(new[] { "R1", "R2" }));
+
+        // null（未生成/失敗）＝正常の「定性なし」。
+        f += Assert("ParseQualitative: null → null（定性なし）",
+            DeliveryReportBuilder.ParseQualitative(null, "AAA", logger) == null);
+
+        // 構文不正 → JsonException 捕捉で null（1 行の破損が通知全体を殺さない）。
+        f += Assert("ParseQualitative: 構文不正 → null",
+            DeliveryReportBuilder.ParseQualitative("{broken", "AAA", logger) == null);
+
+        // キー欠落は JsonException を投げず非 null 参照型へ null バインドされる → null 検査で corrupt 扱い。
+        f += Assert("ParseQualitative: summary 欠落 → null（corrupt 扱い）",
+            DeliveryReportBuilder.ParseQualitative("{\"risks\":[\"R\"]}", "AAA", logger) == null);
+        f += Assert("ParseQualitative: risks 欠落 → null（corrupt 扱い）",
+            DeliveryReportBuilder.ParseQualitative("{\"summary\":\"S\"}", "AAA", logger) == null);
         return f;
     }
 

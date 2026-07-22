@@ -13,6 +13,7 @@ using TradeAnalyzer.Data;
 using TradeAnalyzer.Data.Entities;
 using TradeAnalyzer.Data.Options;
 using TradeAnalyzer.Worker.Claude;
+using TradeAnalyzer.Worker.Notify;
 
 namespace TradeAnalyzer.Worker;
 
@@ -38,6 +39,8 @@ public static class Commands
   explain-today                              段階3b 当日定性層: run-today 後の Top-K に実データ注入→Claude 根拠文生成→QualitativeJson 書戻し
           [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
           [--force]                          生成済み（QualitativeJson あり）銘柄も再生成（既定は再利用スキップ＝クレジット節約）
+  notify-today                               段階3c 配信ペイロード: 当日 Top-K＋根拠文をチャネル非依存 DTO に組んで整形出力（送信は STEP2）
+          [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
   selftest                                   APIキー不要の単体検証（指標/ルール/先読み防止）
 
 例:
@@ -422,6 +425,60 @@ public static class Commands
             else
             {
                 Console.WriteLine("  （Claude 生成なし・ML のみ）");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 段階3c STEP1 配信ペイロード組み立て。run-today（＋任意で explain-today）済みの当日 t の Top-K＋根拠文を
+    /// DB から読み、チャネル非依存の <see cref="DeliveryReport"/> に組んでコンソールへ整形出力する
+    /// （webhook 送信は STEP2 でこの後段に足す）。
+    /// ExitCode 契約は explain-today と逆向き: notify の仕事は「届ける」こと＝沈黙こそ障害。前提破綻
+    /// （Signal 行ゼロ／MlScore=null 混在）は <see cref="DeliveryReportBuilder"/> の throw をここで捕捉せず
+    /// Program.cs の外側 catch に伝播させて ExitCode=1 にする（コマンド内で catch すると ExitCode=0 に化けて
+    /// 契約が逆転する）。Passed=0 は正常（0 件ペイロード・ExitCode=0）＝無通知と故障を区別する。
+    /// </summary>
+    public static async Task NotifyTodayAsync(IServiceProvider sp, string[] args)
+    {
+        var opts = ParseOptions(args);
+        var db = sp.GetRequiredService<AppDbContext>();
+        int topN = sp.GetRequiredService<IOptions<BacktestOptions>>().Value.TopN;
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("notify-today");
+        var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+
+        // 1. 対象日 t の解決（--date 指定 or 直近営業日＝explain-today と同型。パースは RequireDate＝Invariant 明示）。
+        DateOnly t;
+        if (opts.ContainsKey("date"))
+        {
+            t = RequireDate(opts, "date");
+        }
+        else
+        {
+            var today = ResolveTodayJst(timeProvider);
+            t = await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
+        }
+
+        // 2. 配信ペイロード組み立て（前提破綻の throw は捕捉しない＝上記 ExitCode 契約）。
+        var report = await DeliveryReportBuilder.BuildDeliveryReportAsync(db, t, topN, logger);
+
+        // 3. コンソール整形出力（explain-today の出力体裁を踏襲し rank/社名を追加）。日付は Invariant 明示
+        //    （非グレゴリオ暦カルチャ対策・表示専用）。
+        string tStr = report.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        Console.WriteLine($"=== {tStr} 配信ペイロード（Passed {report.TotalPassed} 件中 Top-{report.Items.Count} 件）===");
+        if (report.Items.Count == 0)
+            Console.WriteLine("本日シグナルなし（0 件通知）。");
+        foreach (var item in report.Items)
+        {
+            Console.WriteLine($"\n#{item.Rank} [{item.Code}] {item.CompanyName ?? "(社名不明)"} MlScore={item.MlScore!.Value:F4} RuleScore={item.RuleScore}");
+            if (item.Qualitative is { } q)
+            {
+                Console.WriteLine($"  要約: {q.Summary}");
+                foreach (var risk in q.Risks) Console.WriteLine($"  リスク: {risk}");
+                if (q.NumericUnverified) Console.WriteLine("  ⚠ numericUnverified（注入外の数値が混入した疑い）");
+            }
+            else
+            {
+                Console.WriteLine("  (定性なし)");
             }
         }
     }
