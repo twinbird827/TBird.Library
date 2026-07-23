@@ -26,7 +26,7 @@ public class JQuantsClient
         DateOnly? date = null, string? code = null, CancellationToken ct = default)
     {
         var query = new Dictionary<string, string?>();
-        if (date.HasValue) query["date"] = Iso(date.Value);
+        if (date.HasValue) query["date"] = date.Value.ToIso();
         if (code != null) query["code"] = code;
 
         var items = await GetAllPagesAsync<EquityMasterPage, EquityMasterItem>(
@@ -62,9 +62,9 @@ public class JQuantsClient
 
         var query = new Dictionary<string, string?>();
         if (code != null) query["code"] = code;
-        if (date.HasValue) query["date"] = Iso(date.Value);
-        if (from.HasValue) query["from"] = Iso(from.Value);
-        if (to.HasValue) query["to"] = Iso(to.Value);
+        if (date.HasValue) query["date"] = date.Value.ToIso();
+        if (from.HasValue) query["from"] = from.Value.ToIso();
+        if (to.HasValue) query["to"] = to.Value.ToIso();
 
         var items = await GetAllPagesAsync<DailyBarsPage, DailyBarItem>(
             "/v2/equities/bars/daily", query, p => p.Data, p => p.PaginationKey, ct).ConfigureAwait(false);
@@ -95,7 +95,7 @@ public class JQuantsClient
 
         var query = new Dictionary<string, string?>();
         if (code != null) query["code"] = code;
-        if (date.HasValue) query["date"] = Iso(date.Value);
+        if (date.HasValue) query["date"] = date.Value.ToIso();
 
         var items = await GetAllPagesAsync<FinSummaryPage, FinSummaryItem>(
             "/v2/fins/summary", query, p => p.Data, p => p.PaginationKey, ct).ConfigureAwait(false);
@@ -140,7 +140,7 @@ public class JQuantsClient
     public async Task<List<TradingCalendar>> GetCalendarAsync(
         DateOnly from, DateOnly to, CancellationToken ct = default)
     {
-        var query = new Dictionary<string, string?> { ["from"] = Iso(from), ["to"] = Iso(to) };
+        var query = new Dictionary<string, string?> { ["from"] = from.ToIso(), ["to"] = to.ToIso() };
         var items = await GetAllPagesAsync<CalendarPage, CalendarItem>(
             "/v2/markets/calendar", query, p => p.Data, p => p.PaginationKey, ct).ConfigureAwait(false);
 
@@ -203,8 +203,6 @@ public class JQuantsClient
             parts.Add($"pagination_key={Uri.EscapeDataString(paginationKey!)}");
         return parts.Count == 0 ? path : $"{path}?{string.Join("&", parts)}";
     }
-
-    private static string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static DateOnly? ParseDate(string? s)
     {
