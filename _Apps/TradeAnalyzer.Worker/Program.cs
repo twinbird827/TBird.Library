@@ -69,6 +69,9 @@ try
         case "explain-today":
             await Commands.ExplainTodayAsync(sp, args);
             break;
+        case "notify-today":
+            await Commands.NotifyTodayAsync(sp, args);
+            break;
         case "selftest":
             await SelfTest.RunAsync();
             break;

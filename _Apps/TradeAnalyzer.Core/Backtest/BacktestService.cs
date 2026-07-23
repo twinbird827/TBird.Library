@@ -117,7 +117,7 @@ public class BacktestService
             // （double.MinValue で黙殺すると未推論銘柄が静かに最下位化し A/B 比較が無言で壊れる）。
             if (useMl && rows.Any(r => r.MlScore is null))
                 throw new InvalidOperationException(
-                    $"{t}: MlScore 未設定の Passed 行があります。signals 未実行/期間不一致/Python 未書戻しの可能性。"
+                    $"{t.ToIso()}: MlScore 未設定の Passed 行があります。signals 未実行/期間不一致/Python 未書戻しの可能性。"
                     + " 正しい順序は signals → train → (evaluate) → backtest --use-ml です。");
 
             var picks = SelectTopPicks(rows, _opt.TopN, useMl);

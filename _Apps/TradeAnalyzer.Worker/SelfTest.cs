@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
@@ -19,6 +18,7 @@ using TradeAnalyzer.Data.External.Edinet;
 using TradeAnalyzer.Data.External.JQuants;
 using TradeAnalyzer.Data.Options;
 using TradeAnalyzer.Worker.Claude;
+using TradeAnalyzer.Worker.Notify;
 
 namespace TradeAnalyzer.Worker;
 
@@ -51,6 +51,8 @@ public static class SelfTest
         failed += RunClaudePromptFlattenTests();
         failed += RunParseModelOutputTests();
         failed += RunExtractErrorInfoTests();
+        failed += RunParseQualitativeTests();
+        failed += await RunBuildDeliveryReportTestsAsync();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
         failed += RunResolveTodayJstTests();
@@ -591,7 +593,7 @@ public static class SelfTest
             // Python 書戻しを模した生 SQL UPDATE（C# の追跡外で MlScore を埋める経路）。DateOnly は TEXT(yyyy-MM-dd)。
             using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}' AND Code = 'AAA'";
+                cmd.CommandText = $"UPDATE Signals SET MlScore = 0.42 WHERE Date = '{t.ToIso()}' AND Code = 'AAA'";
                 f += Assert("AsNoTracking 罠: 生 SQL UPDATE が 1 行", cmd.ExecuteNonQuery() == 1);
             }
 
@@ -708,6 +710,125 @@ public static class SelfTest
         var fake2 = new FakeTimeProvider(new DateTimeOffset(2025, 6, 27, 2, 0, 0, TimeSpan.Zero));
         f += Assert("ResolveTodayJst: UTC 02:00 → JST 同日(2025-06-27)",
             Commands.ResolveTodayJst(fake2) == new DateOnly(2025, 6, 27));
+        return f;
+    }
+
+    /// <summary>
+    /// 3c STEP1: DeliveryReportBuilder.ParseQualitative の回帰。3b の保存 JSON は camelCase＝case-insensitive
+    /// 明示が効いていること（既定 case-sensitive なら Summary=null で corrupt 扱いになり正常系が FAIL）、
+    /// 構文不正の警告降格、構文妥当でも summary/risks キー欠落は JsonException なしで null バインドされるため
+    /// デシリアライズ後の null 検査で corrupt 扱いになること、を固定する。
+    /// </summary>
+    private static int RunParseQualitativeTests()
+    {
+        int f = 0;
+        var logger = NullLogger.Instance;
+
+        // 正常系: 3b が保存する camelCase＋余剰 provenance キー（usedFacts 等）を読める。
+        var ok = DeliveryReportBuilder.ParseQualitative(
+            "{\"summary\":\"S\",\"risks\":[\"R1\",\"R2\"],\"usedFacts\":[\"F\"],\"model\":\"m\",\"route\":\"cli\"," +
+            "\"generatedAt\":\"2026-07-21T18:00:00+09:00\",\"numericUnverified\":true}",
+            "AAA", logger);
+        f += Assert("ParseQualitative: camelCase 正常系（summary/risks/numericUnverified 復元）",
+            ok is { Summary: "S", NumericUnverified: true } && ok.Risks.SequenceEqual(new[] { "R1", "R2" }));
+
+        // null（未生成/失敗）＝正常の「定性なし」。
+        f += Assert("ParseQualitative: null → null（定性なし）",
+            DeliveryReportBuilder.ParseQualitative(null, "AAA", logger) == null);
+
+        // 構文不正 → JsonException 捕捉で null（1 行の破損が通知全体を殺さない）。
+        f += Assert("ParseQualitative: 構文不正 → null",
+            DeliveryReportBuilder.ParseQualitative("{broken", "AAA", logger) == null);
+
+        // キー欠落は JsonException を投げず非 null 参照型へ null バインドされる → null 検査で corrupt 扱い。
+        f += Assert("ParseQualitative: summary 欠落 → null（corrupt 扱い）",
+            DeliveryReportBuilder.ParseQualitative("{\"risks\":[\"R\"]}", "AAA", logger) == null);
+        f += Assert("ParseQualitative: risks 欠落 → null（corrupt 扱い）",
+            DeliveryReportBuilder.ParseQualitative("{\"summary\":\"S\"}", "AAA", logger) == null);
+        return f;
+    }
+
+    /// <summary>
+    /// 3c STEP1: DeliveryReportBuilder.BuildDeliveryReportAsync の回帰。前提破綻 throw 2 経路
+    /// （Signal 行ゼロ／Passed 行に MlScore=null 混在）、Signal 行ありかつ Passed=0 の正常 0 件ペイロード
+    /// （無通知と故障の区別）、正常系（会社名 GroupBy 群毎 top-1 クエリの SQLite 翻訳可否・
+    /// AsOfDate&lt;=t の最新スナップショット選定・MlScore 降順 Rank・TotalPassed）を固定する。
+    /// </summary>
+    private static async Task<int> RunBuildDeliveryReportTestsAsync()
+    {
+        int f = 0;
+        var logger = NullLogger.Instance;
+        var t = new DateOnly(2026, 7, 1);
+
+        // (a) Signal 行ゼロ → throw（run-today 未実行/未完了の fail-loud）。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                bool threw = false;
+                try { await DeliveryReportBuilder.BuildDeliveryReportAsync(db, t, 3, logger); }
+                catch (InvalidOperationException) { threw = true; }
+                f += Assert("BuildDeliveryReport: Signal 行ゼロ → throw", threw);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        // (b) Passed 行に MlScore=null 混在 → throw（ML 採点未完了＝パイプライン障害の fail-loud）。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                db.Signals.Add(new Signal { Date = t, Code = "AAA", Passed = true, MlScore = null, RuleScore = 1 });
+                await db.SaveChangesAsync();
+                bool threw = false;
+                try { await DeliveryReportBuilder.BuildDeliveryReportAsync(db, t, 3, logger); }
+                catch (InvalidOperationException) { threw = true; }
+                f += Assert("BuildDeliveryReport: MlScore=null 混在 → throw", threw);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        // (c) Signal 行ありかつ Passed=0 → 0 件ペイロード（throw しない＝全面下落局面の正常全滅）。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                db.Signals.Add(new Signal { Date = t, Code = "AAA", Passed = false, RuleScore = 0 });
+                await db.SaveChangesAsync();
+                var report = await DeliveryReportBuilder.BuildDeliveryReportAsync(db, t, 3, logger);
+                f += Assert("BuildDeliveryReport: Passed=0 → Items=0/TotalPassed=0（throw しない）",
+                    report.Items.Count == 0 && report.TotalPassed == 0);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        // (d) 正常系: Stocks スナップショット複数世代（AsOfDate<=t の最新が選ばれ、未来世代は無視される）＋
+        //     MlScore 降順の Rank 採番＋TotalPassed。GroupBy 群毎 top-1 クエリの SQLite 翻訳可否も同時に固定。
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                db.Signals.AddRange(
+                    new Signal { Date = t, Code = "AAA", Passed = true, MlScore = 0.9, RuleScore = 3, Rationale = "rA" },
+                    new Signal { Date = t, Code = "BBB", Passed = true, MlScore = 0.5, RuleScore = 2, Rationale = "rB" });
+                db.Stocks.AddRange(
+                    new Stock { Code = "AAA", AsOfDate = t.AddDays(-10), CompanyName = "旧社名" },
+                    new Stock { Code = "AAA", AsOfDate = t.AddDays(-1), CompanyName = "新社名" },
+                    new Stock { Code = "AAA", AsOfDate = t.AddDays(1), CompanyName = "未来社名" },
+                    new Stock { Code = "BBB", AsOfDate = t, CompanyName = "B社" });
+                await db.SaveChangesAsync();
+
+                var report = await DeliveryReportBuilder.BuildDeliveryReportAsync(db, t, 3, logger);
+                f += Assert("BuildDeliveryReport: TotalPassed=2/Items=2",
+                    report.TotalPassed == 2 && report.Items.Count == 2);
+                f += Assert("BuildDeliveryReport: MlScore 降順 Rank（AAA=1, BBB=2）",
+                    report.Items[0] is { Code: "AAA", Rank: 1, MlScore: 0.9 }
+                    && report.Items[1] is { Code: "BBB", Rank: 2, MlScore: 0.5 });
+                f += Assert("BuildDeliveryReport: 会社名は AsOfDate<=t の最新（未来世代は無視）",
+                    report.Items[0].CompanyName == "新社名" && report.Items[1].CompanyName == "B社");
+            }
+            finally { conn.Dispose(); }
+        }
         return f;
     }
 
