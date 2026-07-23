@@ -279,7 +279,7 @@ public static class Commands
             .ToListAsync();
         if (passed.Any(r => r.MlScore is null))
             throw new InvalidOperationException(
-                $"{t}: MlScore 未設定の Passed 行があります（Python 書戻し漏れ）。predict.py の出力を確認してください。");
+                $"{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}: MlScore 未設定の Passed 行があります（Python 書戻し漏れ）。predict.py の出力を確認してください。");
 
         // 6. Top-K 出力。並べ替え／件数は純粋関数 SelectTopPicks（バックテスト picks と同一規則）に共通化し、
         //    本番出力と戦略の乖離を防ぐ（ソートキーの正典は SelectTopPicks の XML doc）。
@@ -318,17 +318,8 @@ public static class Commands
         // ExitCode=0 に偽装するのを防ぐ。config 誤設定=fatal／Claude 実行時失敗=非致命）。
         ValidateClaudeConfig(claudeOpt);
 
-        // 1. 対象日 t の解決（--date 指定 or 直近営業日＝run-today と共通ヘルパ）。取引日皆無は前提破綻＝fail-fast。
-        DateOnly t;
-        if (opts.ContainsKey("date"))
-        {
-            t = RequireDate(opts, "date");
-        }
-        else
-        {
-            var today = ResolveTodayJst(timeProvider);
-            t = await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
-        }
+        // 1. 対象日 t の解決（--date 指定 or 直近営業日）。取引日皆無は前提破綻＝fail-fast。
+        var t = await ResolveTargetDateAsync(opts, db, timeProvider);
 
         // 2. 当日 Passed 行を AsNoTracking で読取（run-today と別プロセスなら EF 一次キャッシュの罠は無いが射影で明示）。
         var passed = await db.Signals.AsNoTracking()
@@ -346,7 +337,7 @@ public static class Commands
         // ＝この状態は常にパイプライン障害であり、警告のままだとスケジューラが緑で真の障害が見えない。
         if (passed.Any(r => r.MlScore is null))
             throw new InvalidOperationException(
-                $"{t}: MlScore 未設定の Passed 行があります（run-today の ML 採点が未完了＝パイプライン障害）。" +
+                $"{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}: MlScore 未設定の Passed 行があります（run-today の ML 採点が未完了＝パイプライン障害）。" +
                 "run-today を成功させてから explain-today を再実行してください。");
 
         // 3. Top-K（run-today と同一の純粋関数で並べ替え）。Claude に回すのは Top-K のみ＝コスト/クレジットを bound。
@@ -446,17 +437,8 @@ public static class Commands
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("notify-today");
         var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
 
-        // 1. 対象日 t の解決（--date 指定 or 直近営業日＝explain-today と同型。パースは RequireDate＝Invariant 明示）。
-        DateOnly t;
-        if (opts.ContainsKey("date"))
-        {
-            t = RequireDate(opts, "date");
-        }
-        else
-        {
-            var today = ResolveTodayJst(timeProvider);
-            t = await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
-        }
+        // 1. 対象日 t の解決（--date 指定 or 直近営業日＝explain-today と共通ヘルパ）。
+        var t = await ResolveTargetDateAsync(opts, db, timeProvider);
 
         // 2. 配信ペイロード組み立て（前提破綻の throw は捕捉しない＝上記 ExitCode 契約）。
         var report = await DeliveryReportBuilder.BuildDeliveryReportAsync(db, t, topN, logger);
@@ -469,7 +451,7 @@ public static class Commands
             Console.WriteLine("本日シグナルなし（0 件通知）。");
         foreach (var item in report.Items)
         {
-            Console.WriteLine($"\n#{item.Rank} [{item.Code}] {item.CompanyName ?? "(社名不明)"} MlScore={item.MlScore!.Value:F4} RuleScore={item.RuleScore}");
+            Console.WriteLine($"\n#{item.Rank} [{item.Code}] {item.CompanyName ?? "(社名不明)"} MlScore={item.MlScore:F4} RuleScore={item.RuleScore}");
             if (item.Qualitative is { } q)
             {
                 Console.WriteLine($"  要約: {q.Summary}");
@@ -563,6 +545,20 @@ public static class Commands
             throw new InvalidOperationException(
                 "直近10暦日に DailyBar がありません（コールドスタート/DB が10日以上未更新）。" + hint);
         return tradingDays[^1];
+    }
+
+    /// <summary>
+    /// 対象日 t の解決（--date 指定＝RequireDate で Invariant パース or JST 今日から直近営業日）。
+    /// explain-today / notify-today で共有し日付解決仕様のドリフトを防ぐ（run-today は --date 分岐なし・
+    /// ingest 結合・hint 別文言のため対象外）。取引日皆無は ResolveLatestTradingDayAsync が fail-fast。
+    /// </summary>
+    private static async Task<DateOnly> ResolveTargetDateAsync(
+        Dictionary<string, string> opts, AppDbContext db, TimeProvider timeProvider)
+    {
+        if (opts.ContainsKey("date"))
+            return RequireDate(opts, "date");
+        var today = ResolveTodayJst(timeProvider);
+        return await ResolveLatestTradingDayAsync(db, today, "run-today 済みの DB が前提です。");
     }
 
     // --- 設定検証 ---

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,10 +14,11 @@ namespace TradeAnalyzer.Worker.Notify;
 /// </summary>
 public sealed record DeliveryReport(DateOnly Date, int TotalPassed, IReadOnlyList<DeliveryItem> Items);
 
-/// <summary>Top-K の 1 銘柄分。Qualitative=null は定性なし（ML のみ）＝3b フォールバック契約の下流継承。</summary>
+/// <summary>Top-K の 1 銘柄分。Qualitative=null は定性なし（ML のみ）＝3b フォールバック契約の下流継承。
+/// MlScore は非 null（builder が MlScore=null 混在を throw で排除済み＝消費側に `!` を強いない）。</summary>
 public sealed record DeliveryItem(
     string Code, string? CompanyName, int Rank,
-    double? MlScore, double RuleScore, string Rationale,
+    double MlScore, double RuleScore, string Rationale,
     DeliveryQualitative? Qualitative);
 
 /// <summary><see cref="TradeAnalyzer.Data.Entities.Signal.QualitativeJson"/> から抜き出す定性層の表示部分。</summary>
@@ -47,14 +49,14 @@ internal static class DeliveryReportBuilder
         // 存在判定（AnyAsync）とデータ取得を分け、小さい Passed 集合のみ材料化する（explain-today の読取と同型）。
         if (!await db.Signals.AsNoTracking().AnyAsync(s => s.Date == t, ct))
             throw new InvalidOperationException(
-                $"{t}: Signal 行がありません（run-today 未実行/未完了）。run-today を成功させてから再実行してください。");
+                $"{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}: Signal 行がありません（run-today 未実行/未完了）。run-today を成功させてから再実行してください。");
 
         var passed = await db.Signals.AsNoTracking()
             .Where(s => s.Date == t && s.Passed)
             .ToListAsync(ct);
         if (passed.Any(r => r.MlScore is null))
             throw new InvalidOperationException(
-                $"{t}: MlScore 未設定の Passed 行があります（run-today の ML 採点が未完了＝パイプライン障害）。" +
+                $"{t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}: MlScore 未設定の Passed 行があります（run-today の ML 採点が未完了＝パイプライン障害）。" +
                 "run-today を成功させてから再実行してください。");
 
         var top = BacktestService.SelectTopPicks(passed, topN, useMl: true);
@@ -78,7 +80,7 @@ internal static class DeliveryReportBuilder
             var s = top[i];
             items.Add(new DeliveryItem(
                 s.Code, names.GetValueOrDefault(s.Code), Rank: i + 1,
-                s.MlScore, s.RuleScore, s.Rationale ?? "",
+                s.MlScore!.Value, s.RuleScore, s.Rationale ?? "",  // null は上の throw ガードで排除済み
                 ParseQualitative(s.QualitativeJson, s.Code, logger)));
         }
         return new DeliveryReport(t, passed.Count, items);
