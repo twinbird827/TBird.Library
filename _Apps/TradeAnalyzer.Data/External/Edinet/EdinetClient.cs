@@ -35,7 +35,7 @@ public class EdinetClient
     public async Task<List<EdinetDocument>> ListDocumentsAsync(DateOnly date, CancellationToken ct = default)
     {
         // 相対パス（先頭スラッシュ無し）＝ BaseAddress の /api/v2/ を保持させる。
-        var url = $"documents.json?date={Iso(date)}&type=2&{SubscriptionKeyParam}={Key()}";
+        var url = $"documents.json?date={date.ToIso()}&type=2&{SubscriptionKeyParam}={Key()}";
         var resp = await _http.GetFromJsonAsync<EdinetDocumentListResponse>(url, ct).ConfigureAwait(false);
         var results = resp?.Results ?? new();
 
@@ -88,8 +88,6 @@ public class EdinetClient
                 "EDINET Subscription-Key 未設定。`dotnet user-secrets set \"Edinet:SubscriptionKey\" <key>` を実行してください。");
         return Uri.EscapeDataString(_options.SubscriptionKey!);
     }
-
-    private static string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static DateOnly? ParseDate(string? s)
     {

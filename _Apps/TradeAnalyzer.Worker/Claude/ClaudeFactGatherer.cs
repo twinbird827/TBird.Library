@@ -67,11 +67,11 @@ internal static class ClaudeFactGatherer
             // 日付は Label でなく Value に置く: Label はコンパイル時定数（許可集合・Flatten の対象外）という
             // 不変条件を保ち、Claude が株価日付を引用しても許可集合（Value 側）で正当化されるようにする。
             new("最新株価（調整後終値）", FmtNum(adjClose, "円", DecimalFmt)),
-            new("株価日付", FmtDate(bar?.Date)),
+            new("株価日付", bar?.Date.ToIso()),
             new("終値（生値）", FmtNum(bar?.Close, "円", DecimalFmt)),
             new("出来高", FmtNum(bar?.Volume, "株")),
             new("売買代金", FmtNum(bar?.TurnoverValue, "円")),
-            new("財務開示日", FmtDate(fin?.DiscloseDate)),
+            new("財務開示日", fin?.DiscloseDate.ToIso()),
             new("書類種別", fin?.DocType),
             new("売上高", FmtNum(fin?.Sales, "円")),
             new("営業利益", FmtNum(fin?.OperatingProfit, "円")),
@@ -106,8 +106,4 @@ internal static class ClaudeFactGatherer
 
     private static string? FmtNum(double? v, string unit, string format = "N0") =>
         v is double d ? d.ToString(format, CultureInfo.InvariantCulture) + " " + unit : null;
-
-    // InvariantCulture 必須: "yyyy" は現在カルチャの暦の年を出すため、非グレゴリオ暦カルチャ（th-TH=仏暦等）の
-    // ホストでは「2569-07-16」等の誤った年を「実データ」として注入してしまう（FmtNum/RuleScore と同じ方針）。
-    private static string? FmtDate(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }
