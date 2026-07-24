@@ -42,12 +42,15 @@ namespace TBird.Core
 		public static void Execute(params ProcessStartInfo[] pis)
 		{
 			Process? process = null;
-			foreach (var pi in pis)
+			for (var i = 0; i < pis.Length; i++)
 			{
+				var pi = pis[i];
 				pi.CreateNoWindow = true;
 				pi.UseShellExecute = false;
 				pi.RedirectStandardInput = process != null;
-				pi.RedirectStandardOutput = true;
+				// 最終ﾌﾟﾛｾｽの stdout は誰も読まないため redirect しない（redirect するとﾊﾟｲﾌﾟ満杯や
+				// 孫ﾌﾟﾛｾｽの handle 継承で WaitForExit が返らなくなりうる）。
+				pi.RedirectStandardOutput = i < pis.Length - 1;
 
 				var now = Process.Start(pi);
 
@@ -76,38 +79,55 @@ namespace TBird.Core
 			}
 		}
 
-		public static async Task<int> ExecuteAsync(ProcessStartInfo info, Action<string> action)
+		/// <summary>
+		/// EOF 待ちの上限。子ﾌﾟﾛｾｽが stdout handle を継承した孫ﾌﾟﾛｾｽを残すと EOF が成立しないため、
+		/// exit 後この時間で読み取りを打ち切り、受信済み分＋警告で続行する（無限ﾌﾞﾛｯｸ回避）。
+		/// </summary>
+		private static readonly TimeSpan EofGrace = TimeSpan.FromSeconds(15);
+
+		public static async Task<int> ExecuteAsync(ProcessStartInfo info, Action<string>? action)
 		{
-			using (var process = Process.Start(info))
+			using (var process = new Process { StartInfo = info, EnableRaisingEvents = true })
 			{
-				if (process == null) return -1;
+				// 引数なし WaitForExit() は BeginOutputReadLine 使用時に EOF まで内包待機するため使わない。
+				// exit は Exited ｲﾍﾞﾝﾄ、EOF は OutputDataReceived の null 発火で分離して待つ。
+				var exitTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+				var eofTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+				process.Exited += (_, _) => exitTcs.TrySetResult(true);
 
-				if (action != null) for (string s; (s = await process.StandardOutput.ReadLineAsync().ConfigureAwait(false)) != null;)
+				var redirect = info.RedirectStandardOutput;
+				if (redirect)
+				{
+					process.OutputDataReceived += (_, e) =>
 					{
-						action(s);
+						if (e.Data == null) { eofTcs.TrySetResult(true); return; }
+						action?.Invoke(e.Data);
+					};
+				}
+
+				if (!process.Start()) return -1;
+				if (redirect) process.BeginOutputReadLine();
+
+				try
+				{
+					await exitTcs.Task.ConfigureAwait(false);
+
+					if (redirect && await Task.WhenAny(eofTcs.Task, Task.Delay(EofGrace)).ConfigureAwait(false) != eofTcs.Task)
+					{
+						MessageService.Warn($"{info.FileName}: stdout の EOF 待ちを {EofGrace.TotalSeconds:0} 秒で打ち切りました。孫ﾌﾟﾛｾｽが stdout を保持している可能性があり、出力末尾が欠落しえます（受信済み分で続行）。");
 					}
-
-				process.WaitForExit();
-
-				return process.ExitCode;
+					return process.ExitCode;
+				}
+				finally
+				{
+					if (redirect) process.CancelOutputRead();
+				}
 			}
 		}
 
-		public static int Execute(ProcessStartInfo info, Action<string> action)
+		public static int Execute(ProcessStartInfo info, Action<string>? action)
 		{
-			using (var process = Process.Start(info))
-			{
-				if (process == null) return -1;
-
-				if (action != null) for (string s; (s = process.StandardOutput.ReadLine()) != null;)
-					{
-						action(s);
-					}
-
-				process.WaitForExit();
-
-				return process.ExitCode;
-			}
+			return ExecuteAsync(info, action).GetAwaiter().GetResult();
 		}
 
 	}
