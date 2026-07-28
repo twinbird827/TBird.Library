@@ -19,7 +19,6 @@ internal static class Program
 	private enum Result
 	{ Ok, Skipped, Failed }
 
-	[STAThread]
 	private static int Main(string[] args)
 	{
 		Console.OutputEncoding = Encoding.UTF8;
@@ -47,7 +46,7 @@ internal static class Program
 
 		Console.WriteLine();
 		Console.WriteLine($"完了: 成功 {ok} 件 / スキップ {skip} 件 / 失敗 {ng} 件");
-		//Pause();
+		if (ng > 0) Pause();   // 失敗理由を読ませたいときだけ止める。正常終了は即閉じ
 		return ng == 0 ? 0 : 2;
 	}
 
@@ -100,19 +99,23 @@ internal static class Program
 				image.Alpha(AlphaOption.Remove);          // 透過部分を白で埋める
 				image.Alpha(AlphaOption.Off);             // アルファチャンネル自体を破棄
 				image.Colorize(MagickColors.White, new Percentage(100)); // 全画素を白へ
+				image.Strip();                            // EXIF 等のプロファイルを除去（サムネイル・GPS・撮影日時）
 				image.Write(temp, image.Format);          // 元と同じフォーマットで書き出す
 			}
 
 			File.Move(temp, path, overwrite: true);
-			Console.WriteLine($"[OK]   {name} → 白塗り完了（バックアップ: {Path.GetFileName(backup)}）");
-			return Result.Ok;
 		}
 		catch (Exception ex)
 		{
 			TryDelete(temp);
+			TryDelete(backup);
 			Console.WriteLine($"[失敗] {name}: {ex.Message}");
 			return Result.Failed;
 		}
+
+		// 成功時処理は try の外（backup が残る ⇔ 白塗り成功、の不変条件を保つ）
+		Console.WriteLine($"[OK]   {name} → 白塗り完了（バックアップ: {Path.GetFileName(backup)}）");
+		return Result.Ok;
 	}
 
 	/// <summary>"name - copy.ext" が既にあれば "name - copy (2).ext" … と連番を振る</summary>
