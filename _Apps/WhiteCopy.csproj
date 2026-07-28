@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>WhiteCopy</AssemblyName>
+    <RootNamespace>WhiteCopy</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- 単一 exe で配布するための設定（dotnet publish 時に効く） -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <ApplicationIcon>162916d5d76734f864f9eda4ad422bb0_xo.ico</ApplicationIcon>
+    <!-- Magick.NET はネイティブ DLL を含むため PublishTrimmed は使わないこと -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="162916d5d76734f864f9eda4ad422bb0_xo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Apache-2.0。webp / jpg / png / tiff などをまとめて扱える -->
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.16.0" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
+  </Target>
+
+</Project>
