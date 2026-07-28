@@ -15,5 +15,5 @@ GhostScriptを使用したPDF操作ユーティリティ（TFM: `net8.0-windows`
 
 - 実行形式（`OutputType=Exe`）のプロジェクト。ライブラリ側 `PdfUtilExecutor` が自プロセスを spawn して GhostScript 処理を隔離する
 - GhostScript DLL（`gsdll32/64.dll`）はサイズが大きい（計約26MB）ためGit管理に注意
-- `Pdf2Jpg` は `parallel` ページ単位のバッチに分割し `AsParallel` + `Task.Run` で並列化。処理後 `DirectoryUtil.OrganizeNumber` で連番整理する
+- `Pdf2Jpg` は `parallel` ページ単位のバッチを async fan-out し、`SemaphoreSlim(Environment.ProcessorCount)` で同時プロセス数を制限。処理後 `DirectoryUtil.OrganizeNumber` で連番整理する
 - 別プロセス起動は `Assembly.GetExecutingAssembly().Location` から `.exe` を spawn（exe 名は DLL ベース名と一致が前提）。引数は stdout 経由でやり取り、`KEY_DATA`（`TBird.IO.Pdf.PdfUtil`）で自プロセス実行を判定

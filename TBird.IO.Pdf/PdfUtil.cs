@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using TBird.Core;
 
@@ -16,11 +17,16 @@ namespace TBird.IO.Pdf
 
 		private static PdfUtilWrapper _wrapper = new PdfUtilWrapper();
 
-		internal static void Execute(Action<string> action, params object[] args)
+		// async 化で全ﾊﾞｯﾁが一斉起動するため、GhostScript ﾌﾟﾛｾｽの同時数を CPU ｺｱ数で制限する。
+		// ﾌﾟﾛｾｽ全体で共有する static ｷｬｯﾌﾟ(複数 PDF 同時変換でも fan-out 分の上限を維持する)。
+		// ponytail: ｷｬｯﾌﾟは ProcessorCount 固定。調整が要る実例が出たら引数化する。
+		private static readonly SemaphoreSlim _limiter = new SemaphoreSlim(Environment.ProcessorCount);
+
+		internal static Task<int> ExecuteAsync(Action<string> action, params object[] args)
 		{
 			var path = Assembly.GetExecutingAssembly().Location;
 
-			CoreUtil.Execute(new ProcessStartInfo()
+			return CoreUtil.ExecuteAsync(new ProcessStartInfo()
 			{
 				WorkingDirectory = Path.GetDirectoryName(path),
 				FileName = FileUtil.GetFullPathWithoutExtension(path) + ".exe",
@@ -29,6 +35,11 @@ namespace TBird.IO.Pdf
 				CreateNoWindow = true,
 				RedirectStandardOutput = true,
 			}, action);
+		}
+
+		internal static void Execute(Action<string> action, params object[] args)
+		{
+			ExecuteAsync(action, args).GetAwaiter().GetResult();
 		}
 
 		internal static void Execute(string[] args)
@@ -41,7 +52,7 @@ namespace TBird.IO.Pdf
 					Console.Write(_wrapper.GetPageSize(args[2]));
 					return;
 				case nameof(_executor.Pdf2Jpg):
-					_wrapper.Pdf2Jpg(args[2], args[3].GetInt32(), args[4].GetInt32(), args[5].GetInt32());
+					_wrapper.Pdf2Jpg(args[2], args[3].GetInt32(), args[4].GetInt32(), args[5].GetInt32()).GetAwaiter().GetResult();
 					return;
 				case nameof(_executor.PutPageNumber):
 					_wrapper.PutPageNumber(args[2]);
@@ -71,13 +82,16 @@ namespace TBird.IO.Pdf
 
 			DirectoryUtil.Create(FileUtil.GetFullPathWithoutExtension(pdffile));
 
-			await Enumerable.Range(0, (int)Math.Ceiling((double)pagesize / parallel)).AsParallel().Select(i => Task.Run(() =>
+			await Enumerable.Range(0, (int)Math.Ceiling((double)pagesize / parallel)).Select(async i =>
 			{
-				var min = i * parallel + 1;
-				var max = Math.Min((i + 1) * parallel, pagesize);
+				using (await _limiter.LockAsync().ConfigureAwait(false))
+				{
+					var min = i * parallel + 1;
+					var max = Math.Min((i + 1) * parallel, pagesize);
 
-				_executor.Pdf2Jpg(pdffile, min, max, dpi);
-			})).WhenAll();
+					await _executor.Pdf2Jpg(pdffile, min, max, dpi).ConfigureAwait(false);
+				}
+			}).WhenAll().ConfigureAwait(false);
 
 			DirectoryUtil.OrganizeNumber(FileUtil.GetFullPathWithoutExtension(pdffile));
 		}

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using TBird.Core;
 
 namespace TBird.IO.Pdf
@@ -12,9 +13,9 @@ namespace TBird.IO.Pdf
 			return result;
 		}
 
-		public void Pdf2Jpg(string pdffile, int start, int end, int dpi)
+		public Task Pdf2Jpg(string pdffile, int start, int end, int dpi)
 		{
-			PdfUtil.Execute(Console.WriteLine, PdfUtil.KEY_DATA, nameof(Pdf2Jpg), pdffile, start, end, dpi);
+			return PdfUtil.ExecuteAsync(Console.WriteLine, PdfUtil.KEY_DATA, nameof(Pdf2Jpg), pdffile, start, end, dpi);
 		}
 
 		public void PutPageNumber(string pdffile)

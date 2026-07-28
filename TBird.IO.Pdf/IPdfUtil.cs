@@ -1,4 +1,6 @@
-﻿namespace TBird.IO.Pdf
+﻿using System.Threading.Tasks;
+
+namespace TBird.IO.Pdf
 {
 	internal interface IPdfUtil
 	{
@@ -16,7 +18,7 @@
 		/// <param name="start">画像化する最初のﾍﾟｰｼﾞ番号</param>
 		/// <param name="end">画像化する最後のﾍﾟｰｼﾞ番号</param>
 		/// <param name="dpi">解像度</param>
-		void Pdf2Jpg(string pdffile, int start, int end, int dpi);
+		Task Pdf2Jpg(string pdffile, int start, int end, int dpi);
 
 		/// <summary>
 		/// PDFﾌｧｲﾙのﾌｯﾀにﾍﾟｰｼﾞ番号を追加します。

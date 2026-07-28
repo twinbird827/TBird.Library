@@ -2,6 +2,7 @@
 using GhostscriptSharp.Settings;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using TBird.Core;
 
 namespace TBird.IO.Pdf
@@ -13,7 +14,7 @@ namespace TBird.IO.Pdf
 			return GhostscriptWrapper.GetPageSize(pdffile);
 		}
 
-		public void Pdf2Jpg(string pdffile, int start, int end, int dpi)
+		public Task Pdf2Jpg(string pdffile, int start, int end, int dpi)
 		{
 			var jpgdir = FileUtil.GetFullPathWithoutExtension(pdffile);
 			var jpgexp = $"{start}-{end}-%d.jpeg";
@@ -27,6 +28,8 @@ namespace TBird.IO.Pdf
 				start,
 				end
 			);
+
+			return Task.CompletedTask;
 		}
 
 		public void PutPageNumber(string pdffile)
