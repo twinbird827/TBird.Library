@@ -46,7 +46,7 @@ internal static class Program
 
 		Console.WriteLine();
 		Console.WriteLine($"完了: 成功 {ok} 件 / スキップ {skip} 件 / 失敗 {ng} 件");
-		Pause();
+		if (ng > 0) Pause();   // 失敗理由を読ませたいときだけ止める。正常終了は即閉じ
 		return ng == 0 ? 0 : 2;
 	}
 
