@@ -8,6 +8,8 @@
     <AssemblyName>WhiteCopy</AssemblyName>
     <RootNamespace>WhiteCopy</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- 既定 glob を無効化し直下 .cs のみ include（他ブランチの未追跡フォルダ残置対策） -->
+    <EnableDefaultItems>false</EnableDefaultItems>
 
     <!-- 単一 exe で配布するための設定（dotnet publish 時に効く） -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -20,37 +22,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="LanobeReader\**" />
-    <Compile Remove="ml\**" />
-    <Compile Remove="NewReleaseChecker.App\**" />
-    <Compile Remove="NewReleaseChecker.Core\**" />
-    <Compile Remove="NewReleaseChecker.Data\**" />
-    <Compile Remove="NewReleaseChecker.Relay\**" />
-    <EmbeddedResource Remove="LanobeReader\**" />
-    <EmbeddedResource Remove="ml\**" />
-    <EmbeddedResource Remove="NewReleaseChecker.App\**" />
-    <EmbeddedResource Remove="NewReleaseChecker.Core\**" />
-    <EmbeddedResource Remove="NewReleaseChecker.Data\**" />
-    <EmbeddedResource Remove="NewReleaseChecker.Relay\**" />
-    <None Remove="LanobeReader\**" />
-    <None Remove="ml\**" />
-    <None Remove="NewReleaseChecker.App\**" />
-    <None Remove="NewReleaseChecker.Core\**" />
-    <None Remove="NewReleaseChecker.Data\**" />
-    <None Remove="NewReleaseChecker.Relay\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="162916d5d76734f864f9eda4ad422bb0_xo.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <Compile Include="*.cs" />
     <!-- Apache-2.0。webp / jpg / png / tiff などをまとめて扱える -->
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.16.0" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
+    <Exec Command="xcopy &quot;$(TargetDir).&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
   </Target>
 
 </Project>
