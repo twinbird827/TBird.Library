@@ -10,6 +10,8 @@ namespace TBird.IO.Pdf
 		{
 			int result = 0;
 			PdfUtil.Execute(s => result = s.GetInt32(), PdfUtil.KEY_DATA, nameof(GetPageSize), pdffile);
+			// 子が exit 0 でも stdout の受信が欠落しうる(CoreUtil.ExecuteAsync の EOF 待ち打ち切り)ため親側でも検査する。
+			if (result <= 0) throw new InvalidOperationException($"ﾍﾟｰｼﾞ数を取得できませんでした(親側受信値: {result}): {pdffile}");
 			return result;
 		}
 

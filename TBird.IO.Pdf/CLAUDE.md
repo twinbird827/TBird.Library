@@ -9,6 +9,8 @@ GhostScriptを使用したPDF操作ユーティリティ（TFM: `net8.0-windows`
   - `int GetPageSize(string pdffile)` — ページ数取得
   - `async Task Pdf2Jpg(string pdffile, int parallel, int dpi)` — 全ページを画像化。`parallel` は一度に処理するページ数（バッチサイズ）で、`parallel` ページ単位に分割して並列実行する。出力先は PDF と同名フォルダ
   - `void PutPageNumber(string pdffile)` — フッタにページ番号付与
+- 3 操作とも失敗時は `InvalidOperationException`（silent な 0 返却／空フォルダ／フッタ「1/0」による原本置換にはならない）
+- `Pdf2Jpg` が失敗した場合、再試行前に出力フォルダを空にすること（成功済みバッチの残骸と `OrganizeNumber` 済み連番が同居し重複混入するため）
 - `IPdfUtil`（internal、別プロセス側の実装契約）の `Pdf2Jpg(pdffile, start, end, dpi)` はページ**範囲**指定（公開 API の `parallel` とは引数が異なる点に注意）
 
 ## 開発時の注意
