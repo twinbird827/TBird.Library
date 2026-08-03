@@ -16,3 +16,4 @@
 - リソース解放は `TBirdObject` 継承先で `DisposeManagedResource()` / `DisposeUnmanagedResource()` を override（`Dispose` 自体は sealed）
 - 排他制御は `Locker` パターンを使用
 - ログ／メッセージ出力は `MessageService.Info/Warn/Error/Exception(...)` 経由。実行環境に応じ起動時に `MessageService.SetService(...)` で実装を差し替える（Console 版・Service 版・MAUI 版が各プロジェクトに存在）
+- `CoreUtil.Execute(params ProcessStartInfo[])`（パイプ版）はいずれかの段が非ゼロ exit code で終了すると `InvalidOperationException` を投げる（silent failure 防止, issue #201）

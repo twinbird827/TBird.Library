@@ -5,7 +5,6 @@ using System.Data.Common;
 using System.Data.SQLite;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
@@ -117,7 +116,7 @@ namespace TBird.DB.SQLite
 					// ﾀﾞﾝﾌﾟ実行
 					CoreUtil.Execute(new[]
 					{
-						new ProcessStartInfo(exe, $"\"{src}\" .dump") { StandardOutputEncoding = Encoding.UTF8 },
+						new ProcessStartInfo(exe, $"\"{src}\" .dump"),
 						new ProcessStartInfo(exe, $"\"{dst}\""),
 					});
 
