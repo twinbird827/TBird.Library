@@ -159,7 +159,11 @@ namespace GhostscriptSharp
 			// なぜかｴﾗｰｺｰﾄﾞが返ってくるのでこのｺｰﾙではｴﾗｰを無視する。
 			var pagesize = API.GhostScript.Call(args, false);
 
-			return 0 < pagesize ? pagesize : GetPageSizeFromPdfText(path);
+			// gs ｴﾗｰ無視 + ﾃｷｽﾄ抽出ﾌｫｰﾙﾊﾞｯｸのため、解析不能 PDF では 0 のまま正常終了しうる。
+			// 全 3 操作(GetPageSize/Pdf2Jpg/PutPageNumber)が通る唯一の箇所なのでここで止める。
+			var result = 0 < pagesize ? pagesize : GetPageSizeFromPdfText(path);
+			if (result <= 0) throw new InvalidOperationException($"ﾍﾟｰｼﾞ数を取得できませんでした: {path}");
+			return result;
 		}
 
 		/// <summary>
