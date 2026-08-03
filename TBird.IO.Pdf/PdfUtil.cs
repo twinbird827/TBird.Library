@@ -22,7 +22,7 @@ namespace TBird.IO.Pdf
 		// ponytail: ｷｬｯﾌﾟは ProcessorCount 固定。調整が要る実例が出たら引数化する。
 		private static readonly SemaphoreSlim _limiter = new SemaphoreSlim(Environment.ProcessorCount);
 
-		internal static async Task<int> ExecuteAsync(Action<string> action, params object[] args)
+		internal static async Task ExecuteAsync(Action<string> action, params object[] args)
 		{
 			var path = Assembly.GetExecutingAssembly().Location;
 
@@ -38,8 +38,6 @@ namespace TBird.IO.Pdf
 
 			// 子ﾌﾟﾛｾｽの失敗を握り潰さない。子は正常時 0 / 失敗時 1 固定(Program.cs)のため非ｾﾞﾛ＝真の失敗。
 			if (exitcode != 0) throw new InvalidOperationException($"PDF 子ﾌﾟﾛｾｽが exit code {exitcode} で失敗しました: {args.GetString(" ")}");
-
-			return exitcode;
 		}
 
 		internal static void Execute(Action<string> action, params object[] args)
@@ -57,7 +55,7 @@ namespace TBird.IO.Pdf
 					Console.Write(_wrapper.GetPageSize(args[2]));
 					return;
 				case nameof(_executor.Pdf2Jpg):
-					_wrapper.Pdf2Jpg(args[2], args[3].GetInt32(), args[4].GetInt32(), args[5].GetInt32()).GetAwaiter().GetResult();
+					_wrapper.Pdf2Jpg(args[2], args[3].GetInt32(), args[4].GetInt32(), args[5].GetInt32());
 					return;
 				case nameof(_executor.PutPageNumber):
 					_wrapper.PutPageNumber(args[2]);

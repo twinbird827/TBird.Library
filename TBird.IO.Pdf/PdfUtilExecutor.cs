@@ -4,7 +4,7 @@ using TBird.Core;
 
 namespace TBird.IO.Pdf
 {
-	internal class PdfUtilExecutor : IPdfUtil
+	internal class PdfUtilExecutor
 	{
 		public int GetPageSize(string pdffile)
 		{
