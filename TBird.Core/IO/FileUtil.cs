@@ -106,6 +106,7 @@ namespace TBird.Core
 
 		/// <summary>
 		/// 指定したﾌｧｲﾙを非同期でｺﾋﾟｰします。
+		/// ｺﾋﾟｰ元が書き込み用に開かれていてもｺﾋﾟｰします。その場合の整合性は呼び出し元が保証してください。
 		/// </summary>
 		/// <param name="src">ｺﾋﾟｰ元ﾌｧｲﾙ</param>
 		/// <param name="dst">ｺﾋﾟｰ先ﾌｧｲﾙ</param>
@@ -118,6 +119,7 @@ namespace TBird.Core
 
 		/// <summary>
 		/// 指定したﾌｧｲﾙを非同期でｺﾋﾟｰします。
+		/// ｺﾋﾟｰ元が書き込み用に開かれていてもｺﾋﾟｰします。その場合の整合性は呼び出し元が保証してください。
 		/// </summary>
 		/// <param name="src">ｺﾋﾟｰ元ﾌｧｲﾙ</param>
 		/// <param name="dst">ｺﾋﾟｰ先ﾌｧｲﾙ</param>
@@ -127,7 +129,7 @@ namespace TBird.Core
 		{
 			var buffersize = 1 * 1024 * 1024;
 
-			using (var ss = new FileStream(ToShort(src), FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
+			using (var ss = new FileStream(ToShort(src), FileMode.Open, FileAccess.Read, FileShare.ReadWrite, buffersize, true))
 			using (var ds = new FileStream(ToShort(dst), FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
 			{
 				await ss.CopyToAsync(ds, buffersize, cts.Token).ConfigureAwait(false);
