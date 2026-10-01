@@ -21,4 +21,8 @@
     <ProjectReference Include="..\TBird.Core\TBird.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="TBird.IO.Pdf.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -63,7 +63,7 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ## テスト
 
-ユニットテストフレームワークではなく、実行可能なテストアプリケーションを使用している点に注意。
+新しいテストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。既存の `coretest` / `wpftest` / `roslyntest` は実行可能なテストアプリケーションのまま残る。
 
 ## 全体共通ルール
 
