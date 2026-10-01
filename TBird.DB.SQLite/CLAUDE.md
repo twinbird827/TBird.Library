@@ -16,7 +16,7 @@ SQLiteデータベースプロバイダー実装（`System.Data.SQLite` ベー�
 
 ## 開発時の注意
 
-- ネイティブDLL（`sqlite3.exe`, `extension-functions-32/64.dll`）が出力ディレクトリへコピーされる（csproj で `CopyToOutputDirectory=Always`）。コピー漏れは拡張関数（数学関数等）／DB復旧の失敗原因になる
+- ネイティブDLL（`extension-functions-32/64.dll`）が出力ディレクトリへコピーされる（csproj で `CopyToOutputDirectory=Always`）。コピー漏れは拡張関数（数学関数等）の失敗原因になる
 - `password` 指定時は暗号化（PRAGMA key）対応
 - `extension=true` で `extension-functions-*.dll` をロード
 - 接続は connectionString をキーに `Manager` で共有されるため、**同一 connectionString は同じ物理接続を再利用**する点に注意

@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
@@ -39,98 +37,6 @@ namespace TBird.Core
 		}
 
 		/// <summary>
-		/// ﾌﾟﾛｾｽを実行します。実行するﾌﾟﾛｾｽが複数存在する場合ﾊﾟｲﾌﾟします。
-		/// </summary>
-		/// <param name="pis">ﾌﾟﾛｾｽ実行情報</param>
-		/// <exception cref="InvalidOperationException">いずれかの段が非ｾﾞﾛの exit code で終了した場合</exception>
-		/// <remarks>
-		/// 3 段以上では中間段の stdout(Windows 匿名ﾊﾟｲﾌﾟ既定≒4KB)が先に満杯になり、親は次段へ
-		/// 進めず中間段は書けない相互ﾃﾞｯﾄﾞﾛｯｸになる（回復経路なし）。段ごとの直列中継は現行踏襲。
-		/// </remarks>
-		public static void Execute(params ProcessStartInfo[] pis)
-		{
-			var processes = new List<Process>();
-			try
-			{
-				for (var i = 0; i < pis.Length; i++)
-				{
-					var pi = pis[i];
-					pi.CreateNoWindow = true;
-					pi.UseShellExecute = false;
-					pi.RedirectStandardInput = 0 < i;
-					// 最終ﾌﾟﾛｾｽの stdout は誰も読まないため redirect しない（redirect するとﾊﾟｲﾌﾟ満杯や
-					// 孫ﾌﾟﾛｾｽの handle 継承で WaitForExit が返らなくなりうる）。
-					pi.RedirectStandardOutput = i < pis.Length - 1;
-					// Redirect* を false にする段は対の *Encoding も null にする
-					// （encoding 設定済み＋redirect=false は Process.Start が InvalidOperationException で拒否するため）。
-					if (!pi.RedirectStandardOutput) pi.StandardOutputEncoding = null;
-					// stderr は誰も読まない経路のため強制 false（redirect すると子がﾊﾟｲﾌﾟ満杯で write ﾌﾞﾛｯｸしうる）。
-					pi.RedirectStandardError = false;
-					pi.StandardErrorEncoding = null;
-
-					processes.Add(Process.Start(pi));
-
-					if (0 < i)
-					{
-						// 段間はﾃﾞｺｰﾄﾞせずﾊﾞｲﾄ列のまま中継する。netstandard2.0 では stdin 側の符号化を指定できず
-						// ｺﾝｿｰﾙ既定ｺｰﾄﾞﾍﾟｰｼﾞ（日本語 Windows では cp932）固定になるため、文字列を経由すると
-						// 表現できない文字が '?' へ劣化する（issue #201）。
-						// StandardInput(StreamWriter) ではなく BaseStream を閉じるのは、StreamWriter の Dispose が
-						// encoding 次第で preamble(BOM) を書きうるため。
-						// 前段 stdout は StreamReader 経由では読まない（ﾊﾞｯﾌｧに横取りさせない）が、
-						// Process.Dispose は getter 取得済み(SyncMode)の StandardOutput を閉じないため using で受ける。
-						using (var prev = processes[i - 1].StandardOutput)
-						{
-							// using(input) を try の内側に置くこと: BaseStream は 4096B ﾊﾞｯﾌｧ付き FileStream で、
-							// 書いた末尾の端数は Dispose(flush) まで実際のﾊﾟｲﾌﾟへ出ない。次段が先に死んでいると
-							// flush 側で IOException が出るため、try の外だと握り潰しをすり抜けて呼び出し元へ漏れる。
-							try
-							{
-								using (var input = processes[i].StandardInput.BaseStream)
-								{
-									// ﾊﾝｸﾞ源はこの CopyTo と catch 内の捨て読み CopyTo だけ。孫ﾌﾟﾛｾｽが前段 stdout の
-									// write handle を継承すると、前段が exit しても EOF が成立せず無限ﾌﾞﾛｯｸする
-									// （ExecuteAsync 側を EofGrace が守っているのと同じ失敗ﾓｰﾄﾞ）。
-									// 下の WaitForExit() が EOF を待たないのは同期 getter StandardOutput を使っているため。
-									// BeginOutputReadLine に替えると WaitForExit() 自体が同じﾊﾝｸﾞを継承する。
-									prev.BaseStream.CopyTo(input);
-								}
-							}
-							catch (IOException ex)
-							{
-								// 次段が先に終了するとﾊﾟｲﾌﾟが壊れて write が失敗する。真因は下の exit code 検査で報告する。
-								MessageService.Warn($"{pis[i].FileName}（{i + 1}/{pis.Length} 段目）: 前段からの中継が中断しました（{ex.Message}）。出力が途中で切れている可能性があります。");
-								// 中断した前段 stdout は EOF まで捨て読みする。読み手が居ないと前段がﾊﾟｲﾌﾟ満杯で
-								// write ﾌﾞﾛｯｸし続け、下の WaitForExit が永久に返らない。
-								try
-								{
-									prev.BaseStream.CopyTo(Stream.Null);
-								}
-								catch (IOException)
-								{
-									// 前段側も既に壊れていれば捨て読みは不要。catch 内から例外を漏らさない。
-								}
-							}
-						}
-					}
-				}
-
-				processes.ForEach(x => x.WaitForExit());
-
-				// 非ｾﾞﾛ終了を握り潰さない（silent failure 防止, issue #201）。
-				var failed = processes.FindIndex(x => x.ExitCode != 0);
-				if (0 <= failed) throw new InvalidOperationException(
-					$"{pis[failed].FileName} が exit code {processes[failed].ExitCode} で失敗しました（{failed + 1}/{pis.Length} 段目）。");
-			}
-			finally
-			{
-				// 途中段の Process.Start が失敗しても起動済みの前段は kill しない（異常終了ﾊﾟｽのため現行踏襲）。
-				// ここは Dispose のみで完全な後始末ではない。
-				processes.ForEach(x => x.Dispose());
-			}
-		}
-
-		/// <summary>
 		/// EOF 待ちの上限。子ﾌﾟﾛｾｽが stdout handle を継承した孫ﾌﾟﾛｾｽを残すと EOF が成立しないため、
 		/// exit 後この時間で読み取りを打ち切り、受信済み分＋警告で続行する（無限ﾌﾞﾛｯｸ回避）。
 		/// </summary>
@@ -143,7 +49,7 @@ namespace TBird.Core
 		/// <param name="action">stdout を redirect した場合に 1 行ずつ渡す処理</param>
 		/// <returns>exit code</returns>
 		/// <remarks>
-		/// 非ｾﾞﾛ exit code では throw せず、exit code をそのまま返す。検査は呼び出し元の義務（ﾊﾟｲﾌﾟ版は逆に throw する）。
+		/// 非ｾﾞﾛ exit code では throw せず、exit code をそのまま返す。検査は呼び出し元の義務。
 		/// <paramref name="action"/> の中で出た例外は最初の 1 件だけを捕捉し、終了後に再ｽﾛｰする。それ以降の出力行は <paramref name="action"/> に渡らない。
 		/// 起動失敗（実行ﾌｧｲﾙが無い等）は <see cref="System.ComponentModel.Win32Exception"/> が伝播する。
 		/// -1 は UseShellExecute=true で既存ﾌﾟﾛｾｽが再利用され、待つﾌﾟﾛｾｽが無いときだけ返り、実際の exit code -1 と区別できない。
@@ -197,14 +103,5 @@ namespace TBird.Core
 				}
 			}
 		}
-
-		/// <summary>
-		/// <see cref="ExecuteAsync(ProcessStartInfo, Action{string})"/> の同期版です。契約は同じです。
-		/// </summary>
-		public static int Execute(ProcessStartInfo info, Action<string>? action)
-		{
-			return ExecuteAsync(info, action).GetAwaiter().GetResult();
-		}
-
 	}
 }
