@@ -17,7 +17,7 @@ namespace GhostscriptSharp.API
 		[DllImport(lib_dll, EntryPoint = "gsapi_new_instance")]
 		private static extern int gsapi_new_instance(out IntPtr pinstance, IntPtr caller_handle);
 
-		[DllImport(lib_dll, EntryPoint = "gsapi_init_with_args")]
+		[DllImport(lib_dll, EntryPoint = "gsapi_init_with_args", BestFitMapping = false, ThrowOnUnmappableChar = true)]
 		private static extern int gsapi_init_with_args(IntPtr instance, int argc, string[] argv);
 
 		[DllImport(lib_dll, EntryPoint = "gsapi_exit")]
