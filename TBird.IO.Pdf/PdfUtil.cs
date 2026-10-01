@@ -95,7 +95,7 @@ namespace TBird.IO.Pdf
 		/// PDFﾌｧｲﾙのﾌｯﾀにﾍﾟｰｼﾞ番号を追加します。
 		/// </summary>
 		/// <param name="pdffile">PDFﾌｧｲﾙﾊﾟｽ</param>
-		/// <exception cref="InvalidOperationException">総ﾍﾟｰｼﾞ数を確定できない場合(gs の pdfpagecount が取れず、ﾃｷｽﾄ走査の値が書き出し結果のﾍﾟｰｼﾞ数と一致しない場合を含む)、または GhostScript の書き出しに失敗した場合。いずれも原本は置換しない</exception>
+		/// <exception cref="InvalidOperationException">gs の pdfpagecount で総ﾍﾟｰｼﾞ数を取得できない場合(/Count 欠落を含む)、または GhostScript の書き出しに失敗した場合。いずれも原本は置換しない</exception>
 		public static Task PutPageNumberAsync(string pdffile)
 		{
 			return _executor.PutPageNumber(pdffile);

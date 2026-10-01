@@ -2,22 +2,15 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using TBird.Core;
 
 namespace GhostscriptSharp.API
 {
 	internal class GhostScript
 	{
-#if WIN64
 		private const string lib_dll = "gsdll64.dll";
-#else
-		private const string lib_dll = "gsdll32.dll";
-#endif
 
 		#region Hooks into Ghostscript DLL
 
@@ -118,10 +111,7 @@ namespace GhostscriptSharp
 
 		public static void PutPageNumber(string path)
 		{
-			// gs が数えられない PDF では gs 自身が仮定したﾍﾟｰｼﾞ数で切り詰めて書き出しうるため、
-			// ﾃｷｽﾄ走査の N は書き出し結果のﾍﾟｰｼﾞ数と一致したときだけ採用して原本を置換する。
-			var pdfpagecount = GetPdfPageCount(path);
-			var npages = 0 < pdfpagecount ? pdfpagecount : GetPageSizeForPutPageNumber(path);
+			var npages = GetPageSize(path);
 
 			var tmpout = FileUtil.GetTempFilePath(".pdf");
 			var script = @"globaldict /MyPageCount 1 put /concatstrings { exch dup length 2 index length add string dup dup 4 2 roll copy length 4 -1 roll putinterval } bind def << /EndPage {exch pop 0 eq dup {/Helvetica 12 selectfont MyPageCount =string cvs ( / $npages) concatstrings dup stringwidth pop currentpagedevice /PageSize get 0 get exch sub 20 sub 20 moveto show globaldict /MyPageCount MyPageCount 1 add put } if } bind >> setpagedevice";
@@ -146,9 +136,6 @@ namespace GhostscriptSharp
 			try
 			{
 				API.GhostScript.Call(args);
-
-				var written = pdfpagecount <= 0 ? GetPdfPageCount(tmpout) : npages;
-				if (written != npages) throw new InvalidOperationException($"ﾍﾟｰｼﾞ数を確定できませんでした(ﾃｷｽﾄ走査: {npages}, 書き出し結果: {written}): {path}");
 			}
 			catch
 			{
@@ -162,79 +149,21 @@ namespace GhostscriptSharp
 
 		public static int GetPageSize(string path)
 		{
-			var pagesize = GetPdfPageCount(path);
-
-			// gs ｴﾗｰ無視 + ﾃｷｽﾄ抽出ﾌｫｰﾙﾊﾞｯｸのため、解析不能 PDF では 0 のまま正常終了しうる。
-			// GetPageSize/Pdf2Jpg が通る唯一の箇所なのでここで止める(PutPageNumber は照合付きで独自に決める)。
-			var result = 0 < pagesize ? pagesize : GetPageSizeFromPdfText(path);
-			if (result <= 0) throw new InvalidOperationException($"ﾍﾟｰｼﾞ数を取得できませんでした: {path}");
-			return result;
-		}
-
-		/// <summary>
-		/// gs の pdfpagecount でﾍﾟｰｼﾞ数を取得します。gs が失敗または警告を出した場合は 0 を返します。
-		/// </summary>
-		private static int GetPdfPageCount(string path)
-		{
 			var args = new string[]
 			{
 				"gs",	// dummy
 				"-q",
 				"-dNODISPLAY",
-				//$"-sFile='{GetPath(path)}'",
-				//$"--permit-file-read='{GetPath(path)}'",	// ←ｺﾒﾝﾄ解除するとｴﾗｰになる
+				$"--permit-file-read={GetPath(path)}",
 				"-c",
 				$"({GetPath(path)}) (r) file runpdfbegin pdfpagecount = quit"
 			};
 
-			// なぜかｴﾗｰｺｰﾄﾞが返ってくるのでこのｺｰﾙではｴﾗｰを無視する。
-			return API.GhostScript.Call(args, false);
-		}
-
-		/// <summary>
-		/// gs がﾍﾟｰｼﾞ数を取得できない PDF について、PutPageNumber のﾌｯﾀに使うﾍﾟｰｼﾞ数をﾃｷｽﾄ走査で決めます。
-		/// </summary>
-		/// <remarks>
-		/// "/Count" の最大値と "/Type /Page" の出現数のうち、正の値が 1 つならその値、2 つとも正で一致すればその値。
-		/// 食い違うか両方 0 なら確定できないため例外にする。
-		/// </remarks>
-		private static int GetPageSizeForPutPageNumber(string path)
-		{
-			var count = GetPageSizeFromPdfText(path);
-			var pages = GetPageObjectCountFromPdfText(path);
-			var result = 0 < count ? count : pages;
-			if (result <= 0 || 0 < pages && pages != result) throw new InvalidOperationException($"ﾍﾟｰｼﾞ数を確定できませんでした(/Count: {count}, /Type /Page: {pages}): {path}");
-			return result;
-		}
-
-		/// <summary>
-		/// PDFﾌｧｲﾙ内の "/Type /Page" (ﾍﾟｰｼﾞｵﾌﾞｼﾞｪｸﾄ) の出現数を返却します。"/Pages" や "/PageLabel" 等は数えません。
-		/// </summary>
-		private static int GetPageObjectCountFromPdfText(string path)
-		{
-			return Regex.Matches(File.ReadAllText(path, Encoding.Latin1), @"/Type\s*/Page(?![A-Za-z0-9])").Count;
-		}
-
-		/// <summary>
-		/// PDFﾌｧｲﾙのﾍﾟｰｼﾞ数をﾃｷｽﾄ形式で読み込んで取得します。
-		/// </summary>
-		/// <param name="path">PDFﾌｧｲﾙﾊﾟｽ</param>
-		/// <returns></returns>
-		/// <remarks>
-		/// "/Count [Total number of pages]"という形でﾃｷｽﾄ埋め込みがされているので、
-		/// 左記形式の行をすべて取得して最も大きい数をﾍﾟｰｼﾞ数として返却
-		/// (ｻﾝﾌﾟﾙPDFに"/Count xxx"が複数存在していたため)
-		/// </remarks>
-		private static int GetPageSizeFromPdfText(string path)
-		{
-			var regex = new Regex(@"/Count (?<pagesize>[\d]+)");
-
-			// ﾌｧｲﾙ読取
-			return File.ReadAllLines(path, Encoding.UTF8)
-				.Select(line => regex.Match(line))
-				.Where(m => m.Success)
-				.Select(m => m.Groups["pagesize"].Value.GetInt32())
-				.MaxOrDefault(i => i, 0);
+			// 成功時も quit により -101(gs_error_Quit) が返るため戻り値では判定しない。
+			// ﾍﾟｰｼﾞ数が読めなければ 0 になるので、PutPageNumber/Pdf2Jpg の両経路をここで止める。
+			var pagesize = API.GhostScript.Call(args, false);
+			if (pagesize <= 0) throw new InvalidOperationException($"ﾍﾟｰｼﾞ数を取得できませんでした: {path}");
+			return pagesize;
 		}
 
 		public static void Pdf2Image(string src, string dst, GhostscriptDevices devices, Size resolution, GhostscriptPageSizes pagesize, int min = 0, int max = 0)
