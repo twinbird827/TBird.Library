@@ -115,7 +115,7 @@ namespace EBook2PDF
 			});
 
 			// PDFにﾍﾟｰｼﾞ番号を追加
-			PdfUtil.PutPageNumber(dstpdf);
+			await PdfUtil.PutPageNumberAsync(dstpdf);
 
 			// ﾌｧｲﾙ名をﾀｲﾄﾙにする。
 			ChangeFilename(srcpdf, ref dstpdf, epub);
@@ -132,7 +132,7 @@ namespace EBook2PDF
 				// HTMLﾌｫﾙﾀﾞとJPG変換後のﾌｫﾙﾀﾞが同名なら予めHTMLﾌｫﾙﾀﾞをﾘﾈｰﾑしておく
 				DirectoryUtil.Move(src, src = src + "HTML", false);
 
-				await CoreUtil.ExecuteAsync(new ProcessStartInfo()
+				await ExecuteProcessAsync(new ProcessStartInfo()
 				{
 					WorkingDirectory = Path.GetDirectoryName(AppSetting.Instance.PDF2JPG),
 					FileName = AppSetting.Instance.PDF2JPG,
@@ -140,7 +140,7 @@ namespace EBook2PDF
 					UseShellExecute = false,
 					CreateNoWindow = true,
 					RedirectStandardOutput = true,
-				}, Console.WriteLine);
+				});
 
 				// ｶﾊﾞｰを移動する
 				await FileUtil.CopyAsync(Path.Combine(src, @"cover.jpg"), Path.Combine(dstjpg, @"000.jpg"));
@@ -157,6 +157,13 @@ namespace EBook2PDF
 			return extensions.Contains(Path.GetExtension(src).ToLower());
 		}
 
+		private static async Task ExecuteProcessAsync(ProcessStartInfo info)
+		{
+			// 子ﾌﾟﾛｾｽの失敗はexit codeでしか分からないので、0以外なら例外にする。
+			var exitcode = await CoreUtil.ExecuteAsync(info, Console.WriteLine);
+			if (exitcode != 0) throw new InvalidOperationException($"子ﾌﾟﾛｾｽが異常終了しました。exit code={exitcode}, {info.FileName} {info.Arguments}");
+		}
+
 		private Task CallCalibre(string src, string dstextension)
 		{
 			var withoutextension = FileUtil.GetFileNameWithoutExtension(src);
@@ -170,18 +177,10 @@ namespace EBook2PDF
 				UseShellExecute = false,
 				CreateNoWindow = true,
 				RedirectStandardOutput = true,
+				StandardOutputEncoding = Encoding.UTF8,
 			};
 
-			var tmp = Console.OutputEncoding;
-			Console.OutputEncoding = Encoding.UTF8;
-			try
-			{
-				return CoreUtil.ExecuteAsync(info, Console.WriteLine);
-			}
-			finally
-			{
-				Console.OutputEncoding = tmp;
-			}
+			return ExecuteProcessAsync(info);
 		}
 
 		private IEnumerable<string> GetFiles(string dir)
