@@ -16,6 +16,7 @@ GhostScriptを使用したPDF操作ユーティリティ（TFM: `net8.0-windows`
 
 - 実行形式（`OutputType=Exe`）のプロジェクト。ライブラリ側 `PdfUtilExecutor` が自プロセスを spawn して GhostScript 処理を隔離する
 - 同梱 DLL は `gsdll64.dll`（GhostScript 10.08.0・AGPL・64 bit のみ）で、実行先に VC++ 2015-2022 再頒布可能パッケージ（x64）が要る。PDF のパスは ASCII に限る（非 ASCII パスは gs が開けない）
+- DLL を差し替えたら `dotnet test TBird.IO.Pdf.Tests/TBird.IO.Pdf.Tests.csproj` を走らせる。期待値は 10.08.0 の特性値なので、変化が意図どおりなら `GhostScriptBehaviorTests` の `[TestCase]` を更新する
 - `Pdf2Jpg` は `parallel` ページ単位のバッチを async fan-out し、`SemaphoreSlim(Environment.ProcessorCount)` で同時プロセス数を制限。処理後 `DirectoryUtil.OrganizeNumber` で連番整理する
 - `Pdf2Jpg` / `PutPageNumberAsync` とも呼び出し元スレッドをブロックしない（子プロセスの起動は `PdfUtil.ExecuteAsync` 内の `Task.Run` で pool へ逃がす）
 - 別プロセス起動は `Assembly.GetExecutingAssembly().Location` から `.exe` を spawn（exe 名は DLL ベース名と一致が前提）。引数は stdout 経由でやり取り、`KEY_DATA`（`TBird.IO.Pdf.PdfUtil`）で自プロセス実行を判定
