@@ -30,8 +30,6 @@ namespace TBird.DB.SQLite
 				var ds = ToConnectionDictionary(connectionString)["datasource"];
 				_lockstring = $"{fn}+{ds}";
 
-				_cs = connectionString;
-
 				if (_manages.ContainsKey(connectionString))
 				{
 					_m = _manages[connectionString];
@@ -46,7 +44,6 @@ namespace TBird.DB.SQLite
 			}
 		}
 
-		internal string _cs;
 		internal Manager _m;
 		private static object _lock = new object();
 		private static Dictionary<string, Manager> _manages = new Dictionary<string, Manager>();
