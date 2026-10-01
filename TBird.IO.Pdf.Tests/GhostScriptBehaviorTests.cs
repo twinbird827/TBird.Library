@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using TBird.Core;
 
 namespace TBird.IO.Pdf.Tests
 {
@@ -46,7 +47,7 @@ namespace TBird.IO.Pdf.Tests
 			Assert.That(await GetPageSizeOrNull(jpgpdf), Is.EqualTo(pagesize));
 
 			Assert.That(await Succeeds(() => PdfUtil.Pdf2Jpg(jpgpdf, 3, 36)), Is.EqualTo(pdf2jpg));
-			var jpgdir = Path.Combine(Path.GetDirectoryName(jpgpdf)!, fixture);
+			var jpgdir = FileUtil.GetFullPathWithoutExtension(jpgpdf);
 			Assert.That(Directory.Exists(jpgdir) ? Directory.GetFiles(jpgdir, "*.jpeg").Length : (int?)null, Is.EqualTo(jpegs));
 
 			var original = File.ReadAllBytes(putpdf);
