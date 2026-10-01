@@ -8,7 +8,7 @@ GhostScriptを使用したPDF操作ユーティリティ（TFM: `net8.0-windows`
 - 公開 API（`PdfUtil`）:
   - `async Task Pdf2Jpg(string pdffile, int parallel, int dpi)` — 全ページを画像化。`parallel` は一度に処理するページ数（バッチサイズ）で、`parallel` ページ単位に分割して並列実行する。出力先は PDF と同名フォルダ
   - `Task PutPageNumberAsync(string pdffile)` — フッタにページ番号付与
-- `Pdf2Jpg` / `PutPageNumberAsync` とも失敗時は `InvalidOperationException`（空フォルダ／フッタ「1/0」による原本置換にはならない）。`Pdf2Jpg` は子が exit 0 でも出力 JPEG がページ数に満たなければ例外になる
+- `Pdf2Jpg` / `PutPageNumberAsync` とも失敗時は `InvalidOperationException`（空フォルダ／フッタ「1/0」による原本置換にはならない）。`Pdf2Jpg` は子が exit 0 でも出力 JPEG がページ数に満たなければ例外になる。ただし中間 `/Pages` の `/Count` が壊れた PDF は既知の制限で、gs 10.08 がエラーなしで一部のページ（文書の途中もありうる）を落とすか総ページ数を誤ることがあり、`PutPageNumberAsync` はその結果（ページの欠けた PDF・誤った総ページ数 N のフッタ）で原本を置換しうる。`Pdf2Jpg` の枚数照合で検出できるとは限らない
 - `Pdf2Jpg` が失敗した場合、再試行前に出力フォルダを空にすること（成功済みバッチの残骸と `OrganizeNumber` 済み連番が同居し重複混入するため）
 - 内部（プロセス間プロトコル）の `Pdf2Jpg(pdffile, start, end, dpi)` はページ**範囲**指定（`start` = 画像化する最初のページ番号、`end` = 最後のページ番号）。公開 API の `parallel`（バッチサイズ）とは引数の意味が異なる点に注意。親側 `PdfUtilExecutor` と子側 `PdfUtilWrapper` は**3 操作（`GetPageSize` / `Pdf2Jpg` / `PutPageNumber`）とも同じ引数・同じ順序**を保つこと（親→子は値がコマンドライン引数の**位置**で渡るため、送信順・個数の食い違いは型検査に掛からない。各呼び出し式そのものはビルドで検査されるが、片側の引数を変えても他方はビルドで落ちない）
 
