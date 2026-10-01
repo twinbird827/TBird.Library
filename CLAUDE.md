@@ -4,7 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## リポジトリ概要
 
-TBird.Libraryは、WPFアプリケーション、Webスクレイピング、データベース操作、PDF処理などのユーティリティを提供する包括的な.NETライブラリコレクションです。ソリューションは複数の.NETバージョン（.NET Standard 2.0、.NET Framework 4.8、.NET 5.0、.NET 7.0、.NET 8.0）をターゲットとしています。
+TBird.Libraryは、WPFアプリケーション、Android MAUIアプリケーション、Webスクレイピング、データベース操作、PDF処理などのユーティリティを提供する包括的な.NETライブラリコレクションです。ソリューションは複数の.NETバージョン（.NET Standard 2.0、.NET Framework 4.8、.NET 5.0、.NET 7.0、.NET 8.0、.NET 10.0-android）をターゲットとしています。
+
+ソリューションファイルは 2 つに分かれており、用途に応じて使い分ける：
+- `TBird.Library.sln` - WPF / Console / Service / DB / IO 等の WPF 系・サーバ系プロジェクト集合（MAUI workload 不要）
+- `TBird.Maui.sln` - TBird.Core + TBird.Maui.* 4 プロジェクト（MAUI workload 必要、Android MAUI アプリ開発時のみ開く）
+
+## ビルド
+
+```bash
+dotnet build TBird.Library.sln   # WPF/サーバ系（MAUI workload 不要）
+dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開発時のみ）
+```
+
+- 一部プロジェクトは .NET Framework 4.8 のレガシー（非 SDK）形式（`TBird.Service` / `coretest` 等）。これらは Visual Studio もしくは `msbuild` でのビルドが確実
+- `_Core` / `_Browser` の CLAUDE.md はそれらのプロジェクトを持つ `app-*` ブランチでのみ存在（`master` には無い）
 
 ## ブランチとアプリケーションの構成
 
@@ -19,6 +33,7 @@ TBird.Libraryは、WPFアプリケーション、Webスクレイピング、デ�
 
 ### ライブラリ（全ブランチ共通）
 - [TBird.Core/CLAUDE.md](TBird.Core/CLAUDE.md) - コア基盤
+- [TBird.Windows/CLAUDE.md](TBird.Windows/CLAUDE.md) - Windows 専用 Win32 ラッパー
 - [TBird.Wpf/CLAUDE.md](TBird.Wpf/CLAUDE.md) - WPF MVVMフレームワーク
 - [TBird.DB/CLAUDE.md](TBird.DB/CLAUDE.md) - データベース抽象化
 - [TBird.DB.SQLite/CLAUDE.md](TBird.DB.SQLite/CLAUDE.md) - SQLiteプロバイダー
@@ -31,11 +46,15 @@ TBird.Libraryは、WPFアプリケーション、Webスクレイピング、デ�
 - [TBird.IO.Pdf/CLAUDE.md](TBird.IO.Pdf/CLAUDE.md) - PDF処理
 - [TBird.Service/CLAUDE.md](TBird.Service/CLAUDE.md) - Windowsサービス
 - [TBird.Console/CLAUDE.md](TBird.Console/CLAUDE.md) - コンソールアプリ基底
+- [TBird.Maui/CLAUDE.md](TBird.Maui/CLAUDE.md) - MAUI 共通基盤（ViewModel / Converter / 通知許可 / メッセージサービス）
+- [TBird.Maui.DB/CLAUDE.md](TBird.Maui.DB/CLAUDE.md) - SQLite 基底クラス（マイグレーション枠組み）
+- [TBird.Maui.Background/CLAUDE.md](TBird.Maui.Background/CLAUDE.md) - 優先度キュー / ネットワーク監視 / レートリミッタ
+- [TBird.Maui.Web/CLAUDE.md](TBird.Maui.Web/CLAUDE.md) - AngleSharp / HTTP transient リトライ
 
 ### アプリケーション（ブランチ固有）
 - [_Apps/CLAUDE.md](_Apps/CLAUDE.md) - アプリケーション本体
-- [_Core/CLAUDE.md](_Core/CLAUDE.md) - アプリケーション共有ライブラリ
-- [_Browser/CLAUDE.md](_Browser/CLAUDE.md) - Webフロントエンド
+- [_Core/CLAUDE.md](_Core/CLAUDE.md) - アプリケーション共有ライブラリ（`_Core` プロジェクトを持つ app-* ブランチでのみ存在）
+- [_Browser/CLAUDE.md](_Browser/CLAUDE.md) - Webフロントエンド（`_Browser` プロジェクトを持つ app-* ブランチでのみ存在）
 
 ### テスト
 - [coretest/CLAUDE.md](coretest/CLAUDE.md) - Core テスト
@@ -44,7 +63,7 @@ TBird.Libraryは、WPFアプリケーション、Webスクレイピング、デ�
 
 ## テスト
 
-ユニットテストフレームワークではなく、実行可能なテストアプリケーションを使用している点に注意。
+新しいテストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。既存の `coretest` / `wpftest` / `roslyntest` は実行可能なテストアプリケーションのまま残る。
 
 ## 全体共通ルール
 
@@ -53,6 +72,13 @@ TBird.Libraryは、WPFアプリケーション、Webスクレイピング、デ�
 すべての主要コンポーネントは`TBirdObject`を継承する。Disposeメソッドはsealedのため、リソース解放は以下をオーバーライドすること：
 - `DisposeManagedResource()` - マネージドリソースの解放
 - `DisposeUnmanagedResource()` - アンマネージドリソースの解放
+
+### アプリ新規開発時のルール
+
+- ソリューションファイルは `_Apps/App.sln` とする（アプリ名のslnにしない）
+- ソリューションフォルダは作成しない（`_Apps/` 直下に `.sln` を配置）
+- プロジェクトフォルダも作成しない（`_Apps/` 直下に `.csproj` とソースファイルを配置）
+- **git 追跡外だが実行に必要なファイル（DB・シークレット・学習モデル・ログ・ビルド成果物）を `_Apps` 内に置かない**。リポジトリルートの `_Tools/<アプリ名>/`（.gitignore 済）に集約する。`_Apps` はブランチ切替で内容が入れ替わるため、置くと切替や `_Apps` 内削除で失われる
 
 ### コード標準
 

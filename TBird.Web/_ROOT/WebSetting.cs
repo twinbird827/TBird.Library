@@ -12,7 +12,7 @@ namespace TBird.Web
 		}
 		private static WebSetting _Instance;
 
-		public WebSetting() : base(_path)
+		public WebSetting() : base(PathSetting.GetPath(_path))
 		{
 			if (!Load())
 			{

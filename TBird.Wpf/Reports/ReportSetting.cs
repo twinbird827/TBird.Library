@@ -20,7 +20,7 @@ namespace TBird.Wpf.Reports
 			}
 		}
 
-		public ReportSetting() : this(@"lib\report-setting.json")
+		public ReportSetting() : this(PathSetting.GetPath(@"lib\report-setting.json"))
 		{
 
 		}

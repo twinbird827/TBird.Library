@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -8,7 +10,16 @@ namespace TBird.Core
 {
 	public static class DirectoryUtil
 	{
-		private static string ToShort(string s) => Win32Methods.GetShortPathName(s);
+		[DllImport("kernel32.dll")]
+		private static extern int GetShortPathName(string longPath, StringBuilder shortPathBuffer, int bufferSize);
+
+		private static string ToShort(string s)
+		{
+			const int bufferSize = 128;
+			var sb = new StringBuilder(bufferSize);
+			GetShortPathName(s, sb, bufferSize);
+			return 0 < sb.Length ? sb.ToString() : s;
+		}
 
 		/// <summary>
 		/// ﾃﾞｨﾚｸﾄﾘを作成します。
@@ -154,4 +165,4 @@ namespace TBird.Core
 			}
 		}
 	}
-}
+}

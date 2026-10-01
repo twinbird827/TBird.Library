@@ -24,6 +24,15 @@ namespace TBird.Core
 				[CallerLineNumber] int callerLineNumber = 0);
 
 		/// <summary>
+		/// 警告をﾒｯｾｰｼﾞ処理します。
+		/// </summary>
+		/// <param name="message">ﾒｯｾｰｼﾞ</param>
+		void Warn(string message,
+				[CallerMemberName] string callerMemberName = "",
+				[CallerFilePath] string callerFilePath = "",
+				[CallerLineNumber] int callerLineNumber = 0);
+
+		/// <summary>
 		/// 確認をﾒｯｾｰｼﾞ処理します。
 		/// </summary>
 		/// <param name="message">ﾒｯｾｰｼﾞ</param>
@@ -50,4 +59,4 @@ namespace TBird.Core
 				[CallerFilePath] string callerFilePath = "",
 				[CallerLineNumber] int callerLineNumber = 0);
 	}
-}
+}
