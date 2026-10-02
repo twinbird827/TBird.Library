@@ -55,7 +55,7 @@ namespace PDF2JPG
 			}
 
 			// 作業中のPDFﾌｧｲﾙﾊﾟｽ
-			var pdftemp = Path.Combine(Directories.TemporaryDirectory, $"{System.Guid.NewGuid()}.pdf");
+			var pdftemp = FileUtil.GetTempFilePath(".pdf");
 			// 作業中のﾃﾞｨﾚｸﾄﾘ
 			var dirtemp = FileUtil.GetFullPathWithoutExtension(pdftemp);
 			// 処理後のﾃﾞｨﾚｸﾄﾘ
@@ -82,9 +82,6 @@ namespace PDF2JPG
 				DirectoryUtil.Move(dirtemp, dircomp);
 
 				MessageService.Info("終了(移動):" + arg);
-
-				// 作業用PDFﾌｧｲﾙを削除
-				FileUtil.Delete(pdftemp);
 
 				if (option == 1)
 				{

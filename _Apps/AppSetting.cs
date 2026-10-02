@@ -18,9 +18,6 @@ namespace PDF2JPG
 
 				// 解像度
 				Dpi = 384;
-
-				// 品質
-				Quality = 100;
 			}
 		}
 
@@ -53,16 +50,6 @@ namespace PDF2JPG
 			set => SetProperty(ref _Dpi, value);
 		}
 		private int _Dpi;
-
-		/// <summary>
-		/// 品質
-		/// </summary>
-		public int Quality
-		{
-			get => GetProperty(_Quality);
-			set => SetProperty(ref _Quality, value);
-		}
-		private int _Quality;
 
 	}
 }
