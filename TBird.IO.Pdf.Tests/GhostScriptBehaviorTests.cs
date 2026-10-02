@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using TBird.Core;
@@ -55,6 +56,32 @@ namespace TBird.IO.Pdf.Tests
 			Assert.That(File.ReadAllBytes(putpdf), put ? Is.Not.EqualTo(original) : Is.EqualTo(original));
 			Assert.That(await GetPageSizeOrNull(putpdf), Is.EqualTo(pagesizeAfterPut));
 		}
+
+		[Test]
+		public async Task UnmappablePathFailsWithoutTouchingBestFitTwin()
+		{
+			Assume.That(GetACP(), Is.EqualTo(932), "ACP 932 でのみ再現する");
+
+			var fixtures = Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures");
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, "bestfit");
+			if (Directory.Exists(work)) Directory.Delete(work, true);
+			Directory.CreateDirectory(work);
+			var cafe1 = Path.Combine(work, "café.pdf");
+			var cafe2 = Path.Combine(work, "cafe.pdf");
+			File.Copy(Path.Combine(fixtures, "ok7.pdf"), cafe1);
+			File.Copy(Path.Combine(fixtures, "a_under.pdf"), cafe2);
+			var bytes1 = File.ReadAllBytes(cafe1);
+			var bytes2 = File.ReadAllBytes(cafe2);
+
+			// #229: best-fit で é→e に置き換わると cafe.pdf(6 ﾍﾟｰｼﾞ) を黙って処理するため、失敗して両ﾌｧｲﾙが不変であることを固定する。
+			Assert.That(await GetPageSizeOrNull(cafe1), Is.Null);
+			Assert.That(await Succeeds(() => PdfUtil.PutPageNumberAsync(cafe1)), Is.False);
+			Assert.That(File.ReadAllBytes(cafe1), Is.EqualTo(bytes1));
+			Assert.That(File.ReadAllBytes(cafe2), Is.EqualTo(bytes2));
+		}
+
+		[DllImport("kernel32.dll")]
+		private static extern int GetACP();
 
 		private static string CopyTo(string src, string dir)
 		{
