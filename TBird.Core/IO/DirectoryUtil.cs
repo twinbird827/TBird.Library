@@ -1,8 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -10,17 +8,6 @@ namespace TBird.Core
 {
 	public static class DirectoryUtil
 	{
-		[DllImport("kernel32.dll")]
-		private static extern int GetShortPathName(string longPath, StringBuilder shortPathBuffer, int bufferSize);
-
-		private static string ToShort(string s)
-		{
-			const int bufferSize = 128;
-			var sb = new StringBuilder(bufferSize);
-			GetShortPathName(s, sb, bufferSize);
-			return 0 < sb.Length ? sb.ToString() : s;
-		}
-
 		/// <summary>
 		/// ﾃﾞｨﾚｸﾄﾘを作成します。
 		/// </summary>
@@ -28,19 +15,45 @@ namespace TBird.Core
 		public static void Create(string? dir)
 		{
 			if (dir == null) throw new NullReferenceException($"{typeof(DirectoryUtil).Str()}.{nameof(Create)} {nameof(dir)}");
-			Directory.CreateDirectory(ToShort(dir));
+			Directory.CreateDirectory(dir);
 		}
 
 		/// <summary>
 		/// ﾃﾞｨﾚｸﾄﾘを移動します。
+		/// 別ﾎﾞﾘｭｰﾑへの移動はｺﾋﾟｰと削除で行います。
+		/// 移動に失敗したときは、移動先にあったﾃﾞｨﾚｸﾄﾘを元に戻します。
 		/// </summary>
 		/// <param name="src">移動元</param>
 		/// <param name="dst">移動先</param>
 		public static void Move(string src, string dst, bool overwrite = true)
 		{
-			if (overwrite) Delete(dst);
+			var exists = Directory.Exists(dst);
+			if (exists && !overwrite) throw new IOException($"{typeof(DirectoryUtil).Str()}.{nameof(Move)} {dst} already exists.");
 
-			Directory.Move(ToShort(src), ToShort(dst));
+			// 移動先は削除せず、成功するまで同じ親ﾃﾞｨﾚｸﾄﾘへ退避しておく
+			var backup = exists ? $"{Path.GetFullPath(dst).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}.{Guid.NewGuid()}" : null;
+			if (backup != null) Directory.Move(dst, backup);
+
+			var samevolume = string.Equals(
+				Path.GetPathRoot(Path.GetFullPath(src)),
+				Path.GetPathRoot(Path.GetFullPath(dst)),
+				StringComparison.OrdinalIgnoreCase
+			);
+
+			try
+			{
+				if (samevolume) Directory.Move(src, dst);
+				else Copy(src, dst);
+			}
+			catch
+			{
+				Delete(dst);
+				if (backup != null) Directory.Move(backup, dst);
+				throw;
+			}
+
+			if (backup != null) Delete(backup);
+			if (!samevolume) Delete(src);
 		}
 
 		/// <summary>
@@ -50,8 +63,8 @@ namespace TBird.Core
 		/// <param name="dst">ｺﾋﾟｰ先</param>
 		public static void Copy(string src, string dst)
 		{
-			DirectoryInfo srcdi = new DirectoryInfo(ToShort(src));
-			DirectoryInfo dstdi = new DirectoryInfo(ToShort(dst));
+			DirectoryInfo srcdi = new DirectoryInfo(src);
+			DirectoryInfo dstdi = new DirectoryInfo(dst);
 
 			//ｺﾋﾟｰ先のﾃﾞｨﾚｸﾄﾘがなければ作成する
 			if (!dstdi.Exists)
@@ -64,7 +77,7 @@ namespace TBird.Core
 			foreach (var finfo in srcdi.GetFiles())
 			{
 				//同じﾌｧｲﾙが存在していたら、常に上書きする
-				finfo.CopyTo(ToShort(Path.Combine(dstdi.FullName, finfo.Name)), true);
+				finfo.CopyTo(Path.Combine(dstdi.FullName, finfo.Name), true);
 			}
 
 			// ﾃﾞｨﾚｸﾄﾘのｺﾋﾟｰ（再帰を使用）
@@ -80,7 +93,7 @@ namespace TBird.Core
 		/// <param name="info">ﾃﾞｨﾚｸﾄﾘ</param>
 		public static void Delete(string directory)
 		{
-			var info = new DirectoryInfo(ToShort(directory));
+			var info = new DirectoryInfo(directory);
 
 			if (!info.Exists) return;
 
@@ -132,8 +145,8 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static string[] GetFiles(string directory, string pattern = "*")
 		{
-			return Directory.Exists(ToShort(directory))
-				? Directory.GetFiles(ToShort(directory), pattern)
+			return Directory.Exists(directory)
+				? Directory.GetFiles(directory, pattern)
 				: new string[] { };
 		}
 
@@ -145,8 +158,8 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static string[] GetDirectories(string directory, string pattern = "*")
 		{
-			return Directory.Exists(ToShort(directory))
-				? Directory.GetDirectories(ToShort(directory), pattern)
+			return Directory.Exists(directory)
+				? Directory.GetDirectories(directory, pattern)
 				: new string[] { };
 		}
 

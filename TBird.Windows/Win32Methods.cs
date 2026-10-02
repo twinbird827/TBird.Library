@@ -136,7 +136,7 @@ namespace TBird.Windows
 		[DllImport("kernel32.DLL", SetLastError = true)]
 		public static extern bool CloseHandle(System.IntPtr hHandle);
 
-		[DllImport("kernel32.dll")]
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
 		public static extern int GetPrivateProfileString(
 					string lpApplicationName,
 					string lpKeyName,
@@ -220,8 +220,8 @@ namespace TBird.Windows
 			InsufficientRights
 		}
 
-		[DllImport("kernel32.dll")]
-		public static extern DriveType GetDriveType([MarshalAs(UnmanagedType.LPStr)] string lpRootPathName);
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+		public static extern DriveType GetDriveType(string lpRootPathName);
 
 		[DllImport("kernel32.dll")]
 		public static extern uint QueryDosDevice(string lpDeviceName, StringBuilder lpTargetPath, int ucchMax);
@@ -297,7 +297,7 @@ namespace TBird.Windows
 			IntPtr hwndParent,
 			int flags);
 
-		[DllImport("kernel32.dll")]
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
 		public static extern int WritePrivateProfileString(
 					string lpApplicationName,
 					string lpKeyName,
@@ -314,7 +314,7 @@ namespace TBird.Windows
 		public static extern DCSafeHandle IntCreateDC(String lpszDriver,
 			String lpszDeviceName, String lpszOutput, IntPtr devMode);
 
-		[DllImport("kernel32.dll")]
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
 		private static extern int GetShortPathName(string longPath, StringBuilder shortPathBuffer, int bufferSize);
 
 		public static string GetShortPathName(string longpath)
