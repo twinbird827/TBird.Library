@@ -3,7 +3,7 @@
 このファイルは Claude Code が本プロジェクトを実装する際に常時参照する規約ファイルです。
 **何を作るか**は `新刊チェッカー_要件定義書.md` を正とし、本ファイルは**どう作るか・どこに何があるか・既存資産は何か**を定義します。両者が食い違う場合、ライブラリ・実装詳細・コーディング規約は本ファイルを優先してください。
 
-> ℹ️ **記入状況（2026-06-01 更新）**: 旧 `<!-- TODO: 開発者記入 -->` プレースホルダ（NuGet バージョン・命名規則の独自規約・既存ライブラリ §5）はリポジトリ内の既存 TBird.* 資産を調査して記入済み。残る開発者の手作業は **秘密情報の実値配置**（§6 の `Secrets.cs` をローカルに作成。Git 管理外）と、実装着手時の **§2「実装時に公式ドキュメントで確認すべき項目」の検証**のみ。記載と実コードが食い違った場合は実コード（既存ライブラリのシグネチャ）を正とし、本ファイルを更新すること。
+> ℹ️ **記入状況（2026-06-01 更新）**: 旧 `<!-- TODO: 開発者記入 -->` プレースホルダ（NuGet バージョン・命名規則の独自規約・既存ライブラリ §5）はリポジトリ内の既存 TBird.* 資産を調査して記入済み。残る開発者の手作業は **秘密情報の実値配置**（§6 の `Secrets.cs` を `_Tools/NewReleaseChecker/Secrets.cs` に作成。Git 管理外）と、実装着手時の **§2「実装時に公式ドキュメントで確認すべき項目」の検証**のみ。記載と実コードが食い違った場合は実コード（既存ライブラリのシグネチャ）を正とし、本ファイルを更新すること。
 
 ---
 
@@ -155,8 +155,8 @@ _Apps/                          # app-new-book-checker ブランチのアプリ�
 > 2026 年新仕様への対応で楽天 API は中継サーバー（NewReleaseChecker.Relay）経由に移行（`Android引き継ぎメモ.md`）。**楽天 applicationId / accessKey は Android 側で保持しない**（中継サーバーが保持）。Android が持つ秘密情報は**中継サーバーとの共有シークレット `RelayServerApiKey` のみ**。
 
 - `RelayServerApiKey` を `Secrets` クラスに集約し、全 API リクエストの `X-Relay-Auth` ヘッダで送る（`MauiProgram` で HttpClient のデフォルトヘッダに設定）。値は中継サーバー側 `appsettings.Secrets.json` の `RelayAuth:SharedSecret` と**一致させる**。
-- `Secrets.cs` は **`.gitignore` で Git 管理から除外**する。リポジトリには `Secrets.cs.example`（ダミー値の見本）のみコミット。
-- **キー値はこのファイルにも要件定義書にも書かない**。開発者がローカルの `Secrets.cs` に直接配置する。
+- `Secrets.cs` は **`_Tools/NewReleaseChecker/Secrets.cs` に置き**（`_Tools/` は gitignore 済み）、csproj が `Compile Link` で取り込む。`_Apps` 内に置くとブランチ切替の掃除で消えるため。リポジトリには `Secrets.cs.example`（ダミー値の見本）のみコミット。
+- **キー値はこのファイルにも要件定義書にも書かない**。開発者が `_Tools/NewReleaseChecker/Secrets.cs` に直接配置する。
 - `Secrets` は `ISecretsProvider` 越しに参照し、将来「環境変数/CI Secretsから読む実装」へ差し替え可能にする。
 
 ```csharp
@@ -166,7 +166,7 @@ public interface ISecretsProvider
     string RelayServerApiKey { get; } // 中継サーバーとの共有シークレット（X-Relay-Auth で送信）
 }
 
-// 例: NewReleaseChecker.App/Secrets.cs （.gitignore 対象。コミットしない）
+// 例: _Tools/NewReleaseChecker/Secrets.cs （.gitignore 対象。コミットしない）
 internal sealed class Secrets : ISecretsProvider
 {
     public string RelayServerApiKey => "ここに中継サーバー側と同じ共有シークレットを記入";

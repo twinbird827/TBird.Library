@@ -3,7 +3,7 @@
 このファイルは Claude Code が **新刊チェッカー楽天API中継サーバー（NewReleaseChecker.Relay）** を実装する際に常時参照する規約ファイルです。
 **何を作るか**は `中継サーバー_要件定義書.md` を正とし、本ファイルは**どう作るか・どこに何があるか・サーバー構築手順**を定義します。両者が食い違う場合、ライブラリ・実装詳細・コーディング規約は本ファイルを優先してください。
 
-> ℹ️ **記入状況**: NuGet バージョンは実装時に最新安定版を確認のうえ更新すること。残る開発者手作業は **§5 秘密情報の実値配置**（`appsettings.Secrets.json` をローカル/サーバーに作成、Git 管理外）と、**§8〜10 のサーバー構築（IIS・証明書・楽天アプリ登録）**。
+> ℹ️ **記入状況**: NuGet バージョンは実装時に最新安定版を確認のうえ更新すること。残る開発者手作業は **§5 秘密情報の実値配置**（`appsettings.Secrets.json` を `_Tools/NewReleaseChecker/` に作成、Git 管理外）と、**§8〜10 のサーバー構築（IIS・証明書・楽天アプリ登録）**。
 
 ---
 
@@ -46,7 +46,7 @@ NewReleaseChecker.Relay/
 │   ├── Program.cs                      # エントリポイント・DI・ミドルウェア・エンドポイント定義
 │   ├── appsettings.json                # 公開設定（リッスンポート・上流URL・レート制限値）
 │   ├── appsettings.Production.json     # 本番上書き（コミット可、機密値は含めない）
-│   ├── appsettings.Secrets.json        # ★Git管理外（applicationId, accessKey, sharedSecret）
+│   ├── appsettings.Secrets.json        # ★Git管理外（applicationId, accessKey, sharedSecret）。正本は _Tools/NewReleaseChecker/ にあり csproj がリンク
 │   ├── appsettings.Secrets.json.example # 雛形（コミット可）
 │   ├── web.config                      # IIS in-process 用（dotnet publish が自動生成）
 │   ├── Endpoints/
@@ -105,10 +105,10 @@ NewReleaseChecker.Relay/
 3. **共有シークレット**（Android アプリとの相互認証用。**新規生成すること**）
 
 ### 配置方法
-`appsettings.Secrets.json` に集約。**サーバーへの手動配置のみ**、Git にはコミットしない。
+`appsettings.Secrets.json` に集約。**正本は `_Tools/NewReleaseChecker/appsettings.Secrets.json`** に置き、csproj がリンクして bin と publish 出力へ写す。Git にはコミットしない。
 
 ```jsonc
-// appsettings.Secrets.json（Git 管理外、本番サーバーにのみ配置）
+// appsettings.Secrets.json（Git 管理外。正本は _Tools/NewReleaseChecker/ に置く）
 {
   "Rakuten": {
     "ApplicationId": "ここに楽天アプリID",
@@ -151,7 +151,7 @@ appsettings.Secrets.json
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-    .AddJsonFile("appsettings.Secrets.json", optional: false, reloadOnChange: false); // Secrets を必須に
+    .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.Secrets.json"), optional: false, reloadOnChange: false); // Secrets を必須に
 ```
 
 `optional: false` にしておけば、`appsettings.Secrets.json` の配置漏れで即座に起動失敗し、サイレントに壊れた状態で動くのを防げる。
@@ -220,7 +220,7 @@ if (headerBytes.Length != secretBytes.Length ||
   - `LogWarning`: 認証失敗、レート制限超過
   - `LogError`: 楽天 API 接続失敗・タイムアウト、想定外例外（`exception` 引数で渡す）
 - **絶対にログに出さない**: `accessKey`, `applicationId`, `SharedSecret`, `X-Relay-Auth` の値
-- 出力先: 標準では Console のみ。ファイル出力は IIS 配下なら `stdoutLog` を `web.config` で有効化（後述 §10）
+- 出力先: Console と、Warning 以上はイベントログ（Application、ソース `.NET Runtime`）。stdout ログは起動時の障害調査に限る（§10.8）
 
 ### 6.5 `Program.cs` の骨格（参考）
 ```csharp
@@ -229,7 +229,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: false)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
-    .AddJsonFile("appsettings.Secrets.json", optional: false);
+    .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.Secrets.json"), optional: false);
 
 builder.Services.Configure<RakutenOptions>(builder.Configuration.GetSection("Rakuten"));
 builder.Services.Configure<RelayAuthOptions>(builder.Configuration.GetSection("RelayAuth"));
@@ -356,7 +356,7 @@ C:\win-acme> wacs.exe
 
 ### 10.2 ASP.NET Core Hosting Bundle のインストール
 IIS で ASP.NET Core アプリを動かすために必須。
-1. https://dotnet.microsoft.com/download/dotnet/9.0 から **「ASP.NET Core Runtime → Hosting Bundle」** をダウンロード
+1. https://dotnet.microsoft.com/download/dotnet/10.0 から **「ASP.NET Core Runtime → Hosting Bundle」** をダウンロード
 2. インストーラを実行（IIS が起動していると自動で `AspNetCoreModuleV2` がインストールされる）
 3. インストール後、**IIS を再起動**: 管理者コマンドプロンプトで `iisreset`
 
@@ -376,55 +376,61 @@ IIS で ASP.NET Core アプリを動かすために必須。
 2. 設定:
    - **サイト名**: `NewReleaseChecker.Relay`
    - **アプリケーション プール**: `NewReleaseCheckerRelayPool`
-   - **物理パス**: `C:\inetpub\NewReleaseChecker.Relay\`（任意。後で publish 先として使う）
+   - **物理パス**: `<リポジトリ>\_Tools\NewReleaseChecker\bin\`（`deploy.ps1` の配備物フォルダ）
    - **バインディング**:
      - **種類**: `https`
      - **ホスト名**: `kaz.server-on.net`
      - **ポート**: `443`
      - **SSL 証明書**: ここでは「未選択のまま」OK（§9 の win-acme が後で自動設定）
    - **HTTP も追加**: 後で 80 番のバインディングを追加する（Let's Encrypt の HTTP-01 チャレンジ用）。サイト → 「バインディング」 → 「追加」 → HTTP / ホスト名 `kaz.server-on.net` / ポート `80`
-3. 物理パスのフォルダを作成し、IIS_IUSRS グループに読み取り権限を付与（デフォルトで付くはず）
+3. 物理パスへの権限は §10.7 で付ける（`_Tools` 配下には IIS の既定の権限が付かない）
 
 ### 10.5 ファイアウォール
 - Windows ファイアウォールで **TCP 443、TCP 80** の受信を許可（IIS インストール時に通常自動で許可される）
 
 ### 10.6 公開・配置
-ローカル開発機で:
+IIS を動かす PC で、リポジトリのルートから:
 ```
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <リポジトリ>\_Apps\deploy.ps1
 ```
 
-生成された `./publish` の中身を、サーバーの `C:\inetpub\NewReleaseChecker.Relay\` にコピー。
+`_Tools\NewReleaseChecker\bin\`（配備物フォルダ）へ publish される。稼働中でも `app_offline.htm` で止めてから入れ替えるので、手で止める必要はない。
 
-**含まれるべきファイル**:
+**配備物フォルダに入るもの**:
 - `NewReleaseChecker.Relay.dll`, `NewReleaseChecker.Relay.exe`
 - `appsettings.json`, `appsettings.Production.json`
+- `appsettings.Secrets.json`（正本 `_Tools\NewReleaseChecker\appsettings.Secrets.json` の写し。配備のたびに上書き）
 - `web.config`（publish で自動生成）
 - 各種依存 DLL
 
-**配置先で別途用意**:
-- `appsettings.Secrets.json`（**Git・publish 出力どちらにも含まれないので手動配置**）
+正本の `appsettings.Secrets.json` が無いと `deploy.ps1` は publish せずにエラーで止まる。
 
 ### 10.7 アクセス権
-- アプリプールの ID（`IIS AppPool\NewReleaseCheckerRelayPool`）に対し、サイト物理パスへの**読み取り権限**を付与
-- ログを書き出すフォルダ（後述）には**書き込み権限**を追加
+PC の構築時に 1 回だけ、リポジトリのルートで実行する（自分のフォルダの ACL を変えるだけなので管理者権限は要らない）:
+```
+icacls _Tools\NewReleaseChecker\bin /grant "IIS AppPool\NewReleaseCheckerRelayPool:(OI)(CI)RX"
+mkdir _Tools\NewReleaseChecker\logs
+icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayPool:(OI)(CI)M"
+```
+- `bin` は配備物フォルダ（読み取りと実行）、`logs` は §10.8 の stdout ログの書き出し先（変更）
 
-### 10.8 stdout ログの有効化（任意・推奨）
-`web.config` の `<aspNetCore ... />` 要素を編集:
+### 10.8 障害の調べ方（stdout ログは調査時のみ）
+- まずイベントビューアーの Application ログ（ソース `.NET Runtime`）を見る。stdout ログが無効でも、起動時のエラーとアプリの Warning 以上のログはここに出る
+- それで足りないときだけ stdout ログを使う。配備物フォルダの `web.config` の `<aspNetCore ... />` 要素を編集する:
 ```xml
 <aspNetCore processPath="dotnet"
             arguments=".\NewReleaseChecker.Relay.dll"
             stdoutLogEnabled="true"
-            stdoutLogFile=".\logs\stdout"
+            stdoutLogFile="..\logs\stdout"
             hostingModel="inprocess" />
 ```
-- `logs` フォルダをサイト物理パス配下に作成
-- アプリプール ID にそのフォルダへの**書き込み権限**を付与
+- `..\logs\stdout` は配備物フォルダの外（`_Tools\NewReleaseChecker\logs\`、§10.7 で書き込み権限を付与済み）に書かせるため
+- `web.config` は publish のたびに作り直されるので、次の `deploy.ps1` で無効に戻る
 
 ### 10.9 楽天アプリ登録 → Secrets 配置
 1. §8 の手順で楽天アプリを登録し、`applicationId` と `accessKey` を取得
 2. §5 の手順で共有シークレットを生成
-3. `appsettings.Secrets.json` をサーバーの `C:\inetpub\NewReleaseChecker.Relay\` に配置（中身は §5 のテンプレート）
+3. `appsettings.Secrets.json` を `_Tools\NewReleaseChecker\appsettings.Secrets.json` に置き（中身は §5 のテンプレート）、§10.6 の `deploy.ps1` を実行する
 
 ### 10.10 起動確認
 1. IIS マネージャーでサイトを「開始」（または `iisreset`）
@@ -451,18 +457,26 @@ dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
 
 ## 12. デプロイの実運用
 
-### 初回
-1. §8 楽天アプリ登録
-2. §10.1〜10.5 IIS セットアップ
-3. §10.6 publish & 配置
-4. §10.7〜10.9 権限・ログ・Secrets 配置
-5. §9 Let's Encrypt 証明書取得
-6. §10.10 起動確認
+### 初回（別の PC でリポジトリを同期して構築するときもこの手順）
+1. 前提ソフト: Git と .NET 10 SDK（その PC で publish するため）を入れる。IIS の有効化は §10.1、Hosting Bundle は §10.2 で入れる
+2. リポジトリ: clone する（既にあれば pull する）。`git checkout app-new-book-checker` で切り替え、clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` を実行する
+3. 秘密ファイル: `_Tools/NewReleaseChecker/appsettings.Secrets.json` を元の PC から手作業（USB メモリ等）で複製する。クラウド共有・チャット・メールは使わない。手元に無ければ §10.9 で作る。SharedSecret を新しく作った場合は、App 側の `_Tools/NewReleaseChecker/Secrets.cs` の `RelayServerApiKey` も同じ値にし、Android アプリを再ビルドして端末へ入れ直す
+4. ローカル起動確認: IIS を入れる前に `dotnet run --project _Apps/NewReleaseChecker.Relay/NewReleaseChecker.Relay/NewReleaseChecker.Relay.csproj --urls http://localhost:5199` で起動し、`http://localhost:5199/healthz` が 200 を返すことを確かめてから止める（秘密ファイルとビルドの不備を IIS の問題と切り分けるため）
+5. 配備: §10.6（`deploy.ps1`）
+6. IIS 構築: §10.1〜§10.5、権限は §10.7
+7. 旧 PC からサーバを移す場合: §11 のポート転送先を新しい PC の内部 IP に変える。§9 の証明書は新しい PC で取り直す（証明書と自動更新タスクは、win-acme を実行した旧 PC 側にある）。新しい PC での確認が済んでから旧 PC のサイトを止める
+8. 証明書: §9（移行でない新規構築の場合）
+9. 起動確認: §10.10
+
+### 稼働（開始・停止）
+- IIS マネージャーでサイトを「開始」「停止」する
+- 設定（正本の秘密ファイルを含む）を変えたら `deploy.ps1` を実行する（配備物フォルダの設定は配備のたびに正本から上書きされる）
+- `iisreset` は同じ PC 上の全サイトを再起動する
+- 障害の調べ方は §10.8 を参照する
+- PC を再起動したあとの操作は要らない（IIS が自動で開始し、最初の要求でアプリが起動する）
 
 ### 更新時（コード変更時）
-1. ローカルで `dotnet publish`
-2. サーバーにファイルコピー（`appsettings.Secrets.json` は触らない）
-3. IIS マネージャーでサイト/アプリプールを「リサイクル」（または `iisreset`）
+1. `git pull` してから §10.6 の `deploy.ps1` を実行する（`app_offline.htm` で止めて入れ替え、次の要求で新しい版が起動する）
 
 ### 証明書更新
 - win-acme が自動でやってくれる。タスクスケジューラに登録されたタスクが期限 30 日前から毎日チェック
@@ -486,5 +500,5 @@ dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
 | # | 項目 | 扱い |
 |---|---|---|
 | TBD-R-001 | サーバー監視 | 個人用のため未対応 |
-| TBD-R-002 | ログローテーション | IIS の stdout ログは日次ロール程度で十分。問題が起きたら検討 |
+| TBD-R-002 | ログローテーション | stdout ログは常用しない（§10.8）。常時の記録はイベントログに任せる |
 | TBD-R-003 | 複数クライアント | 共有シークレットを複数発行する設計に拡張する場合は別途 |

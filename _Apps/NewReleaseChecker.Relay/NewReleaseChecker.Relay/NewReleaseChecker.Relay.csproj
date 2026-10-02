@@ -9,11 +9,11 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
-  <!-- 機密設定: ローカル実行時のみ bin へコピーし、publish 出力には含めない（サーバーへ手動配置する） -->
+  <!-- 機密設定: 正本は _Tools/NewReleaseChecker/appsettings.Secrets.json。bin と publish 出力（= deploy.ps1 の配備物フォルダ）へ写す -->
   <ItemGroup>
-    <Content Update="appsettings.Secrets.json" Condition="Exists('appsettings.Secrets.json')">
+    <Content Include="..\..\..\_Tools\NewReleaseChecker\appsettings.Secrets.json" Link="appsettings.Secrets.json" Condition="Exists('..\..\..\_Tools\NewReleaseChecker\appsettings.Secrets.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 

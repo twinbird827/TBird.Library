@@ -11,10 +11,11 @@ using NewReleaseChecker.Relay.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // 設定読み込み: Secrets を必須にして配置漏れを起動時に検出する（サイレントに壊れた状態で動かさない）。
+// Secrets は実行ファイルのフォルダ（開発時は bin、IIS では配備物フォルダ）から読む。dotnet run では ContentRoot がプロジェクトフォルダになるため。
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-    .AddJsonFile("appsettings.Secrets.json", optional: false, reloadOnChange: false);
+    .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.Secrets.json"), optional: false, reloadOnChange: false);
 
 // 設定（IOptions パターン）。
 builder.Services.Configure<RakutenOptions>(builder.Configuration.GetSection(RakutenOptions.SectionName));
