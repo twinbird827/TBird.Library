@@ -7,7 +7,7 @@
 # 切替前が null-sha（全桁 0）なら clone / git worktree add
 case "$1" in *[!0]*) ;; *) exit 0 ;; esac
 # .sln / .csproj に差分が無い切替（csproj を変えない fix/* との往復）では消さない
-git diff --quiet "$1" "$2" -- '_Apps/*.sln' '_Apps/*.csproj' '_Core/*.csproj' '_Browser/*.csproj' && exit 0
+git diff --quiet "$1" "$2" -- '_Apps/*.sln' '_Apps/*.csproj' '_Core/*.sln' '_Core/*.csproj' '_Browser/*.sln' '_Browser/*.csproj' && exit 0
 
 git clean -fdX -- _Apps _Core _Browser
 # フックの終了コードが checkout / switch の終了コードになるため、消せなかったファイルは stderr の警告だけ残して 0 で終える
