@@ -20,14 +20,40 @@ namespace TBird.Core
 
 		/// <summary>
 		/// ﾃﾞｨﾚｸﾄﾘを移動します。
+		/// 別ﾎﾞﾘｭｰﾑへの移動はｺﾋﾟｰと削除で行います。
+		/// 移動に失敗したときは、移動先にあったﾃﾞｨﾚｸﾄﾘを元に戻します。
 		/// </summary>
 		/// <param name="src">移動元</param>
 		/// <param name="dst">移動先</param>
 		public static void Move(string src, string dst, bool overwrite = true)
 		{
-			if (overwrite) Delete(dst);
+			var exists = Directory.Exists(dst);
+			if (exists && !overwrite) throw new IOException($"{typeof(DirectoryUtil).Str()}.{nameof(Move)} {dst} already exists.");
 
-			Directory.Move(src, dst);
+			// 移動先は削除せず、成功するまで同じ親ﾃﾞｨﾚｸﾄﾘへ退避しておく
+			var backup = exists ? $"{Path.GetFullPath(dst).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)}.{Guid.NewGuid()}" : null;
+			if (backup != null) Directory.Move(dst, backup);
+
+			var samevolume = string.Equals(
+				Path.GetPathRoot(Path.GetFullPath(src)),
+				Path.GetPathRoot(Path.GetFullPath(dst)),
+				StringComparison.OrdinalIgnoreCase
+			);
+
+			try
+			{
+				if (samevolume) Directory.Move(src, dst);
+				else Copy(src, dst);
+			}
+			catch
+			{
+				Delete(dst);
+				if (backup != null) Directory.Move(backup, dst);
+				throw;
+			}
+
+			if (backup != null) Delete(backup);
+			if (!samevolume) Delete(src);
 		}
 
 		/// <summary>
