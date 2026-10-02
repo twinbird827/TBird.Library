@@ -35,10 +35,11 @@ namespace PDF2JPG
 			// 実行ﾊﾟﾗﾒｰﾀに対して処理実行
 			var results = await Task.WhenAll(executes);
 
-			if (results.Contains(false))
+			// ｴﾗｰがあったら異常終了する。(ｺﾝｿｰﾙ表示とexit codeは基底の例外処理に任せる)
+			var failed = results.Count(x => !x);
+			if (0 < failed)
 			{
-				// ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
-				Pause(options);
+				throw new InvalidOperationException($"{failed} 件のPDFﾌｧｲﾙの変換に失敗しました。");
 			}
 		}
 
@@ -76,9 +77,6 @@ namespace PDF2JPG
 
 				// PDFﾌｧｲﾙを画像ﾌｧｲﾙに変換
 				await PdfUtil.Pdf2Jpg(pdftemp, AppSetting.Instance.NumberOfParallel, AppSetting.Instance.Dpi);
-
-				// ﾌｧｲﾙ名を連番にする。
-				DirectoryUtil.OrganizeNumber(dirtemp);
 
 				// 処理後ﾃﾞｨﾚｸﾄﾘに移動
 				DirectoryUtil.Move(dirtemp, dircomp);
