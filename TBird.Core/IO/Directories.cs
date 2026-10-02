@@ -24,9 +24,6 @@ namespace TBird.Core
 		/// <summary>ﾐｭｰｼﾞｯｸﾌｫﾙﾀﾞ</summary>
 		public static string MusicDirectory => Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
 
-		/// <summary>一時ﾃﾞｨﾚｸﾄﾘ</summary>
-		public static string TemporaryDirectory => Path.GetTempPath();
-
 		/// <summary>ﾀﾞｳﾝﾛｰﾄﾞﾌｫﾙﾀﾞ</summary>
 		public static string DownloadDirectory
 		{
