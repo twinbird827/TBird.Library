@@ -20,7 +20,8 @@ namespace TBird.IO.Pdf
 
 			GhostscriptWrapper.Pdf2Image(
 				pdffile,
-				Path.Combine(jpgdir, jpgexp),
+				// gs は OutputFile の % を書式指定として扱うため、ﾌｫﾙﾀﾞ側だけ %% にして jpgexp の %d は連番の書式として残す
+				Path.Combine(jpgdir.Replace("%", "%%"), jpgexp),
 				GhostscriptDevices.jpeg,
 				new Size(dpi, dpi),
 				GhostscriptPageSizes.a1,
