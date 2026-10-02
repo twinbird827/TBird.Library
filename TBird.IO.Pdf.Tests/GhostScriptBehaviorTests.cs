@@ -39,6 +39,8 @@ namespace TBird.IO.Pdf.Tests
 		[TestCase("ok7", 7, true, 7, true, 7, "a(1")]
 		[TestCase("ok7", 7, true, 7, true, 7, "c;1")]
 		[TestCase("ok7", 7, true, 7, true, 7, "d;;1")]
+		// #235: PDF と同名の出力ﾌｫﾙﾀﾞの % を gs が OutputFile の書式指定として消費しないことを確かめる
+		[TestCase("ok7", 7, true, 7, true, 7, "p%1")]
 		public async Task FixtureBehavior(string fixture, int? pagesize, bool pdf2jpg, int? jpegs, bool put, int? pagesizeAfterPut, string? name = null)
 		{
 			var src = Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", fixture + ".pdf");
@@ -82,6 +84,29 @@ namespace TBird.IO.Pdf.Tests
 			Assert.That(await Succeeds(() => PdfUtil.PutPageNumberAsync(cafe1)), Is.False);
 			Assert.That(File.ReadAllBytes(cafe1), Is.EqualTo(bytes1));
 			Assert.That(File.ReadAllBytes(cafe2), Is.EqualTo(bytes2));
+		}
+
+		[Test]
+		public async Task PutPageNumberSucceedsWithPercentInTempPath()
+		{
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, "tmppct");
+			if (Directory.Exists(work)) Directory.Delete(work, true);
+			var tmp = Directory.CreateDirectory(Path.Combine(work, "t%1")).FullName;
+			var pdf = CopyTo(Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", "ok7.pdf"), work, "ok7.pdf");
+			var original = File.ReadAllBytes(pdf);
+
+			// #235: 一時ﾌｧｲﾙは子ﾌﾟﾛｾｽの Path.GetTempPath() 配下に作られるため、継承される TMP を % を含むﾌｫﾙﾀﾞへ差し替える。
+			var saved = Environment.GetEnvironmentVariable("TMP");
+			try
+			{
+				Environment.SetEnvironmentVariable("TMP", tmp);
+				Assert.That(await Succeeds(() => PdfUtil.PutPageNumberAsync(pdf)), Is.True);
+			}
+			finally
+			{
+				Environment.SetEnvironmentVariable("TMP", saved);
+			}
+			Assert.That(File.ReadAllBytes(pdf), Is.Not.EqualTo(original));
 		}
 
 		[DllImport("kernel32.dll")]

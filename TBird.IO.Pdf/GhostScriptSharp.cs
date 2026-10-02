@@ -127,7 +127,8 @@ namespace GhostscriptSharp
 				"-sDEVICE=pdfwrite",
 				"-dPDFSETTINGS=/prepress",
 				"-o",
-				GetPath(tmpout),
+				// -o も OutputFile と同じく % を書式指定として扱い、一時ﾌｫﾙﾀﾞのﾊﾟｽは % を含みうるため %% にする
+				GetPath(tmpout).Replace("%", "%%"),
 				"-c",
 				script,
 				"-f",
