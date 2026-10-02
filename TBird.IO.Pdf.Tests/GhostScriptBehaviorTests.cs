@@ -35,15 +35,19 @@ namespace TBird.IO.Pdf.Tests
 		[TestCase("mid_over", 10, false, 7, true, 7)]
 		// ok7 の子 A を /Count 1
 		[TestCase("a_under", 6, true, 6, true, 6)]
-		public async Task FixtureBehavior(string fixture, int? pagesize, bool pdf2jpg, int? jpegs, bool put, int? pagesizeAfterPut)
+		// #232: gs へ渡すﾊﾟｽの対でない括弧・; を、ok7 をその名前にｺﾋﾟｰして確かめる
+		[TestCase("ok7", 7, true, 7, true, 7, "a(1")]
+		[TestCase("ok7", 7, true, 7, true, 7, "c;1")]
+		[TestCase("ok7", 7, true, 7, true, 7, "d;;1")]
+		public async Task FixtureBehavior(string fixture, int? pagesize, bool pdf2jpg, int? jpegs, bool put, int? pagesizeAfterPut, string? name = null)
 		{
 			var src = Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", fixture + ".pdf");
-			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, fixture);
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, name ?? fixture);
 
 			// Pdf2Jpg は前回の JPEG が残ると枚数が増え、PutPageNumber は原本を置換するため、毎回作り直して別ｺﾋﾟｰで処理する。
 			if (Directory.Exists(work)) Directory.Delete(work, true);
-			var jpgpdf = CopyTo(src, Path.Combine(work, "jpg"));
-			var putpdf = CopyTo(src, Path.Combine(work, "put"));
+			var jpgpdf = CopyTo(src, Path.Combine(work, "jpg"), (name ?? fixture) + ".pdf");
+			var putpdf = CopyTo(src, Path.Combine(work, "put"), (name ?? fixture) + ".pdf");
 
 			Assert.That(await GetPageSizeOrNull(jpgpdf), Is.EqualTo(pagesize));
 
@@ -83,9 +87,9 @@ namespace TBird.IO.Pdf.Tests
 		[DllImport("kernel32.dll")]
 		private static extern int GetACP();
 
-		private static string CopyTo(string src, string dir)
+		private static string CopyTo(string src, string dir, string filename)
 		{
-			var dst = Path.Combine(Directory.CreateDirectory(dir).FullName, Path.GetFileName(src));
+			var dst = Path.Combine(Directory.CreateDirectory(dir).FullName, filename);
 			File.Copy(src, dst);
 			return dst;
 		}

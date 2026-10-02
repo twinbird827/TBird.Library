@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using TBird.Core;
 
 namespace GhostscriptSharp.API
@@ -149,14 +150,17 @@ namespace GhostscriptSharp
 
 		public static int GetPageSize(string path)
 		{
+			var gspath = GetPath(path);
 			var args = new string[]
 			{
 				"gs",	// dummy
 				"-q",
 				"-dNODISPLAY",
-				$"--permit-file-read={GetPath(path)}",
+				// gs は ; でﾊﾟｽﾘｽﾄを分割し ; のｴｽｹｰﾌﾟ記法が無いため、ﾜｲﾙﾄﾞｶｰﾄﾞ * で代える(** は不可なので連続 ; は 1 つの * にする)。
+				$"--permit-file-read={Regex.Replace(gspath, ";+", "*")}",
 				"-c",
-				$"({GetPath(path)}) (r) file runpdfbegin pdfpagecount = quit"
+				// PostScript の文字列ﾘﾃﾗﾙは対でない括弧で構文ｴﾗｰになるため ( ) をｴｽｹｰﾌﾟする(\ は GetPath で / 済み)。
+				$"({gspath.Replace("(", "\\(").Replace(")", "\\)")}) (r) file runpdfbegin pdfpagecount = quit"
 			};
 
 			// 成功時も quit により -101(gs_error_Quit) が返るため戻り値では判定しない。
