@@ -1,5 +1,5 @@
 ﻿using System.Data.Common;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using TBird.Core;
 
 namespace TBird.DB.SQLServer
@@ -21,9 +21,10 @@ namespace TBird.DB.SQLServer
 				Password = dic.Get("password"),
 				InitialCatalog = dic.Get("initialcatalog", "master"),
 				ConnectTimeout = int.Parse(dic.Get("connecttimeout", "15000")),
+				TrustServerCertificate = bool.Parse(dic.Get("trustservercertificate", "false")),
 			};
 
-			return new SqlConnection(builder.ToString());
+			return new SqlConnection(builder.ToString()); ;
 		}
 	}
 }

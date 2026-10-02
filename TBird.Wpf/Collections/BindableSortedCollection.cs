@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using TBird.Core;
 
 namespace TBird.Wpf.Collections
@@ -8,25 +10,25 @@ namespace TBird.Wpf.Collections
 	{
 		private Func<T, T, int> _func;
 
-		internal BindableSortedCollection(BindableCollection<T> collection, Func<T, T, int> func) : base(collection)
+		internal BindableSortedCollection(BindableCollection<T> collection, Func<T, T, int> func) : base(collection, false)
 		{
 			_func = func;
 
-			collection.ForEach(item => Add(item));
+			AddRange(collection);
 
-			AddCollectionChanged(collection, (sender, e) =>
+			AddBindableCollectionChanged((sender, e) =>
 			{
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Add((T)e.NewItems[0]);
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Remove:
-						Remove((T)e.OldItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						Remove((T)e.OldItems[0]);
-						Add((T)e.NewItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
@@ -42,6 +44,11 @@ namespace TBird.Wpf.Collections
 			base.Insert(GetIndex(new FindIndex(0, Count - 1), item), item);
 		}
 
+		public override void AddRange(IEnumerable<T> items)
+		{
+			items.ForEach(item => Add(item));
+		}
+
 		public override void Insert(int index, T item)
 		{
 			throw new NotSupportedException(nameof(Insert));
@@ -54,6 +61,11 @@ namespace TBird.Wpf.Collections
 
 		private int GetIndex(FindIndex find, T item)
 		{
+			if (find.Count == 1)
+			{
+				return _func(item, this[find.Start]) < 0 ? 0 : 1;
+			}
+
 			if (find.Start == find.End || find.End < 0) return find.Start;
 
 			if (find.Count == 2)
@@ -100,13 +112,10 @@ namespace TBird.Wpf.Collections
 
 		public static BindableSortedCollection<T> ToBindableSortedCollection<T>(this BindableCollection<T> collection, Func<T, IComparable> func, bool isDescending)
 		{
-			Func<T, T, T> getsrc = isDescending ? (src, dst) => dst : (src, dst) => src;
-			Func<T, T, T> getdst = isDescending ? (src, dst) => src : (src, dst) => dst;
-
 			return new BindableSortedCollection<T>(collection, (src, dst) =>
 			{
-				var scomparable = func(getsrc(src, dst));
-				var dcomparable = func(getdst(src, dst));
+				var scomparable = func(isDescending ? dst : src);
+				var dcomparable = func(isDescending ? src : dst);
 
 				if (scomparable != null)
 				{

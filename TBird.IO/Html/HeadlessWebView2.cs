@@ -35,7 +35,7 @@ namespace TBird.IO.Html
 		/// <returns></returns>
 		public static async Task Call(Uri uri, Func<WebView2, Task> func)
 		{
-			var dispatcher = await GetSTADispatcher();
+			var dispatcher = await GetSTADispatcher().ConfigureAwait(false);
 
 			var tcs = new TaskCompletionSource<Task>();
 			dispatcher.Invoke(() =>
@@ -48,8 +48,8 @@ namespace TBird.IO.Html
 					tcs.SetResult(func(view));
 				};
 			});
-			await tcs.Task;
-			await tcs.Task.Result;
+			await tcs.Task.ConfigureAwait(false);
+			await tcs.Task.Result.ConfigureAwait(false);
 
 			if (dispatcher != null)
 			{

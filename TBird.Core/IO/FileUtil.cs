@@ -10,8 +10,6 @@ namespace TBird.Core
 {
 	public static class FileUtil
 	{
-		private static string ToShort(string s) => Directories.GetShortPathName(s);
-
 		/// <summary>
 		/// 対象のﾊﾟｽ名に使用できない文字が含まれていないか確認します。
 		/// </summary>
@@ -72,7 +70,7 @@ namespace TBird.Core
 				Move(src, GetFullPathWithoutExtension(dst) + "-COPY" + Path.GetExtension(dst).NotNull(), overwrite);
 				return;
 			}
-			File.Move(ToShort(src), ToShort(dst));
+			File.Move(src, dst);
 		}
 
 		/// <summary>
@@ -81,7 +79,7 @@ namespace TBird.Core
 		/// <param name="file">削除するﾌｧｲﾙ</param>
 		public static void Delete(string file)
 		{
-			if (File.Exists(ToShort(file))) File.Delete(ToShort(file));
+			if (File.Exists(file)) File.Delete(file);
 		}
 
 		/// <summary>
@@ -91,11 +89,12 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static Task<bool> Exists(string file)
 		{
-			return TaskUtil.WaitAsync(file, s => File.Exists(ToShort(s)));
+			return TaskUtil.WaitAsync(file, s => File.Exists(s));
 		}
 
 		/// <summary>
 		/// 指定したﾌｧｲﾙを非同期でｺﾋﾟｰします。
+		/// ｺﾋﾟｰ元が書き込み用に開かれていてもｺﾋﾟｰします。その場合の整合性は呼び出し元が保証してください。
 		/// </summary>
 		/// <param name="src">ｺﾋﾟｰ元ﾌｧｲﾙ</param>
 		/// <param name="dst">ｺﾋﾟｰ先ﾌｧｲﾙ</param>
@@ -108,6 +107,7 @@ namespace TBird.Core
 
 		/// <summary>
 		/// 指定したﾌｧｲﾙを非同期でｺﾋﾟｰします。
+		/// ｺﾋﾟｰ元が書き込み用に開かれていてもｺﾋﾟｰします。その場合の整合性は呼び出し元が保証してください。
 		/// </summary>
 		/// <param name="src">ｺﾋﾟｰ元ﾌｧｲﾙ</param>
 		/// <param name="dst">ｺﾋﾟｰ先ﾌｧｲﾙ</param>
@@ -117,10 +117,10 @@ namespace TBird.Core
 		{
 			var buffersize = 1 * 1024 * 1024;
 
-			using (var ss = new FileStream(ToShort(src), FileMode.Open, FileAccess.Read, FileShare.Read, buffersize, true))
-			using (var ds = new FileStream(ToShort(dst), FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
+			using (var ss = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, buffersize, true))
+			using (var ds = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, buffersize, true))
 			{
-				await ss.CopyToAsync(ds, buffersize, cts.Token);
+				await ss.CopyToAsync(ds, buffersize, cts.Token).ConfigureAwait(false);
 			}
 		}
 
@@ -164,9 +164,9 @@ namespace TBird.Core
 
 				foreach (var line in lines)
 				{
-					await sw.WriteLineAsync(line);
+					await sw.WriteLineAsync(line).ConfigureAwait(false);
 				}
-				await sw.FlushAsync();
+				await sw.FlushAsync().ConfigureAwait(false);
 			}
 		}
 
@@ -200,4 +200,4 @@ namespace TBird.Core
 			File.WriteAllText(path, results, encoding);
 		}
 	}
-}
+}

@@ -1,7 +1,8 @@
-﻿using System;
+﻿using TBird.Core;
+using System;
 using System.Collections.Specialized;
+using System.Linq;
 using System.Threading.Tasks;
-using TBird.Core;
 
 namespace TBird.Wpf.Collections
 {
@@ -9,22 +10,28 @@ namespace TBird.Wpf.Collections
 		where TSource : class
 		where TResult : class
 	{
-		internal BindableSelectCollection(BindableCollection<TSource> collection, Func<TSource, TResult> func) : base(collection)
+		internal BindableSelectCollection(BindableCollection<TSource> collection, Func<TSource, TResult> func) : base(collection, true)
 		{
-			collection.ForEach(x => Add(func(x)));
+			AddRange(collection.Select(func));
 
-			AddCollectionChanged(collection, (sender, e) =>
+			AddBindableCollectionChanged((sender, e) =>
 			{
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Insert(e.NewStartingIndex, func((TSource)e.NewItems[0]));
+						for (var i = 0; i < e.NewItems.Count; i++)
+						{
+							Insert(e.NewStartingIndex + i, func((TSource)e.NewItems[i]));
+						}
 						break;
 					case NotifyCollectionChangedAction.Remove:
 						RemoveAt(e.OldStartingIndex);
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = func((TSource)e.NewItems[0]);
+						for (var i = 0; i < e.NewItems.Count; i++)
+						{
+							this[e.NewStartingIndex + i] = func((TSource)e.NewItems[i]);
+						}
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();
@@ -35,22 +42,28 @@ namespace TBird.Wpf.Collections
 			});
 		}
 
-		internal BindableSelectCollection(BindableCollection<TSource> collection, Func<TSource, Task<TResult>> func) : base(collection)
+		internal BindableSelectCollection(BindableCollection<TSource> collection, Func<TSource, Task<TResult>> func) : base(collection, true)
 		{
 			InitializeCollection(collection, func);
 
-			AddCollectionChanged(collection, async (sender, e) =>
+			AddBindableCollectionChanged(async (sender, e) =>
 			{
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Insert(e.NewStartingIndex, await func((TSource)e.NewItems[0]));
+						for (var i = 0; i < e.NewItems.Count; i++)
+						{
+							Insert(e.NewStartingIndex + i, await func((TSource)e.NewItems[i]));
+						}
 						break;
 					case NotifyCollectionChangedAction.Remove:
 						RemoveAt(e.OldStartingIndex);
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						this[e.NewStartingIndex] = await func((TSource)e.NewItems[0]);
+						for (var i = 0; i < e.NewItems.Count; i++)
+						{
+							this[e.NewStartingIndex + i] = await func((TSource)e.NewItems[i]);
+						}
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();

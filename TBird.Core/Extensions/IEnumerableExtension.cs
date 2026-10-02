@@ -209,7 +209,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static async Task<IEnumerable<TResult>> Select<TSource, TResult>(this Task<IEnumerable<TSource>> array, Func<TSource, TResult> func)
 		{
-			return (await array).Select(func);
+			return (await array.ConfigureAwait(false)).Select(func);
 		}
 
 		/// <summary>
@@ -246,9 +246,10 @@ namespace TBird.Core
 		{
 			var _dummy = new object();
 			return await array
-				.Select(async x => await func(x) ? x : _dummy)
+				.Select(async x => await func(x).ConfigureAwait(false) ? x : _dummy)
 				.WhenAll()
-				.RunAsync(x => x.OfType<T>());
+				.RunAsync(x => x.OfType<T>())
+				.ConfigureAwait(false);
 		}
 
 		/// <summary>
@@ -261,5 +262,37 @@ namespace TBird.Core
 		{
 			return arr.SelectMany(arr => arr);
 		}
+
+		public static TResult Aggregate<T, TResult>(this IEnumerable<T> arr, Func<IEnumerable<T>, TResult> func, TResult def)
+		{
+			return arr.Any() ? func(arr) : def;
+		}
+
+		public static TResult[] SelectInParallel<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult> processor)
+		{
+			var sourceArray = source.ToArray();
+			var results = new TResult[sourceArray.Length];
+
+			Parallel.For(0, sourceArray.Length, i =>
+			{
+				results[i] = processor(sourceArray[i]);
+			});
+
+			return results;
+		}
+
+		public static TResult[] SelectInParallel<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, int, TResult> processor)
+		{
+			var sourceArray = source.ToArray();
+			var results = new TResult[sourceArray.Length];
+
+			Parallel.For(0, sourceArray.Length, i =>
+			{
+				results[i] = processor(sourceArray[i], i);
+			});
+
+			return results;
+		}
+
 	}
 }

@@ -54,7 +54,7 @@ namespace PDF2JPG
 			}
 
 			// 作業中のPDFﾌｧｲﾙﾊﾟｽ
-			var pdftemp = Path.Combine(Directories.TemporaryDirectory, $"{Guid.NewGuid()}.pdf");
+			var pdftemp = Path.Combine(Directories.TemporaryDirectory, $"{System.Guid.NewGuid()}.pdf");
 			// 作業中のﾃﾞｨﾚｸﾄﾘ
 			var dirtemp = FileUtil.GetFullPathWithoutExtension(pdftemp);
 			// 処理後のﾃﾞｨﾚｸﾄﾘ

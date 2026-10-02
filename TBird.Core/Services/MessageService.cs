@@ -44,6 +44,18 @@ namespace TBird.Core
 		}
 
 		/// <summary>
+		/// 警告をﾒｯｾｰｼﾞ処理します。
+		/// </summary>
+		/// <param name="message">ﾒｯｾｰｼﾞ</param>
+		public static void Warn(string message,
+				[CallerMemberName] string callerMemberName = "",
+				[CallerFilePath] string callerFilePath = "",
+				[CallerLineNumber] int callerLineNumber = 0)
+		{
+			_service.Warn(message, callerMemberName, callerFilePath, callerLineNumber);
+		}
+
+		/// <summary>
 		/// 確認をﾒｯｾｰｼﾞ処理します。
 		/// </summary>
 		/// <param name="message">ﾒｯｾｰｼﾞ</param>
@@ -82,7 +94,7 @@ namespace TBird.Core
 		/// <summary>
 		/// 処理を計測します。
 		/// </summary>
-		public static IDisposable Measure(string? message = null,
+		public static System.IDisposable Measure(string? message = null,
 				[CallerMemberName] string callerMemberName = "",
 				[CallerFilePath] string callerFilePath = "",
 				[CallerLineNumber] int callerLineNumber = 0)
@@ -120,4 +132,4 @@ namespace TBird.Core
 
 		private static object _lock = new object();
 	}
-}
+}
