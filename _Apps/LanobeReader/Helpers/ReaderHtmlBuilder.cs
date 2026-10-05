@@ -1,10 +1,9 @@
 using System.Globalization;
-using System.Text;
 
 namespace LanobeReader.Helpers;
 
 /// <summary>
-/// 縦書き WebView 用の HTML を生成するビルダー。
+/// Reader 画面の WebView に表示する横書き・縦書き両方の HTML を生成するビルダー。
 /// テンプレート本体は Resources/Html/ReaderTemplate.html に EmbeddedResource として格納され、
 /// 初回アクセス時に 1 回だけ読み込んで static キャッシュし、以降はプレースホルダー置換のみ行う。
 /// スタイル値は CSS カスタムプロパティ（--reader-fs 等）に切り出してあり、
@@ -28,7 +27,7 @@ public static class ReaderHtmlBuilder
         return reader.ReadToEnd();
     }
 
-    public static string Build(string content, ReaderCssState state)
+    public static string Build(string content, ReaderCssState state, bool isVerticalWriting)
     {
         var inv = CultureInfo.InvariantCulture;
         var (bgHex, fgHex) = ReaderStyleResolver.ResolveThemeColors(state.BackgroundThemeIndex);
@@ -41,18 +40,7 @@ public static class ReaderHtmlBuilder
             .Replace("__LH__", lhs)
             .Replace("__BG__", bgHex)
             .Replace("__FG__", fgHex)
-            .Replace("__BODY__", BuildBody(content));
-    }
-
-    private static string BuildBody(string content)
-    {
-        var sb = new StringBuilder(content.Length + 256);
-        foreach (var line in content.ReplaceLineEndings("\n").Split('\n'))
-        {
-            sb.Append("<p>");
-            sb.Append(System.Net.WebUtility.HtmlEncode(line));
-            sb.Append("</p>");
-        }
-        return sb.ToString();
+            .Replace("__DIR__", isVerticalWriting ? "vertical" : "horizontal")
+            .Replace("__BODY__", EpisodeContentFormat.ToHtml(content));
     }
 }

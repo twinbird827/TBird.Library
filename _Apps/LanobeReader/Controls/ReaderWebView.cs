@@ -5,7 +5,7 @@ using LanobeReader.Helpers;
 namespace LanobeReader.Controls;
 
 /// <summary>
-/// Reader 画面の縦書き表示用 WebView。
+/// Reader 画面の本文表示用 WebView(横書き・縦書きの両方を表示する)。
 ///
 /// 本コントロールのプロパティ変更通知は UI スレッドからのみ発生する前提で実装されている
 /// （MAUI の BindableProperty 既定動作）。別スレッドから HtmlSource / CssVariables を
@@ -36,13 +36,11 @@ public sealed class ReaderWebView : WebView
     private static void OnHtmlSourceChanged(BindableObject bindable, object oldValue, object newValue)
     {
         var self = (ReaderWebView)bindable;
-        var html = newValue as string;
-        if (string.IsNullOrEmpty(html)) return;
-
         // 新しい HTML をロードする直前に、古い document 向けの保留 CSS を破棄する。
+        // 空のときも空の document を読み込み、読み込み中・失敗時に前の話の本文を残さない。
         self._htmlLoaded = false;
         self._pendingCss = null;
-        self.Source = new HtmlWebViewSource { Html = html };
+        self.Source = new HtmlWebViewSource { Html = newValue as string ?? string.Empty };
     }
 
     // --- CssVariables ---

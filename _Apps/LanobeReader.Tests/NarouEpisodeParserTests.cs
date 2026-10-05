@@ -1,3 +1,4 @@
+using LanobeReader.Helpers;
 using LanobeReader.Services.Narou;
 using NUnit.Framework;
 using TBird.Maui.Web;
@@ -6,10 +7,10 @@ namespace LanobeReader.Tests;
 
 public class NarouEpisodeParserTests
 {
-    // #195: 前書き div が本文 div より前にあると前書きを本文として返していたため、前書き・後書きを持つ HTML から本文だけが返ることを固定する。
+    // #195・#250: 前書き・本文・後書きが区画マーカー付きで DOM 順に並ぶことを固定する(#195 は前書きを本文として返していた)。
 
     [Test]
-    public async Task ExtractContentSkipsPrefaceAndAfterword()
+    public async Task ExtractContentKeepsSectionsInDomOrder()
     {
         const string html = """
             <div class="p-novel__body">
@@ -20,6 +21,59 @@ public class NarouEpisodeParserTests
             """;
         var document = await AngleSharpHelper.ParseAsync(html);
 
-        Assert.That(NarouEpisodeParser.ExtractContent(document), Is.EqualTo("本文1\n本文2"));
+        Assert.That(NarouEpisodeParser.ExtractContent(document), Is.EqualTo(string.Join("\n",
+            EpisodeContentFormat.PrefaceStart, "前書き1", "前書き2",
+            EpisodeContentFormat.BodyStart, "本文1", "本文2",
+            EpisodeContentFormat.AfterwordStart, "後書き1", "後書き2")));
+    }
+
+    // #249: 挿絵の src はプロトコル相対のため、https の絶対 URL のマーカー行にする。
+
+    [Test]
+    public async Task ExtractContentResolvesProtocolRelativeImage()
+    {
+        const string html = """
+            <div class="p-novel__body">
+              <div class="js-novel-text p-novel__text"><p>本文1</p><p id="Lp2"><a href="//27570.mitemin.net/i1199316/" target="_blank"><img src="//27570.mitemin.net/userpageimage/viewimagebig/icode/i1199316/" alt="挿絵(By みてみん)" border="0" /></a></p></div>
+            </div>
+            """;
+        var document = await AngleSharpHelper.ParseAsync(html);
+
+        Assert.That(NarouEpisodeParser.ExtractContent(document), Is.EqualTo(string.Join("\n",
+            EpisodeContentFormat.BodyStart, "本文1",
+            EpisodeContentFormat.ImagePrefix + "https://27570.mitemin.net/userpageimage/viewimagebig/icode/i1199316/")));
+    }
+}
+
+public class EpisodeContentFormatTests
+{
+    [Test]
+    public void ToHtmlWrapsPrefaceAndAfterword()
+    {
+        var content = string.Join("\n",
+            EpisodeContentFormat.PrefaceStart, "前",
+            EpisodeContentFormat.BodyStart, "本",
+            EpisodeContentFormat.AfterwordStart, "後");
+
+        Assert.That(EpisodeContentFormat.ToHtml(content), Is.EqualTo(
+            "<div class=\"preface\"><p>前</p></div><p>本</p><div class=\"afterword\"><p>後</p></div>"));
+    }
+
+    [Test]
+    public void ToHtmlRendersHttpImageOnly()
+    {
+        var content = string.Join("\n",
+            EpisodeContentFormat.ImagePrefix + "https://example.com/a.jpg?x=1&y=2",
+            EpisodeContentFormat.ImagePrefix + "javascript:alert(1)",
+            "\u0001unknown");
+
+        Assert.That(EpisodeContentFormat.ToHtml(content), Is.EqualTo(
+            "<img src=\"https://example.com/a.jpg?x=1&amp;y=2\" alt=\"挿絵\">"));
+    }
+
+    [Test]
+    public void ToHtmlTreatsUnmarkedContentAsBody()
+    {
+        Assert.That(EpisodeContentFormat.ToHtml("一\n\n<二>"), Is.EqualTo("<p>一</p><p></p><p>&lt;二&gt;</p>"));
     }
 }

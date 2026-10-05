@@ -8,7 +8,7 @@ namespace LanobeReader.Services.Database;
 
 public class DatabaseService : SqliteDatabaseBase
 {
-    private const int CURRENT_SCHEMA_VERSION = 6;
+    private const int CURRENT_SCHEMA_VERSION = 7;
 
     public DatabaseService()
         : base(Path.Combine(FileSystem.AppDataDirectory, "lanobereader.db"), CURRENT_SCHEMA_VERSION)
@@ -80,7 +80,8 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
-        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5(), new MigrateToV6() };
+        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5(),
+            new DeleteNarouCacheMigration(5), new DeleteNarouCacheMigration(6) };
 
     protected override async Task<int> ReadSchemaVersionAsync(SQLiteAsyncConnection conn)
     {
@@ -296,16 +297,20 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     /// <summary>
-    /// v5 → v6: Narou 作品の episode_cache を全件削除する。
-    /// 旧本文セレクタは前書きのある話で前書き div にマッチし、本文の代わりに前書きをキャッシュしていた。
-    /// キャッシュは INSERT OR IGNORE で上書きされないため、削除して次回表示時に再取得させる。
+    /// Narou 作品の episode_cache を全件削除する。キャッシュは INSERT OR IGNORE で上書きされないため、
+    /// 削除して次回表示時に再取得させる。
+    /// v5 → v6: 旧本文セレクタは前書きのある話で前書き div にマッチし、本文の代わりに前書きをキャッシュしていた。
+    /// v6 → v7: 旧形式のキャッシュは前書き・後書きを捨て、区画・挿絵のマーカー(EpisodeContentFormat)を持たない。
     /// </summary>
-    private class MigrateToV6 : IMigration
+    private class DeleteNarouCacheMigration : IMigration
     {
-        public int FromVersion => 5;
+        public DeleteNarouCacheMigration(int fromVersion) => FromVersion = fromVersion;
+
+        public int FromVersion { get; }
 
         public async Task ExecuteAsync(SQLiteAsyncConnection conn)
         {
+            var tag = $"[MigrateToV{FromVersion + 1}]";
             try
             {
                 var deleted = await conn.ExecuteAsync(
@@ -313,11 +318,11 @@ public class DatabaseService : SqliteDatabaseBase
                     "  SELECT e.id FROM episodes e JOIN novels n ON n.id = e.novel_id WHERE n.site_type = ?" +
                     ")", (int)SiteType.Narou
                 ).ConfigureAwait(false);
-                MessageService.Info($"[MigrateToV6] Deleted {deleted} Narou episode_cache row(s).");
+                MessageService.Info($"{tag} Deleted {deleted} Narou episode_cache row(s).");
             }
             catch (Exception ex)
             {
-                MessageService.Warn($"[MigrateToV6] Failed: {ex.Message}");
+                MessageService.Warn($"{tag} Failed: {ex.Message}");
                 throw;
             }
         }

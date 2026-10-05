@@ -38,7 +38,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     [ObservableProperty]
     private string _episodeTitle = string.Empty;
 
-    [ObservableProperty]
     private string _episodeContent = string.Empty;
 
     [ObservableProperty]
@@ -64,9 +63,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 
     [ObservableProperty]
     private bool _isVerticalWriting;
-
-    [ObservableProperty]
-    private bool _isHorizontal = true;
 
     [ObservableProperty]
     private ReaderCssState? _readerCss;
@@ -96,12 +92,9 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 
     private Episode? _episode;
 
-    public Action? ScrollToTop { get; set; }
-
     partial void OnIsVerticalWritingChanged(bool value)
     {
-        IsHorizontal = !value;
-        if (value && !string.IsNullOrEmpty(EpisodeContent))
+        if (!string.IsNullOrEmpty(_episodeContent))
         {
             RefreshHtml();
         }
@@ -146,7 +139,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED) == 1;
 
         IsVerticalWriting = vertical == 1;
-        IsHorizontal = !IsVerticalWriting;
         ReaderCss = BuildCssState();
     }
 
@@ -156,7 +148,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     {
         var state = BuildCssState();
         // EpisodeHtml 先・ReaderCss 後: 古い document への無駄な JS 適用を防ぐ
-        EpisodeHtml = ReaderHtmlBuilder.Build(EpisodeContent, state);
+        EpisodeHtml = ReaderHtmlBuilder.Build(_episodeContent, state, IsVerticalWriting);
         ReaderCss = state;
     }
 
@@ -171,7 +163,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
         ClearError();
         // 失敗時に前話の本文・タイトルが残るのを防ぐためここで一括クリアする。
         // 成功時は下で上書きされる。
-        EpisodeContent = string.Empty;
+        _episodeContent = string.Empty;
         EpisodeTitle = string.Empty;
         EpisodeHtml = string.Empty;
         try
@@ -200,16 +192,14 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             }
 
             EpisodeTitle = _episode.Title;
-            EpisodeContent = content;
+            _episodeContent = content;
             IsCurrentEpisodeFavorite = _episode.IsFavorite;
             HasPrevEpisode = prev is not null;
             HasNextEpisode = next is not null;
             IsHeaderVisible = true;
             IsFooterVisible = true;
 
-            if (IsVerticalWriting) RefreshHtml();
-
-            ScrollToTop?.Invoke();
+            RefreshHtml();
         }
         catch (TaskCanceledException)
         {
@@ -286,7 +276,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     [RelayCommand]
     private Task MarkAsReadFromAutoAsync()
     {
-        // 自動経路 (OnScrolled / WebView read-end)。設定 OFF なら no-op。
+        // 自動経路 (WebView read-end)。設定 OFF なら no-op。
         if (!AutoMarkReadEnabled) return Task.CompletedTask;
         return ApplyMarkAsReadAsync();
     }

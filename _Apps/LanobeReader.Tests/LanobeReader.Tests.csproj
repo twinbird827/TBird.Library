@@ -10,6 +10,7 @@
   <ItemGroup>
     <!-- 本体は net10.0-android の Exe で参照できないため、テスト対象ファイルだけをリンクで取り込む -->
     <Compile Include="..\LanobeReader\Services\Narou\NarouEpisodeParser.cs" Link="NarouEpisodeParser.cs" />
+    <Compile Include="..\LanobeReader\Helpers\EpisodeContentFormat.cs" Link="EpisodeContentFormat.cs" />
   </ItemGroup>
 
   <ItemGroup>
