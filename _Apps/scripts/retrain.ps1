@@ -7,26 +7,29 @@
 # 当日採点との先読み防止規約 (train-end < 採点日) を常に満たす。
 # 本タスクは日次 run-today(22:30)より後(23:00以降)に走らせること（当日採点に使うモデルは前日以前＝先読みなし）。
 #
-# 前提: uv が PATH 上にあること（ログオンユーザーで実行）。models/ への書込みは
-#       _Tools/TradeAnalyzer/ml/models（train.py が __file__ から解決。.gitignore 済み＝_Apps 削除でも残る）。
+# 前提: uv が PATH 上にあること（ログオンユーザーで実行）。本スクリプトは _Apps/deploy.ps1 が
+#       _Tools/TradeAnalyzer/app/ へ配備したものを実行する（$PSScriptRoot=app、train.py は app/ml）。
+#       models/ への書込みは _Tools/TradeAnalyzer/ml/models（本スクリプトが設定する環境変数
+#       TRADEANALYZER_DATA_DIR で train.py が解決する。漏れると app/ml/models へ書くので外さないこと）。
 #
 # タスクスケジューラ登録例（管理者不要 PowerShell。<repo> は実パスに置換。-File は絶対パス必須）:
 #   週次: schtasks /Create /TN "TradeAnalyzer-RetrainWeekly" /SC WEEKLY /D SUN /ST 23:00 `
-#           /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\_Apps\scripts\retrain.ps1" /F
+#           /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\_Tools\TradeAnalyzer\app\retrain.ps1" /F
 #   月次: schtasks /Create /TN "TradeAnalyzer-RetrainMonthly" /SC MONTHLY /D 1 /ST 23:30 `
-#           /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\_Apps\scripts\retrain.ps1 -Retune" /F
+#           /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\_Tools\TradeAnalyzer\app\retrain.ps1 -Retune" /F
 
 param([switch]$Retune)
 
 $ErrorActionPreference = "Stop"
 
-# スクリプト位置基準で解決（タスクスケジューラの不定 CWD に依存しない）。$PSScriptRoot=_Apps/scripts。
-$mlDir  = (Resolve-Path (Join-Path $PSScriptRoot "..\ml")).Path
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-# trade.db は _Tools/TradeAnalyzer 配下（C# AppPaths と一致）。未作成でも失敗しないよう GetFullPath で正規化
+# スクリプト位置基準で解決（タスクスケジューラの不定 CWD に依存しない）。
+# $PSScriptRoot=_Tools/TradeAnalyzer/app のため ml が train.py、.. が実行時データのルート (_Tools/TradeAnalyzer)
+$mlDir  = Join-Path $PSScriptRoot "ml"
+$dataRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+# trade.db は _Tools/TradeAnalyzer 直下（C# AppPaths と一致）。未作成でも失敗しないよう GetFullPath で正規化
 # （Resolve-Path は不在パスで例外）。ログも同じく _Tools/TradeAnalyzer/logs へ。
-$dbPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot "_Tools\TradeAnalyzer\trade.db"))
-$logDir = Join-Path $repoRoot "_Tools\TradeAnalyzer\logs"
+$dbPath = [System.IO.Path]::GetFullPath((Join-Path $dataRoot "trade.db"))
+$logDir = Join-Path $dataRoot "logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir ("retrain-{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 
@@ -38,6 +41,8 @@ function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $l
 # train.py が models/ を解決し相対参照も効くよう CWD を ml dir に固定。
 Set-Location $mlDir
 $env:PYTHONUTF8 = "1"
+# train.py の MODELS_DIR を _Apps の有無に依らず _Tools/TradeAnalyzer/ml/models へ解決させる
+$env:TRADEANALYZER_DATA_DIR = $dataRoot
 
 $trainEnd = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
 $mode = if ($Retune) { "monthly(--retune)" } else { "weekly" }
