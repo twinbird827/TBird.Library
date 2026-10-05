@@ -152,7 +152,7 @@ public class NarouApiService : INovelService
 
         var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
-        var honbun = document.QuerySelector(".js-novel-text.p-novel__text:not(.p-novel__text--afterword)");
+        var honbun = document.QuerySelector(".js-novel-text.p-novel__text:not(.p-novel__text--preface):not(.p-novel__text--afterword)");
         if (honbun is null)
         {
             throw new InvalidOperationException("本文の取得に失敗しました（サイト構造が変わった可能性があります）");
