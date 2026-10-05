@@ -66,7 +66,6 @@
 |---|---|---|
 | CommunityToolkit.Mvvm | 最新安定版 | MVVMヘルパー（ObservableObject・RelayCommand等） |
 | sqlite-net-pcl | 最新安定版 | SQLiteアクセス（ORM） |
-| SQLitePCLRaw.bundle_green | 最新安定版 | sqlite-net-pclの依存ライブラリ |
 | AngleSharp | 最新安定版 | HTMLパース（スクレイピング） |
 | Microsoft.Extensions.DependencyInjection | .NET10同梱 | DIコンテナ |
 | System.Text.Json | .NET10同梱 | JSONパース（カクヨムAPI等） |
@@ -132,7 +131,7 @@ LanobeReader/
 | F-006a | 自動既読化 ON/OFF | Should | 自動既読化を設定でオプトアウト可能にする |
 | F-007 | 設定管理 | Must | キャッシュ期間・更新間隔・ページ件数・通信ポリシー・既読挙動・縦書き等の管理 |
 | F-008 | 読書設定 | Must | フォントサイズ・背景色・行間のカスタマイズ |
-| F-009 | 縦書き表示 | Should | 設定で縦書き ON/OFF を切替。WebView を使うハイブリッド実装 |
+| F-009 | 縦書き表示 | Should | 設定で縦書き ON/OFF を切替。横書き・縦書きとも WebView で表示 |
 | F-010 | お気に入り（作品/話） | Should | 作品・話ごとに ★ トグル。一覧ソートと連動 |
 | F-011 | ランキング/ジャンルブラウズ | Should | 期間別ランキング・大ジャンル別作品取得（なろう/カクヨム） |
 | F-012 | 一括ダウンロード/先読み | Should | Wi-Fi 接続時のみバックグラウンドで未取得話をプリフェッチ |
@@ -309,17 +308,17 @@ LanobeReader/
 3. キャッシュが存在しない場合:
    - ネットワーク接続確認
    - site_typeに応じて本文取得
-     - なろう: `https://ncode.syosetu.com/{ncode}/{episode_no}/` をAngleSharpでスクレイピング（`#novel_honbun` 要素のテキストを取得）
-     - カクヨム: 公式APIで本文取得
+     - なろう: `https://ncode.syosetu.com/{ncode}/{episode_no}/` をAngleSharpでスクレイピング（`.p-novel__body` 直下の前書き・本文・後書きの `.js-novel-text.p-novel__text` を区画マーカー付きで取得し、挿絵は画像 URL のマーカー行にする。7.1 参照）
+     - カクヨム: `.widget-episodeBody` をスクレイピング（7.2 参照）
    - 取得した本文をepisode_cacheテーブルにINSERT（cached_at = NOW）
    - contentを返してSCR-004に表示
 
 **処理フロー（異常系）:**
 | エラー種別 | 検出条件 | 対処 | ユーザー通知 |
 |---|---|---|---|
-| オフライン + キャッシュなし | 接続なし & cacheなし | 閲覧画面を表示しない | 「オフラインのため表示できません。キャッシュがありません」ダイアログ |
-| 取得失敗（スクレイピング構造変化等） | contentが空 / パース失敗 | ログ出力 | 「本文の取得に失敗しました（エラー内容）」ダイアログ |
-| タイムアウト | 5秒経過 | リクエストキャンセル | 「タイムアウトしました」ダイアログ |
+| オフライン + キャッシュなし | 接続なし & cacheなし | 閲覧画面に赤バナーを表示 | 「オフラインのため表示できません。キャッシュもありません」赤バナー |
+| 取得失敗（スクレイピング構造変化等） | contentが空 / パース失敗 | 閲覧画面に赤バナーを表示 | 「本文の取得に失敗しました（エラー内容）」赤バナー |
+| タイムアウト | なろう 10秒 / カクヨム 20秒経過 | リクエストキャンセル | 「タイムアウトしました」赤バナー |
 
 **非同期処理:** async/await
 **排他制御:** 不要
@@ -348,7 +347,7 @@ LanobeReader/
 
 **トリガー:**
 - 手動: SCR-004 フッタの「既読」ボタン (`MarkAsReadCommand`) — 常に発火
-- 自動: 横書きのスクロール終端到達 (`OnScrolled`) または 縦書き WebView の `lanobe://read-end` ナビゲーション受信 (`MarkAsReadFromAutoCommand`) — `auto_mark_read_enabled=1` のときのみ発火
+- 自動: `ReaderWebView` の終端到達による `lanobe://read-end` ナビゲーション受信（横書きは `scrollTop`、縦書きは `scrollLeft` 基準） (`MarkAsReadFromAutoCommand`) — `auto_mark_read_enabled=1` のときのみ発火
 
 **処理フロー（正常系）:**
 1. `EpisodeRepository.SetReadStateUpToAsync(novelId, episodeNo)` を 1 トランザクション 2 SQL で実行
@@ -366,7 +365,7 @@ LanobeReader/
 | エラー種別 | 検出条件 | 対処 |
 |---|---|---|
 | 過去話を誤タップして巻き戻し発生 | ユーザの誤操作 | `read_at` は **復元不可**（アンドゥ機構なし、要件範囲外） |
-| 自動既読化の意図しない発火（短編作品で画面遷移直後に終端到達等） | OnScrolled / read-end の即時発火 | 設定で `auto_mark_read_enabled=0` にすると自動経路を抑止可能。手動の「既読」ボタンは引き続き利用可 |
+| 自動既読化の意図しない発火（短編作品で画面遷移直後に終端到達等） | read-end の即時発火 | 設定で `auto_mark_read_enabled=0` にすると自動経路を抑止可能。手動の「既読」ボタンは引き続き利用可 |
 
 **非同期処理:** async/await
 **排他制御:** 不要（SQL 側で WHERE 条件と is_read 再計算で完結）
@@ -385,7 +384,7 @@ LanobeReader/
 **処理フロー:**
 1. 設定変更で `app_settings.auto_mark_read_enabled` を即時 UPSERT
 2. 次回 SCR-004 を開いたとき (`ReaderViewModel.LoadSettingsAsync`) または `OnAppearing` の `ReloadSettingsAsync` で `AutoMarkReadEnabled` プロパティに反映
-3. `ReaderPage.xaml.cs` の `OnScrolled` / `OnWebViewNavigating` は `MarkAsReadFromAutoCommand` を経由し、ViewModel 側で `AutoMarkReadEnabled=false` なら no-op
+3. `ReaderPage.xaml.cs` の `OnWebViewNavigating` は `MarkAsReadFromAutoCommand` を経由し、ViewModel 側で `AutoMarkReadEnabled=false` なら no-op
 
 **「自動 OFF + フッタ非表示」時の救済 UI:**
 - `IsManualReadButtonOverlayVisible` 算出プロパティ (= `!AutoMarkReadEnabled && !IsFooterVisible`) で SCR-004 左下に既読ボタンを単独 Overlay 表示する。
@@ -462,13 +461,12 @@ LanobeReader/
 **処理フロー:**
 1. 設定変更で `vertical_writing` を 0/1 で UPSERT
 2. SCR-004 を次回開いた時に `IsVerticalWriting` を反映
-3. 横書き = `Label` ベースの `ScrollView` 表示、縦書き = `ReaderWebView` (CSS `writing-mode: vertical-rl`) のハイブリッド構成
-4. 縦書き時は `ReaderHtmlBuilder.Build(content, cssState)` で HTML を組み立て、CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+3. 横書き・縦書きとも `ReaderWebView` で表示し、書字方向は HTML テンプレートの `<html>` の class（`horizontal` / `vertical`。縦書きは CSS `writing-mode: vertical-rl`）で切り替える
+4. 書字方向を問わず `ReaderHtmlBuilder.Build(content, cssState, isVerticalWriting)` で HTML を組み立て、CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
 5. WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉して既読/前後遷移コマンドに連動
 
 **実装上の注意:**
-- `Label` と `ReaderWebView` は同じ `Grid.Row` に重ね、`IsVisible="{Binding IsHorizontal}"` / `"{Binding IsVerticalWriting}"` で切替
-- `OnIsVerticalWritingChanged` で `RefreshHtml` を呼び、縦書き ON 時に既読 HTML を即時再生成
+- `OnIsVerticalWritingChanged` で `RefreshHtml` を呼び、書字方向の切替時に表示中の話の HTML を作り直す
 
 ---
 
@@ -812,7 +810,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 
 **レイアウト概要:**
 - 最上部: ヘッダ（話タイトル + 目次ボタン + 前へボタン）※スクロール中は非表示
-- 中部: ScrollView（本文テキスト）
+- 中部: ReaderWebView（本文 HTML）
 - 最下部: フッタ（目次ボタン + 前へボタン + 次へボタン）※スクロール中は非表示
 - タップで再表示
 
@@ -823,8 +821,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 | 話タイトル（ヘッダ） | Label | Episode.Title | |
 | 目次ボタン（ヘッダ） | Button | NavigateToTocCommand | SCR-003に戻る |
 | 前へボタン（ヘッダ） | Button | PrevEpisodeCommand | 前話なしの場合非活性 |
-| 本文 | Label | EpisodeContent | フォントサイズ・行間・文字色をバインド |
-| 本文ScrollView | ScrollView | | スクロール末尾検知で既読マーク |
+| 本文 | ReaderWebView | EpisodeHtml / ReaderCss | 終端検知の `lanobe://read-end` で既読マーク |
 | フッタ | Grid | IsFooterVisible | タップで再表示 |
 | 目次ボタン（フッタ） | Button | NavigateToTocCommand | |
 | 前へボタン（フッタ） | Button | PrevEpisodeCommand | 前話なしの場合非活性 |
@@ -835,7 +832,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 | プロパティ名 | 型 | 初期値 | 概要 |
 |---|---|---|---|
 | Episode | EpisodeViewModel | null | 対象エピソード |
-| EpisodeContent | string | "" | 本文テキスト |
+| EpisodeHtml | string | "" | 本文 HTML（`ReaderHtmlBuilder.Build` の結果） |
 | IsLoading | bool | true | ローディング制御 |
 | IsHeaderVisible | bool | true | ヘッダ表示制御 |
 | IsFooterVisible | bool | true | フッタ表示制御 |
@@ -853,7 +850,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 | NextEpisodeCommand | HasNextEpisode | 次話をSCR-004で開く |
 | NavigateToTocCommand | 常時 | SCR-003に戻る |
 | ToggleHeaderFooterCommand | 常時 | IsHeaderVisible/IsFooterVisibleをトグル |
-| MarkAsReadCommand | !Episode.IsRead | F-006既読マーク（ScrollView末尾到達時に自動呼び出し） |
+| MarkAsReadCommand | !Episode.IsRead | F-006既読マーク（自動経路は WebView の `lanobe://read-end` 受信時の `MarkAsReadFromAutoCommand`） |
 
 **スワイプ操作:**
 - 右スワイプ: PrevEpisodeCommand実行
@@ -941,7 +938,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 |---|---|---|---|---|---|
 | id | INTEGER | NG | ○ | AUTOINCREMENT | 内部ID |
 | episode_id | INTEGER | NG | | | episodesテーブルのid（外部キー） |
-| content | TEXT | NG | | | 本文テキスト |
+| content | TEXT | NG | | | 本文テキスト（1 行 1 段落。前書き・本文・後書きの区画と挿絵は U+0001 で始まるマーカー行で表す。形式は `EpisodeContentFormat`） |
 | cached_at | TEXT | NG | | | キャッシュ取得日時（ISO8601） |
 
 ユニーク制約: `(episode_id)`
@@ -1186,14 +1183,15 @@ public enum SiteType
 | 項目 | 内容 |
 |---|---|
 | URL形式 | `https://ncode.syosetu.com/{ncode}/{episode_no}/` |
-| 本文要素 | `#novel_honbun`（CSSセレクタ） |
+| 本文要素 | `.p-novel__body > .js-novel-text.p-novel__text`（CSSセレクタ）。DOM 順に走査し、修飾クラス `p-novel__text--preface` を前書き・`p-novel__text--afterword` を後書き・修飾なしを本文として区画マーカー行を付ける（形式は `EpisodeContentFormat`）。本文の区画が無ければパース失敗 |
+| 挿絵 | 段落内の `<img>` の `src` を `https://ncode.syosetu.com/` 基準で絶対 URL にし、挿絵マーカー行として保存。画像は保存せず、WebView が表示時に直接読み込む（オフラインでは表示されず alt テキストが出る） |
 | ライブラリ | AngleSharp |
 | User-Agent | `Mozilla/5.0 (compatible; LanobeReader/1.0)` |
 
 エラー時の挙動:
-- タイムアウト: 5秒でキャンセル → AlertDialog表示
-- HTTPエラー（4xx/5xx）: AlertDialog「本文の取得に失敗しました（HTTPエラー: {code}）」
-- パース失敗（要素なし）: AlertDialog「本文の取得に失敗しました（サイト構造が変わった可能性があります）」
+- タイムアウト: 10秒でキャンセル → 閲覧画面の赤バナー表示
+- HTTPエラー（4xx/5xx）: 赤バナー「本文の取得に失敗しました（HTTPエラー: {code}）」
+- パース失敗（要素なし）: 赤バナー「本文の取得に失敗しました（サイト構造が変わった可能性があります）」
 
 ---
 
@@ -1253,8 +1251,7 @@ public enum SiteType
 - 通知タップ後に`has_unconfirmed_update`を0にUPDATEする
 
 ### 8.7 閲覧画面の既読マーク
-- ScrollView の Scrolled イベントでスクロール位置を監視し、`ScrollY + Height >= ContentSize.Height - 10` となった時点で `MarkAsReadFromAutoCommand` を実行する
-- 縦書き WebView では `lanobe://read-end` 受信時に同コマンドを発火する
+- 終端検知は両方向とも `ReaderWebView` の `lanobe://read-end` で行い、受信時に `MarkAsReadFromAutoCommand` を実行する（横書きは `scrollTop + clientHeight >= scrollHeight - 10`、縦書きは `scrollLeft` が左端から 10px 以内）
 - 自動経路は `auto_mark_read_enabled=1` のときのみ発火し、設定 OFF 時は手動の「既読」ボタン (`MarkAsReadCommand`) のみで既読化する
 - 共通実装は `ApplyMarkAsReadAsync` private ヘルパーに集約し、内部で `EpisodeRepository.SetReadStateUpToAsync` を呼ぶ
 
@@ -1273,10 +1270,9 @@ public enum SiteType
 - `StopWorker` 時は `SyncEnqueuedIdsFromQueues` で HashSet を live キューに合わせて再構成し、再 Enqueue 可能な状態に戻す
 - 連続 5 失敗で同セッションを中断、200 件処理ごとに 5 秒のクールダウン
 
-### 8.11 縦書きハイブリッド実装（F-009）
-- 横書き = `Label` ベースの `ScrollView` 表示、縦書き = `ReaderWebView` (CSS `writing-mode: vertical-rl`) のハイブリッド構成
-- 同じ `Grid.Row` に重ね、`IsVisible` バインディングで切替（`IsHorizontal` / `IsVerticalWriting`）
-- 縦書き時は `ReaderHtmlBuilder.Build(content, cssState)` で HTML 組み立て。CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+### 8.11 WebView による横書き・縦書き表示（F-009）
+- 横書き・縦書きとも `ReaderWebView` で表示し、書字方向は HTML テンプレートの `<html>` の class（`horizontal` / `vertical`。縦書きは CSS `writing-mode: vertical-rl`）で切り替える
+- 書字方向を問わず `ReaderHtmlBuilder.Build(content, cssState, isVerticalWriting)` で HTML 組み立て。CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
 - WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉し、対応コマンドへ連動
 
 ### 8.12 グローバル例外ハンドラ

@@ -27,7 +27,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
         // OpenSans*.ttf は Resources/Fonts に存在せず、XAML からも参照していないため AddFont を削除。
-        // 縦書き WebView は Reader 側 CSS で font-family:serif を直指定しているため影響なし。
+        // Reader の本文 WebView(横書き・縦書き)は Reader 側 CSS で font-family:serif を直指定しているため影響なし。
 
 #if DEBUG
         builder.Logging.SetMinimumLevel(LogLevel.Debug);

@@ -8,8 +8,6 @@ public partial class ReaderPage : ContentPage
     {
         InitializeComponent();
         BindingContext = viewModel;
-        viewModel.ScrollToTop = () => Dispatcher.Dispatch(async () =>
-            await ContentScrollView.ScrollToAsync(0, 0, false));
     }
 
     protected override void OnAppearing()
@@ -18,19 +16,6 @@ public partial class ReaderPage : ContentPage
         if (BindingContext is ReaderViewModel vm)
         {
             _ = vm.ReloadSettingsAsync();
-        }
-    }
-
-    private async void OnScrolled(object? sender, ScrolledEventArgs e)
-    {
-        if (sender is not ScrollView scrollView) return;
-
-        if (scrollView.ScrollY + scrollView.Height >= scrollView.ContentSize.Height - 10)
-        {
-            if (BindingContext is ReaderViewModel vm && vm.AutoMarkReadEnabled)
-            {
-                await vm.MarkAsReadFromAutoCommand.ExecuteAsync(null);
-            }
         }
     }
 

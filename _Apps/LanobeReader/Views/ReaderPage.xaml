@@ -39,49 +39,28 @@
                     TextColor="{Binding IsCurrentEpisodeFavorite, Converter={StaticResource BoolToGoldConverter}}" />
 		</Grid>
 
-		<!-- Loading -->
-		<ActivityIndicator Grid.Row="2" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
-                           HorizontalOptions="Center" VerticalOptions="Center" />
-
-		<!-- Content (horizontal - Label) -->
-		<ScrollView Grid.Row="2" x:Name="ContentScrollView" Scrolled="OnScrolled"
-                    IsVisible="{Binding IsHorizontal}">
-			<Label Text="{Binding EpisodeContent}" Padding="16"
-                   FontSize="{Binding FontSize}" FontFamily="serif">
-				<Label.GestureRecognizers>
-					<SwipeGestureRecognizer Direction="Left" Command="{Binding NextEpisodeCommand}" />
-					<SwipeGestureRecognizer Direction="Right" Command="{Binding PrevEpisodeCommand}" />
-				</Label.GestureRecognizers>
-                <Label.Triggers>
-                    <!-- BackgroundThemeIndex / LineSpacingIndex (see ReaderThemeIndex.cs) -->
-                    <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="0">
-                        <Setter Property="TextColor" Value="{StaticResource ThemeWhiteText}" />
-                    </DataTrigger>
-                    <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="1">
-                        <Setter Property="TextColor" Value="{StaticResource ThemeDarkText}" />
-                    </DataTrigger>
-                    <DataTrigger TargetType="Label" Binding="{Binding BackgroundThemeIndex}" Value="2">
-                        <Setter Property="TextColor" Value="{StaticResource ThemeSepiaText}" />
-                    </DataTrigger>
-                    <DataTrigger TargetType="Label" Binding="{Binding LineSpacingIndex}" Value="0">
-                        <Setter Property="LineHeight" Value="1.4" />
-                    </DataTrigger>
-                    <DataTrigger TargetType="Label" Binding="{Binding LineSpacingIndex}" Value="1">
-                        <Setter Property="LineHeight" Value="1.7" />
-                    </DataTrigger>
-                    <DataTrigger TargetType="Label" Binding="{Binding LineSpacingIndex}" Value="2">
-                        <Setter Property="LineHeight" Value="2.1" />
-                    </DataTrigger>
-                </Label.Triggers>
-            </Label>
-		</ScrollView>
-
-		<!-- Content (vertical writing - WebView) -->
+		<!-- Content (横書き・縦書きとも WebView) -->
 		<controls:ReaderWebView Grid.Row="2"
-                                IsVisible="{Binding IsVerticalWriting}"
                                 HtmlSource="{Binding EpisodeHtml}"
                                 CssVariables="{Binding ReaderCss}"
-                                Navigating="OnWebViewNavigating" />
+                                Navigating="OnWebViewNavigating">
+            <controls:ReaderWebView.Triggers>
+                <!-- 空の document の間に白い画面を出さないよう、ページと同じテーマ背景にする -->
+                <DataTrigger TargetType="controls:ReaderWebView" Binding="{Binding BackgroundThemeIndex}" Value="0">
+                    <Setter Property="BackgroundColor" Value="{StaticResource ThemeWhiteBg}" />
+                </DataTrigger>
+                <DataTrigger TargetType="controls:ReaderWebView" Binding="{Binding BackgroundThemeIndex}" Value="1">
+                    <Setter Property="BackgroundColor" Value="{StaticResource ThemeDarkBg}" />
+                </DataTrigger>
+                <DataTrigger TargetType="controls:ReaderWebView" Binding="{Binding BackgroundThemeIndex}" Value="2">
+                    <Setter Property="BackgroundColor" Value="{StaticResource ThemeSepiaBg}" />
+                </DataTrigger>
+            </controls:ReaderWebView.Triggers>
+        </controls:ReaderWebView>
+
+		<!-- Loading (常に表示する WebView に隠れないよう後ろに置く) -->
+		<ActivityIndicator Grid.Row="2" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
 
 		<!-- Footer -->
 		<Grid Grid.Row="3" Padding="8" BackgroundColor="{StaticResource Overlay}"
