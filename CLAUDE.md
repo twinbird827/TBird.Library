@@ -63,7 +63,7 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ## テスト
 
-ユニットテストフレームワークではなく、実行可能なテストアプリケーションを使用している点に注意。
+新しいテストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。既存の `coretest` / `wpftest` / `roslyntest` は実行可能なテストアプリケーションのまま残る。
 
 ## 全体共通ルール
 
@@ -78,6 +78,14 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 - ソリューションファイルは `_Apps/App.sln` とする（アプリ名のslnにしない）
 - ソリューションフォルダは作成しない（`_Apps/` 直下に `.sln` を配置）
 - プロジェクトフォルダも作成しない（`_Apps/` 直下に `.csproj` とソースファイルを配置）
+
+### ブランチ切替と `_Tools`
+
+- **git 追跡外だが実行に必要なファイル（DB・シークレット・学習モデル・ログ・ビルド成果物）を `_Apps` 内に置かない**。リポジトリルートの `_Tools/<アプリ名>/`（.gitignore 済）に集約する。`_Apps` はブランチ切替で内容が入れ替わるため、置くと切替や `_Apps` 内削除で失われる
+- post-checkout フック（正本は `.githooks/post-checkout`）が、`_Apps` / `_Core` / `_Browser` の `.sln` / `.csproj` に差分があるブランチ切替（別 app への切替、csproj を変えた fix/* との往復、rebase）で、そこの gitignore 済みファイルを `git clean -fdX` で消す。clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` で導入する
+- 定期実行（タスクスケジューラ）・常駐サーバは `_Tools/<アプリ名>/` に配備した実行物から起動する。登録に `_Apps` のパスを使わず、`dotnet run --project _Apps/...` で起動しない
+- 配備は app-* ブランチで追跡する `_Apps/deploy.ps1` を明示的に実行して行い、ブランチ切替では配備しない。`_Tools/<アプリ名>/` 内では、配備物（配備のたびに上書き）と実行時データ（DB・シークレット・ログ・モデル）を別フォルダに分ける
+- コンパイル時に必要な秘密ファイル（`Secrets.cs` 等）は `_Tools/<アプリ名>/` に置き、csproj から `Link` 付きで取り込む
 
 ### コード標準
 

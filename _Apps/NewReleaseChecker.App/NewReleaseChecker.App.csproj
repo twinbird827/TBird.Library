@@ -65,4 +65,9 @@
     <ProjectReference Include="..\..\TBird.Maui.Background\TBird.Maui.Background.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 秘密ファイルの正本は _Tools/NewReleaseChecker/Secrets.cs（_Apps 内はブランチ切替の掃除で消えるため）。 -->
+    <Compile Include="..\..\_Tools\NewReleaseChecker\Secrets.cs" Link="Secrets.cs" />
+  </ItemGroup>
+
 </Project>
