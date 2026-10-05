@@ -35,5 +35,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed: ExitCode=$LASTEXITCODE"
 }
 
-Remove-Item -Path $offline -ErrorAction SilentlyContinue
+# 削除に失敗したら Stop で例外にする (サイトが止まったまま成功表示で終わらせない)
+if (Test-Path $offline) {
+    Remove-Item -Path $offline
+}
 Write-Host "Deployed to $binDir"
