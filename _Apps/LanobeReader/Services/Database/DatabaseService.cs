@@ -8,7 +8,7 @@ namespace LanobeReader.Services.Database;
 
 public class DatabaseService : SqliteDatabaseBase
 {
-    private const int CURRENT_SCHEMA_VERSION = 5;
+    private const int CURRENT_SCHEMA_VERSION = 6;
 
     public DatabaseService()
         : base(Path.Combine(FileSystem.AppDataDirectory, "lanobereader.db"), CURRENT_SCHEMA_VERSION)
@@ -80,7 +80,7 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
-        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5() };
+        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5(), new MigrateToV6() };
 
     protected override async Task<int> ReadSchemaVersionAsync(SQLiteAsyncConnection conn)
     {
@@ -290,6 +290,34 @@ public class DatabaseService : SqliteDatabaseBase
             catch (Exception ex)
             {
                 MessageService.Warn($"[MigrateToV5] Failed: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// v5 → v6: Narou 作品の episode_cache を全件削除する。
+    /// 旧本文セレクタは前書きのある話で前書き div にマッチし、本文の代わりに前書きをキャッシュしていた。
+    /// キャッシュは INSERT OR IGNORE で上書きされないため、削除して次回表示時に再取得させる。
+    /// </summary>
+    private class MigrateToV6 : IMigration
+    {
+        public int FromVersion => 5;
+
+        public async Task ExecuteAsync(SQLiteAsyncConnection conn)
+        {
+            try
+            {
+                var deleted = await conn.ExecuteAsync(
+                    "DELETE FROM episode_cache WHERE episode_id IN (" +
+                    "  SELECT e.id FROM episodes e JOIN novels n ON n.id = e.novel_id WHERE n.site_type = ?" +
+                    ")", (int)SiteType.Narou
+                ).ConfigureAwait(false);
+                MessageService.Info($"[MigrateToV6] Deleted {deleted} Narou episode_cache row(s).");
+            }
+            catch (Exception ex)
+            {
+                MessageService.Warn($"[MigrateToV6] Failed: {ex.Message}");
                 throw;
             }
         }

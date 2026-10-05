@@ -152,15 +152,7 @@ public class NarouApiService : INovelService
 
         var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
-        var honbun = document.QuerySelector(".js-novel-text.p-novel__text:not(.p-novel__text--afterword)");
-        if (honbun is null)
-        {
-            throw new InvalidOperationException("本文の取得に失敗しました（サイト構造が変わった可能性があります）");
-        }
-
-        var paragraphs = honbun.QuerySelectorAll("p");
-        var lines = paragraphs.Select(p => p.TextContent);
-        return (string.Join("\n", lines).Trim(), true);
+        return (NarouEpisodeParser.ExtractContent(document), true);
     }
 
     public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted, string? author)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
