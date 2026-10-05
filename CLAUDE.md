@@ -63,7 +63,7 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ## テスト
 
-新しいテストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。既存の `coretest` / `wpftest` / `roslyntest` は実行可能なテストアプリケーションのまま残る。
+新しいテストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Apps/<テスト対象プロジェクト名>.Tests/` に置いて `_Apps/App.sln` に含め、`dotnet test _Apps/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。既存の `coretest` / `wpftest` / `roslyntest` は実行可能なテストアプリケーションのまま残る。
 
 ## 全体共通ルール
 
@@ -77,7 +77,7 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 - ソリューションファイルは `_Apps/App.sln` とする（アプリ名のslnにしない）
 - ソリューションフォルダは作成しない（`_Apps/` 直下に `.sln` を配置）
-- プロジェクトフォルダも作成しない（`_Apps/` 直下に `.csproj` とソースファイルを配置）
+- 単一プロジェクトのアプリは `.csproj` とソースファイルを `_Apps/` 直下に置き、テスト等で複数プロジェクトになるアプリは各プロジェクトを `_Apps/<プロジェクト名>/` に分ける（`_Apps/` 直下の csproj は既定の `**/*.cs` で他プロジェクトのソースまで取り込み、ビルドが壊れるため）
 
 ### ブランチ切替と `_Tools`
 
