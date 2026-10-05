@@ -1,4 +1,4 @@
-# 段階3b 当日定性層の日次オーケストレータ（run-today の後に非致命で走らせる）。
+﻿# 段階3b 当日定性層の日次オーケストレータ（run-today の後に非致命で走らせる）。
 #
 # 何をするか:
 #   配備先の TradeAnalyzer.Worker.exe explain-today を CWD=bin で起動し、stdout/stderr を
@@ -40,7 +40,6 @@ Set-Location $binDir
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# ヘッダ/フッタの出力リテラルは ASCII に限定する（Windows PowerShell 5.1 は BOM 無し .ps1 を cp932 解釈するため）。
 function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
 
 Write-Log ("=== explain-today START {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))

@@ -47,19 +47,21 @@ def _resolve_models_dir() -> str:
     生存させるため _Tools（.gitignore 済）側に置く（C# の AppPaths.MlModelsDir と一致）。__file__
     （``_Apps/ml``）から上位の ``_Apps`` を持つディレクトリ=リポジトリルートを探し
     ``<root>/_Tools/TradeAnalyzer/ml/models`` を返す。環境変数 ``TRADEANALYZER_DATA_DIR`` で上書き可。
-    リポ外に置かれた場合は従来どおりスクリプト隣の ``models/`` にフォールバックする。
+    環境変数も ``_Apps`` も無ければ（配備先を環境変数なしで起動した等）SystemExit で止まる。
     """
     override = os.environ.get("TRADEANALYZER_DATA_DIR")
     if override:
         return os.path.join(override, "ml", "models")
-    here = os.path.dirname(os.path.abspath(__file__))
-    d = here
+    d = os.path.dirname(os.path.abspath(__file__))
     while True:
         if os.path.isdir(os.path.join(d, "_Apps")):
             return os.path.join(d, "_Tools", "TradeAnalyzer", "ml", "models")
         parent = os.path.dirname(d)
-        if parent == d:  # ルート到達（_Apps 不検出）＝リポ外。従来挙動へフォールバック。
-            return os.path.join(here, "models")
+        if parent == d:  # ルート到達（_Apps 不検出）。黙って別の場所へ書かせない。
+            raise SystemExit(
+                "モデル置き場を解決できません: 環境変数 TRADEANALYZER_DATA_DIR が未設定で、上位に _Apps もありません。"
+                "TRADEANALYZER_DATA_DIR を設定するか、_Apps のある作業ツリーから実行してください。"
+            )
         d = parent
 
 

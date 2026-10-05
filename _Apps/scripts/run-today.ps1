@@ -1,4 +1,4 @@
-# 段階3a 当日 EOD 推論の日次オーケストレータ（Windows タスクスケジューラ登録対象）。
+﻿# 段階3a 当日 EOD 推論の日次オーケストレータ（Windows タスクスケジューラ登録対象）。
 #
 # 何をするか:
 #   配備先の TradeAnalyzer.Worker.exe run-today を CWD=bin で起動し、stdout/stderr を
@@ -47,10 +47,7 @@ Set-Location $binDir
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# 1行ずつ console へ echo しつつ UTF-8 でログ追記する。
-# 注: ヘッダ/フッタの出力リテラルは ASCII に限定する。Windows PowerShell 5.1 は BOM 無し .ps1 を
-#     ANSI(cp932) として解釈し日本語リテラルを壊すため（C# 子プロセスの出力は実行時 UTF-8 取り込みで無事）。
-function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
+# 1行ずつ console へ echo しつつ UTF-8 でログ追記する。function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
 
 Write-Log ("=== run-today START {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 & (Join-Path $binDir "TradeAnalyzer.Worker.exe") run-today 2>&1 | ForEach-Object {

@@ -44,4 +44,5 @@ dotnet run --project _Apps/TradeAnalyzer.Worker -- <command>
 - **文字列化は InvariantCulture**: 日付・数値の補間（SQL 文字列・CLI 引数含む）は culture 明示。過去レビューで複数回再発した箇所。例外: 表示専用の数値書式（Console 出力の `:F4` 等）は CurrentCulture 容認（日付は表示でも Invariant 明示）。日付の yyyy-MM-dd 文字列化は `ToIso()`（`TradeAnalyzer.Data/DateOnlyExtensions.cs`）を使う——インライン `ToString` を書かない。
 - **Claude 出力の数値安全性**: `QualitativeNumberGuard` で検証。プロンプト側で単位換算を禁止している（換算による誤検出対策）。
 - **Configure は拡張メソッドに集約**（Core / Data）。Worker は composition root のため `Program.cs` で直接バインドしてよい。
+- **`.ps1` は UTF-8 BOM 付きで保存する**: Windows PowerShell 5.1 は BOM 無し `.ps1` を cp932 で読み、日本語リテラルを壊すうえ、LF 改行だと全角で終わる行の改行を食って次の行を消すため。`Write` で書き直すときも先頭の BOM（U+FEFF）を落とさないこと。
 - プランファイル置き場: `docs/plans/app-trade-analyzer/`

@@ -1,4 +1,4 @@
-# 段階3a 再学習ラッパ（タスクスケジューラ登録対象）。推論(run-today=日次)とは別タスクで登録する。
+﻿# 段階3a 再学習ラッパ（タスクスケジューラ登録対象）。推論(run-today=日次)とは別タスクで登録する。
 #   週次  : モデル更新（best_params.json を再利用＝optuna は回さない）
 #   月次  : -Retune でハイパラ再探索（optuna）→ best_params.json 更新
 #
@@ -10,7 +10,7 @@
 # 前提: uv が PATH 上にあること（ログオンユーザーで実行）。本スクリプトは _Apps/deploy.ps1 が
 #       _Tools/TradeAnalyzer/app/ へ配備したものを実行する（$PSScriptRoot=app、train.py は app/ml）。
 #       models/ への書込みは _Tools/TradeAnalyzer/ml/models（本スクリプトが設定する環境変数
-#       TRADEANALYZER_DATA_DIR で train.py が解決する。漏れると app/ml/models へ書くので外さないこと）。
+#       TRADEANALYZER_DATA_DIR で train.py が解決する。漏れると _Apps の無いブランチで train.py が止まるので外さないこと）。
 #
 # タスクスケジューラ登録例（管理者不要 PowerShell。<repo> は実パスに置換。-File は絶対パス必須）:
 #   週次: schtasks /Create /TN "TradeAnalyzer-RetrainWeekly" /SC WEEKLY /D SUN /ST 23:00 `
@@ -26,14 +26,13 @@ $ErrorActionPreference = "Stop"
 # $PSScriptRoot=_Tools/TradeAnalyzer/app のため ml が train.py、.. が実行時データのルート (_Tools/TradeAnalyzer)
 $mlDir  = Join-Path $PSScriptRoot "ml"
 $dataRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-# trade.db は _Tools/TradeAnalyzer 直下（C# AppPaths と一致）。未作成でも失敗しないよう GetFullPath で正規化
-# （Resolve-Path は不在パスで例外）。ログも同じく _Tools/TradeAnalyzer/logs へ。
-$dbPath = [System.IO.Path]::GetFullPath((Join-Path $dataRoot "trade.db"))
+# trade.db と logs は _Tools/TradeAnalyzer 直下（C# AppPaths と一致）。
+$dbPath = Join-Path $dataRoot "trade.db"
 $logDir = Join-Path $dataRoot "logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir ("retrain-{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 
-# UTF-8 統一（run-today.ps1 と同様。ヘッダ/フッタは ASCII 限定＝PS5.1 の .ps1 ANSI 解釈対策）。
+# UTF-8 統一（run-today.ps1 と同様）。
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }

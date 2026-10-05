@@ -1,4 +1,4 @@
-# TradeAnalyzer のタスク用実行物を _Tools/TradeAnalyzer/app/ へ配備する (タスクスケジューラはここから起動する)
+﻿# TradeAnalyzer のタスク用実行物を _Tools/TradeAnalyzer/app/ へ配備する (タスクスケジューラはここから起動する)
 #   app/bin   : dotnet publish -c Release の出力 (TradeAnalyzer.Worker.exe)
 #   app/ml    : _Apps/ml の Python スクリプト + uv sync --frozen で作った .venv
 #   app/*.ps1 : _Apps/scripts のタスク用スクリプト
@@ -8,9 +8,6 @@
 #
 # 管理者権限は不要。実行例 (<repo> は実パスに置換):
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\_Apps\deploy.ps1
-#
-# 出力リテラルは ASCII に限定する (Windows PowerShell 5.1 は BOM 無し .ps1 を cp932 解釈するため)
-# 同じ理由で、日本語コメントの行末は ASCII で終える (全角文字の末尾バイトが cp932 の先行バイトだと改行を食う)
 
 $ErrorActionPreference = "Stop"
 
