@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="sqlite-net-pcl" Version="1.*" />
-    <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.*" />
   </ItemGroup>
 
   <ItemGroup>
