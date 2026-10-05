@@ -12,7 +12,8 @@ TradeAnalyzer は日本株の「データ取得 → ルール/ML シグナル �
 - `TradeAnalyzer.Core` — テクニカル指標、ルールエンジン、ingest、バックテスト
 - `TradeAnalyzer.Worker` — CLI エントリ（composition root）、Claude 定性層（`claude -p` 直結）、Python 採点連携（`ProcessRunner`）、`SelfTest`
 - `ml/` — Python 側 ML（LightGBM LambdaRank）。uv 管理（`pyproject.toml` / `uv.lock`、`.venv` は追跡外）。詳細は [ml/README.md](ml/README.md)
-- `scripts/` — 運用 PowerShell（`run-today.ps1` / `explain-today.ps1` / `retrain.ps1`。タスクスケジューラ登録前提）
+- `scripts/` — タスク用 PowerShell（`run-today.ps1` / `explain-today.ps1` / `retrain.ps1`）。`deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備し、タスクスケジューラはそこから起動する（`_Apps/scripts` からの直接実行は不可）
+- `deploy.ps1` — 配備（`app/` を丸ごと入れ替え: publish 出力 `bin/`・`ml/` ＋ `.venv`・タスク用スクリプト）→ 配備した exe で `migrate`。メイン作業ツリーから明示実行する（linked worktree・タスク実行中は失敗する）
 
 ## ビルド・実行
 
@@ -34,6 +35,7 @@ dotnet run --project _Apps/TradeAnalyzer.Worker -- <command>
 
 置き場はルート CLAUDE.md のルール通り `_Tools/TradeAnalyzer/`:
 `trade.db` / `Secrets.json`（APIキー）/ `ml/models` / `logs` / bin・obj（`Directory.Build.props` の ArtifactsPath）。
+配備物は別枠の `app/`（`deploy.ps1` が配備のたびに丸ごと入れ替える。実行時データを置かない）。
 パス解決は `TradeAnalyzer.Data/AppPaths.cs`（CWD 非依存。環境変数 `TRADEANALYZER_DATA_DIR` で上書き可）。
 
 ## 重要な規約
@@ -42,4 +44,5 @@ dotnet run --project _Apps/TradeAnalyzer.Worker -- <command>
 - **文字列化は InvariantCulture**: 日付・数値の補間（SQL 文字列・CLI 引数含む）は culture 明示。過去レビューで複数回再発した箇所。例外: 表示専用の数値書式（Console 出力の `:F4` 等）は CurrentCulture 容認（日付は表示でも Invariant 明示）。日付の yyyy-MM-dd 文字列化は `ToIso()`（`TradeAnalyzer.Data/DateOnlyExtensions.cs`）を使う——インライン `ToString` を書かない。
 - **Claude 出力の数値安全性**: `QualitativeNumberGuard` で検証。プロンプト側で単位換算を禁止している（換算による誤検出対策）。
 - **Configure は拡張メソッドに集約**（Core / Data）。Worker は composition root のため `Program.cs` で直接バインドしてよい。
+- **`.ps1` は UTF-8 BOM 付きで保存する**: Windows PowerShell 5.1 は BOM 無し `.ps1` を cp932 で読み、日本語リテラルを壊すうえ、LF 改行だと全角で終わる行の改行を食って次の行を消すため。`Write` で書き直すときも先頭の BOM（U+FEFF）を落とさないこと。
 - プランファイル置き場: `docs/plans/app-trade-analyzer/`

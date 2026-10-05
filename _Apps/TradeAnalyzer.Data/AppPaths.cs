@@ -8,9 +8,10 @@ namespace TradeAnalyzer.Data;
 /// （.gitignore 済＝ブランチ切替でも消えない・全ブランチ共有）へ集約する。
 ///
 /// ルートは実行ファイル位置（<see cref="AppContext.BaseDirectory"/>）から上位へたどり <c>_Apps</c> を持つ
-/// ディレクトリとして求める（CWD 非依存）。これにより run-today（タスクスケジューラの不定 CWD）・
-/// <c>dotnet run</c>・publish 済み exe のいずれから起動しても同一ファイルへ解決し、旧来の「CWD=Worker dir 前提」
-/// の脆さを排除する。環境変数 <c>TRADEANALYZER_DATA_DIR</c> で DataRoot を明示上書きできる（リポ外配置向け）。
+/// ディレクトリとして求める（CWD 非依存）。これにより <c>_Apps</c> が在る作業ツリーでは <c>dotnet run</c> を
+/// どの CWD から起動しても同一ファイルへ解決する。環境変数 <c>TRADEANALYZER_DATA_DIR</c> で DataRoot を明示上書き
+/// できる。タスクスケジューラが起動する配備先 exe（<c>_Tools/TradeAnalyzer/app/bin</c>。<c>_Apps</c> の無いブランチでは
+/// 上位探索が失敗する）は、タスク用スクリプトがこの環境変数を設定して起動する。
 /// </summary>
 public static class AppPaths
 {
@@ -35,7 +36,10 @@ public static class AppPaths
     /// <summary>実行ログ置き場（<c>_Tools/TradeAnalyzer/logs</c>。run-today.ps1 / retrain.ps1 と一致）。</summary>
     public static string LogDir => Path.Combine(DataRoot, "logs");
 
-    /// <summary>ML スクリプト群（<c>_Apps/ml</c>）。追跡対象ソースのため _Apps 側に置く（成果物は DataRoot）。</summary>
+    /// <summary>
+    /// ML スクリプト群（<c>_Apps/ml</c>）。追跡対象ソースのため _Apps 側に置く（成果物は DataRoot）。
+    /// 配備先では <c>Python:MlDir</c>（タスク用スクリプトが環境変数 <c>Python__MlDir</c> で <c>app/ml</c> を設定）で上書きされる。
+    /// </summary>
     public static string MlScriptsDir => Path.Combine(RepoRoot, "_Apps", "ml");
 
     /// <summary>SQLite 接続文字列（<c>Data Source=&lt;絶対パス&gt;</c>）。</summary>
