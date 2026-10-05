@@ -43,6 +43,37 @@ public class NarouEpisodeParserTests
             EpisodeContentFormat.BodyStart, "本文1",
             EpisodeContentFormat.ImagePrefix + "https://27570.mitemin.net/userpageimage/viewimagebig/icode/i1199316/")));
     }
+
+    // 画像の無い空段落は空行として残す(画像だけの段落の空テキストは落とす)。
+
+    [Test]
+    public async Task ExtractContentKeepsEmptyParagraph()
+    {
+        const string html = """
+            <div class="p-novel__body">
+              <div class="js-novel-text p-novel__text"><p>本文1</p><p></p><p>本文2</p></div>
+            </div>
+            """;
+        var document = await AngleSharpHelper.ParseAsync(html);
+
+        Assert.That(NarouEpisodeParser.ExtractContent(document), Is.EqualTo(string.Join("\n",
+            EpisodeContentFormat.BodyStart, "本文1", "", "本文2")));
+    }
+
+    // 本文区画が無ければ、前書きだけを本文として返さず例外にする。
+
+    [Test]
+    public async Task ExtractContentThrowsWithoutBody()
+    {
+        const string html = """
+            <div class="p-novel__body">
+              <div class="js-novel-text p-novel__text p-novel__text--preface"><p>前書き1</p></div>
+            </div>
+            """;
+        var document = await AngleSharpHelper.ParseAsync(html);
+
+        Assert.Throws<InvalidOperationException>(() => NarouEpisodeParser.ExtractContent(document));
+    }
 }
 
 public class EpisodeContentFormatTests
