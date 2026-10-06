@@ -81,28 +81,21 @@ public class EpisodeRepository
         return count != 0;
     }
 
-    public async Task<Episode?> GetLastReadEpisodeAsync(int novelId)
+    /// <summary>
+    /// 指定小説の既読話の Id 集合。目次がリーダー復帰時に既読状態だけを取り直すのに使う(全列の全話再取得を避ける)。
+    /// </summary>
+    public async Task<HashSet<int>> GetReadEpisodeIdsAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && e.IsRead)
-            .OrderByDescending(e => e.EpisodeNo)
-            .FirstOrDefaultAsync().ConfigureAwait(false);
-    }
-
-    public async Task<Episode?> GetFirstUnreadEpisodeAsync(int novelId)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && !e.IsRead)
-            .OrderBy(e => e.EpisodeNo)
-            .FirstOrDefaultAsync().ConfigureAwait(false);
+        var ids = await _db.QueryScalarsAsync<int>(
+            "SELECT id FROM episodes WHERE novel_id = ? AND is_read = 1", novelId).ConfigureAwait(false);
+        return ids.ToHashSet();
     }
 
     /// <summary>
     /// 複数小説のディープリンク先エピソード Id をまとめて解決する。各小説につき
     /// 「最初の未読話(最小 episode_no)」、未読が無ければ「最後に読んだ話(最大 episode_no)」。
-    /// 通知ループでの作品ごと逐次クエリ(最大 2×N 往復)を 2 クエリに集約する。戻り値は novelId -> episodeId。
+    /// 通知ループでの作品ごと逐次クエリ(最大 2×N 往復)を、チャンクごとに 1 クエリへ集約する。戻り値は novelId -> episodeId。
     /// 該当話が無い小説はキーを持たない(呼び出し側で 0 フォールバック)。
     /// </summary>
     public async Task<Dictionary<int, int>> GetDeepLinkTargetEpisodeIdsAsync(IReadOnlyList<int> novelIds)
@@ -111,58 +104,81 @@ public class EpisodeRepository
         if (novelIds.Count == 0) return result;
         await EnsureAsync().ConfigureAwait(false);
 
-        // 各小説の最初の未読話(最小 episode_no)。
-        await ResolveTargetEpisodesAsync(novelIds, isRead: 0, useMin: true, result).ConfigureAwait(false);
-
-        // 未読が無い小説は最後に読んだ話(最大 episode_no)へフォールバック。
-        var remaining = novelIds.Where(id => !result.ContainsKey(id)).ToList();
-        if (remaining.Count > 0)
-        {
-            await ResolveTargetEpisodesAsync(remaining, isRead: 1, useMin: false, result).ConfigureAwait(false);
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// novelIds の各小説について is_read=<paramref name="isRead"/> の話の中で episode_no が
-    /// 最小(<paramref name="useMin"/>=true)/最大の話 Id を解決し <paramref name="result"/> へ詰める。
-    /// SQLite の変数上限(既定 999)に達しないよう IN 句の引数をチャンク分割して照会する。
-    /// </summary>
-    private async Task ResolveTargetEpisodesAsync(
-        IReadOnlyList<int> novelIds, int isRead, bool useMin, Dictionary<int, int> result)
-    {
+        // SQLite の変数上限(既定 999)に達しないよう IN 句の引数をチャンク分割して照会する。
         const int ChunkSize = 900;
-        // isRead(0/1) と agg(MIN/MAX) はコード由来のリテラルでユーザ入力ではないため SQL に直接埋めてよい。
-        // 可変長の novelIds のみプレースホルダでパラメータ化する。
-        var agg = useMin ? "MIN" : "MAX";
         for (int offset = 0; offset < novelIds.Count; offset += ChunkSize)
         {
             var chunk = novelIds.Skip(offset).Take(ChunkSize).ToList();
             var placeholders = string.Join(",", chunk.Select(_ => "?"));
             var args = chunk.Cast<object>().ToArray();
+            // 作品ごとに未読の最小 episode_no、無ければ既読の最大 episode_no の 1 件。各相関サブクエリは
+            // idx_episodes_novel_isread_epno の (novel_id, is_read) 範囲の端をシークして 1 行で止まる。
+            // 話が無い作品は Id が NULL になる(WHERE で除くと相関サブクエリが二重評価されるため C# 側で飛ばす)。
             var rows = await _db.QueryAsync<EpisodeRef>(
-                $"SELECT e.novel_id AS NovelId, e.id AS Id FROM episodes e " +
-                $"WHERE e.is_read = {isRead} AND e.novel_id IN ({placeholders}) " +
-                $"AND e.episode_no = (SELECT {agg}(episode_no) FROM episodes " +
-                $"WHERE novel_id = e.novel_id AND is_read = {isRead})",
+                "SELECT n.id AS NovelId, COALESCE(" +
+                "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 0 ORDER BY episode_no LIMIT 1), " +
+                "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 1 ORDER BY episode_no DESC LIMIT 1)) AS Id " +
+                $"FROM novels n WHERE n.id IN ({placeholders})",
                 args).ConfigureAwait(false);
-            // episodes(novel_id, episode_no) に一意制約は無く、重複 episode_no 行があると
-            // 同一 novel に複数行が返りうる。最小 id を採用して遷移先を決定的にする
-            // (行順依存で通知タップ先がブレるのを防ぐ)。
             foreach (var r in rows)
             {
-                if (!result.TryGetValue(r.NovelId, out var existing) || r.Id < existing)
-                {
-                    result[r.NovelId] = r.Id;
-                }
+                if (r.Id is int id) result[r.NovelId] = id;
             }
         }
+        return result;
     }
 
     private sealed class EpisodeRef
     {
         public int NovelId { get; set; }
-        public int Id { get; set; }
+        public int? Id { get; set; }
+    }
+
+    /// <summary>
+    /// 先読み対象 1 話ぶん。作品情報(サイト種別・サイト作品 ID・お気に入り)を JOIN で同じ行に持つ。
+    /// </summary>
+    public sealed class PrefetchTarget
+    {
+        public int NovelDbId { get; set; }
+        public int EpisodeDbId { get; set; }
+        public int EpisodeNo { get; set; }
+        public string? SiteEpisodeId { get; set; }
+        public int SiteType { get; set; }
+        public string SiteNovelId { get; set; } = string.Empty;
+        public bool IsFavorite { get; set; }
+    }
+
+    // episodes.novel_id と novels.novel_id が同名のため、列は AS <プロパティ名> で受ける。
+    private const string PrefetchTargetSelect =
+        "SELECT n.id AS NovelDbId, e.id AS EpisodeDbId, e.episode_no AS EpisodeNo, " +
+        "e.site_episode_id AS SiteEpisodeId, n.site_type AS SiteType, n.novel_id AS SiteNovelId, " +
+        "COALESCE(n.is_favorite, 0) AS IsFavorite " +
+        "FROM episodes e JOIN novels n ON n.id = e.novel_id " +
+        "LEFT JOIN episode_cache c ON c.episode_id = e.id ";
+
+    /// <summary>
+    /// 全作品の未読かつ未キャッシュの話。お気に入り作品 → last_updated_at 降順 → 作品ごとに話番号昇順で返す。
+    /// </summary>
+    public async Task<List<PrefetchTarget>> GetUnreadUncachedTargetsAsync()
+    {
+        await EnsureAsync().ConfigureAwait(false);
+        return await _db.QueryAsync<PrefetchTarget>(
+            PrefetchTargetSelect +
+            "WHERE e.is_read = 0 AND c.episode_id IS NULL " +
+            "ORDER BY COALESCE(n.is_favorite, 0) DESC, n.last_updated_at DESC, n.id, e.episode_no").ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 指定作品の未キャッシュの話(既読も含む)を話番号昇順で返す。
+    /// </summary>
+    public async Task<List<PrefetchTarget>> GetUncachedTargetsAsync(int novelId)
+    {
+        await EnsureAsync().ConfigureAwait(false);
+        return await _db.QueryAsync<PrefetchTarget>(
+            PrefetchTargetSelect +
+            "WHERE e.novel_id = ? AND c.episode_id IS NULL " +
+            "ORDER BY e.episode_no",
+            novelId).ConfigureAwait(false);
     }
 
     public async Task InsertAllAsync(IEnumerable<Episode> episodes)
@@ -234,6 +250,7 @@ public class EpisodeRepository
     /// 1..N: is_read=1（既存 read_at は COALESCE で保持、未設定なら now を入れる）
     /// N+1..max: is_read=0、read_at=NULL に巻き戻し
     /// 過去話を再読した場合は意図的に N+1 以降を未読化する仕様（ユーザ承認済み）。
+    /// 全話既読になったら作品の未確認更新フラグ (has_unconfirmed_update) も同じトランザクションで解除する。
     /// </summary>
     public async Task SetReadStateUpToAsync(int novelId, int episodeNo)
     {
@@ -251,16 +268,13 @@ public class EpisodeRepository
                 "UPDATE episodes SET is_read = 0, read_at = NULL " +
                 "WHERE novel_id = ? AND episode_no > ?",
                 novelId, episodeNo);
-        }).ConfigureAwait(false);
-    }
 
-    public async Task<bool> AreAllReadAsync(int novelId)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        var count = await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && !e.IsRead)
-            .CountAsync().ConfigureAwait(false);
-        return count == 0;
+            conn.Execute(
+                "UPDATE novels SET has_unconfirmed_update = 0 " +
+                "WHERE id = ? AND has_unconfirmed_update = 1 " +
+                "AND NOT EXISTS (SELECT 1 FROM episodes WHERE novel_id = ? AND is_read = 0)",
+                novelId, novelId);
+        }).ConfigureAwait(false);
     }
 
     public async Task SetFavoriteAsync(int episodeId, bool favorite)

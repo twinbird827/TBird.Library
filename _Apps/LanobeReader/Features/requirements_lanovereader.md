@@ -350,11 +350,11 @@ LanobeReader/
 - 自動: `ReaderWebView` の終端到達による `lanobe://read-end` ナビゲーション受信（横書きは `scrollTop`、縦書きは `scrollLeft` 基準） (`MarkAsReadFromAutoCommand`) — `auto_mark_read_enabled=1` のときのみ発火
 
 **処理フロー（正常系）:**
-1. `EpisodeRepository.SetReadStateUpToAsync(novelId, episodeNo)` を 1 トランザクション 2 SQL で実行
+1. `EpisodeRepository.SetReadStateUpToAsync(novelId, episodeNo)` を 1 トランザクション 3 SQL で実行
    - `1..N`: `is_read=1`、`read_at = COALESCE(read_at, NOW)` で既存読了日時を保持
    - `N+1..max`: `is_read=0`、`read_at = NULL` に巻き戻し
-2. 全話既読時は novels.has_unconfirmed_update を 0 にUPDATE
-3. SCR-001 の unread_count を再計算して表示を更新
+   - 全話既読時は novels.has_unconfirmed_update を 0 にUPDATE
+2. SCR-001 の unread_count を再計算して表示を更新
 
 **読了点の巻き戻し挙動（仕様承認済み）:**
 - 既読 N=10 状態でユーザが N=3 を再読 → 4..10 が未読化される。
@@ -732,7 +732,7 @@ graph TD
    最終話付近を提示する目的。
 3. 0 話登録（`_allEpisodes.Count == 0`） → anchor 無し。
 
-anchor が決まったら、それを含むページを `CurrentPage` として `LoadPageAsync` 実行。`LoadPageAsync` 完了と
+anchor が決まったら、それを含むページを `CurrentPage` として `LoadPage` 実行。`LoadPage` 完了と
 同じ UI tick で `PageContentReset` イベントを発火し、View 側で `ScrollTo(idx, ScrollToPosition.Center,
 animate=false)` を同期呼び出しすることで対象行を画面中央に配置する（同一レイアウトパスでアイテム配置と
 スクロール target の両方が処理され、ユーザーには「先頭→アンカー」の中間スクロールが見えない）。
@@ -745,20 +745,20 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 > 個別話 IsRead=true を許す経路ができた場合、anchor 選定を `LastOrDefault(IsRead == true)` 単独に変更する。
 
 > フィルタ ON/OFF (`ShowUnreadOnly`/`ShowFavoritesOnly`) の再ロードや、ページ手動切替
-> (`PrevPageAsync`/`NextPageAsync`) では anchor スクロールではなく先頭リセット
+> (`PrevPage`/`NextPage`) では anchor スクロールではなく先頭リセット
 > (`PageContentReset(ScrollIndex=0, ToCenter=false)`) を発火する。
 >
 > **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を
 > 再発火させる仕様を利用して、遷移経路ごとに挙動を出し分ける:
 > - **続きから読む経由** (`ReadContinueAsync` で `_pendingScrollToAnchor=true` をセット):
 >   `JumpToAnchorAsync` を起動し、IsRead を再 fetch → アンカー再計算 → `CurrentPage` 更新
->   → `LoadPageAsync` → `PageContentReset(ToCenter=true)` 発火でアンカー位置へジャンプする。
+>   → `LoadPage` → `PageContentReset(ToCenter=true)` 発火でアンカー位置へジャンプする。
 >   Reader 内で既読化された話があれば `firstUnread` が進み、新しいアンカー (= Reader で読んだ
 >   最終話あたり) へ移動する。
 > - **詳細タップ経由** (`NavigateToEpisode`, フラグ立てない): 何もしない。`Episodes` と
 >   `CurrentPage` を一切触らないため `CollectionView` の scroll 位置が自然に維持される。
 >   ただし `ShowUnreadOnly=true` 状態でタップした話が Reader 側で既読化された場合、
->   `OnAppearing` の `RefreshReadStatusAsync` がフィルタ再構築で `LoadPageAsync` を呼ぶため
+>   `OnAppearing` の `RefreshReadStatusAsync` がフィルタ再構築で `LoadPage` を呼ぶため
 >   その話はリストから消える (scroll 位置は ObservableCollection の Clear+Add で維持)。
 >
 > 「続きから読む」経路では `ApplyQueryAttributes` 側で `_skipNextRefresh=true` を先に立てて
@@ -789,7 +789,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 **ViewModelイベント:**
 | イベント名 | ペイロード | 発火タイミング |
 |---|---|---|
-| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToAnchorAsync` 完了時（「続きから読む」経由の Reader 戻り遷移、`ToCenter=true`）/ `PrevPageAsync` / `NextPageAsync` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新および詳細タップ経由の Reader 戻り遷移では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
+| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToAnchorAsync` 完了時（「続きから読む」経由の Reader 戻り遷移、`ToCenter=true`）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新および詳細タップ経由の Reader 戻り遷移では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
@@ -1270,7 +1270,7 @@ public enum SiteType
 - 後者は `args.SetObserved()` でプロセス終了を抑止（fire-and-forget Task の例外を吸収）
 
 ### 8.13 SQLite トランザクション
-- 既読化（F-006）の `SetReadStateUpToAsync` は `_db.RunInTransactionAsync` で 2 SQL（既読化 + 巻き戻し）を atomic に実行
+- 既読化（F-006）の `SetReadStateUpToAsync` は `_db.RunInTransactionAsync` で 3 SQL（既読化 + 巻き戻し + 全話既読時の未確認更新フラグ解除）を atomic に実行
 - 補償削除（H-1）の `NovelRepository.DeleteBySiteAndNovelIdAsync` も同じ仕組みで `episode_cache → episodes → novels` を連鎖削除
 - sqlite-net-pcl の placeholder（`?`）は同一 SQL あたり 3 個までを既存パターンとし、4 個以上必要なら 2 SQL に分割する
 

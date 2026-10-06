@@ -105,7 +105,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     // へ再ジャンプさせるマーカー。`NavigateToEpisode`（詳細タップ）では立てない → タップ経路は
     // ApplyQueryAttributes 再発火時に何もせず、CollectionView の scroll 位置を維持する。
     // 注: `ShowUnreadOnly=true` でタップした話が Reader 内で既読化された場合、`OnAppearing` の
-    // `RefreshReadStatusAsync` がフィルタ再構築で `LoadPageAsync` を呼ぶためその話はリストから消える
+    // `RefreshReadStatusAsync` がフィルタ再構築で `LoadPage` を呼ぶためその話はリストから消える
     // (ObservableCollection の Clear+Add なので scroll 位置自体は維持される)。これは ShowUnreadOnly の
     // 自然な振る舞いと整合するため許容。
     private bool _pendingScrollToAnchor;
@@ -210,7 +210,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             _cachedIds = freshCachedIds;
             RebuildFilterCache();
             RecalcPaging();
-            await LoadPageAsync();
+            LoadPage();
         }
         finally
         {
@@ -253,8 +253,6 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             RebuildFilterCache();
 
             // _allEpisodes は既にロード済みなので、HasChapters / HasLastRead は in-memory で導出。
-            // 旧実装は GetLastReadEpisodeAsync を別 DB クエリで呼んでいたが、IsRead フラグが
-            // 1 つでもあれば「続きから読む」ボタンを出すのに十分なので DB 経由は不要。
             var hasChapters = _allEpisodes.Any(e => e.ChapterName is not null);
             var hasLastRead = _allEpisodes.Any(e => e.IsRead);
 
@@ -273,9 +271,9 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             // Shell スライドアニメ完了を待ってからリスト構築する (アイテム追加との競合回避)。
             // 詳細は ShellAnimationSettleMs の定義コメント参照。
             await Task.Delay(ShellAnimationSettleMs);
-            await LoadPageAsync();
+            LoadPage();
 
-            // LoadPageAsync 完了と同じ UI tick でスクロール target を渡すことで、
+            // LoadPage 完了と同じ UI tick でスクロール target を渡すことで、
             // ユーザーには「先頭→アンカー」の中間スクロールが見えないようにする。
             // anchor が無い場合は先頭リセット (ScrollIndex=0, ToCenter=false)。
             PageContentReset?.Invoke(this, new PageContentResetArgs(
@@ -335,7 +333,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     //                       直後 (= 新 firstUnread - 1) のアンカーは通常 0-1 話しかずれないので、
     //                       stale でもユーザーには遅延なく「ほぼ正しい位置」が見える。
     //   Stage 1B (ページ跨ぎ): pre-Reader のページ内容を即時 hide (Episodes.Clear + IsLoading=true)。
-    //                       Stage 2 相当の Clear+Add (LoadPageAsync) をアニメ中に走らせると詰まるため
+    //                       Stage 2 相当の Clear+Add (LoadPage) をアニメ中に走らせると詰まるため
     //                       Stage 2 に回すが、「pre-Reader 位置を見せて急に飛ぶ」よりは「ローディング
     //                       → アンカー位置で表示」の方が違和感が小さい (ユーザー要望)。
     //   Stage 2: アニメ完了 (Task.Delay ShellAnimationSettleMs) を待ってから DB fetch + IsRead 反映 +
@@ -371,13 +369,11 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             // --- Stage 2: アニメ完了後に fresh fetch + 反映 ---
             await Task.Delay(ShellAnimationSettleMs);
 
-            // Reader が話を既読化している可能性があるので IsRead を再 fetch して反映する。
-            var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-            var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
+            // Reader が話を既読化している可能性があるので既読状態だけを取り直して反映する。
+            var readIds = await _episodeRepo.GetReadEpisodeIdsAsync(_novelDbId);
             foreach (var ep in _allEpisodes)
             {
-                if (readMap.TryGetValue(ep.Id, out var isRead))
-                    ep.IsRead = isRead;
+                ep.IsRead = readIds.Contains(ep.Id);
             }
             RebuildFilterCache();
             RecalcPaging();
@@ -389,18 +385,18 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             {
                 // ページ跨ぎ → LoadPage 必須
                 CurrentPage = freshAnchorPage!.Value;
-                await LoadPageAsync();
+                LoadPage();
             }
             else if (ShowUnreadOnly)
             {
                 // 既読化された話がフィルタで除外されるため rebuild 必要
-                await LoadPageAsync();
+                LoadPage();
             }
             else if (Episodes.Count == 0)
             {
                 // Stage 1B で Clear した場合、ページ跨ぎでなくても再描画必要 (rare: stale anchor は別ページだが
                 // fresh anchor は CurrentPage に戻ってきたケース)
-                await LoadPageAsync();
+                LoadPage();
             }
             else
             {
@@ -408,8 +404,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
                 // Clear+Add しないので Stage 1A の scroll 位置がそのまま温存される (フラッシュ無し)。
                 foreach (var vm in Episodes)
                 {
-                    if (readMap.TryGetValue(vm.Id, out var isRead))
-                        vm.IsRead = isRead;
+                    vm.IsRead = readIds.Contains(vm.Id);
                 }
             }
 
@@ -453,14 +448,13 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         if (CurrentPage > MaxPage) CurrentPage = MaxPage;
     }
 
-    private Task LoadPageAsync()
+    private void LoadPage()
     {
         Episodes.Clear();
         foreach (var e in _filteredCache.Skip((CurrentPage - 1) * _episodesPerPage).Take(_episodesPerPage))
         {
             Episodes.Add(EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)));
         }
-        return Task.CompletedTask;
     }
 
     public async Task RefreshReadStatusAsync()
@@ -484,13 +478,11 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             // 詳細は ShellAnimationSettleMs の定義コメント参照。
             await Task.Delay(ShellAnimationSettleMs);
 
-            var freshEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-            var readMap = freshEpisodes.ToDictionary(e => e.Id, e => e.IsRead);
+            var readIds = await _episodeRepo.GetReadEpisodeIdsAsync(_novelDbId);
 
             foreach (var ep in _allEpisodes)
             {
-                if (readMap.TryGetValue(ep.Id, out var isRead))
-                    ep.IsRead = isRead;
+                ep.IsRead = readIds.Contains(ep.Id);
             }
 
             if (ShowUnreadOnly)
@@ -498,15 +490,14 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
                 // 未読フィルタ ON のときは既読化した話をリストから外す必要がある
                 RebuildFilterCache();
                 RecalcPaging();
-                await LoadPageAsync();
+                LoadPage();
             }
             else
             {
                 // フィルタが OFF なら現在表示中のアイテムだけ in-place 更新
                 foreach (var vm in Episodes)
                 {
-                    if (readMap.TryGetValue(vm.Id, out var isRead))
-                        vm.IsRead = isRead;
+                    vm.IsRead = readIds.Contains(vm.Id);
                 }
             }
         }
@@ -534,7 +525,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             RebuildFilterCache();
             CurrentPage = 1;
             RecalcPaging();
-            await LoadPageAsync();
+            LoadPage();
             PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
         }
         finally
@@ -546,11 +537,9 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     [RelayCommand]
     private async Task ReadContinueAsync()
     {
-        var firstUnread = await _episodeRepo.GetFirstUnreadEpisodeAsync(_novelDbId);
-        var lastRead = await _episodeRepo.GetLastReadEpisodeAsync(_novelDbId);
-
-        var target = firstUnread ?? lastRead;
-        if (target is not null && _novel is not null)
+        // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
+        var targets = await _episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(new[] { _novelDbId });
+        if (targets.TryGetValue(_novelDbId, out var targetId) && _novel is not null)
         {
             // Reader 復帰時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。
             // NavigateToEpisode（詳細タップ経由）ではセットしないため、タップ経路は scroll 位置維持。
@@ -558,7 +547,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             try
             {
                 await Shell.Current.GoToAsync(
-                    $"reader?novelId={_novelDbId}&episodeId={target.Id}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+                    $"reader?novelId={_novelDbId}&episodeId={targetId}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
             }
             catch
             {
@@ -592,7 +581,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         {
             RebuildFilterCache();
             RecalcPaging();
-            await LoadPageAsync();
+            LoadPage();
         }
     }
 
@@ -619,20 +608,20 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     }
 
     [RelayCommand(CanExecute = nameof(CanGoPrev))]
-    private async Task PrevPageAsync()
+    private void PrevPage()
     {
         CurrentPage--;
-        await LoadPageAsync();
+        LoadPage();
         PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
     }
 
     private bool CanGoPrev() => CurrentPage > 1;
 
     [RelayCommand(CanExecute = nameof(CanGoNext))]
-    private async Task NextPageAsync()
+    private void NextPage()
     {
         CurrentPage++;
-        await LoadPageAsync();
+        LoadPage();
         PageContentReset?.Invoke(this, new PageContentResetArgs(ScrollIndex: 0, ToCenter: false));
     }
 

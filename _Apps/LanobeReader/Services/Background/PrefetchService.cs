@@ -11,20 +11,14 @@ namespace LanobeReader.Services.Background;
 public class PrefetchService
 {
     private readonly BackgroundJobQueue _queue;
-    private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
-    private readonly EpisodeCacheRepository _cacheRepo;
 
     public PrefetchService(
         BackgroundJobQueue queue,
-        NovelRepository novelRepo,
-        EpisodeRepository episodeRepo,
-        EpisodeCacheRepository cacheRepo)
+        EpisodeRepository episodeRepo)
     {
         _queue = queue;
-        _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
-        _cacheRepo = cacheRepo;
     }
 
     /// <summary>
@@ -32,57 +26,37 @@ public class PrefetchService
     /// </summary>
     public async Task<int> EnqueueNovelAsync(int novelDbId, bool highPriority = false)
     {
-        var novel = await _novelRepo.GetByIdAsync(novelDbId).ConfigureAwait(false);
-        if (novel is null) return 0;
-
-        var episodes = await _episodeRepo.GetByNovelIdAsync(novelDbId).ConfigureAwait(false);
-        var cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(novelDbId).ConfigureAwait(false);
-
-        int enqueued = 0;
-        foreach (var ep in episodes)
+        var targets = await _episodeRepo.GetUncachedTargetsAsync(novelDbId).ConfigureAwait(false);
+        foreach (var t in targets)
         {
-            if (cachedIds.Contains(ep.Id)) continue;
-            await _queue.EnqueueAsync(new PrefetchEpisodeJob
-            {
-                NovelDbId = novel.Id,
-                EpisodeDbId = ep.Id,
-                EpisodeNo = ep.EpisodeNo,
-                SiteType = novel.SiteType,
-                SiteNovelId = novel.NovelId,
-                SiteEpisodeId = ep.SiteEpisodeId,
-            }, (highPriority || novel.IsFavorite) ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
-            enqueued++;
+            await EnqueueAsync(t, highPriority || t.IsFavorite).ConfigureAwait(false);
         }
-        MessageService.Info($"Enqueued {enqueued} episodes for novel {novelDbId}");
-        return enqueued;
+        MessageService.Info($"Enqueued {targets.Count} episodes for novel {novelDbId}");
+        return targets.Count;
     }
 
     /// <summary>
     /// 全登録小説の未読＆未キャッシュ話をキューイング。起動時に呼ぶ想定。
+    /// お気に入り作品の話が先頭に来る順で返るので、その順に積む。
     /// </summary>
     public async Task EnqueueAllUnreadAsync()
     {
-        var novels = await _novelRepo.GetAllAsync().ConfigureAwait(false);
-        // お気に入りを先頭へ
-        var ordered = novels.OrderByDescending(n => n.IsFavorite).ToList();
-        foreach (var novel in ordered)
+        var targets = await _episodeRepo.GetUnreadUncachedTargetsAsync().ConfigureAwait(false);
+        foreach (var t in targets)
         {
-            var episodes = await _episodeRepo.GetByNovelIdAsync(novel.Id).ConfigureAwait(false);
-            var cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(novel.Id).ConfigureAwait(false);
-
-            foreach (var ep in episodes.Where(e => !e.IsRead))
-            {
-                if (cachedIds.Contains(ep.Id)) continue;
-                await _queue.EnqueueAsync(new PrefetchEpisodeJob
-                {
-                    NovelDbId = novel.Id,
-                    EpisodeDbId = ep.Id,
-                    EpisodeNo = ep.EpisodeNo,
-                    SiteType = novel.SiteType,
-                    SiteNovelId = novel.NovelId,
-                    SiteEpisodeId = ep.SiteEpisodeId,
-                }, novel.IsFavorite ? JobPriority.High : JobPriority.Normal).ConfigureAwait(false);
-            }
+            await EnqueueAsync(t, t.IsFavorite).ConfigureAwait(false);
         }
+        MessageService.Info($"Enqueued {targets.Count} unread episodes for all novels");
     }
+
+    private Task EnqueueAsync(EpisodeRepository.PrefetchTarget t, bool highPriority) =>
+        _queue.EnqueueAsync(new PrefetchEpisodeJob
+        {
+            NovelDbId = t.NovelDbId,
+            EpisodeDbId = t.EpisodeDbId,
+            EpisodeNo = t.EpisodeNo,
+            SiteType = t.SiteType,
+            SiteNovelId = t.SiteNovelId,
+            SiteEpisodeId = t.SiteEpisodeId,
+        }, highPriority ? JobPriority.High : JobPriority.Normal);
 }

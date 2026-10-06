@@ -55,7 +55,7 @@ public partial class EpisodeListPage : ContentPage
     }
 
     /// <summary>
-    /// VM からのスクロール指示。LoadPageAsync 完了と同じ UI tick で発火されるため、ここで同期的に
+    /// VM からのスクロール指示。LoadPage 完了と同じ UI tick で発火されるため、ここで同期的に
     /// ScrollTo を呼べば RecyclerView は「アイテム配置 + スクロール target」を 1 回のレイアウト
     /// パスで処理する。ユーザーには中間スクロールが見えない。
     /// それでも空振りした場合 (measure 未完等) のため _pendingScrollIndex に target を残し、

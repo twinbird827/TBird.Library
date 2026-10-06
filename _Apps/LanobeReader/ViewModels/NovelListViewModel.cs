@@ -165,11 +165,9 @@ public partial class NovelListViewModel : AutoReloadViewModel
     [RelayCommand]
     private async Task NavigateToDetail(NovelCardViewModel card)
     {
-        var novel = await _novelRepo.GetByIdAsync(card.Id);
-        if (novel is not null && novel.HasUnconfirmedUpdate)
+        if (card.HasUnconfirmedUpdate)
         {
-            novel.HasUnconfirmedUpdate = false;
-            await _novelRepo.UpdateAsync(novel);
+            await _novelRepo.ClearUnconfirmedUpdateAsync(card.Id);
             card.HasUnconfirmedUpdate = false;
         }
 

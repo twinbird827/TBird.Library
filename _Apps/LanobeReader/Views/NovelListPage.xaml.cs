@@ -6,6 +6,10 @@ public partial class NovelListPage : ContentPage
 {
     private readonly NovelListViewModel _viewModel;
 
+    // XAML の DataTemplate 内から x:Reference 経由でアクセスするための型付きプロパティ。
+    // BindingContext を直接参照すると object 扱いになりコンパイル済みバインディングが効かない。
+    public NovelListViewModel ViewModel => _viewModel;
+
     public NovelListPage(NovelListViewModel viewModel)
     {
         InitializeComponent();

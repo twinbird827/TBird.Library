@@ -13,7 +13,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 {
     private readonly EpisodeRepository _episodeRepo;
     private readonly EpisodeContentService _contentService;
-    private readonly NovelRepository _novelRepo;
     private readonly AppSettingsRepository _settingsRepo;
     private readonly NetworkPolicyService _networkPolicy;
 
@@ -21,16 +20,17 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     private int _currentEpisodeId;
     private int _siteType;
     private string _siteNovelId = string.Empty;
+    // 読み込み時に解決した前話・次話の DB Id。前へ/次へで再クエリしないために保持する。
+    private int? _prevEpisodeId;
+    private int? _nextEpisodeId;
     public ReaderViewModel(
         EpisodeRepository episodeRepo,
         EpisodeContentService contentService,
-        NovelRepository novelRepo,
         AppSettingsRepository settingsRepo,
         NetworkPolicyService networkPolicy)
     {
         _episodeRepo = episodeRepo;
         _contentService = contentService;
-        _novelRepo = novelRepo;
         _settingsRepo = settingsRepo;
         _networkPolicy = networkPolicy;
     }
@@ -151,6 +151,10 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
         _episodeContent = string.Empty;
         EpisodeTitle = string.Empty;
         EpisodeHtml = string.Empty;
+        _prevEpisodeId = null;
+        _nextEpisodeId = null;
+        HasPrevEpisode = false;
+        HasNextEpisode = false;
         try
         {
             _episode = await _episodeRepo.GetByIdAsync(episodeId);
@@ -158,6 +162,11 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 
             var prev = await _episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
             var next = await _episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
+            // 本文取得の前に入れる。本文取得に失敗しても、この話の前後へ移れるようにするため。
+            _prevEpisodeId = prev?.Id;
+            _nextEpisodeId = next?.Id;
+            HasPrevEpisode = prev is not null;
+            HasNextEpisode = next is not null;
 
             // 本文取得・キャッシュ命中判定・cacheable 保存は EpisodeContentService に集約。cacheable 契約は
             // ファサード内で消費され、ここには漏れない(位置依存フォールバックの誤話本文を恒久キャッシュしない
@@ -179,8 +188,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             EpisodeTitle = _episode.Title;
             _episodeContent = content;
             IsCurrentEpisodeFavorite = _episode.IsFavorite;
-            HasPrevEpisode = prev is not null;
-            HasNextEpisode = next is not null;
 
             RefreshHtml();
         }
@@ -205,13 +212,9 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     [RelayCommand(CanExecute = nameof(CanGoPrev))]
     private async Task PrevEpisodeAsync()
     {
-        if (_episode is null) return;
-        var prev = await _episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
-        if (prev is not null)
-        {
-            _currentEpisodeId = prev.Id;
-            await LoadEpisodeAsync(prev.Id);
-        }
+        if (_prevEpisodeId is not int prevId) return;
+        _currentEpisodeId = prevId;
+        await LoadEpisodeAsync(prevId);
     }
 
     private bool CanGoPrev() => HasPrevEpisode;
@@ -219,13 +222,9 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     [RelayCommand(CanExecute = nameof(CanGoNext))]
     private async Task NextEpisodeAsync()
     {
-        if (_episode is null) return;
-        var next = await _episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
-        if (next is not null)
-        {
-            _currentEpisodeId = next.Id;
-            await LoadEpisodeAsync(next.Id);
-        }
+        if (_nextEpisodeId is not int nextId) return;
+        _currentEpisodeId = nextId;
+        await LoadEpisodeAsync(nextId);
     }
 
     private bool CanGoNext() => HasNextEpisode;
@@ -263,16 +262,5 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
         // N-2 仕様: 既読でも N+1 以降の未読化を走らせるため IsRead チェックは外す。
         await _episodeRepo.SetReadStateUpToAsync(_novelDbId, _episode.EpisodeNo);
         _episode.IsRead = true;
-
-        var allRead = await _episodeRepo.AreAllReadAsync(_novelDbId);
-        if (allRead)
-        {
-            var novel = await _novelRepo.GetByIdAsync(_novelDbId);
-            if (novel is not null && novel.HasUnconfirmedUpdate)
-            {
-                novel.HasUnconfirmedUpdate = false;
-                await _novelRepo.UpdateAsync(novel);
-            }
-        }
     }
 }

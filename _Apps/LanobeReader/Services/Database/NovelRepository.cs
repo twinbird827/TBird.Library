@@ -34,19 +34,10 @@ public class NovelRepository
         _cacheRepo = cacheRepo;
     }
 
-    public async Task<List<Novel>> GetAllAsync()
-    {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.Table<Novel>()
-            .OrderByDescending(n => n.LastUpdatedAt)
-            .ToListAsync().ConfigureAwait(false);
-    }
-
     /// <summary>
     /// 更新チェック用に「最後にチェックした時刻が古い順(未チェック=null を最優先)」で全件取得する。
     /// SQLite では NULL が ASC で先頭に来るため、未チェックの小説が最優先で回る。
-    /// 3分上限等で打ち切られても次回が続きから拾える (ラウンドロビン) ようにするため、
-    /// UI 表示用の <see cref="GetAllAsync"/>(last_updated_at 降順) とは別順序で返す。
+    /// 3分上限等で打ち切られても次回が続きから拾える (ラウンドロビン) ようにするため。
     /// </summary>
     public async Task<List<Novel>> GetAllForCheckAsync()
     {
@@ -189,6 +180,13 @@ public class NovelRepository
         await _db.ExecuteAsync(
             "UPDATE novels SET is_favorite = ?, favorited_at = ? WHERE id = ?",
             favorite, now, novelId).ConfigureAwait(false);
+    }
+
+    public async Task ClearUnconfirmedUpdateAsync(int novelId)
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await _db.ExecuteAsync(
+            "UPDATE novels SET has_unconfirmed_update = 0 WHERE id = ?", novelId).ConfigureAwait(false);
     }
 
     public async Task DeleteAsync(int novelId)

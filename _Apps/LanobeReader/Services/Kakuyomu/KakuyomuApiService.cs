@@ -199,12 +199,15 @@ public class KakuyomuApiService : INovelService
 
         var url = $"{BASE_URL}/works/{novelId}";
         var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, ct).ConfigureAwait(false);
-        var episodes = ParseApolloState(html, novelId);
+        using var doc = ParseNextData(html);
+        var episodes = ParseApolloState(GetApolloState(doc), novelId);
         StoreTocCache(novelId, episodes);
         return episodes;
     }
 
-    private static JsonElement? ExtractApolloState(string html)
+    // __NEXT_DATA__ の JSON を部分文字列のコピーなしでパースする。範囲が見つからなければ null。
+    // 返す JsonDocument は呼び出し側が using で破棄し、そこから得た JsonElement はその範囲内でだけ使う。
+    private static JsonDocument? ParseNextData(string html)
     {
         const string marker = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
         var start = html.IndexOf(marker, StringComparison.Ordinal);
@@ -212,19 +215,21 @@ public class KakuyomuApiService : INovelService
         start += marker.Length;
         var end = html.IndexOf("</script>", start, StringComparison.Ordinal);
         if (end < 0) return null;
+        return JsonDocument.Parse(html.AsMemory(start, end - start));
+    }
 
-        var json = html.Substring(start, end - start);
-        using var doc = JsonDocument.Parse(json);
+    private static JsonElement? GetApolloState(JsonDocument? doc)
+    {
+        if (doc is null) return null;
         if (!doc.RootElement.TryGetProperty("props", out var props)) return null;
         if (!props.TryGetProperty("pageProps", out var pageProps)) return null;
         if (!pageProps.TryGetProperty("__APOLLO_STATE__", out var apolloState)) return null;
-        return apolloState.Clone();
+        return apolloState;
     }
 
-    private static List<Episode> ParseApolloState(string html, string novelId)
+    private static List<Episode> ParseApolloState(JsonElement? apolloState, string novelId)
     {
         var episodes = new List<Episode>();
-        var apolloState = ExtractApolloState(html);
         if (apolloState is null) return episodes;
 
         var state = apolloState.Value;
@@ -433,13 +438,14 @@ public class KakuyomuApiService : INovelService
 
         // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。これにより直後の FetchEpisodeListAsync
         // /Prefetch が同一 /works/{novelId} を再取得せず再利用し(2 fetch 冗長を解消)、古い TOC を使うリスクも防ぐ。
-        var episodes = ParseApolloState(html, novelId);
+        using var doc = ParseNextData(html);
+        var apolloState = GetApolloState(doc);
+        var episodes = ParseApolloState(apolloState, novelId);
         StoreTocCache(novelId, episodes);
         var totalEpisodes = episodes.Count;
 
         bool isCompleted = false;
         string? author = null;
-        var apolloState = ExtractApolloState(html);
         if (apolloState is not null)
         {
             var workKey = $"Work:{novelId}";
