@@ -1,6 +1,5 @@
 using Android.App;
 using Android.Content;
-using Android.OS;
 using Android.Service.Notification;
 using AndroidX.Core.App;
 using TBird.Core;
@@ -20,26 +19,22 @@ public static class NotificationHelper
 
 	public static void CreateNotificationChannels(Activity activity)
 	{
-		if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
+		var updateChannel = new NotificationChannel(
+			UPDATE_CHANNEL_ID, "更新通知", NotificationImportance.Default)
 		{
-			var updateChannel = new NotificationChannel(
-				UPDATE_CHANNEL_ID, "更新通知", NotificationImportance.Default)
-			{
-				Description = "小説の更新通知"
-			};
+			Description = "小説の更新通知"
+		};
 
-			var manager = activity.GetSystemService(Context.NotificationService) as NotificationManager;
-			// ランチャーアイコンの通知ドット(新着バッジ)を明示的に有効化。
-			// 既定でも true だが意図を明示。チャンネルは作成後イミュータブルのため、
-			// 既存インストールではアプリ再インストール/データ削除まで反映されない (Android 仕様)。
-			updateChannel.SetShowBadge(true);
-			manager?.CreateNotificationChannel(updateChannel);
-		}
+		var manager = activity.GetSystemService(Context.NotificationService) as NotificationManager;
+		// ランチャーアイコンの通知ドット(新着バッジ)を明示的に有効化。
+		// 既定でも true だが意図を明示。チャンネルは作成後イミュータブルのため、
+		// 既存インストールではアプリ再インストール/データ削除まで反映されない (Android 仕様)。
+		updateChannel.SetShowBadge(true);
+		manager?.CreateNotificationChannel(updateChannel);
 	}
 
 	public static bool HasNotificationPermission(Context context)
 	{
-		if (Build.VERSION.SdkInt < BuildVersionCodes.Tiramisu) return true;
 		return AndroidX.Core.Content.ContextCompat.CheckSelfPermission(
 			context, global::Android.Manifest.Permission.PostNotifications)
 			== global::Android.Content.PM.Permission.Granted;
@@ -148,21 +143,14 @@ public static class NotificationHelper
 		// ShowUpdateNotifications の「前面判定 + 投稿」と相互排他にし、前面化直後の投稿が消え残るのを防ぐ。
 		lock (_notifyGate)
 		{
-			if (Build.VERSION.SdkInt >= BuildVersionCodes.M
-				&& context.GetSystemService(Context.NotificationService) is NotificationManager manager)
+			if (context.GetSystemService(Context.NotificationService) is not NotificationManager manager) return;
+			foreach (var sbn in manager.GetActiveNotifications() ?? Array.Empty<StatusBarNotification>())
 			{
-				foreach (var sbn in manager.GetActiveNotifications() ?? Array.Empty<StatusBarNotification>())
+				if (sbn.Notification?.ChannelId == UPDATE_CHANNEL_ID)
 				{
-					if (sbn.Notification?.ChannelId == UPDATE_CHANNEL_ID)
-					{
-						manager.Cancel(sbn.Tag, sbn.Id);
-					}
+					manager.Cancel(sbn.Tag, sbn.Id);
 				}
-				return;
 			}
-
-			// 旧 OS フォールバック(minSdk 上は到達しない)。
-			NotificationManagerCompat.From(context)?.CancelAll();
 		}
 	}
 }

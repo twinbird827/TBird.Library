@@ -22,7 +22,6 @@ public static class BatteryOptimizationHelper
 	/// </summary>
 	public static void PromptOnceIfNeeded(Activity activity)
 	{
-		if (Build.VERSION.SdkInt < BuildVersionCodes.M) return;
 		if (Preferences.Get(AskedKey, false)) return;
 
 		var pm = activity.GetSystemService(Context.PowerService) as PowerManager;

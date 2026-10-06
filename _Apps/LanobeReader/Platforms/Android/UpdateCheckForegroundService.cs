@@ -144,14 +144,7 @@ public class UpdateCheckForegroundService : Service
             .SetOngoing(true)!
             .Build();
 
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.Q)
-        {
-            StartForeground(OngoingNotificationId, notification!, ForegroundService.TypeShortService);
-        }
-        else
-        {
-            StartForeground(OngoingNotificationId, notification!);
-        }
+        StartForeground(OngoingNotificationId, notification!, ForegroundService.TypeShortService);
     }
 
     /// <summary>
@@ -178,8 +171,6 @@ public class UpdateCheckForegroundService : Service
 
     private void EnsureChannel()
     {
-        if (Build.VERSION.SdkInt < BuildVersionCodes.O) return;
-
         var manager = GetSystemService(NotificationService) as NotificationManager;
         if (manager is null) return;
         if (manager.GetNotificationChannel(CHANNEL_ID) is not null) return;

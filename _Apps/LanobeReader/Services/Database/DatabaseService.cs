@@ -30,22 +30,16 @@ public class DatabaseService : SqliteDatabaseBase
         await conn.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL").ConfigureAwait(false);
 
         // 1. CreateTable は冪等。v0 の新規インストール時の初期化も兼ねる。
+        //    既存テーブルに足りない列は CreateTableAsync が ALTER TABLE ADD COLUMN で追加する
+        //    (sqlite-net の自動マイグレーション。追加列は nullable・DEFAULT なし)。
+        //    [NotNull] の列を既存テーブルへ足すと「ADD COLUMN ... not null」(既定値なし)を SQLite が拒否して
+        //    初期化が失敗するため、NOT NULL / DEFAULT が要る列は明示の ALTER TABLE ... DEFAULT で足すこと。
         await conn.CreateTableAsync<Novel>().ConfigureAwait(false);
         await conn.CreateTableAsync<Episode>().ConfigureAwait(false);
         await conn.CreateTableAsync<EpisodeCache>().ConfigureAwait(false);
         await conn.CreateTableAsync<AppSetting>().ConfigureAwait(false);
 
-        // 2. 既存カラム追加（新規カラムの後方互換）
-        await EnsureColumnAsync(conn, "novels", "is_favorite", "INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
-        await EnsureColumnAsync(conn, "novels", "favorited_at", "TEXT NULL").ConfigureAwait(false);
-        await EnsureColumnAsync(conn, "novels", "last_checked_at", "TEXT NULL").ConfigureAwait(false);
-        await EnsureColumnAsync(conn, "episodes", "is_favorite", "INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
-        await EnsureColumnAsync(conn, "episodes", "favorited_at", "TEXT NULL").ConfigureAwait(false);
-        // サイト側エピソード ID（Kakuyomu の本文取得を位置依存解決から安定 ID へ移行するため）。
-        // 列追加は EnsureColumnAsync で冪等。新規インストールは CreateTableAsync<Episode> が含めて作成する。
-        await EnsureColumnAsync(conn, "episodes", "site_episode_id", "TEXT NULL").ConfigureAwait(false);
-
-        // 3. novels の UNIQUE 制約（v1 時点で既に整備済みなので再適用するだけ）
+        // 2. novels の UNIQUE 制約（v1 時点で既に整備済みなので再適用するだけ）
         await conn.ExecuteAsync(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_novels_site_novel ON novels (site_type, novel_id)"
         ).ConfigureAwait(false);
@@ -69,14 +63,14 @@ public class DatabaseService : SqliteDatabaseBase
             [SettingsKeys.AUTO_MARK_READ_ENABLED] = SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED.ToString(),
         };
 
-        foreach (var (key, value) in defaults)
+        // 主キー key の衝突は無視されるため既存値を上書きしない。
+        await conn.RunInTransactionAsync(c =>
         {
-            var existing = await conn.FindAsync<AppSetting>(key).ConfigureAwait(false);
-            if (existing is null)
+            foreach (var (key, value) in defaults)
             {
-                await conn.InsertAsync(new AppSetting { Key = key, Value = value }).ConfigureAwait(false);
+                c.Execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", key, value);
             }
-        }
+        }).ConfigureAwait(false);
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
