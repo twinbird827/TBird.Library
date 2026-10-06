@@ -2,7 +2,9 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:LanobeReader.ViewModels"
+             xmlns:views="clr-namespace:LanobeReader.Views"
              x:Class="LanobeReader.Views.NovelListPage"
+             x:Name="ThisPage"
              x:DataType="vm:NovelListViewModel"
              Title="ラノベリーダ">
 
@@ -32,13 +34,13 @@
 						<SwipeView.RightItems>
 							<SwipeItems Mode="Reveal">
 								<SwipeItem Text="★お気に入り" BackgroundColor="{StaticResource FavoriteGold}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=ToggleFavoriteCommand, x:DataType=vm:NovelListViewModel}"
+                                    Command="{Binding ViewModel.ToggleFavoriteCommand, Source={x:Reference ThisPage}, x:DataType=views:NovelListPage}"
                                     CommandParameter="{Binding}" />
 								<SwipeItem Text="キャッシュ削除" BackgroundColor="Orange"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=DeleteCacheCommand, x:DataType=vm:NovelListViewModel}"
+                                    Command="{Binding ViewModel.DeleteCacheCommand, Source={x:Reference ThisPage}, x:DataType=views:NovelListPage}"
                                     CommandParameter="{Binding}" />
 								<SwipeItem Text="削除" BackgroundColor="Red"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=DeleteNovelCommand, x:DataType=vm:NovelListViewModel}"
+                                    Command="{Binding ViewModel.DeleteNovelCommand, Source={x:Reference ThisPage}, x:DataType=views:NovelListPage}"
                                     CommandParameter="{Binding}" />
 							</SwipeItems>
 						</SwipeView.RightItems>
@@ -46,7 +48,7 @@
 						<Border Padding="12" Style="{StaticResource CardBorder}">
 							<Border.GestureRecognizers>
 								<TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NovelListViewModel}}, Path=NavigateToDetailCommand, x:DataType=vm:NovelListViewModel}"
+                                    Command="{Binding ViewModel.NavigateToDetailCommand, Source={x:Reference ThisPage}, x:DataType=views:NovelListPage}"
                                     CommandParameter="{Binding}" />
 							</Border.GestureRecognizers>
 
