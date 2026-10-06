@@ -15,8 +15,8 @@ namespace LanobeReader.Services;
 /// </summary>
 public static class UpdateListVisibilityTracker
 {
-    private static readonly object _gate = new();
-    private static readonly List<WeakReference> _visible = new();
+    private static readonly Lock _gate = new();
+    private static readonly List<WeakReference> _visible = [];
 
     /// <summary>新着を即時表示する一覧が 1 つ以上可視で購読中か。</summary>
     public static bool HasVisibleUpdateList

@@ -2,8 +2,8 @@ namespace LanobeReader.Models;
 
 public static class NarouGenres
 {
-    public static readonly IReadOnlyList<GenreInfo> BigGenres = new List<GenreInfo>
-    {
+    public static readonly IReadOnlyList<GenreInfo> BigGenres =
+    [
         new("", "すべて"),
         new("1", "恋愛"),
         new("2", "ファンタジー"),
@@ -11,10 +11,10 @@ public static class NarouGenres
         new("4", "SF"),
         new("99", "その他"),
         new("98", "ノンジャンル"),
-    };
+    ];
 
-    public static readonly IReadOnlyList<GenreInfo> SubGenres = new List<GenreInfo>
-    {
+    public static readonly IReadOnlyList<GenreInfo> SubGenres =
+    [
         new("", "すべて"),
         new("101", "異世界恋愛"),
         new("102", "現実世界恋愛"),
@@ -37,5 +37,5 @@ public static class NarouGenres
         new("9904", "リプレイ"),
         new("9999", "その他"),
         new("9801", "ノンジャンル"),
-    };
+    ];
 }

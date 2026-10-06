@@ -9,13 +9,12 @@ using LanobeReader.Services.Network;
 
 namespace LanobeReader.ViewModels;
 
-public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
+public partial class ReaderViewModel(
+    EpisodeRepository episodeRepo,
+    EpisodeContentService contentService,
+    AppSettingsRepository settingsRepo,
+    NetworkPolicyService networkPolicy) : ErrorAwareViewModel, IQueryAttributable
 {
-    private readonly EpisodeRepository _episodeRepo;
-    private readonly EpisodeContentService _contentService;
-    private readonly AppSettingsRepository _settingsRepo;
-    private readonly NetworkPolicyService _networkPolicy;
-
     private int _novelDbId;
     private int _currentEpisodeId;
     private int _siteType;
@@ -23,57 +22,46 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     // 読み込み時に解決した前話・次話の DB Id。前へ/次へで再クエリしないために保持する。
     private int? _prevEpisodeId;
     private int? _nextEpisodeId;
-    public ReaderViewModel(
-        EpisodeRepository episodeRepo,
-        EpisodeContentService contentService,
-        AppSettingsRepository settingsRepo,
-        NetworkPolicyService networkPolicy)
-    {
-        _episodeRepo = episodeRepo;
-        _contentService = contentService;
-        _settingsRepo = settingsRepo;
-        _networkPolicy = networkPolicy;
-    }
 
     [ObservableProperty]
-    private string _episodeTitle = string.Empty;
+    public partial string EpisodeTitle { get; set; } = string.Empty;
 
     private string _episodeContent = string.Empty;
 
     [ObservableProperty]
-    private string _episodeHtml = string.Empty;
+    public partial string EpisodeHtml { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isLoading = true;
+    public partial bool IsLoading { get; set; } = true;
 
     [ObservableProperty]
-    private double _fontSize = 16;
+    public partial double FontSize { get; set; } = 16;
 
     [ObservableProperty]
-    private int _backgroundThemeIndex;
+    public partial int BackgroundThemeIndex { get; set; }
 
     [ObservableProperty]
-    private int _lineSpacingIndex = SettingsKeys.DEFAULT_LINE_SPACING;
+    public partial int LineSpacingIndex { get; set; } = SettingsKeys.DEFAULT_LINE_SPACING;
 
     [ObservableProperty]
-    private bool _isVerticalWriting;
+    public partial bool IsVerticalWriting { get; set; }
 
     [ObservableProperty]
-    private ReaderCssState? _readerCss;
+    public partial ReaderCssState? ReaderCss { get; set; }
 
     [ObservableProperty]
-    private bool _isCurrentEpisodeFavorite;
+    public partial bool IsCurrentEpisodeFavorite { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrevEpisodeCommand))]
-    private bool _hasPrevEpisode;
+    public partial bool HasPrevEpisode { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(NextEpisodeCommand))]
-    private bool _hasNextEpisode;
+    public partial bool HasNextEpisode { get; set; }
 
     [ObservableProperty]
-    private bool _autoMarkReadEnabled = true;
+    public partial bool AutoMarkReadEnabled { get; set; } = true;
 
     private Episode? _episode;
 
@@ -115,11 +103,11 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 
     private async Task LoadSettingsAsync()
     {
-        FontSize = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
-        BackgroundThemeIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
-        LineSpacingIndex = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
-        var vertical = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING);
-        AutoMarkReadEnabled = await _settingsRepo.GetIntValueAsync(
+        FontSize = await settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
+        BackgroundThemeIndex = await settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
+        LineSpacingIndex = await settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
+        var vertical = await settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING);
+        AutoMarkReadEnabled = await settingsRepo.GetIntValueAsync(
             SettingsKeys.AUTO_MARK_READ_ENABLED,
             SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED) == 1;
 
@@ -157,11 +145,11 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
         HasNextEpisode = false;
         try
         {
-            _episode = await _episodeRepo.GetByIdAsync(episodeId);
+            _episode = await episodeRepo.GetByIdAsync(episodeId);
             if (_episode is null) return;
 
-            var prev = await _episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
-            var next = await _episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
+            var prev = await episodeRepo.GetPreviousEpisodeAsync(_novelDbId, _episode.EpisodeNo);
+            var next = await episodeRepo.GetNextEpisodeAsync(_novelDbId, _episode.EpisodeNo);
             // 本文取得の前に入れる。本文取得に失敗しても、この話の前後へ移れるようにするため。
             _prevEpisodeId = prev?.Id;
             _nextEpisodeId = next?.Id;
@@ -175,9 +163,9 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             // 包む(MainActivity 起動前/特定端末状態で当該 API が throw するため)。INetworkPolicy をアプリ層 VM が
             // 直接 DI で受け取ることは TBird.Maui.Background/CLAUDE.md で禁止されているため、消費アプリ側
             // ラッパー(NetworkPolicyService)経由で参照する。
-            var content = await _contentService.GetContentAsync(
+            var content = await contentService.GetContentAsync(
                 episodeId, (SiteType)_siteType, _siteNovelId, _episode.EpisodeNo, _episode.SiteEpisodeId,
-                networkAllowed: _networkPolicy.IsOnline);
+                networkAllowed: networkPolicy.IsOnline);
             if (content is null)
             {
                 // キャッシュ未命中かつオフライン。ユーザは目次/戻るボタンで自分で抜ける(自動遷移は採用しない)。
@@ -240,7 +228,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     {
         if (_episode is null) return;
         var newValue = !IsCurrentEpisodeFavorite;
-        await _episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
+        await episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
         _episode.IsFavorite = newValue;
         IsCurrentEpisodeFavorite = newValue;
     }
@@ -260,7 +248,7 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     {
         if (_episode is null) return;
         // N-2 仕様: 既読でも N+1 以降の未読化を走らせるため IsRead チェックは外す。
-        await _episodeRepo.SetReadStateUpToAsync(_novelDbId, _episode.EpisodeNo);
+        await episodeRepo.SetReadStateUpToAsync(_novelDbId, _episode.EpisodeNo);
         _episode.IsRead = true;
     }
 }

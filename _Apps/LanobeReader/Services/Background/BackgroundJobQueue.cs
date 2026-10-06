@@ -15,34 +15,29 @@ namespace LanobeReader.Services.Background;
 ///   (b) Service 層 (PrefetchService / UpdateCheckService) の DI シグネチャを変えないため
 ///       既存呼出側コードを無修正で済ませる
 /// </summary>
-public class BackgroundJobQueue
+public class BackgroundJobQueue(
+    INetworkPolicy networkPolicy,
+    AppSettingsRepository settingsRepo,
+    EpisodeContentService contentService)
 {
-    private readonly PriorityJobQueue<PrefetchEpisodeJob, int> _queue;
-
-    public BackgroundJobQueue(
-        INetworkPolicy networkPolicy,
-        AppSettingsRepository settingsRepo,
-        EpisodeContentService contentService)
-    {
-        _queue = new PriorityJobQueue<PrefetchEpisodeJob, int>(
-            networkPolicy: networkPolicy,
-            keySelector: j => j.EpisodeDbId,
-            processor: async (job, ct) =>
-            {
-                // 取得・キャッシュ可否判定・保存は EpisodeContentService に集約。命中時は内部でネットワークへ
-                // 出ない(キャッシュ命中=早期 return 相当)ため、ここでの事前命中チェックは不要。
-                await contentService.GetContentAsync(
-                    job.EpisodeDbId, (SiteType)job.SiteType, job.SiteNovelId, job.EpisodeNo, job.SiteEpisodeId,
-                    networkAllowed: true, ct).ConfigureAwait(false);
-            },
-            isEnabled: async () =>
-            {
-                var v = await settingsRepo.GetIntValueAsync(
-                    SettingsKeys.PREFETCH_ENABLED,
-                    SettingsKeys.DEFAULT_PREFETCH_ENABLED).ConfigureAwait(false);
-                return v != 0;
-            });
-    }
+    private readonly PriorityJobQueue<PrefetchEpisodeJob, int> _queue = new(
+        networkPolicy: networkPolicy,
+        keySelector: j => j.EpisodeDbId,
+        processor: async (job, ct) =>
+        {
+            // 取得・キャッシュ可否判定・保存は EpisodeContentService に集約。命中時は内部でネットワークへ
+            // 出ない(キャッシュ命中=早期 return 相当)ため、ここでの事前命中チェックは不要。
+            await contentService.GetContentAsync(
+                job.EpisodeDbId, (SiteType)job.SiteType, job.SiteNovelId, job.EpisodeNo, job.SiteEpisodeId,
+                networkAllowed: true, ct).ConfigureAwait(false);
+        },
+        isEnabled: async () =>
+        {
+            var v = await settingsRepo.GetIntValueAsync(
+                SettingsKeys.PREFETCH_ENABLED,
+                SettingsKeys.DEFAULT_PREFETCH_ENABLED).ConfigureAwait(false);
+            return v != 0;
+        });
 
     public Task<bool> EnqueueAsync(PrefetchEpisodeJob job, JobPriority priority = JobPriority.Normal)
         => _queue.EnqueueAsync(job, priority);

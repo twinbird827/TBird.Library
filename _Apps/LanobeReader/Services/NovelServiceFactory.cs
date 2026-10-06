@@ -2,14 +2,9 @@ using LanobeReader.Models;
 
 namespace LanobeReader.Services;
 
-public class NovelServiceFactory : INovelServiceFactory
+public class NovelServiceFactory(IEnumerable<INovelService> services) : INovelServiceFactory
 {
-    private readonly Dictionary<SiteType, INovelService> _services;
-
-    public NovelServiceFactory(IEnumerable<INovelService> services)
-    {
-        _services = services.ToDictionary(s => s.SiteType);
-    }
+    private readonly Dictionary<SiteType, INovelService> _services = services.ToDictionary(s => s.SiteType);
 
     public INovelService GetService(SiteType siteType)
     {

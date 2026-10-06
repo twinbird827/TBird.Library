@@ -5,23 +5,20 @@ using LanobeReader.Models;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
 using LanobeReader.Services.Narou;
-using LanobeReader.Services.Network;
 using Microsoft.Maui.Storage;
 using TBird.Core;
 using TBird.Maui.Background;
 
 namespace LanobeReader.Services;
 
-public class UpdateCheckService
+public class UpdateCheckService(
+    NovelRepository novelRepo,
+    EpisodeRepository episodeRepo,
+    INovelServiceFactory serviceFactory,
+    NarouApiService narou,
+    BackgroundJobQueue? jobQueue = null)
 {
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
-
-    private readonly NovelRepository _novelRepo;
-    private readonly EpisodeRepository _episodeRepo;
-    private readonly INovelServiceFactory _serviceFactory;
-    private readonly NarouApiService _narou;
-    private readonly NetworkPolicyService _networkPolicy;
-    private readonly BackgroundJobQueue? _jobQueue;
 
     // 移行補完(フル TOC 取得 + backfill)を本プロセスで試行済みの作品 Id。全話がタイトル不一致(改題/ドリフト)で
     // backfill が 0 件更新だと site_episode_id は付かず HasAnySiteEpisodeIdAsync が false のまま残る。マーカーが
@@ -29,23 +26,7 @@ public class UpdateCheckService
     // Singleton のためプロセス存続中は保持される(再起動後に 1 度だけ再試行されるのは許容範囲)。
     // 再起動後に 1 度だけ再試行されるのは、サイト側でドリフトが解消(タイトル再一致)した作品を将来 backfill し直す
     // self-heal 機会として意図的(永続マーカー化は self-heal を恒久封鎖するため採らない)。
-    private readonly HashSet<int> _migrationAttempted = new();
-
-    public UpdateCheckService(
-        NovelRepository novelRepo,
-        EpisodeRepository episodeRepo,
-        INovelServiceFactory serviceFactory,
-        NetworkPolicyService networkPolicy,
-        NarouApiService narou,
-        BackgroundJobQueue? jobQueue = null)
-    {
-        _novelRepo = novelRepo;
-        _episodeRepo = episodeRepo;
-        _serviceFactory = serviceFactory;
-        _narou = narou;
-        _networkPolicy = networkPolicy;
-        _jobQueue = jobQueue;
-    }
+    private readonly HashSet<int> _migrationAttempted = [];
 
     public async Task<List<(Novel novel, int newEpisodeCount)>> CheckAllAsync(
         CancellationToken ct = default, Action? onSkippedDueToContention = null)
@@ -64,7 +45,7 @@ public class UpdateCheckService
         {
             // 「最後にチェックした時刻が古い順(未チェック=null 優先)」で回す。3分上限(shortService)
             // 等で打ち切られても、次回が続きから拾える (ラウンドロビン) ようにするため。
-            var novels = await _novelRepo.GetAllForCheckAsync().ConfigureAwait(false);
+            var novels = await novelRepo.GetAllForCheckAsync().ConfigureAwait(false);
             var updates = new List<(Novel, int)>();
             // 「新着なし」作品の last_checked_at 前進を蓄積し、ループ末尾で 1 トランザクションに束ねる。
             // 作品ごとの個別コミット(巡回1周＝作品数ぶんの書き込み)を避けるため。
@@ -98,7 +79,7 @@ public class UpdateCheckService
                 var metadataChanged = false;
                 try
                 {
-                    var service = _serviceFactory.GetService((SiteType)novel.SiteType);
+                    var service = serviceFactory.GetService((SiteType)novel.SiteType);
                     int totalEpisodes;
                     string? lastUpdatedAt;
                     bool isCompleted;
@@ -138,7 +119,7 @@ public class UpdateCheckService
                         metadataChanged = true;
                     }
 
-                    var currentMaxEpisode = await _episodeRepo.GetMaxEpisodeNoAsync(novel.Id).ConfigureAwait(false);
+                    var currentMaxEpisode = await episodeRepo.GetMaxEpisodeNoAsync(novel.Id).ConfigureAwait(false);
 
                     // サイト報告の総話数が DB 上限を超え、かつ「前回処理した報告値から変化した」または
                     // 「サイトの最終更新時刻が前回から進んだ」場合に実取得する。
@@ -181,7 +162,7 @@ public class UpdateCheckService
 
                         if (newEpisodes.Count > 0)
                         {
-                            await _episodeRepo.InsertAllAsync(newEpisodes).ConfigureAwait(false);
+                            await episodeRepo.InsertAllAsync(newEpisodes).ConfigureAwait(false);
 
                             novel.TotalEpisodes = totalEpisodes;
                             novel.LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow.ToString("o");
@@ -194,7 +175,7 @@ public class UpdateCheckService
                             // novel 行が古いまま残り、次回 GetMaxEpisodeNoAsync が新 max を返すため新着が
                             // 二度と再検出されない(NEW 喪失)。挿入直後に永続化して窓を最小化する。
                             novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
-                            await _novelRepo.UpdateCheckResultAsync(novel, markUnconfirmed: true).ConfigureAwait(false);
+                            await novelRepo.UpdateCheckResultAsync(novel, markUnconfirmed: true).ConfigureAwait(false);
                             persisted = true;
 
                             updates.Add((novel, newEpisodes.Count));
@@ -205,13 +186,13 @@ public class UpdateCheckService
                             // novel.HasCheckError=true となり anySuccess を落として完了記録(LAST_CHECK_
                             // COMPLETED_MS)を阻害し、更新確定済みでもアラームが毎周期 FGS を起動し続ける。
                             // 更新は既に永続化(=成功)済みなので、enqueue 失敗は個別に握りつぶす。
-                            if (_jobQueue is not null)
+                            if (jobQueue is not null)
                             {
                                 try
                                 {
                                     foreach (var ep in newEpisodes)
                                     {
-                                        await _jobQueue.EnqueueAsync(new PrefetchEpisodeJob
+                                        await jobQueue.EnqueueAsync(new PrefetchEpisodeJob
                                         {
                                             NovelDbId = novel.Id,
                                             EpisodeDbId = ep.Id,
@@ -258,7 +239,7 @@ public class UpdateCheckService
                         // HasCheckError=true となり完了記録を阻害するため、判定ごと try で握りつぶす。
                         try
                         {
-                            if (!await _episodeRepo.HasAnySiteEpisodeIdAsync(novel.Id).ConfigureAwait(false))
+                            if (!await episodeRepo.HasAnySiteEpisodeIdAsync(novel.Id).ConfigureAwait(false))
                             {
                                 migrationBudget--;
                                 await FetchListAndBackfillAsync(service, novel, ct).ConfigureAwait(false);
@@ -300,7 +281,7 @@ public class UpdateCheckService
                     if (novel.HasCheckError != hadError || metadataChanged)
                     {
                         // エラーフラグ変化、または TotalEpisodes 是正(カウントズレ吸収)があったときは管理列を更新。
-                        await _novelRepo.UpdateCheckResultAsync(novel, markUnconfirmed: false).ConfigureAwait(false);
+                        await novelRepo.UpdateCheckResultAsync(novel, markUnconfirmed: false).ConfigureAwait(false);
                     }
                     else
                     {
@@ -321,7 +302,7 @@ public class UpdateCheckService
             {
                 try
                 {
-                    await _novelRepo.UpdateLastCheckedAtBatchAsync(pendingLastChecked).ConfigureAwait(false);
+                    await novelRepo.UpdateLastCheckedAtBatchAsync(pendingLastChecked).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -377,7 +358,7 @@ public class UpdateCheckService
             requests++;
             try
             {
-                foreach (var (id, info) in await _narou.FetchNovelInfosAsync(chunk, null, ct).ConfigureAwait(false))
+                foreach (var (id, info) in await narou.FetchNovelInfosAsync(chunk, null, ct).ConfigureAwait(false))
                 {
                     infos[id] = info;
                 }
@@ -414,7 +395,7 @@ public class UpdateCheckService
     {
         try
         {
-            await _episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
+            await episodeRepo.BackfillSiteEpisodeIdsAsync(novel.Id, allEpisodes).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

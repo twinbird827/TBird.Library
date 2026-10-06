@@ -10,42 +10,27 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributable
+public partial class EpisodeListViewModel(
+    NovelRepository novelRepo,
+    EpisodeRepository episodeRepo,
+    EpisodeCacheRepository cacheRepo,
+    AppSettingsRepository settingsRepo,
+    PrefetchService prefetch) : AutoReloadViewModel, IQueryAttributable
 {
-    private readonly NovelRepository _novelRepo;
-    private readonly EpisodeRepository _episodeRepo;
-    private readonly EpisodeCacheRepository _cacheRepo;
-    private readonly AppSettingsRepository _settingsRepo;
-    private readonly PrefetchService _prefetch;
-
     private int _novelDbId;
-    private List<Episode> _allEpisodes = new();
-    private HashSet<int> _cachedIds = new();
-    private List<Episode> _filteredCache = new();
-
-    public EpisodeListViewModel(
-        NovelRepository novelRepo,
-        EpisodeRepository episodeRepo,
-        EpisodeCacheRepository cacheRepo,
-        AppSettingsRepository settingsRepo,
-        PrefetchService prefetch)
-    {
-        _novelRepo = novelRepo;
-        _episodeRepo = episodeRepo;
-        _cacheRepo = cacheRepo;
-        _settingsRepo = settingsRepo;
-        _prefetch = prefetch;
-    }
+    private List<Episode> _allEpisodes = [];
+    private HashSet<int> _cachedIds = [];
+    private List<Episode> _filteredCache = [];
 
     [ObservableProperty]
-    private string _novelTitle = string.Empty;
+    public partial string NovelTitle { get; set; } = string.Empty;
 
     // ItemsSource は ObservableCollection の同一インスタンスを保持し、ページ切替時は
     // Clear + Add で内容のみ差し替える。List 再代入だと CollectionView がアダプタを
     // 全リセットしてコンテナ再利用 (RecyclerView のプール) が効かず、ページ切替が体感重くなる。
     // 単発 Reset (notifyDataSetChanged 相当) は Android で逆に全アイテム invalidate が走り
     // 遅いことが多いため、incremental な Clear + Add の方が体感が速い。
-    public ObservableCollection<EpisodeViewModel> Episodes { get; } = new();
+    public ObservableCollection<EpisodeViewModel> Episodes { get; } = [];
 
     // 「ページが切り替わった」セマンティクスを View へ通知する。Episodes 更新と同一 UI tick で
     // 発火することで、View 側で ScrollTo を呼んでもユーザーには「先頭で表示されてからスクロール」
@@ -56,30 +41,30 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrevPageCommand))]
     [NotifyCanExecuteChangedFor(nameof(NextPageCommand))]
-    private int _currentPage = 1;
+    public partial int CurrentPage { get; set; } = 1;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PrevPageCommand))]
     [NotifyCanExecuteChangedFor(nameof(NextPageCommand))]
-    private int _maxPage;
+    public partial int MaxPage { get; set; }
 
     [ObservableProperty]
-    private bool _hasChapters;
+    public partial bool HasChapters { get; set; }
 
     [ObservableProperty]
-    private bool _hasLastRead;
+    public partial bool HasLastRead { get; set; }
 
     [ObservableProperty]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private bool _isNovelFavorite;
+    public partial bool IsNovelFavorite { get; set; }
 
     [ObservableProperty]
-    private bool _showUnreadOnly;
+    public partial bool ShowUnreadOnly { get; set; }
 
     [ObservableProperty]
-    private bool _showFavoritesOnly;
+    public partial bool ShowFavoritesOnly { get; set; }
 
     // Shell のスライドアニメ (~250ms) と LoadPage の Clear+Add が UI スレッドで競合すると
     // 遷移が中途半端な位置で詰まって見える。Dispatcher.Dispatch (1 tick) では不足、200ms で
@@ -198,8 +183,8 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         await _mutateGate.WaitAsync();
         try
         {
-            var fresh = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-            var freshCachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+            var fresh = await episodeRepo.GetByNovelIdAsync(_novelDbId);
+            var freshCachedIds = await cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
 
             // 件数増(新着)に加え、site_episode_id 補完・タイトル訂正・誤話キャッシュ破棄(cached バッジ変化)
             // など件数不変の同内容差し替えも反映する。件数だけを契機にすると本PRの誤話是正(backfill が
@@ -243,13 +228,13 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
         ClearError();
         try
         {
-            _novel = await _novelRepo.GetByIdAsync(_novelDbId);
+            _novel = await novelRepo.GetByIdAsync(_novelDbId);
             if (_novel is null) return;
 
-            _episodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
+            _episodesPerPage = await settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, 50);
 
-            _allEpisodes = await _episodeRepo.GetByNovelIdAsync(_novelDbId);
-            _cachedIds = await _cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
+            _allEpisodes = await episodeRepo.GetByNovelIdAsync(_novelDbId);
+            _cachedIds = await cacheRepo.GetCachedEpisodeIdsAsync(_novelDbId);
             RebuildFilterCache();
 
             // _allEpisodes は既にロード済みなので、HasChapters / HasLastRead は in-memory で導出。
@@ -370,7 +355,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             await Task.Delay(ShellAnimationSettleMs);
 
             // Reader が話を既読化している可能性があるので既読状態だけを取り直して反映する。
-            var readIds = await _episodeRepo.GetReadEpisodeIdsAsync(_novelDbId);
+            var readIds = await episodeRepo.GetReadEpisodeIdsAsync(_novelDbId);
             foreach (var ep in _allEpisodes)
             {
                 ep.IsRead = readIds.Contains(ep.Id);
@@ -478,7 +463,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
             // 詳細は ShellAnimationSettleMs の定義コメント参照。
             await Task.Delay(ShellAnimationSettleMs);
 
-            var readIds = await _episodeRepo.GetReadEpisodeIdsAsync(_novelDbId);
+            var readIds = await episodeRepo.GetReadEpisodeIdsAsync(_novelDbId);
 
             foreach (var ep in _allEpisodes)
             {
@@ -538,7 +523,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     private async Task ReadContinueAsync()
     {
         // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
-        var targets = await _episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(new[] { _novelDbId });
+        var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([_novelDbId]);
         if (targets.TryGetValue(_novelDbId, out var targetId) && _novel is not null)
         {
             // Reader 復帰時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。
@@ -571,7 +556,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     private async Task ToggleEpisodeFavoriteAsync(EpisodeViewModel ep)
     {
         var newValue = !ep.IsFavorite;
-        await _episodeRepo.SetFavoriteAsync(ep.Id, newValue);
+        await episodeRepo.SetFavoriteAsync(ep.Id, newValue);
         ep.IsFavorite = newValue;
 
         var source = _allEpisodes.FirstOrDefault(e => e.Id == ep.Id);
@@ -590,7 +575,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     {
         if (_novel is null) return;
         var newValue = !IsNovelFavorite;
-        await _novelRepo.SetFavoriteAsync(_novel.Id, newValue);
+        await novelRepo.SetFavoriteAsync(_novel.Id, newValue);
         IsNovelFavorite = newValue;
         _novel.IsFavorite = newValue;
     }
@@ -599,7 +584,7 @@ public partial class EpisodeListViewModel : AutoReloadViewModel, IQueryAttributa
     private async Task DownloadAllAsync()
     {
         if (_novel is null) return;
-        var enqueued = await _prefetch.EnqueueNovelAsync(_novelDbId, highPriority: true);
+        var enqueued = await prefetch.EnqueueNovelAsync(_novelDbId, highPriority: true);
         await Shell.Current.DisplayAlertAsync("一括ダウンロード",
             enqueued > 0
                 ? $"{enqueued}話をバックグラウンドで取得します（Wi-Fi接続時のみ）"

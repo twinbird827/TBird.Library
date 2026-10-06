@@ -8,25 +8,16 @@ namespace LanobeReader.Services.Background;
 /// 先読み（プリフェッチ）のエントリポイント。
 /// 未キャッシュ話を BackgroundJobQueue に積むだけ。実通信は Queue 側で直列処理。
 /// </summary>
-public class PrefetchService
+public class PrefetchService(
+    BackgroundJobQueue queue,
+    EpisodeRepository episodeRepo)
 {
-    private readonly BackgroundJobQueue _queue;
-    private readonly EpisodeRepository _episodeRepo;
-
-    public PrefetchService(
-        BackgroundJobQueue queue,
-        EpisodeRepository episodeRepo)
-    {
-        _queue = queue;
-        _episodeRepo = episodeRepo;
-    }
-
     /// <summary>
     /// 指定小説の全未キャッシュ話をキューイング。
     /// </summary>
     public async Task<int> EnqueueNovelAsync(int novelDbId, bool highPriority = false)
     {
-        var targets = await _episodeRepo.GetUncachedTargetsAsync(novelDbId).ConfigureAwait(false);
+        var targets = await episodeRepo.GetUncachedTargetsAsync(novelDbId).ConfigureAwait(false);
         foreach (var t in targets)
         {
             await EnqueueAsync(t, highPriority || t.IsFavorite).ConfigureAwait(false);
@@ -41,7 +32,7 @@ public class PrefetchService
     /// </summary>
     public async Task EnqueueAllUnreadAsync()
     {
-        var targets = await _episodeRepo.GetUnreadUncachedTargetsAsync().ConfigureAwait(false);
+        var targets = await episodeRepo.GetUnreadUncachedTargetsAsync().ConfigureAwait(false);
         foreach (var t in targets)
         {
             await EnqueueAsync(t, t.IsFavorite).ConfigureAwait(false);
@@ -50,7 +41,7 @@ public class PrefetchService
     }
 
     private Task EnqueueAsync(EpisodeRepository.PrefetchTarget t, bool highPriority) =>
-        _queue.EnqueueAsync(new PrefetchEpisodeJob
+        queue.EnqueueAsync(new PrefetchEpisodeJob
         {
             NovelDbId = t.NovelDbId,
             EpisodeDbId = t.EpisodeDbId,

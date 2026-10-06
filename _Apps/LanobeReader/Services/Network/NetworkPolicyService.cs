@@ -6,23 +6,14 @@ namespace LanobeReader.Services.Network;
 /// <summary>
 /// MauiNetworkPolicy + SiteRateLimiter を組み合わせる薄いラッパー。
 /// </summary>
-public class NetworkPolicyService
+public class NetworkPolicyService(INetworkPolicy networkPolicy, SiteRateLimiter siteRateLimiter)
 {
-    private readonly INetworkPolicy _networkPolicy;
-    private readonly SiteRateLimiter _siteRateLimiter;
-
-    public NetworkPolicyService(INetworkPolicy networkPolicy, SiteRateLimiter siteRateLimiter)
-    {
-        _networkPolicy = networkPolicy;
-        _siteRateLimiter = siteRateLimiter;
-    }
-
-    public bool IsOnline => _networkPolicy.IsOnline;
+    public bool IsOnline => networkPolicy.IsOnline;
 
     /// <summary>
     /// 指定サイトに対して HTTP GET（文字列）を発行。直列化＋ディレイ＋transient リトライが自動適用される。
     /// SiteType → siteKey 変換は GetApiKey() 経由。
     /// </summary>
     public Task<string> GetStringAsync(SiteType site, string url, CancellationToken ct = default)
-        => _siteRateLimiter.GetStringAsync(site.GetApiKey(), url, ct);
+        => siteRateLimiter.GetStringAsync(site.GetApiKey(), url, ct);
 }

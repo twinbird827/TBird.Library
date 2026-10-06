@@ -10,17 +10,8 @@ namespace LanobeReader.Platforms.Android;
 /// 新着のディープリンク先(最初の未読話)解決と、OEM ランチャー向け数字バッジ
 /// (未確認更新を持つ小説数)の算出を行い、NotificationHelper で通知を表示する。
 /// </summary>
-public class UpdateNotificationService : IUpdateNotificationService
+public class UpdateNotificationService(EpisodeRepository episodeRepo, NovelRepository novelRepo) : IUpdateNotificationService
 {
-	private readonly EpisodeRepository _episodeRepo;
-	private readonly NovelRepository _novelRepo;
-
-	public UpdateNotificationService(EpisodeRepository episodeRepo, NovelRepository novelRepo)
-	{
-		_episodeRepo = episodeRepo;
-		_novelRepo = novelRepo;
-	}
-
 	public async Task ShowUpdatesAsync(IReadOnlyList<(Novel novel, int newEpisodeCount)> updates)
 	{
 		if (updates.Count == 0) return;
@@ -41,7 +32,7 @@ public class UpdateNotificationService : IUpdateNotificationService
 		{
 			// OEM ランチャー(Samsung/Xiaomi 等)の数字バッジ用に「未確認更新を持つ小説数」を
 			// COUNT クエリで算出(全件ロードを避ける)。
-			var unconfirmedCount = await _novelRepo.CountUnconfirmedAsync().ConfigureAwait(false);
+			var unconfirmedCount = await novelRepo.CountUnconfirmedAsync().ConfigureAwait(false);
 			// 別クエリの COUNT は、挿入とこの COUNT の間に確認操作/CancelAll が走ると今回投稿する
 			// 通知数を下回りうる(0 になることも)。表示中の通知数を下回らないよう下限を担保する。
 			badgeTotal = Math.Max(unconfirmedCount, updates.Count);
@@ -49,13 +40,13 @@ public class UpdateNotificationService : IUpdateNotificationService
 			// ディープリンク先(各小説の最初の未読話、無ければ最後に読んだ話)を 1 度の集約クエリで解決。
 			// 作品ごとに 2 クエリを逐次発行する従来方式(最大 2×N 往復)を避ける。
 			var novelIds = updates.Select(u => u.novel.Id).ToList();
-			targets = await _episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(novelIds).ConfigureAwait(false);
+			targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync(novelIds).ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
 			MessageService.Warn($"Notification metadata resolution failed; using fallback: {ex.Message}");
 			badgeTotal = updates.Count;
-			targets = new Dictionary<int, int>();
+			targets = [];
 		}
 
 		// await 中に前面化していても、投稿可否は NotificationHelper が「前面判定 + 全件 Notify」を原子的に

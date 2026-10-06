@@ -6,25 +6,25 @@ namespace LanobeReader.ViewModels;
 public partial class NovelCardViewModel : ObservableObject
 {
     [ObservableProperty]
-    private int _id;
+    public partial int Id { get; set; }
 
     [ObservableProperty]
-    private string _title = string.Empty;
+    public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _author = string.Empty;
+    public partial string Author { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _siteTypeLabel = string.Empty;
+    public partial string SiteTypeLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private int _unreadCount;
+    public partial int UnreadCount { get; set; }
 
     [ObservableProperty]
-    private int _readCount;
+    public partial int ReadCount { get; set; }
 
     [ObservableProperty]
-    private int _episodeCount;
+    public partial int EpisodeCount { get; set; }
 
     // ReadCount ≤ EpisodeCount は SQL の構造上保証される (両方とも同じ episodes 集計から派生)。
     public string ReadProgressLabel => $"{ReadCount}/{EpisodeCount}";
@@ -33,22 +33,22 @@ public partial class NovelCardViewModel : ObservableObject
     partial void OnEpisodeCountChanged(int value) => OnPropertyChanged(nameof(ReadProgressLabel));
 
     [ObservableProperty]
-    private string _lastUpdatedAt = string.Empty;
+    public partial string LastUpdatedAt { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isCompleted;
+    public partial bool IsCompleted { get; set; }
 
     [ObservableProperty]
-    private bool _hasUnconfirmedUpdate;
+    public partial bool HasUnconfirmedUpdate { get; set; }
 
     [ObservableProperty]
-    private SiteType _siteType;
+    public partial SiteType SiteType { get; set; }
 
     [ObservableProperty]
-    private string _novelId = string.Empty;
+    public partial string NovelId { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isFavorite;
+    public partial bool IsFavorite { get; set; }
 
     public static NovelCardViewModel FromModel(Novel novel, int unreadCount, int readCount, int episodeCount)
     {

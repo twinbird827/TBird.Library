@@ -48,7 +48,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
 
     // Mode: 0=Keyword, 1=Ranking, 2=Genre browse
     [ObservableProperty]
-    private int _mode;
+    public partial int Mode { get; set; }
 
     public bool IsKeywordMode => Mode == 0;
     public bool IsRankingMode => Mode == 1;
@@ -63,23 +63,23 @@ public partial class SearchViewModel : ErrorAwareViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
-    private string _searchKeyword = string.Empty;
+    public partial string SearchKeyword { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _searchNarou = true;
+    public partial bool SearchNarou { get; set; } = true;
 
     [ObservableProperty]
-    private bool _searchKakuyomu = true;
+    public partial bool SearchKakuyomu { get; set; } = true;
 
     [ObservableProperty]
-    private ObservableCollection<SearchResultViewModel> _searchResults = [];
+    public partial ObservableCollection<SearchResultViewModel> SearchResults { get; set; } = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private bool _hasSearched;
+    public partial bool HasSearched { get; set; }
 
     // Ranking/Genre browse
     public ObservableCollection<GenreInfo> NarouBigGenres { get; }
@@ -87,16 +87,16 @@ public partial class SearchViewModel : ErrorAwareViewModel
     public ObservableCollection<GenreInfo> KakuyomuPeriodList { get; }
 
     [ObservableProperty]
-    private GenreInfo? _selectedNarouBigGenre;
+    public partial GenreInfo? SelectedNarouBigGenre { get; set; }
 
     [ObservableProperty]
-    private GenreInfo? _selectedKakuyomuGenre;
+    public partial GenreInfo? SelectedKakuyomuGenre { get; set; }
 
     [ObservableProperty]
-    private GenreInfo? _selectedKakuyomuPeriod;
+    public partial GenreInfo? SelectedKakuyomuPeriod { get; set; }
 
     [ObservableProperty]
-    private int _rankingPeriodIndex; // 0=Daily 1=Weekly 2=Monthly 3=Quarterly
+    public partial int RankingPeriodIndex { get; set; } // 0=Daily 1=Weekly 2=Monthly 3=Quarterly
 
     [RelayCommand]
     private void SetModeKeyword() => Mode = 0;

@@ -8,20 +8,14 @@ using TBird.Maui.Web;
 
 namespace LanobeReader.Services.Narou;
 
-public class NarouApiService : INovelService
+public class NarouApiService(NetworkPolicyService network) : INovelService
 {
     private const string API_BASE = "https://api.syosetu.com/novelapi/api/";
     private const string RANK_BASE = "https://api.syosetu.com/rank/rankget/";
     private const string NCODE_BASE = "https://ncode.syosetu.com/";
 
-    private readonly NetworkPolicyService _network;
-
-    // 全 HTTP は _network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
+    // 全 HTTP は network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
     // UA 等のヘッダは SiteRateLimiter 側の HttpClient に集約されるため、ここで HttpClient は持たない。
-    public NarouApiService(NetworkPolicyService network)
-    {
-        _network = network;
-    }
 
     public SiteType SiteType => SiteType.Narou;
 
@@ -35,7 +29,7 @@ public class NarouApiService : INovelService
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(10));
 
-        var response = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
+        var response = await network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
         return NarouNovelApiParser.Parse(response);
     }
 
@@ -54,7 +48,7 @@ public class NarouApiService : INovelService
             var url = page == 1
                 ? $"{NCODE_BASE}{novelId}/"
                 : $"{NCODE_BASE}{novelId}/?p={page}";
-            var html = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
+            var html = await network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
 
             var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
@@ -114,7 +108,7 @@ public class NarouApiService : INovelService
         cts.CancelAfter(TimeSpan.FromSeconds(10));
 
         var url = $"{NCODE_BASE}{novelId}/{episodeNo}/";
-        var html = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
+        var html = await network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
 
         var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
@@ -144,7 +138,7 @@ public class NarouApiService : INovelService
         var url = $"{API_BASE}?out=json&lim={ncodes.Count}&ncode={string.Join('-', ncodes)}&of=n-t-ga-gl-e-w";
         if (biggenre.HasValue) url += $"&biggenre={biggenre.Value}";
 
-        var json = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
+        var json = await network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
         var dict = new Dictionary<string, SearchResult>();
         foreach (var r in NarouNovelApiParser.Parse(json)) dict[r.NovelId] = r;
         return dict;
@@ -161,9 +155,9 @@ public class NarouApiService : INovelService
         var rtype = BuildRtype(period);
         var rankUrl = $"{RANK_BASE}?out=json&rtype={rtype}";
 
-        var rankJson = await _network.GetStringAsync(SiteType.Narou, rankUrl, cts.Token).ConfigureAwait(false);
+        var rankJson = await network.GetStringAsync(SiteType.Narou, rankUrl, cts.Token).ConfigureAwait(false);
         var rankItems = JsonSerializer.Deserialize<JsonElement[]>(rankJson);
-        if (rankItems is null || rankItems.Length == 0) return new List<SearchResult>();
+        if (rankItems is null || rankItems.Length == 0) return [];
 
         var ncodes = new List<string>();
         foreach (var item in rankItems)
@@ -173,7 +167,7 @@ public class NarouApiService : INovelService
             if (!string.IsNullOrEmpty(ncode)) ncodes.Add(ncode.ToLowerInvariant());
             if (ncodes.Count >= Math.Min(limit, 100)) break;
         }
-        if (ncodes.Count == 0) return new List<SearchResult>();
+        if (ncodes.Count == 0) return [];
 
         // ランキング順に並べる
         var dict = await FetchNovelInfosAsync(ncodes, biggenre, cts.Token).ConfigureAwait(false);
@@ -194,7 +188,7 @@ public class NarouApiService : INovelService
         var url = $"{API_BASE}?out=json&lim={lim}&order={Uri.EscapeDataString(order)}";
         if (biggenre.HasValue) url += $"&biggenre={biggenre.Value}";
 
-        var json = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
+        var json = await network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
         return NarouNovelApiParser.Parse(json);
     }
 
