@@ -66,9 +66,8 @@ public static class UpdateAlarmScheduler
 #endif
 
         // exact アラームは前面サービスの背面起動を許可する条件（Android 12+）に該当する。
-        // API 31+ は権限の有無を実機判定し、不可なら不正確アラームへフォールバック。
-        var useExact = Build.VERSION.SdkInt < BuildVersionCodes.S || am.CanScheduleExactAlarms();
-        if (useExact)
+        // 権限の有無を実機判定し、不可なら不正確アラームへフォールバック。
+        if (am.CanScheduleExactAlarms())
         {
             am.SetExactAndAllowWhileIdle(AlarmType.ElapsedRealtimeWakeup, triggerAt, pi);
             MessageService.Info($"Update alarm (exact) scheduled in {intervalHours}h");

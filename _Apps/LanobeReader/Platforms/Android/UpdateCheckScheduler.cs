@@ -1,5 +1,4 @@
 using Android.Content;
-using Android.OS;
 using AndroidX.Work;
 using LanobeReader.Helpers;
 using TBird.Core;
@@ -11,8 +10,8 @@ public static class UpdateCheckScheduler
     public const string ONETIME_WORK = "lanobe_update_check_once";
 
     /// <summary>
-    /// アラーム発火時に一回限りの更新チェックを実行する。API 31+ は通知不要の expedited ジョブで
-    /// Doze 中も実行。古い OS は通常ワークにフォールバック。
+    /// アラーム発火時に一回限りの更新チェックを実行する。通知不要の expedited ジョブで
+    /// Doze 中も実行する。
     /// Replace を使い、ネットワーク制約で滞留した古いインスタンスへ後続発火が併合されて
     /// 握り潰される事態を防ぐ(実際の重複実行は UpdateCheckService 側の単一実行ガードが抑止)。
     /// </summary>
@@ -26,10 +25,7 @@ public static class UpdateCheckScheduler
             .SetConstraints(constraints)
             .AddTag(UpdateCheckWorker.WORK_TAG);
 
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.S)
-        {
-            builder.SetExpedited(OutOfQuotaPolicy.RunAsNonExpeditedWorkRequest!);
-        }
+        builder.SetExpedited(OutOfQuotaPolicy.RunAsNonExpeditedWorkRequest!);
 
         WorkManager.GetInstance(context)!.EnqueueUniqueWork(
             ONETIME_WORK, ExistingWorkPolicy.Replace!, builder.Build());

@@ -335,7 +335,7 @@ LanobeReader/
 3. F-006（既読マーク）を呼び出し（最後まで読んだ場合）
 4. 前の話・次の話ボタン / 左右スワイプで隣話に遷移（episodesテーブルのepisode_noで前後を特定）
 5. 前の話・次の話が存在しない場合は該当ボタンを非活性化
-6. ヘッダ・フッタはスクロール中は非表示。タップで再表示
+6. ヘッダ・フッタは常時表示
 7. 目次ボタンタップでSCR-003に戻る（バックスタック）
 
 **非同期処理:** async/await
@@ -385,10 +385,6 @@ LanobeReader/
 1. 設定変更で `app_settings.auto_mark_read_enabled` を即時 UPSERT
 2. 次回 SCR-004 を開いたとき (`ReaderViewModel.LoadSettingsAsync`) または `OnAppearing` の `ReloadSettingsAsync` で `AutoMarkReadEnabled` プロパティに反映
 3. `ReaderPage.xaml.cs` の `OnWebViewNavigating` は `MarkAsReadFromAutoCommand` を経由し、ViewModel 側で `AutoMarkReadEnabled=false` なら no-op
-
-**「自動 OFF + フッタ非表示」時の救済 UI:**
-- `IsManualReadButtonOverlayVisible` 算出プロパティ (= `!AutoMarkReadEnabled && !IsFooterVisible`) で SCR-004 左下に既読ボタンを単独 Overlay 表示する。
-- 現状 `ToggleHeaderFooter` コマンドは XAML/コードビハインドから binding されておらず到達不能だが、将来 binding 導入時の保険として先回り投入。
 
 **非同期処理:** async/await
 **排他制御:** 不要
@@ -525,8 +521,7 @@ LanobeReader/
 **設計:**
 - サイト別 `SemaphoreSlim(1, 1)` で同サイトの並列リクエストを禁止
 - リクエスト間隔は `request_delay_ms` 設定で調整 (`Math.Clamp(v, MIN_REQUEST_DELAY_MS=500, MAX_REQUEST_DELAY_MS=2000)`)
-- `Connectivity.ConnectivityChanged` を監視し `WifiConnected` / `WifiDisconnected` イベントを `BackgroundJobQueue` へ通知
-- `IsOnline` / `IsWifiConnected` プロパティを公開
+- `IsOnline` を公開する。Wi-Fi 判定とイベントは `INetworkPolicy` が持ち、`PriorityJobQueue` が直接購読する
 
 **API:**
 - `Task<string> GetStringAsync(SiteType site, string url, CancellationToken ct)` — gate + delay + GET を一括実行
@@ -809,20 +804,19 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 #### SCR-004: 閲覧画面
 
 **レイアウト概要:**
-- 最上部: ヘッダ（話タイトル + 目次ボタン + 前へボタン）※スクロール中は非表示
+- 最上部: ヘッダ（話タイトル + 目次ボタン + 前へボタン）
 - 中部: ReaderWebView（本文 HTML）
-- 最下部: フッタ（目次ボタン + 前へボタン + 次へボタン）※スクロール中は非表示
-- タップで再表示
+- 最下部: フッタ（目次ボタン + 前へボタン + 次へボタン）
 
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
 |---|---|---|---|
-| ヘッダ | Grid | IsHeaderVisible | タップで再表示 |
+| ヘッダ | Grid | | |
 | 話タイトル（ヘッダ） | Label | Episode.Title | |
 | 目次ボタン（ヘッダ） | Button | NavigateToTocCommand | SCR-003に戻る |
 | 前へボタン（ヘッダ） | Button | PrevEpisodeCommand | 前話なしの場合非活性 |
 | 本文 | ReaderWebView | EpisodeHtml / ReaderCss | 終端検知の `lanobe://read-end` で既読マーク |
-| フッタ | Grid | IsFooterVisible | タップで再表示 |
+| フッタ | Grid | | |
 | 目次ボタン（フッタ） | Button | NavigateToTocCommand | |
 | 前へボタン（フッタ） | Button | PrevEpisodeCommand | 前話なしの場合非活性 |
 | 次へボタン（フッタ） | Button | NextEpisodeCommand | 次話なしの場合非活性 |
@@ -834,8 +828,6 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 | Episode | EpisodeViewModel | null | 対象エピソード |
 | EpisodeHtml | string | "" | 本文 HTML（`ReaderHtmlBuilder.Build` の結果） |
 | IsLoading | bool | true | ローディング制御 |
-| IsHeaderVisible | bool | true | ヘッダ表示制御 |
-| IsFooterVisible | bool | true | フッタ表示制御 |
 | FontSize | double | 16 | app_settingsから取得 |
 | LineHeight | double | 1.7 | app_settingsから取得 |
 | BackgroundColor | Color | #FFFFFF | app_settingsから取得 |
@@ -849,7 +841,6 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 | PrevEpisodeCommand | HasPrevEpisode | 前話をSCR-004で開く |
 | NextEpisodeCommand | HasNextEpisode | 次話をSCR-004で開く |
 | NavigateToTocCommand | 常時 | SCR-003に戻る |
-| ToggleHeaderFooterCommand | 常時 | IsHeaderVisible/IsFooterVisibleをトグル |
 | MarkAsReadCommand | !Episode.IsRead | F-006既読マーク（自動経路は WebView の `lanobe://read-end` 受信時の `MarkAsReadFromAutoCommand`） |
 
 **スワイプ操作:**
@@ -1165,7 +1156,7 @@ public enum SiteType
 |---|---|
 | エンドポイント | `https://api.syosetu.com/rank/rankget/?out=json&rtype={yyyyMMdd-period}` |
 | period | `d`=Daily, `w`=Weekly（火曜日基準）, `m`=Monthly（月初）, `q`=Quarterly（月初） |
-| TZ | JST 基準（朝 8 時前は 2 日前、それ以降は前日を Daily ターゲット）。`TimeZoneNotFoundException` 時は UTC+9h フォールバック (PR-4 / L-7) |
+| TZ | JST 基準（朝 8 時前は 2 日前、それ以降は前日を Daily ターゲット）。固定 UTC+9h（JST は夏時間なし） |
 | ncode 一括フェッチ | ranking 結果の ncode をハイフン結合し novelapi へ `ncode={n1-n2-...}` で再問い合わせ |
 
 取得フィールドマッピング:
@@ -1261,8 +1252,7 @@ public enum SiteType
 ### 8.9 NetworkPolicyService（F-013）
 - サイト別 `SemaphoreSlim(1, 1)` で同サイトの並列リクエストを禁止
 - `request_delay_ms`（既定 800ms、UI 範囲 500-2000ms）で間隔を強制（`Math.Clamp` で UI 範囲に収める、PR-2 / L-2）
-- `Connectivity.ConnectivityChanged` を監視して `WifiConnected` / `WifiDisconnected` イベントを発火
-- `IsOnline` / `IsWifiConnected` プロパティを公開（BackgroundJobQueue / PrefetchService が参照）
+- `IsOnline` を公開する。Wi-Fi 判定とイベントは `INetworkPolicy` が持ち、`PriorityJobQueue` が直接購読する
 
 ### 8.10 BackgroundJobQueue（F-012）
 - Wi-Fi 接続時のみ Worker を起動し、ConcurrentQueue 2 本（高優先度 / 通常）で直列処理

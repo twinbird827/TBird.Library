@@ -47,12 +47,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     private bool _isLoading = true;
 
     [ObservableProperty]
-    private bool _isHeaderVisible = true;
-
-    [ObservableProperty]
-    private bool _isFooterVisible = true;
-
-    [ObservableProperty]
     private double _fontSize = 16;
 
     [ObservableProperty]
@@ -80,15 +74,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
 
     [ObservableProperty]
     private bool _autoMarkReadEnabled = true;
-
-    public bool IsManualReadButtonOverlayVisible
-        => !AutoMarkReadEnabled && !IsFooterVisible;
-
-    partial void OnAutoMarkReadEnabledChanged(bool value)
-        => OnPropertyChanged(nameof(IsManualReadButtonOverlayVisible));
-
-    partial void OnIsFooterVisibleChanged(bool value)
-        => OnPropertyChanged(nameof(IsManualReadButtonOverlayVisible));
 
     private Episode? _episode;
 
@@ -196,8 +181,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
             IsCurrentEpisodeFavorite = _episode.IsFavorite;
             HasPrevEpisode = prev is not null;
             HasNextEpisode = next is not null;
-            IsHeaderVisible = true;
-            IsFooterVisible = true;
 
             RefreshHtml();
         }
@@ -251,13 +234,6 @@ public partial class ReaderViewModel : ErrorAwareViewModel, IQueryAttributable
     private async Task NavigateToTocAsync()
     {
         await Shell.Current.GoToAsync("..");
-    }
-
-    [RelayCommand]
-    private void ToggleHeaderFooter()
-    {
-        IsHeaderVisible = !IsHeaderVisible;
-        IsFooterVisible = !IsFooterVisible;
     }
 
     [RelayCommand]

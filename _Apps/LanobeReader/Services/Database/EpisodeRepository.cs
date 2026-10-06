@@ -27,40 +27,10 @@ public class EpisodeRepository
         await EnsureAsync().ConfigureAwait(false);
         // ORM (Table<T>().Where().OrderBy().ToListAsync()) は LINQ 式木 → SQL コンパイルの
         // オーバーヘッドが乗るため、長尺小説 (1500+ 話) では raw SQL が体感で速い。
-        // GetPagedByNovelIdAsync と同じ列順 / 列セットを維持。
         return await _db.QueryAsync<Episode>(
             $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? ORDER BY episode_no",
             novelId).ConfigureAwait(false);
-    }
-
-    public async Task<List<Episode>> GetPagedByNovelIdAsync(int novelId, int page, int pageSize)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        int offset = (page - 1) * pageSize;
-        return await _db.QueryAsync<Episode>(
-            $"SELECT {EpisodeColumns} " +
-            "FROM episodes WHERE novel_id = ? ORDER BY episode_no LIMIT ? OFFSET ?",
-            novelId, pageSize, offset).ConfigureAwait(false);
-    }
-
-    public async Task<int> CountByNovelIdAsync(int novelId)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>().Where(e => e.NovelId == novelId).CountAsync().ConfigureAwait(false);
-    }
-
-    public async Task<int> CountUnreadByNovelIdAsync(int novelId)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>().Where(e => e.NovelId == novelId && !e.IsRead).CountAsync().ConfigureAwait(false);
-    }
-
-    public async Task<Episode?> GetByNovelAndEpisodeNoAsync(int novelId, int episodeNo)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>()
-            .FirstOrDefaultAsync(e => e.NovelId == novelId && e.EpisodeNo == episodeNo).ConfigureAwait(false);
     }
 
     public async Task<Episode?> GetPreviousEpisodeAsync(int novelId, int currentEpisodeNo)
@@ -259,12 +229,6 @@ public class EpisodeRepository
         }).ConfigureAwait(false);
     }
 
-    public async Task<int> UpdateAsync(Episode episode)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        return await _db.UpdateAsync(episode).ConfigureAwait(false);
-    }
-
     /// <summary>
     /// 読了点 (episode_no) を境に既読状態を一括更新する。
     /// 1..N: is_read=1（既存 read_at は COALESCE で保持、未設定なら now を入れる）
@@ -306,14 +270,5 @@ public class EpisodeRepository
         await _db.ExecuteAsync(
             "UPDATE episodes SET is_favorite = ?, favorited_at = ? WHERE id = ?",
             favorite, now, episodeId).ConfigureAwait(false);
-    }
-
-    public async Task<List<Episode>> GetFavoritesByNovelIdAsync(int novelId)
-    {
-        await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>()
-            .Where(e => e.NovelId == novelId && e.IsFavorite)
-            .OrderBy(e => e.EpisodeNo)
-            .ToListAsync().ConfigureAwait(false);
     }
 }

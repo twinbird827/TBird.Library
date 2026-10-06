@@ -44,12 +44,6 @@ public class BackgroundJobQueue
             });
     }
 
-    public int PendingCount => _queue.PendingCount;
-
     public Task<bool> EnqueueAsync(PrefetchEpisodeJob job, JobPriority priority = JobPriority.Normal)
         => _queue.EnqueueAsync(job, priority);
-
-    public void EnsureWorkerStarted() => _queue.EnsureWorkerStarted();
-
-    public void StopWorker() => _queue.StopWorker();
 }

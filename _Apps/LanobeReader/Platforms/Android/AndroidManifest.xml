@@ -15,9 +15,7 @@
     <!-- 再起動後に更新チェックアラームを再武装するために必要。 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- exact アラーム: Doze を貫通しつつ、Android 12+ で前面サービスのバックグラウンド起動を
-         許可する条件を満たす。サイドロード運用のため USE_EXACT_ALARM の Play ポリシー制限は対象外。
-         API 33+ は USE_EXACT_ALARM、API 31-32 は SCHEDULE_EXACT_ALARM を使用。 -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+         許可する条件を満たす。サイドロード運用のため USE_EXACT_ALARM の Play ポリシー制限は対象外。 -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- アラーム発火時に Doze 中も新着チェックを完遂する前面サービス(shortService 種別)。
          shortService は専用パーミッション不要で FOREGROUND_SERVICE のみでよい。 -->
