@@ -156,8 +156,22 @@ public class NovelRepository
     }
 
     /// <summary>
+    /// 更新チェックの結果を書き戻す。更新チェックが管理する列だけを書き(新着時のみ has_unconfirmed_update = 1)、
+    /// 巡回中に行われたお気に入り切替・NEW 解除を巡回開始時の値へ巻き戻さない。
+    /// </summary>
+    public async Task UpdateCheckResultAsync(Novel novel, bool markUnconfirmed)
+    {
+        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        var unconfirmed = markUnconfirmed ? ", has_unconfirmed_update = 1" : "";
+        await _db.ExecuteAsync(
+            "UPDATE novels SET total_episodes = ?, last_updated_at = ?, is_completed = ?, author = ?, has_check_error = ?, last_checked_at = ?"
+                + unconfirmed + " WHERE id = ?",
+            novel.TotalEpisodes, novel.LastUpdatedAt, novel.IsCompleted, novel.Author, novel.HasCheckError, novel.LastCheckedAt, novel.Id).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// 複数作品の last_checked_at 列のみを 1 トランザクションでまとめて更新する。更新チェックで状態に
-    /// 変化が無い(新着なし・エラー状態も不変)作品の巡回タイムスタンプ前進に使い、全カラム UPDATE と
+    /// 変化が無い(新着なし・エラー状態も不変)作品の巡回タイムスタンプ前進に使い、管理列 UPDATE と
     /// 作品ごとの個別コミット(巡回1周＝作品数ぶんの書き込み)を避ける。
     /// </summary>
     public async Task UpdateLastCheckedAtBatchAsync(IReadOnlyList<(int Id, string Ts)> items)

@@ -93,7 +93,7 @@ public class UpdateCheckService
 
                 var hadError = novel.HasCheckError;
                 var persisted = false;
-                // 新着なしでも novel 行の永続化(全カラム UPDATE)が必要になったか。
+                // 新着なしでも novel 行の永続化(管理列 UPDATE)が必要になったか。
                 // 新着なし・エラー不変だが TotalEpisodes を是正した場合(サイトのカウントズレ吸収)に立てる。
                 var metadataChanged = false;
                 try
@@ -118,14 +118,14 @@ public class UpdateCheckService
                     }
 
                     // 取得に成功した時点でエラーフラグを解除する。以降の永続化(新着あり経路の即時
-                    // UpdateAsync / 新着なし経路の末尾更新)がいずれもこの値を書き込むため、
+                    // UpdateCheckResultAsync / 新着なし経路の末尾更新)がいずれもこの値を書き込むため、
                     // ここで一度だけ設定すれば全成功経路をカバーできる。
                     novel.HasCheckError = false;
 
                     // 完結状態・作者名は新着有無と独立に変化しうる(完結化は新話なしで起こり、改名も同様)。
                     // 新着ブランチ内だけで代入すると新話なしの変化が永続化されず DB が古いまま固着するため、
-                    // 全ブランチ共通でここで差分検出し metadataChanged に乗せる(新着あり経路は直後の UpdateAsync、
-                    // 新着なし経路は末尾 !persisted ブロックがいずれも全カラム UpdateAsync で確定する)。
+                    // 全ブランチ共通でここで差分検出し metadataChanged に乗せる(新着あり経路は直後の UpdateCheckResultAsync、
+                    // 新着なし経路は末尾 !persisted ブロックがいずれも管理列の UpdateCheckResultAsync で確定する)。
                     if (novel.IsCompleted != isCompleted)
                     {
                         novel.IsCompleted = isCompleted;
@@ -194,7 +194,7 @@ public class UpdateCheckService
                             // novel 行が古いまま残り、次回 GetMaxEpisodeNoAsync が新 max を返すため新着が
                             // 二度と再検出されない(NEW 喪失)。挿入直後に永続化して窓を最小化する。
                             novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
-                            await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                            await _novelRepo.UpdateCheckResultAsync(novel, markUnconfirmed: true).ConfigureAwait(false);
                             persisted = true;
 
                             updates.Add((novel, newEpisodes.Count));
@@ -232,7 +232,7 @@ public class UpdateCheckService
                         {
                             // 報告値は増えたが解析可能な新話は無い(サイトのカウントズレ)。処理済みの報告値と
                             // 最終更新時刻を記録し、同じ報告値・同じ更新時刻での無駄なフル再取得を次回以降抑止する。
-                            // (永続化は末尾の !persisted ブロックで metadataChanged を見て全カラム更新)
+                            // (永続化は末尾の !persisted ブロックで metadataChanged を見て管理列を更新)
                             // 報告値・最終更新時刻のいずれかが進めば上の条件で再取得し新着を拾い直す(自己修復)。
                             novel.TotalEpisodes = totalEpisodes;
                             if (lastUpdatedAt is not null) novel.LastUpdatedAt = lastUpdatedAt;
@@ -299,8 +299,8 @@ public class UpdateCheckService
                     novel.LastCheckedAt = DateTime.UtcNow.ToString("o");
                     if (novel.HasCheckError != hadError || metadataChanged)
                     {
-                        // エラーフラグ変化、または TotalEpisodes 是正(カウントズレ吸収)があったときは全カラム更新。
-                        await _novelRepo.UpdateAsync(novel).ConfigureAwait(false);
+                        // エラーフラグ変化、または TotalEpisodes 是正(カウントズレ吸収)があったときは管理列を更新。
+                        await _novelRepo.UpdateCheckResultAsync(novel, markUnconfirmed: false).ConfigureAwait(false);
                     }
                     else
                     {
