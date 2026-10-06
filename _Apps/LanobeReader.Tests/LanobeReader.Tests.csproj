@@ -11,6 +11,10 @@
     <!-- 本体は net10.0-android の Exe で参照できないため、テスト対象ファイルだけをリンクで取り込む -->
     <Compile Include="..\LanobeReader\Services\Narou\NarouEpisodeParser.cs" Link="NarouEpisodeParser.cs" />
     <Compile Include="..\LanobeReader\Helpers\EpisodeContentFormat.cs" Link="EpisodeContentFormat.cs" />
+    <Compile Include="..\LanobeReader\Services\Narou\NarouNovelApiParser.cs" Link="NarouNovelApiParser.cs" />
+    <Compile Include="..\LanobeReader\Helpers\NarouDateTime.cs" Link="NarouDateTime.cs" />
+    <Compile Include="..\LanobeReader\Models\SearchResult.cs" Link="SearchResult.cs" />
+    <Compile Include="..\LanobeReader\Models\SiteType.cs" Link="SiteType.cs" />
   </ItemGroup>
 
   <ItemGroup>

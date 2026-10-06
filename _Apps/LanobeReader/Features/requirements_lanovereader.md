@@ -261,7 +261,7 @@ LanobeReader/
 **処理フロー（正常系）:**
 1. novelsテーブルから全件取得
 2. has_unconfirmed_update == true のタイトルはスキップ
-3. 各タイトルに対してsite_typeに応じたAPIで最新話数・最終更新日時を取得
+3. 最新話数・最終更新日時を取得する。なろうはncodeをハイフン結合して100件単位でnovelapiへ一括問い合わせし、応答に無い作品は取得失敗とする。カクヨムは作品ごとに取得する
 4. 現在のepisodesテーブルの最大episode_noと比較
 5. 新着話がある場合:
    - 新着話のメタデータをepisodesテーブルにINSERT
