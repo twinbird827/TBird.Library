@@ -9,7 +9,7 @@
     <SingleProject>true</SingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>13</LangVersion>
+    <LangVersion>14</LangVersion>
 
     <ApplicationTitle>ラノベリーダ</ApplicationTitle>
     <ApplicationId>com.tbird.lanobereader</ApplicationId>

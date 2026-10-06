@@ -6,25 +6,25 @@ namespace LanobeReader.ViewModels;
 public partial class EpisodeViewModel : ObservableObject
 {
     [ObservableProperty]
-    private int _id;
+    public partial int Id { get; set; }
 
     [ObservableProperty]
-    private int _episodeNo;
+    public partial int EpisodeNo { get; set; }
 
     [ObservableProperty]
-    private string _title = string.Empty;
+    public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string? _chapterName;
+    public partial string? ChapterName { get; set; }
 
     [ObservableProperty]
-    private bool _isRead;
+    public partial bool IsRead { get; set; }
 
     [ObservableProperty]
-    private bool _isFavorite;
+    public partial bool IsFavorite { get; set; }
 
     [ObservableProperty]
-    private bool _isCached;
+    public partial bool IsCached { get; set; }
 
     public static EpisodeViewModel FromModel(Episode episode, bool isCached = false)
     {

@@ -74,8 +74,8 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     protected override IReadOnlyList<IMigration> GetMigrations()
-        => new IMigration[] { new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5(),
-            new DeleteNarouCacheMigration(5), new DeleteNarouCacheMigration(6) };
+        => [new MigrateToV2(), new MigrateToV3(), new MigrateToV4(), new MigrateToV5(),
+            new DeleteNarouCacheMigration(5), new DeleteNarouCacheMigration(6)];
 
     protected override async Task<int> ReadSchemaVersionAsync(SQLiteAsyncConnection conn)
     {

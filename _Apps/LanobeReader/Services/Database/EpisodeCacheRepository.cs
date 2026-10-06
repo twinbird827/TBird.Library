@@ -3,23 +3,14 @@ using SQLite;
 
 namespace LanobeReader.Services.Database;
 
-public class EpisodeCacheRepository
+public class EpisodeCacheRepository(DatabaseService dbService)
 {
-    private readonly SQLiteAsyncConnection _db;
-    private readonly DatabaseService _dbService;
-
-    public EpisodeCacheRepository(DatabaseService dbService)
-    {
-        _dbService = dbService;
-        _db = dbService.Connection;
-    }
-
-    private Task EnsureAsync() => _dbService.EnsureInitializedAsync();
+    private Task EnsureAsync() => dbService.EnsureInitializedAsync();
 
     public async Task<EpisodeCache?> GetByEpisodeIdAsync(int episodeId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<EpisodeCache>()
+        return await dbService.Connection.Table<EpisodeCache>()
             .FirstOrDefaultAsync(c => c.EpisodeId == episodeId).ConfigureAwait(false);
     }
 
@@ -32,7 +23,7 @@ public class EpisodeCacheRepository
         // 同時に挿入しうる(各々 GetByEpisodeIdAsync で miss を確認してから Insert する check-then-insert の
         // レース)。"OR IGNORE" で衝突時は何もせず冪等化し、UNIQUE 例外で Reader 読込が失敗したり、
         // 先読みキューの連続失敗ブレーカーが誤作動して先読み全体が停止するのを防ぐ(先に入った内容を温存)。
-        return await _db.InsertAsync(cache, "OR IGNORE").ConfigureAwait(false);
+        return await dbService.Connection.InsertAsync(cache, "OR IGNORE").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -53,7 +44,7 @@ public class EpisodeCacheRepository
     public async Task DeleteByNovelIdAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        await _db.ExecuteAsync(
+        await dbService.Connection.ExecuteAsync(
             "DELETE FROM episode_cache WHERE episode_id IN (SELECT id FROM episodes WHERE novel_id = ?)",
             novelId
         ).ConfigureAwait(false);
@@ -69,7 +60,7 @@ public class EpisodeCacheRepository
     public async Task DeleteAllAsync()
     {
         await EnsureAsync().ConfigureAwait(false);
-        await _db.DeleteAllAsync<EpisodeCache>().ConfigureAwait(false);
+        await dbService.Connection.DeleteAllAsync<EpisodeCache>().ConfigureAwait(false);
     }
 
     public async Task<HashSet<int>> GetCachedEpisodeIdsAsync(int novelId)
@@ -78,7 +69,7 @@ public class EpisodeCacheRepository
         // INNER JOIN は JOIN プランニングのオーバーヘッドが乗るため、IN サブクエリに置き換える。
         // 内側のサブクエリは idx_episodes_novel_episode (novel_id, episode_no) を使った
         // index-only スキャンで id 集合を取得、外側は episode_cache の PK lookup。
-        var rows = await _db.QueryAsync<CachedIdRow>(
+        var rows = await dbService.Connection.QueryAsync<CachedIdRow>(
             "SELECT episode_id AS EpisodeId FROM episode_cache " +
             "WHERE episode_id IN (SELECT id FROM episodes WHERE novel_id = ?)",
             novelId).ConfigureAwait(false);
@@ -94,7 +85,7 @@ public class EpisodeCacheRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         var cutoff = DateTime.UtcNow.AddMonths(-cacheMonths).ToString("o");
-        await _db.ExecuteAsync(
+        await dbService.Connection.ExecuteAsync(
             "DELETE FROM episode_cache WHERE cached_at < ?", cutoff
         ).ConfigureAwait(false);
     }

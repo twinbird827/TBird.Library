@@ -1,5 +1,4 @@
 using LanobeReader.Models;
-using SQLite;
 
 namespace LanobeReader.Services.Database;
 
@@ -9,7 +8,7 @@ public sealed record NovelWithUnread(
     int ReadCount,
     int EpisodeCount);
 
-public class NovelRepository
+public class NovelRepository(DatabaseService dbService, EpisodeCacheRepository cacheRepo)
 {
     private sealed class NovelWithUnreadRow : Novel
     {
@@ -23,17 +22,6 @@ public class NovelRepository
         public int EpisodeCount { get; set; }
     }
 
-    private readonly SQLiteAsyncConnection _db;
-    private readonly DatabaseService _dbService;
-    private readonly EpisodeCacheRepository _cacheRepo;
-
-    public NovelRepository(DatabaseService dbService, EpisodeCacheRepository cacheRepo)
-    {
-        _dbService = dbService;
-        _db = dbService.Connection;
-        _cacheRepo = cacheRepo;
-    }
-
     /// <summary>
     /// 更新チェック用に「最後にチェックした時刻が古い順(未チェック=null を最優先)」で全件取得する。
     /// SQLite では NULL が ASC で先頭に来るため、未チェックの小説が最優先で回る。
@@ -41,15 +29,15 @@ public class NovelRepository
     /// </summary>
     public async Task<List<Novel>> GetAllForCheckAsync()
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.Table<Novel>()
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.Table<Novel>()
             .OrderBy(n => n.LastCheckedAt)
             .ToListAsync().ConfigureAwait(false);
     }
 
     public async Task<List<NovelWithUnread>> GetAllWithUnreadCountAsync(string sortKey)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
 
         // episodes 1 パス GROUP BY で episode_count / read_count / unread_count を一括集計。
         // (novel_id, is_read, episode_no) 複合インデックス (idx_episodes_novel_isread_epno, schema v4) が
@@ -96,7 +84,7 @@ public class NovelRepository
             _                 => "ORDER BY n.last_updated_at DESC",
         };
 
-        var rows = await _db.QueryAsync<NovelWithUnreadRow>(baseSql + orderBy)
+        var rows = await dbService.Connection.QueryAsync<NovelWithUnreadRow>(baseSql + orderBy)
             .ConfigureAwait(false);
 
         var result = new List<NovelWithUnread>(rows.Count);
@@ -125,34 +113,34 @@ public class NovelRepository
 
     public async Task<Novel?> GetByIdAsync(int id)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.Table<Novel>().FirstOrDefaultAsync(n => n.Id == id).ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.Table<Novel>().FirstOrDefaultAsync(n => n.Id == id).ConfigureAwait(false);
     }
 
     public async Task<HashSet<(int SiteType, string NovelId)>> GetExistingSiteNovelIdsAsync()
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        var novels = await _db.Table<Novel>().ToListAsync().ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        var novels = await dbService.Connection.Table<Novel>().ToListAsync().ConfigureAwait(false);
         return new HashSet<(int, string)>(novels.Select(n => (n.SiteType, n.NovelId)));
     }
 
     public async Task<Novel?> GetBySiteAndNovelIdAsync(int siteType, string novelId)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.Table<Novel>()
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.Table<Novel>()
             .FirstOrDefaultAsync(n => n.SiteType == siteType && n.NovelId == novelId).ConfigureAwait(false);
     }
 
     public async Task<int> InsertAsync(Novel novel)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.InsertAsync(novel).ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.InsertAsync(novel).ConfigureAwait(false);
     }
 
     public async Task<int> UpdateAsync(Novel novel)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.UpdateAsync(novel).ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.UpdateAsync(novel).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -161,9 +149,9 @@ public class NovelRepository
     /// </summary>
     public async Task UpdateCheckResultAsync(Novel novel, bool markUnconfirmed)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
         var unconfirmed = markUnconfirmed ? ", has_unconfirmed_update = 1" : "";
-        await _db.ExecuteAsync(
+        await dbService.Connection.ExecuteAsync(
             "UPDATE novels SET total_episodes = ?, last_updated_at = ?, is_completed = ?, author = ?, has_check_error = ?, last_checked_at = ?"
                 + unconfirmed + " WHERE id = ?",
             novel.TotalEpisodes, novel.LastUpdatedAt, novel.IsCompleted, novel.Author, novel.HasCheckError, novel.LastCheckedAt, novel.Id).ConfigureAwait(false);
@@ -177,8 +165,8 @@ public class NovelRepository
     public async Task UpdateLastCheckedAtBatchAsync(IReadOnlyList<(int Id, string Ts)> items)
     {
         if (items.Count == 0) return;
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        await _db.RunInTransactionAsync(conn =>
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.Connection.RunInTransactionAsync(conn =>
         {
             foreach (var (id, ts) in items)
             {
@@ -189,26 +177,26 @@ public class NovelRepository
 
     public async Task SetFavoriteAsync(int novelId, bool favorite)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
         var now = favorite ? DateTime.UtcNow.ToString("o") : null;
-        await _db.ExecuteAsync(
+        await dbService.Connection.ExecuteAsync(
             "UPDATE novels SET is_favorite = ?, favorited_at = ? WHERE id = ?",
             favorite, now, novelId).ConfigureAwait(false);
     }
 
     public async Task ClearUnconfirmedUpdateAsync(int novelId)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        await _db.ExecuteAsync(
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.Connection.ExecuteAsync(
             "UPDATE novels SET has_unconfirmed_update = 0 WHERE id = ?", novelId).ConfigureAwait(false);
     }
 
     public async Task DeleteAsync(int novelId)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        await _db.RunInTransactionAsync(conn =>
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.Connection.RunInTransactionAsync(conn =>
         {
-            _cacheRepo.DeleteByNovelIdSync(conn, novelId);
+            cacheRepo.DeleteByNovelIdSync(conn, novelId);
             conn.Execute("DELETE FROM episodes WHERE novel_id = ?", novelId);
             conn.Execute("DELETE FROM novels WHERE id = ?", novelId);
         }).ConfigureAwait(false);
@@ -220,15 +208,15 @@ public class NovelRepository
     /// </summary>
     public async Task DeleteBySiteAndNovelIdAsync(int siteType, string novelId)
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        await _db.RunInTransactionAsync(conn =>
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        await dbService.Connection.RunInTransactionAsync(conn =>
         {
             var rows = conn.Query<Novel>(
                 "SELECT * FROM novels WHERE site_type = ? AND novel_id = ?",
                 siteType, novelId);
             foreach (var n in rows)
             {
-                _cacheRepo.DeleteByNovelIdSync(conn, n.Id);
+                cacheRepo.DeleteByNovelIdSync(conn, n.Id);
                 conn.Execute("DELETE FROM episodes WHERE novel_id = ?", n.Id);
                 conn.Execute("DELETE FROM novels WHERE id = ?", n.Id);
             }
@@ -237,8 +225,8 @@ public class NovelRepository
 
     public async Task<int> CountAsync()
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.Table<Novel>().CountAsync().ConfigureAwait(false);
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.Table<Novel>().CountAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -247,8 +235,8 @@ public class NovelRepository
     /// </summary>
     public async Task<int> CountUnconfirmedAsync()
     {
-        await _dbService.EnsureInitializedAsync().ConfigureAwait(false);
-        return await _db.Table<Novel>()
+        await dbService.EnsureInitializedAsync().ConfigureAwait(false);
+        return await dbService.Connection.Table<Novel>()
             .Where(n => n.HasUnconfirmedUpdate)
             .CountAsync().ConfigureAwait(false);
     }

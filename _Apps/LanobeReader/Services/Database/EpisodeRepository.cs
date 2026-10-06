@@ -1,20 +1,10 @@
 using LanobeReader.Models;
-using SQLite;
 
 namespace LanobeReader.Services.Database;
 
-public class EpisodeRepository
+public class EpisodeRepository(DatabaseService dbService)
 {
-    private readonly SQLiteAsyncConnection _db;
-    private readonly DatabaseService _dbService;
-
-    public EpisodeRepository(DatabaseService dbService)
-    {
-        _dbService = dbService;
-        _db = dbService.Connection;
-    }
-
-    private Task EnsureAsync() => _dbService.EnsureInitializedAsync();
+    private Task EnsureAsync() => dbService.EnsureInitializedAsync();
 
     // 複数の raw SQL クエリで使う episodes の列リスト。列追加時の更新漏れ(列順・列セットのズレ)を
     // 防ぐため一元化する。Episode のプロパティ([Column] 属性)へ列名でマップされる。
@@ -27,7 +17,7 @@ public class EpisodeRepository
         await EnsureAsync().ConfigureAwait(false);
         // ORM (Table<T>().Where().OrderBy().ToListAsync()) は LINQ 式木 → SQL コンパイルの
         // オーバーヘッドが乗るため、長尺小説 (1500+ 話) では raw SQL が体感で速い。
-        return await _db.QueryAsync<Episode>(
+        return await dbService.Connection.QueryAsync<Episode>(
             $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? ORDER BY episode_no",
             novelId).ConfigureAwait(false);
@@ -36,7 +26,7 @@ public class EpisodeRepository
     public async Task<Episode?> GetPreviousEpisodeAsync(int novelId, int currentEpisodeNo)
     {
         await EnsureAsync().ConfigureAwait(false);
-        var results = await _db.QueryAsync<Episode>(
+        var results = await dbService.Connection.QueryAsync<Episode>(
             $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? AND episode_no < ? " +
             "ORDER BY episode_no DESC LIMIT 1",
@@ -47,7 +37,7 @@ public class EpisodeRepository
     public async Task<Episode?> GetNextEpisodeAsync(int novelId, int currentEpisodeNo)
     {
         await EnsureAsync().ConfigureAwait(false);
-        var results = await _db.QueryAsync<Episode>(
+        var results = await dbService.Connection.QueryAsync<Episode>(
             $"SELECT {EpisodeColumns} " +
             "FROM episodes WHERE novel_id = ? AND episode_no > ? " +
             "ORDER BY episode_no ASC LIMIT 1",
@@ -58,13 +48,13 @@ public class EpisodeRepository
     public async Task<Episode?> GetByIdAsync(int id)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.Table<Episode>().FirstOrDefaultAsync(e => e.Id == id).ConfigureAwait(false);
+        return await dbService.Connection.Table<Episode>().FirstOrDefaultAsync(e => e.Id == id).ConfigureAwait(false);
     }
 
     public async Task<int> GetMaxEpisodeNoAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.ExecuteScalarAsync<int>(
+        return await dbService.Connection.ExecuteScalarAsync<int>(
             "SELECT COALESCE(MAX(episode_no), 0) FROM episodes WHERE novel_id = ?", novelId).ConfigureAwait(false);
     }
 
@@ -75,7 +65,7 @@ public class EpisodeRepository
     public async Task<bool> HasAnySiteEpisodeIdAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        var count = await _db.ExecuteScalarAsync<int>(
+        var count = await dbService.Connection.ExecuteScalarAsync<int>(
             "SELECT EXISTS(SELECT 1 FROM episodes WHERE novel_id = ? AND site_episode_id IS NOT NULL)",
             novelId).ConfigureAwait(false);
         return count != 0;
@@ -87,7 +77,7 @@ public class EpisodeRepository
     public async Task<HashSet<int>> GetReadEpisodeIdsAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        var ids = await _db.QueryScalarsAsync<int>(
+        var ids = await dbService.Connection.QueryScalarsAsync<int>(
             "SELECT id FROM episodes WHERE novel_id = ? AND is_read = 1", novelId).ConfigureAwait(false);
         return ids.ToHashSet();
     }
@@ -114,7 +104,7 @@ public class EpisodeRepository
             // 作品ごとに未読の最小 episode_no、無ければ既読の最大 episode_no の 1 件。各相関サブクエリは
             // idx_episodes_novel_isread_epno の (novel_id, is_read) 範囲の端をシークして 1 行で止まる。
             // 話が無い作品は Id が NULL になる(WHERE で除くと相関サブクエリが二重評価されるため C# 側で飛ばす)。
-            var rows = await _db.QueryAsync<EpisodeRef>(
+            var rows = await dbService.Connection.QueryAsync<EpisodeRef>(
                 "SELECT n.id AS NovelId, COALESCE(" +
                 "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 0 ORDER BY episode_no LIMIT 1), " +
                 "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 1 ORDER BY episode_no DESC LIMIT 1)) AS Id " +
@@ -162,7 +152,7 @@ public class EpisodeRepository
     public async Task<List<PrefetchTarget>> GetUnreadUncachedTargetsAsync()
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.QueryAsync<PrefetchTarget>(
+        return await dbService.Connection.QueryAsync<PrefetchTarget>(
             PrefetchTargetSelect +
             "WHERE e.is_read = 0 AND c.episode_id IS NULL " +
             "ORDER BY COALESCE(n.is_favorite, 0) DESC, n.last_updated_at DESC, n.id, e.episode_no").ConfigureAwait(false);
@@ -174,7 +164,7 @@ public class EpisodeRepository
     public async Task<List<PrefetchTarget>> GetUncachedTargetsAsync(int novelId)
     {
         await EnsureAsync().ConfigureAwait(false);
-        return await _db.QueryAsync<PrefetchTarget>(
+        return await dbService.Connection.QueryAsync<PrefetchTarget>(
             PrefetchTargetSelect +
             "WHERE e.novel_id = ? AND c.episode_id IS NULL " +
             "ORDER BY e.episode_no",
@@ -184,7 +174,7 @@ public class EpisodeRepository
     public async Task InsertAllAsync(IEnumerable<Episode> episodes)
     {
         await EnsureAsync().ConfigureAwait(false);
-        await _db.InsertAllAsync(episodes).ConfigureAwait(false);
+        await dbService.Connection.InsertAllAsync(episodes).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -201,7 +191,7 @@ public class EpisodeRepository
         // 未補完(site_episode_id IS NULL)の話だけを SQL で絞り込む。全話フルロード+C# フィルタだと
         // 初回補完後は更新ゼロでも更新チェックの度に O(話数) のコストを払う(長尺×お気に入りで無駄が累積)。
         // 後段 UPDATE のガードも IS NULL のため、書き込み対象は本クエリと完全一致(空文字行は元々非対象)。
-        var pending = await _db.QueryAsync<Episode>(
+        var pending = await dbService.Connection.QueryAsync<Episode>(
             $"SELECT {EpisodeColumns} FROM episodes WHERE novel_id = ? AND site_episode_id IS NULL",
             novelId).ConfigureAwait(false);
         if (pending.Count == 0) return;
@@ -227,7 +217,7 @@ public class EpisodeRepository
         }
         if (updates.Count == 0) return;
 
-        await _db.RunInTransactionAsync(conn =>
+        await dbService.Connection.RunInTransactionAsync(conn =>
         {
             foreach (var (siteId, id) in updates)
             {
@@ -257,7 +247,7 @@ public class EpisodeRepository
         await EnsureAsync().ConfigureAwait(false);
         var now = DateTime.UtcNow.ToString("o");
 
-        await _db.RunInTransactionAsync(conn =>
+        await dbService.Connection.RunInTransactionAsync(conn =>
         {
             conn.Execute(
                 "UPDATE episodes SET is_read = 1, read_at = COALESCE(read_at, ?) " +
@@ -281,7 +271,7 @@ public class EpisodeRepository
     {
         await EnsureAsync().ConfigureAwait(false);
         var now = favorite ? DateTime.UtcNow.ToString("o") : null;
-        await _db.ExecuteAsync(
+        await dbService.Connection.ExecuteAsync(
             "UPDATE episodes SET is_favorite = ?, favorited_at = ? WHERE id = ?",
             favorite, now, episodeId).ConfigureAwait(false);
     }

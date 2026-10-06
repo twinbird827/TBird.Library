@@ -9,24 +9,19 @@ using TBird.Maui.Web;
 
 namespace LanobeReader.Services.Kakuyomu;
 
-public class KakuyomuApiService : INovelService
+public partial class KakuyomuApiService(NetworkPolicyService network) : INovelService
 {
     private const string BASE_URL = "https://kakuyomu.jp";
 
-    private readonly NetworkPolicyService _network;
     // novelId -> (取得時刻, 解析済みエピソード). ids は episodes[i].SiteEpisodeId と一致するため別持ちせず
     // episodes を単一の真実源にする。FetchNovelInfoAsync が毎巡 populate し、直後の FetchEpisodeListAsync が
     // 同一 /works/{novelId} を再取得せず再利用する(2 fetch 冗長と、2 回取得のズレによる count-mismatch を解消)。
-    private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<Episode> episodes)> _tocCache = new();
+    private readonly ConcurrentDictionary<string, (DateTime cachedAt, List<Episode> episodes)> _tocCache = [];
     private static readonly TimeSpan TocCacheTtl = TimeSpan.FromMinutes(5);
     private const int TocCacheMaxEntries = 100;
 
-    // 全 HTTP は _network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
+    // 全 HTTP は network.GetStringAsync(TBird.Maui.Web の SiteRateLimiter 経由)で行う。
     // UA 等のヘッダは SiteRateLimiter 側の HttpClient に集約されるため、ここで HttpClient は持たない。
-    public KakuyomuApiService(NetworkPolicyService network)
-    {
-        _network = network;
-    }
 
     public SiteType SiteType => SiteType.Kakuyomu;
 
@@ -37,7 +32,7 @@ public class KakuyomuApiService : INovelService
 
         var encoded = Uri.EscapeDataString(keyword);
         var url = $"{BASE_URL}/search?q={encoded}";
-        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
+        var html = await network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
@@ -88,7 +83,7 @@ public class KakuyomuApiService : INovelService
                     var text = meta.TextContent.Trim();
                     // 桁区切り(半角/全角コンマ)を含む話数表記 "完結済 1,234話" にも対応する。
                     // 区切りで弾くと話数 0・完結→連載中の誤判定になるため、抽出後にコンマを除去して解析する。
-                    var m = Regex.Match(text, @"^(連載中|完結済)\s*([\d,，]+)話$");
+                    var m = EpisodeCountMetaRegex().Match(text);
                     if (m.Success)
                     {
                         isCompleted = m.Groups[1].Value == "完結済";
@@ -198,7 +193,7 @@ public class KakuyomuApiService : INovelService
         }
 
         var url = $"{BASE_URL}/works/{novelId}";
-        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, ct).ConfigureAwait(false);
+        var html = await network.GetStringAsync(SiteType.Kakuyomu, url, ct).ConfigureAwait(false);
         using var doc = ParseNextData(html);
         var episodes = ParseApolloState(GetApolloState(doc), novelId);
         StoreTocCache(novelId, episodes);
@@ -403,7 +398,7 @@ public class KakuyomuApiService : INovelService
     {
         var episodeHref = $"{BASE_URL}/works/{novelId}/episodes/{episodeId}";
 
-        var episodeHtml = await _network.GetStringAsync(SiteType.Kakuyomu, episodeHref, ct).ConfigureAwait(false);
+        var episodeHtml = await network.GetStringAsync(SiteType.Kakuyomu, episodeHref, ct).ConfigureAwait(false);
 
         var episodeDoc = await AngleSharpHelper.ParseAsync(episodeHtml, ct).ConfigureAwait(false);
 
@@ -434,7 +429,7 @@ public class KakuyomuApiService : INovelService
         cts.CancelAfter(TimeSpan.FromSeconds(30));
 
         var url = $"{BASE_URL}/works/{novelId}";
-        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
+        var html = await network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         // 更新チェックでフェッチした最新TOCでキャッシュを上書きする。これにより直後の FetchEpisodeListAsync
         // /Prefetch が同一 /works/{novelId} を再取得せず再利用し(2 fetch 冗長を解消)、古い TOC を使うリスクも防ぐ。
@@ -497,7 +492,7 @@ public class KakuyomuApiService : INovelService
         // 接続を拒否して HttpRequestException "Connection failure" になる。
         // CloudFront が後段で 301 https に戻すためブラウザは通るが AndroidMessageHandler は通らない。
         var url = $"{BASE_URL}/rankings/{genreSlug}/{periodSlug}?work_variation=long";
-        var html = await _network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
+        var html = await network.GetStringAsync(SiteType.Kakuyomu, url, cts.Token).ConfigureAwait(false);
 
         var document = await AngleSharpHelper.ParseAsync(html, cts.Token).ConfigureAwait(false);
 
@@ -529,7 +524,7 @@ public class KakuyomuApiService : INovelService
             var isCompleted = statusLabel?.TextContent.Trim() == "完結";
 
             var episodeCountText = card.QuerySelector("span.widget-workCard-episodeCount")?.TextContent ?? "";
-            var episodeMatch = Regex.Match(episodeCountText, @"\d+");
+            var episodeMatch = DigitsRegex().Match(episodeCountText);
             var totalEpisodes = episodeMatch.Success && int.TryParse(episodeMatch.Value, out var n) ? n : 0;
 
             results.Add(new SearchResult
@@ -560,4 +555,10 @@ public class KakuyomuApiService : INovelService
         }
         return string.Empty;
     }
+
+    [GeneratedRegex(@"^(連載中|完結済)\s*([\d,，]+)話$")]
+    private static partial Regex EpisodeCountMetaRegex();
+
+    [GeneratedRegex(@"\d+")]
+    private static partial Regex DigitsRegex();
 }

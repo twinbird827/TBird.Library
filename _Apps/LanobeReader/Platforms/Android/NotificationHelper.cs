@@ -15,7 +15,7 @@ public static class NotificationHelper
 	// 直列化されないと、CancelAll 後に投稿された通知が消えず残る TOCTOU が起きる。両者を同一ロックで
 	// 包むことで、(投稿側がロック獲得→前面なら投稿せず) / (CancelAll 獲得→全消去) のいずれかに収束し、
 	// 「前面化後に投稿された通知が居座る」窓を閉じる。前面判定は AppForegroundTracker(可視 Activity 数)。
-	private static readonly object _notifyGate = new object();
+	private static readonly Lock _notifyGate = new();
 
 	public static void CreateNotificationChannels(Activity activity)
 	{
@@ -144,7 +144,7 @@ public static class NotificationHelper
 		lock (_notifyGate)
 		{
 			if (context.GetSystemService(Context.NotificationService) is not NotificationManager manager) return;
-			foreach (var sbn in manager.GetActiveNotifications() ?? Array.Empty<StatusBarNotification>())
+			foreach (var sbn in manager.GetActiveNotifications() ?? [])
 			{
 				if (sbn.Notification?.ChannelId == UPDATE_CHANNEL_ID)
 				{

@@ -8,68 +8,58 @@ using LanobeReader.Services.Database;
 
 namespace LanobeReader.ViewModels;
 
-public partial class SettingsViewModel : ErrorAwareViewModel
+public partial class SettingsViewModel(AppSettingsRepository settingsRepo, EpisodeCacheRepository cacheRepo, IUpdateScheduler scheduler) : ErrorAwareViewModel
 {
-    private readonly AppSettingsRepository _settingsRepo;
-    private readonly EpisodeCacheRepository _cacheRepo;
-    private readonly IUpdateScheduler _scheduler;
     private bool _isInitializing;
 
-    public SettingsViewModel(AppSettingsRepository settingsRepo, EpisodeCacheRepository cacheRepo, IUpdateScheduler scheduler)
-    {
-        _settingsRepo = settingsRepo;
-        _cacheRepo = cacheRepo;
-        _scheduler = scheduler;
-    }
+    [ObservableProperty]
+    public partial int CacheMonths { get; set; } = SettingsKeys.DEFAULT_CACHE_MONTHS;
 
     [ObservableProperty]
-    private int _cacheMonths = SettingsKeys.DEFAULT_CACHE_MONTHS;
+    public partial int UpdateIntervalHours { get; set; } = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS;
 
     [ObservableProperty]
-    private int _updateIntervalHours = SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS;
+    public partial int FontSizeSp { get; set; } = SettingsKeys.DEFAULT_FONT_SIZE_SP;
 
     [ObservableProperty]
-    private int _fontSizeSp = SettingsKeys.DEFAULT_FONT_SIZE_SP;
+    public partial int BackgroundTheme { get; set; }
 
     [ObservableProperty]
-    private int _backgroundTheme;
+    public partial int LineSpacing { get; set; } = SettingsKeys.DEFAULT_LINE_SPACING;
 
     [ObservableProperty]
-    private int _lineSpacing = SettingsKeys.DEFAULT_LINE_SPACING;
+    public partial int EpisodesPerPage { get; set; } = SettingsKeys.DEFAULT_EPISODES_PER_PAGE;
 
     [ObservableProperty]
-    private int _episodesPerPage = SettingsKeys.DEFAULT_EPISODES_PER_PAGE;
+    public partial string PreviewText { get; set; } = "サンプルテキストです。フォントサイズと行間のプレビューを表示しています。";
 
     [ObservableProperty]
-    private string _previewText = "サンプルテキストです。フォントサイズと行間のプレビューを表示しています。";
+    public partial bool VerticalWriting { get; set; }
 
     [ObservableProperty]
-    private bool _verticalWriting;
+    public partial bool PrefetchEnabled { get; set; } = true;
 
     [ObservableProperty]
-    private bool _prefetchEnabled = true;
+    public partial bool AutoMarkReadEnabled { get; set; } = true;
 
     [ObservableProperty]
-    private bool _autoMarkReadEnabled = true;
-
-    [ObservableProperty]
-    private int _requestDelayMs = SettingsKeys.DEFAULT_REQUEST_DELAY_MS;
+    public partial int RequestDelayMs { get; set; } = SettingsKeys.DEFAULT_REQUEST_DELAY_MS;
 
     public async Task InitializeAsync()
     {
         _isInitializing = true;
         try
         {
-            CacheMonths = await _settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, SettingsKeys.DEFAULT_CACHE_MONTHS);
-            UpdateIntervalHours = await _settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
-            FontSizeSp = await _settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
-            BackgroundTheme = await _settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
-            LineSpacing = await _settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
-            EpisodesPerPage = await _settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, SettingsKeys.DEFAULT_EPISODES_PER_PAGE);
-            VerticalWriting = await _settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING) == 1;
-            PrefetchEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, SettingsKeys.DEFAULT_PREFETCH_ENABLED) == 1;
-            AutoMarkReadEnabled = await _settingsRepo.GetIntValueAsync(SettingsKeys.AUTO_MARK_READ_ENABLED, SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED) == 1;
-            RequestDelayMs = await _settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
+            CacheMonths = await settingsRepo.GetIntValueAsync(SettingsKeys.CACHE_MONTHS, SettingsKeys.DEFAULT_CACHE_MONTHS);
+            UpdateIntervalHours = await settingsRepo.GetIntValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, SettingsKeys.DEFAULT_UPDATE_INTERVAL_HOURS);
+            FontSizeSp = await settingsRepo.GetIntValueAsync(SettingsKeys.FONT_SIZE_SP, SettingsKeys.DEFAULT_FONT_SIZE_SP);
+            BackgroundTheme = await settingsRepo.GetIntValueAsync(SettingsKeys.BACKGROUND_THEME, SettingsKeys.DEFAULT_BACKGROUND_THEME);
+            LineSpacing = await settingsRepo.GetIntValueAsync(SettingsKeys.LINE_SPACING, SettingsKeys.DEFAULT_LINE_SPACING);
+            EpisodesPerPage = await settingsRepo.GetIntValueAsync(SettingsKeys.EPISODES_PER_PAGE, SettingsKeys.DEFAULT_EPISODES_PER_PAGE);
+            VerticalWriting = await settingsRepo.GetIntValueAsync(SettingsKeys.VERTICAL_WRITING, SettingsKeys.DEFAULT_VERTICAL_WRITING) == 1;
+            PrefetchEnabled = await settingsRepo.GetIntValueAsync(SettingsKeys.PREFETCH_ENABLED, SettingsKeys.DEFAULT_PREFETCH_ENABLED) == 1;
+            AutoMarkReadEnabled = await settingsRepo.GetIntValueAsync(SettingsKeys.AUTO_MARK_READ_ENABLED, SettingsKeys.DEFAULT_AUTO_MARK_READ_ENABLED) == 1;
+            RequestDelayMs = await settingsRepo.GetIntValueAsync(SettingsKeys.REQUEST_DELAY_MS, SettingsKeys.DEFAULT_REQUEST_DELAY_MS);
         }
         finally
         {
@@ -77,8 +67,8 @@ public partial class SettingsViewModel : ErrorAwareViewModel
         }
     }
 
-    private readonly Dictionary<string, CancellationTokenSource> _debounceCts = new();
-    private readonly object _debounceLock = new();
+    private readonly Dictionary<string, CancellationTokenSource> _debounceCts = [];
+    private readonly Lock _debounceLock = new();
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(400);
 
     /// <summary>
@@ -137,7 +127,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
     }
 
     private void DebounceSave(string key, string value)
-        => Debounce(key, () => _settingsRepo.SetValueAsync(key, value), "設定の保存に失敗しました");
+        => Debounce(key, () => settingsRepo.SetValueAsync(key, value), "設定の保存に失敗しました");
 
     partial void OnCacheMonthsChanged(int value)       => DebounceSave(SettingsKeys.CACHE_MONTHS, value.ToString());
 
@@ -150,10 +140,10 @@ public partial class SettingsViewModel : ErrorAwareViewModel
         // (従来は次回起動の差分チェック(MainActivity)まで反映されなかった)。
         Debounce(SettingsKeys.UPDATE_INTERVAL_HOURS, async () =>
         {
-            await _settingsRepo.SetValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString()).ConfigureAwait(false);
-            _scheduler.Schedule(value);
+            await settingsRepo.SetValueAsync(SettingsKeys.UPDATE_INTERVAL_HOURS, value.ToString()).ConfigureAwait(false);
+            scheduler.Schedule(value);
             // MainActivity の差分チェックと整合させ、次回起動時の二重スケジュールを防ぐ。
-            await _settingsRepo.SetValueAsync(SettingsKeys.LAST_SCHEDULED_HOURS, value.ToString()).ConfigureAwait(false);
+            await settingsRepo.SetValueAsync(SettingsKeys.LAST_SCHEDULED_HOURS, value.ToString()).ConfigureAwait(false);
             MessageService.Info($"Rescheduled update check to {value}h from settings");
         }, "更新間隔の反映に失敗しました");
     }
@@ -182,7 +172,7 @@ public partial class SettingsViewModel : ErrorAwareViewModel
         ClearError();
         try
         {
-            await _cacheRepo.DeleteAllAsync();
+            await cacheRepo.DeleteAllAsync();
             // Snackbar-like notification
             await Shell.Current.DisplayAlertAsync("完了", "クリアしました", "OK");
         }

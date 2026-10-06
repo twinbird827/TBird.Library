@@ -10,28 +10,13 @@ using TBird.Maui;
 
 namespace LanobeReader.ViewModels;
 
-public partial class NovelListViewModel : AutoReloadViewModel
+public partial class NovelListViewModel(
+    NovelRepository novelRepo,
+    EpisodeCacheRepository cacheRepo,
+    AppSettingsRepository settingsRepo,
+    UpdateCheckService updateCheckService,
+    NotificationPermissionService<PostNotificationsPermission> notificationPermission) : AutoReloadViewModel
 {
-    private readonly NovelRepository _novelRepo;
-    private readonly EpisodeCacheRepository _cacheRepo;
-    private readonly AppSettingsRepository _settingsRepo;
-    private readonly UpdateCheckService _updateCheckService;
-    private readonly NotificationPermissionService<PostNotificationsPermission> _notificationPermission;
-
-    public NovelListViewModel(
-        NovelRepository novelRepo,
-        EpisodeCacheRepository cacheRepo,
-        AppSettingsRepository settingsRepo,
-        UpdateCheckService updateCheckService,
-        NotificationPermissionService<PostNotificationsPermission> notificationPermission)
-    {
-        _novelRepo = novelRepo;
-        _cacheRepo = cacheRepo;
-        _settingsRepo = settingsRepo;
-        _updateCheckService = updateCheckService;
-        _notificationPermission = notificationPermission;
-    }
-
     /// <summary>
     /// 新着検出時に一覧全体を再読込し NEW 表示へ反映する。手動更新中(IsLoading)は RefreshAsync 側が
     /// 再読込するため抑止する。本棚はどの作品の更新でも未読数/NEW が変わりうるため作品の絞り込みはしない。
@@ -43,14 +28,14 @@ public partial class NovelListViewModel : AutoReloadViewModel
     }
 
     [ObservableProperty]
-    private ObservableCollection<NovelCardViewModel> _novels = [];
+    public partial ObservableCollection<NovelCardViewModel> Novels { get; set; } = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private string _sortKey = "updated_desc";
+    public partial string SortKey { get; set; } = "updated_desc";
 
     private bool _sortKeyLoaded;
     private bool _isInitializing;
@@ -62,14 +47,14 @@ public partial class NovelListViewModel : AutoReloadViewModel
             _isInitializing = true;
             try
             {
-                SortKey = await _settingsRepo.GetValueAsync(SettingsKeys.NOVEL_SORT_KEY, "updated_desc");
+                SortKey = await settingsRepo.GetValueAsync(SettingsKeys.NOVEL_SORT_KEY, "updated_desc");
             }
             finally
             {
                 _isInitializing = false;
             }
             _sortKeyLoaded = true;
-            await _notificationPermission.EnsureRequestedAsync();
+            await notificationPermission.EnsureRequestedAsync();
         }
         await LoadNovelsAsync();
     }
@@ -79,7 +64,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     {
         try
         {
-            var rows = await _novelRepo.GetAllWithUnreadCountAsync(SortKey);
+            var rows = await novelRepo.GetAllWithUnreadCountAsync(SortKey);
             Novels = new ObservableCollection<NovelCardViewModel>(
                 rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount, r.ReadCount, r.EpisodeCount)));
             if (rows.Any(r => r.Novel.HasCheckError))
@@ -97,7 +82,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     partial void OnSortKeyChanged(string value)
     {
         if (_isInitializing) return;
-        _ = _settingsRepo.SetValueAsync(SettingsKeys.NOVEL_SORT_KEY, value);
+        _ = settingsRepo.SetValueAsync(SettingsKeys.NOVEL_SORT_KEY, value);
         _ = LoadNovelsAsync();
     }
 
@@ -138,7 +123,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
         IsLoading = true;
         try
         {
-            await _updateCheckService.CheckAllAsync();
+            await updateCheckService.CheckAllAsync();
             await LoadNovelsAsync();
         }
         catch (Exception ex)
@@ -167,7 +152,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     {
         if (card.HasUnconfirmedUpdate)
         {
-            await _novelRepo.ClearUnconfirmedUpdateAsync(card.Id);
+            await novelRepo.ClearUnconfirmedUpdateAsync(card.Id);
             card.HasUnconfirmedUpdate = false;
         }
 
@@ -178,7 +163,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
     private async Task ToggleFavoriteAsync(NovelCardViewModel card)
     {
         var newValue = !card.IsFavorite;
-        await _novelRepo.SetFavoriteAsync(card.Id, newValue);
+        await novelRepo.SetFavoriteAsync(card.Id, newValue);
         card.IsFavorite = newValue;
         if (SortKey == "favorite_first")
         {
@@ -194,7 +179,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
 
         if (confirm)
         {
-            await _cacheRepo.DeleteByNovelIdAsync(card.Id);
+            await cacheRepo.DeleteByNovelIdAsync(card.Id);
         }
     }
 
@@ -206,7 +191,7 @@ public partial class NovelListViewModel : AutoReloadViewModel
 
         if (confirm)
         {
-            await _novelRepo.DeleteAsync(card.Id);
+            await novelRepo.DeleteAsync(card.Id);
             Novels.Remove(card);
         }
     }

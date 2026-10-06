@@ -6,31 +6,31 @@ namespace LanobeReader.ViewModels;
 public partial class SearchResultViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string _title = string.Empty;
+    public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _author = string.Empty;
+    public partial string Author { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private int _totalEpisodes;
+    public partial int TotalEpisodes { get; set; }
 
     [ObservableProperty]
-    private bool _isCompleted;
+    public partial bool IsCompleted { get; set; }
 
     [ObservableProperty]
-    private string _siteTypeLabel = string.Empty;
+    public partial string SiteTypeLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private SiteType _siteType;
+    public partial SiteType SiteType { get; set; }
 
     [ObservableProperty]
-    private string _novelId = string.Empty;
+    public partial string NovelId { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isRegistered;
+    public partial bool IsRegistered { get; set; }
 
     [ObservableProperty]
-    private bool _isRegistering;
+    public partial bool IsRegistering { get; set; }
 
     public static SearchResultViewModel FromModel(SearchResult result, bool isRegistered)
     {
