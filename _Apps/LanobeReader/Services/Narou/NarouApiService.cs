@@ -36,41 +36,7 @@ public class NarouApiService : INovelService
         cts.CancelAfter(TimeSpan.FromSeconds(10));
 
         var response = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
-        return ParseNovelApiJson(response);
-    }
-
-    private static List<SearchResult> ParseNovelApiJson(string json)
-    {
-        var jsonArray = JsonSerializer.Deserialize<JsonElement[]>(json);
-        var results = new List<SearchResult>();
-        if (jsonArray is null || jsonArray.Length <= 1) return results;
-
-        // First element is the allcount metadata, skip it
-        for (int i = 1; i < jsonArray.Length; i++)
-        {
-            var item = jsonArray[i];
-            // ncode / title を欠く要素(API 仕様変化・通知/エラーオブジェクト混入)は、その 1 件だけ
-            // スキップする。GetProperty は欠落時に例外送出するため、1 件の不正でページ全体(検索/
-            // ランキング結果)が失われていた。TryGetProperty + continue で局所化する。
-            if (!item.TryGetProperty("ncode", out var ncodeEl)
-                || !item.TryGetProperty("title", out var titleEl)) continue;
-            var ncode = ncodeEl.GetString();
-            if (string.IsNullOrEmpty(ncode)) continue;
-            results.Add(new SearchResult
-            {
-                SiteType = SiteType.Narou,
-                // ncode はキー(URL・dedup)に使うため、ロケール非依存の ToLowerInvariant で正規化する
-                // (FetchRankingAsync 側と揃える。ToLower だと tr-TR 等で 'I'→'ı' となりキーが分裂する)。
-                NovelId = ncode.ToLowerInvariant(),
-                Title = titleEl.GetString() ?? "",
-                Author = item.TryGetProperty("writer", out var w) ? w.GetString() ?? "" : "",
-                TotalEpisodes = item.TryGetProperty("general_all_no", out var ga) ? ga.GetInt32() : 0,
-                IsCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0,
-                // general_lastup(JST 生値)は UTC ISO へ正規化して保存する。詳細は NarouDateTime 参照。
-                LastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? NarouDateTime.ToUtcIso(lastup.GetString()) : null,
-            });
-        }
-        return results;
+        return NarouNovelApiParser.Parse(response);
     }
 
     public async Task<List<Episode>> FetchEpisodeListAsync(string novelId, CancellationToken ct = default)
@@ -157,25 +123,31 @@ public class NarouApiService : INovelService
 
     public async Task<(int totalEpisodes, string? lastUpdatedAt, bool isCompleted, string? author)> FetchNovelInfoAsync(string novelId, CancellationToken ct = default)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(30));
-
-        var url = $"{API_BASE}?out=json&ncode={novelId}&of=ga-gl-e-w";
-        var response = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
-        var jsonArray = JsonSerializer.Deserialize<JsonElement[]>(response);
-
-        if (jsonArray is null || jsonArray.Length <= 1)
+        var infos = await FetchNovelInfosAsync([novelId], null, ct).ConfigureAwait(false);
+        if (!infos.TryGetValue(novelId, out var r))
         {
             throw new InvalidOperationException("小説情報の取得に失敗しました");
         }
+        return (r.TotalEpisodes, r.LastUpdatedAt, r.IsCompleted, r.Author);
+    }
 
-        var item = jsonArray[1];
-        var totalEpisodes = item.GetProperty("general_all_no").GetInt32();
-        var lastUpdatedAt = item.TryGetProperty("general_lastup", out var lastup) ? NarouDateTime.ToUtcIso(lastup.GetString()) : null;
-        var isCompleted = item.TryGetProperty("end", out var end) && end.GetInt32() == 0;
-        var author = item.TryGetProperty("writer", out var writerProp) ? writerProp.GetString() : null;
+    /// <summary>
+    /// ncode をハイフン結合して novelapi へ 1 回で問い合わせ、NovelId(小文字 ncode) → 作品情報の辞書を返す。
+    /// 削除・検索除外中などで応答に含まれない作品は辞書に入らない。1 回で渡すのは 100 件まで(分割は呼び出し側)。
+    /// </summary>
+    public async Task<Dictionary<string, SearchResult>> FetchNovelInfosAsync(IReadOnlyCollection<string> ncodes, int? biggenre, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(30));
 
-        return (totalEpisodes, lastUpdatedAt, isCompleted, author);
+        // lim を付けないと既定の 20 件で切れる。of の n(ncode)・t(title)はパーサが要素の識別に使う。
+        var url = $"{API_BASE}?out=json&lim={ncodes.Count}&ncode={string.Join('-', ncodes)}&of=n-t-ga-gl-e-w";
+        if (biggenre.HasValue) url += $"&biggenre={biggenre.Value}";
+
+        var json = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
+        var dict = new Dictionary<string, SearchResult>();
+        foreach (var r in NarouNovelApiParser.Parse(json)) dict[r.NovelId] = r;
+        return dict;
     }
 
     /// <summary>
@@ -203,20 +175,9 @@ public class NarouApiService : INovelService
         }
         if (ncodes.Count == 0) return new List<SearchResult>();
 
-        // novelapi へハイフン結合で一括問い合わせ（最大500件、API制限）
-        var ncodeParam = string.Join('-', ncodes);
-        var detailUrl = $"{API_BASE}?out=json&lim={ncodes.Count}&ncode={ncodeParam}";
-        if (biggenre.HasValue) detailUrl += $"&biggenre={biggenre.Value}";
-
-        var detailJson = await _network.GetStringAsync(SiteType.Narou, detailUrl, cts.Token).ConfigureAwait(false);
-        var results = ParseNovelApiJson(detailJson);
-
         // ランキング順に並べる
-        var order = ncodes.Select((n, i) => (n, i)).ToDictionary(x => x.n, x => x.i);
-        return results
-            .Where(r => order.ContainsKey(r.NovelId))
-            .OrderBy(r => order[r.NovelId])
-            .ToList();
+        var dict = await FetchNovelInfosAsync(ncodes, biggenre, cts.Token).ConfigureAwait(false);
+        return ncodes.Where(dict.ContainsKey).Select(n => dict[n]).ToList();
     }
 
     /// <summary>
@@ -234,7 +195,7 @@ public class NarouApiService : INovelService
         if (biggenre.HasValue) url += $"&biggenre={biggenre.Value}";
 
         var json = await _network.GetStringAsync(SiteType.Narou, url, cts.Token).ConfigureAwait(false);
-        return ParseNovelApiJson(json);
+        return NarouNovelApiParser.Parse(json);
     }
 
     private static string BuildRtype(RankingPeriod period)

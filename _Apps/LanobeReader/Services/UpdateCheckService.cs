@@ -4,6 +4,7 @@ using LanobeReader.Helpers;
 using LanobeReader.Models;
 using LanobeReader.Services.Background;
 using LanobeReader.Services.Database;
+using LanobeReader.Services.Narou;
 using LanobeReader.Services.Network;
 using Microsoft.Maui.Storage;
 using TBird.Core;
@@ -18,6 +19,7 @@ public class UpdateCheckService
     private readonly NovelRepository _novelRepo;
     private readonly EpisodeRepository _episodeRepo;
     private readonly INovelServiceFactory _serviceFactory;
+    private readonly NarouApiService _narou;
     private readonly NetworkPolicyService _networkPolicy;
     private readonly BackgroundJobQueue? _jobQueue;
 
@@ -34,11 +36,13 @@ public class UpdateCheckService
         EpisodeRepository episodeRepo,
         INovelServiceFactory serviceFactory,
         NetworkPolicyService networkPolicy,
+        NarouApiService narou,
         BackgroundJobQueue? jobQueue = null)
     {
         _novelRepo = novelRepo;
         _episodeRepo = episodeRepo;
         _serviceFactory = serviceFactory;
+        _narou = narou;
         _networkPolicy = networkPolicy;
         _jobQueue = jobQueue;
     }
@@ -75,6 +79,9 @@ public class UpdateCheckService
             // 新着検出枝に入らない作品も site_episode_id へ移行できるようにしつつ、1 巡の追加ネットワーク
             // コストを抑える。round-robin(last_checked_at 昇順)で巡回するため複数巡で全旧作品を順に拾える。
             var migrationBudget = 3;
+            // なろうは作品情報を 100 件単位で一括取得しておく(作品ごとの取得はリクエスト間の待ちが作品数ぶん積み上がり、
+            // 3分上限で 1 巡を終えられないため)。失敗・応答漏れ・キャンセルはループ内の既存経路で扱う。
+            var narouInfos = await FetchNarouInfosAsync(novels, ct).ConfigureAwait(false);
 
             foreach (var novel in novels)
             {
@@ -92,7 +99,23 @@ public class UpdateCheckService
                 try
                 {
                     var service = _serviceFactory.GetService((SiteType)novel.SiteType);
-                    var (totalEpisodes, lastUpdatedAt, isCompleted, author) = await service.FetchNovelInfoAsync(novel.NovelId, ct).ConfigureAwait(false);
+                    int totalEpisodes;
+                    string? lastUpdatedAt;
+                    bool isCompleted;
+                    string? author;
+                    if ((SiteType)novel.SiteType == SiteType.Narou)
+                    {
+                        // 一括取得の失敗分・応答に無い作品(削除・検索除外中)は取得失敗として下の catch へ流す。
+                        if (!narouInfos.TryGetValue(novel.NovelId, out var info))
+                        {
+                            throw new InvalidOperationException("小説情報の取得に失敗しました");
+                        }
+                        (totalEpisodes, lastUpdatedAt, isCompleted, author) = (info.TotalEpisodes, info.LastUpdatedAt, info.IsCompleted, info.Author);
+                    }
+                    else
+                    {
+                        (totalEpisodes, lastUpdatedAt, isCompleted, author) = await service.FetchNovelInfoAsync(novel.NovelId, ct).ConfigureAwait(false);
+                    }
 
                     // 取得に成功した時点でエラーフラグを解除する。以降の永続化(新着あり経路の即時
                     // UpdateAsync / 新着なし経路の末尾更新)がいずれもこの値を書き込むため、
@@ -338,6 +361,35 @@ public class UpdateCheckService
         {
             _semaphore.Release();
         }
+    }
+
+    /// <summary>
+    /// なろう作品の情報を 100 件単位で一括取得し、NovelId → 作品情報の辞書を返す。1 回分の失敗はその回の作品を
+    /// 辞書に入れないだけで例外を外へ出さない(呼び出し側で取得失敗扱い)。キャンセル時は残りを打ち切る。
+    /// </summary>
+    private async Task<Dictionary<string, SearchResult>> FetchNarouInfosAsync(IEnumerable<Novel> novels, CancellationToken ct)
+    {
+        var ncodes = novels.Where(n => (SiteType)n.SiteType == SiteType.Narou).Select(n => n.NovelId).ToList();
+        var infos = new Dictionary<string, SearchResult>();
+        var requests = 0;
+        foreach (var chunk in ncodes.Chunk(100))
+        {
+            requests++;
+            try
+            {
+                foreach (var (id, info) in await _narou.FetchNovelInfosAsync(chunk, null, ct).ConfigureAwait(false))
+                {
+                    infos[id] = info;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (ct.IsCancellationRequested) break;
+                MessageService.Warn($"Narou bulk info fetch failed for {chunk.Length} novels: {ex.Message}");
+            }
+        }
+        MessageService.Info($"Narou bulk info fetched {infos.Count}/{ncodes.Count} novels in {requests} requests");
+        return infos;
     }
 
     /// <summary>
