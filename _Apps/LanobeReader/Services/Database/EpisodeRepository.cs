@@ -111,18 +111,18 @@ public class EpisodeRepository
             var chunk = novelIds.Skip(offset).Take(ChunkSize).ToList();
             var placeholders = string.Join(",", chunk.Select(_ => "?"));
             var args = chunk.Cast<object>().ToArray();
-            // 未読(is_read=0)を先に episode_no 昇順、無ければ既読を episode_no 降順で並べた先頭 1 件。
-            // episodes(novel_id, episode_no) に一意制約は無く重複 episode_no 行がありうるため、最後に id で
-            // 最小 id を採用して遷移先を決定的にする(行順依存で通知タップ先がブレるのを防ぐ)。
+            // 作品ごとに未読の最小 episode_no、無ければ既読の最大 episode_no の 1 件。各相関サブクエリは
+            // idx_episodes_novel_isread_epno の (novel_id, is_read) 範囲の端をシークして 1 行で止まる。
+            // 話が無い作品は Id が NULL になる(WHERE で除くと相関サブクエリが二重評価されるため C# 側で飛ばす)。
             var rows = await _db.QueryAsync<EpisodeRef>(
-                "SELECT NovelId, Id FROM (" +
-                "SELECT novel_id AS NovelId, id AS Id, ROW_NUMBER() OVER (PARTITION BY novel_id " +
-                "ORDER BY is_read, CASE WHEN is_read = 0 THEN episode_no ELSE -episode_no END, id) AS rn " +
-                $"FROM episodes WHERE novel_id IN ({placeholders})) WHERE rn = 1",
+                "SELECT n.id AS NovelId, COALESCE(" +
+                "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 0 ORDER BY episode_no LIMIT 1), " +
+                "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 1 ORDER BY episode_no DESC LIMIT 1)) AS Id " +
+                $"FROM novels n WHERE n.id IN ({placeholders})",
                 args).ConfigureAwait(false);
             foreach (var r in rows)
             {
-                result[r.NovelId] = r.Id;
+                if (r.Id is int id) result[r.NovelId] = id;
             }
         }
         return result;
@@ -131,7 +131,7 @@ public class EpisodeRepository
     private sealed class EpisodeRef
     {
         public int NovelId { get; set; }
-        public int Id { get; set; }
+        public int? Id { get; set; }
     }
 
     /// <summary>
