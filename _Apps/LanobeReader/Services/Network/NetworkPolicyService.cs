@@ -21,7 +21,7 @@ public class NetworkPolicyService
 
     /// <summary>
     /// 指定サイトに対して HTTP GET（文字列）を発行。直列化＋ディレイ＋transient リトライが自動適用される。
-    /// 公開シグネチャは現行と完全一致。SiteType → siteKey 変換は GetApiKey() 経由。
+    /// SiteType → siteKey 変換は GetApiKey() 経由。
     /// </summary>
     public Task<string> GetStringAsync(SiteType site, string url, CancellationToken ct = default)
         => _siteRateLimiter.GetStringAsync(site.GetApiKey(), url, ct);
