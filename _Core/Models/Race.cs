@@ -16,7 +16,6 @@ namespace Netkeiba.Models
 			CourseName = courseName;
 			Place = place;
 			Distance = distance;
-			DistanceCategory = Distance.ToDistanceCategory();
 			Track = track;
 			TrackType = Track.ToTrackType();
 			TrackCondition = trackCondition;
@@ -25,8 +24,6 @@ namespace Netkeiba.Models
 			FirstPrizeMoney = firstPrizeMoney;
 			RaceDate = raceDate;
 			NumberOfHorses = numberOfHorses;
-			IsInternational = Grade.IsG1() && FirstPrizeMoney > 200000000;
-			IsAgedHorseRace = Grade.IsCLASSIC() == false;
 		}
 
 		public Race(DbDataReader r, int offset = 0) : this(
@@ -61,7 +58,6 @@ namespace Netkeiba.Models
 		public string CourseName { get; }
 		public string Place { get; private set; }
 		public int Distance { get; private set; }
-		public DistanceCategory DistanceCategory { get; private set; }
 		public string Track { get; }
 		public TrackType TrackType { get; private set; }
 		public string TrackCondition { get; }
@@ -71,8 +67,6 @@ namespace Netkeiba.Models
 		public int NumberOfHorses { get; private set; }
 		public DateTime RaceDate { get; private set; }
 		public float AverageRating { get; set; }
-		public bool IsInternational { get; }
-		public bool IsAgedHorseRace { get; }
 		public string TrackDistance => $"{Track}-{Distance}";
 		public string TrackConditionDistance => $"{Track}-{TrackCondition}-{Distance}";
 

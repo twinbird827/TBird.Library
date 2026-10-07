@@ -14,7 +14,6 @@ using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
 using TBird.Wpf;
-using Tensorflow;
 
 namespace Netkeiba
 {
@@ -124,26 +123,6 @@ namespace Netkeiba
 					SetResult(header, arr);
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の処理が完了しました。");
-
-					//using (var vm = new ReportItemViewModel(header, arr))
-					//{
-					//	await vm.PrintAsync();
-					//}
-
-					//var groups = inraces
-					//	.SelectInParallel(x => OptimizedHorseFeatures.GetProperties()
-					//		.SelectInParallel(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Name, p.Property.GetValue(x)))
-					//	).ToArray();
-
-					//var groupsstr = groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(",")).GetString("\r\n");
-
-					//File.WriteAllText(
-					//	Path.Combine(Directories.DocumentsDirectory, $"{header}_{DateTime.Now.ToString("yyyyMMdd-HHmmss")}.csv"),
-					//	Arr(
-					//		Arr(groups.First().Select(x => x.ParameterName).GetString(",")),
-					//		groups.Select(arr => arr.Select(x => x.Value.Str()).GetString(","))
-					//	).SelectMany(x => x).GetString("\r\n")
-					//);
 				}
 
 				if (getShutsuba)
@@ -165,12 +144,6 @@ namespace Netkeiba
 
 				yield return arr;
 			}
-		}
-
-		private ITransformer LoadModel(MLContext ml)
-		{
-			using var stream = new FileStream(AppSetting.Instance.RankingTrains.First().Path, FileMode.Open, FileAccess.Read, FileShare.Read);
-			return ml.Model.Load(stream, out var schema);
 		}
 
 	}

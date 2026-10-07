@@ -10,8 +10,6 @@ using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
 using TBird.DB.SQLite;
-using Tensorflow.Keras.Layers;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Netkeiba
 {
@@ -92,19 +90,6 @@ namespace Netkeiba
 						if (!existsrace) Progress.Value += 1D / dates.Length;
 					}
 
-				}
-
-				foreach (var racebase in conn.GetRemoveShortageMissingDatas().ToBlockingEnumerable().ToArray())
-				{
-					await conn.BeginTransaction();
-					foreach (var racearr in await GetSTEP1Racearrs(conn, racebase).ToArrayAsync())
-					{
-						await conn.InsertOrigAsync(racearr);
-						await conn.InsertOikiriAsync(racebase);
-
-					}
-					conn.Commit();
-					MessageService.Debug($"completed racebase:{racebase}");
 				}
 			}
 		}

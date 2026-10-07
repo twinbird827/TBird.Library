@@ -443,14 +443,7 @@ namespace Netkeiba
 				"GIII", "GII", "GI", "G1)", "G2)", "G3)", "(G)", "(L)", "オープン", "３勝クラス", "3勝クラス", "(3勝)", "1600万下", "２勝クラス", "2勝クラス", "1000万下", "１勝クラス", "1勝クラス", "500万下", "未勝利", "新馬", "OP"
 			};
 
-			try
-			{
-				return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
-			}
-			catch
-			{
-				throw;
-			}
+			return ﾗﾝｸ1[ﾗﾝｸ.FirstOrDefault(ﾚｰｽ名.Contains) ?? ﾗﾝｸ.FirstOrDefault(ｸﾗｽ.Contains) ?? string.Empty];
 		}
 
 		private static string Getﾗﾝｸ2(string ﾗﾝｸ1)
@@ -481,31 +474,6 @@ namespace Netkeiba
 			return ﾗﾝｸ2[ﾗﾝｸ1];
 		}
 
-		public static async Task<Dictionary<string, string>> GetBanushi(string umaid)
-		{
-			var dic = new Dictionary<string, string>();
-
-			using (var umaparser = await AppUtil.GetDocument(false, $"https://db.netkeiba.com/horse/{umaid}/"))
-			{
-				if (umaparser.GetElementsByClassName("db_prof_table no_OwnerUnit").FirstOrDefault() is IHtmlTableElement umatable1)
-				{
-					// 馬主名
-					dic["馬主名"] = umatable1.Rows[2].Cells[1].GetHrefAttribute("title");
-					// 馬主ID
-					dic["馬主ID"] = umatable1.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
-				}
-				else if (umaparser.GetElementsByClassName("db_prof_table ").FirstOrDefault() is IHtmlTableElement umatable2)
-				{
-					// 馬主名
-					dic["馬主名"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("title");
-					// 馬主ID
-					dic["馬主ID"] = umatable2.Rows[2].Cells[1].GetHrefAttribute("href").Split('/')[2];
-				}
-			}
-
-			return dic;
-		}
-
 		public static async Task<List<Dictionary<string, string>>> GetTyakujun(string raceid)
 		{
 			var arr = new List<Dictionary<string, string>>();
@@ -533,63 +501,6 @@ namespace Netkeiba
 			}
 
 			return arr;
-		}
-
-		public static async Task<Dictionary<string, string>> GetPayout(string raceid)
-		{
-			var dic = new Dictionary<string, string>();
-
-			var url = $"https://race.netkeiba.com/race/result.html?race_id={raceid}";
-
-			using (var raceparser = await AppUtil.GetDocument(false, url))
-			{
-				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "ワイド") is IHtmlTableElement table1)
-				{
-					// ﾚｰｽID
-					dic["ﾚｰｽID"] = raceid;
-					// 三連複
-					dic["三連複"] = GetPayout(table1, "Fuku3");
-					// 三連単
-					dic["三連単"] = GetPayout(table1, "Tan3");
-					// ワイド
-					dic["ワイド"] = GetPayout(table1, "Wide");
-					// 馬単
-					dic["馬単"] = GetPayout(table1, "Umatan");
-				}
-
-				if (raceparser.GetElementsByClassName("Payout_Detail_Table").FirstOrDefault(x => x.GetAttribute("summary") == "払戻し") is IHtmlTableElement table2)
-				{
-					// 馬連
-					dic["馬連"] = GetPayout(table2, "Umaren");
-					// 単勝
-					dic["単勝"] = GetPayout(table2, "Tansho", "div", "span");
-				}
-			}
-
-			return dic;
-		}
-
-		public static string GetPayout(IHtmlTableElement table, string tag, string ul = "ul", string li = "li")
-		{
-			var result = table.GetElementsByClassName(tag)
-				.OfType<IHtmlTableRowElement>()
-				.SelectMany(x => x.GetElementsByClassName("Result"))
-				.SelectMany(x => x.GetElementsByTagName(ul))
-				.Select(x => x.GetElementsByTagName(li).Select(y => y.GetInnerHtml()).Where(x => !string.IsNullOrEmpty(x)).GetString("-"))
-				.ToArray();
-
-			var payout = table.GetElementsByClassName(tag)
-				.OfType<IHtmlTableRowElement>()
-				.SelectMany(x => x.GetElementsByClassName("Payout"))
-				.Select(x => x.GetInnerHtml())
-				.SelectMany(x => x.Split("<br />"))
-				.SelectMany(x => x.Split("<br>"))
-				.Select(x => x.Replace("円", "").Replace(",", ""))
-				.ToArray();
-
-			return Enumerable.Range(0, new int[] { result.Length, payout.Length }.Min())
-				.Select(i => $"{result[i]},{payout[i]}")
-				.GetString(";");
 		}
 
 		public static async Task<Dictionary<string, string>> GetUmaInfo(string uma, string name)
@@ -745,140 +656,12 @@ namespace Netkeiba
 			return dic;
 		}
 
-		public static async IAsyncEnumerable<Dictionary<string, string>> GetKetto(string uma)
-		{
-			var url = $"https://db.netkeiba.com/horse/ped/{uma}/";
-
-			using (var ped = await AppUtil.GetDocument(false, url))
-			{
-				if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
-				{
-					Func<IElement[], int, string> func = (tags, i) => tags
-						.Skip(i).Take(1)
-						.Select(x => x.GetHrefAttribute("href"))
-						.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/')[2] : string.Empty)
-						.FirstOrDefault() ?? string.Empty;
-					var rowspan16 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 16).ToArray();
-					var f = func(rowspan16, 0);
-					var m = func(rowspan16, 1);
-
-					yield return new Dictionary<string, string>()
-					{
-						{ "馬ID", uma },
-						{ "父ID", f },
-						{ "母ID", m }
-					};
-
-					var rowspan08 = table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == 8).ToArray();
-					var ff = func(rowspan08, 0);
-					var fm = func(rowspan08, 1);
-
-					yield return new Dictionary<string, string>()
-					{
-						{ "馬ID", f },
-						{ "父ID", ff },
-						{ "母ID", fm }
-					};
-
-					var mf = func(rowspan08, 2);
-					var mm = func(rowspan08, 3);
-
-					yield return new Dictionary<string, string>()
-					{
-						{ "馬ID", m },
-						{ "父ID", mf },
-						{ "母ID", mm }
-					};
-				}
-				else
-				{
-					yield return new Dictionary<string, string>()
-					{
-						{ "馬ID", uma },
-						{ "父ID", string.Empty },
-						{ "母ID", string.Empty }
-					};
-				}
-			}
-		}
-
-		public static async IAsyncEnumerable<Dictionary<string, object>> GetSanku(string uma)
-		{
-			var url = $"https://db.netkeiba.com/?pid=horse_sire&id={uma}&course=1&mode=1&type=0";
-
-			using (var ped = await AppUtil.GetDocument(false, url))
-			{
-				if (ped.GetElementsByClassName("nk_tb_common race_table_01").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
-				{
-					foreach (var row in table.Rows.Skip(3))
-					{
-						var dic = new Dictionary<string, object>();
-
-						dic["馬ID"] = uma;
-						dic["年度"] = row.Cells[0].GetInnerHtml();
-						dic["順位"] = row.Cells[1].GetInnerHtml().GetSingle();
-						dic["出走頭数"] = row.Cells[2].GetInnerHtml().GetSingle();
-						dic["勝馬頭数"] = row.Cells[3].GetInnerHtml().GetSingle();
-						dic["出走回数"] = row.Cells[4].GetHrefInnerHtml().GetSingle();
-						dic["勝利回数"] = row.Cells[5].GetHrefInnerHtml().GetSingle();
-						dic["重出"] = row.Cells[6].GetHrefInnerHtml().GetSingle();
-						dic["重勝"] = row.Cells[7].GetHrefInnerHtml().GetSingle();
-						dic["特出"] = row.Cells[8].GetHrefInnerHtml().GetSingle();
-						dic["特勝"] = row.Cells[9].GetHrefInnerHtml().GetSingle();
-						dic["平出"] = row.Cells[10].GetHrefInnerHtml().GetSingle();
-						dic["平勝"] = row.Cells[11].GetHrefInnerHtml().GetSingle();
-						dic["芝出"] = row.Cells[12].GetHrefInnerHtml().GetSingle();
-						dic["芝勝"] = row.Cells[13].GetHrefInnerHtml().GetSingle();
-						dic["ダ出"] = row.Cells[14].GetHrefInnerHtml().GetSingle();
-						dic["ダ勝"] = row.Cells[15].GetHrefInnerHtml().GetSingle();
-						dic["EI"] = row.Cells[17].GetInnerHtml().GetSingle();
-						dic["賞金"] = row.Cells[18].GetInnerHtml().Replace(",", "").GetSingle();
-						dic["芝距"] = row.Cells[19].GetInnerHtml().Replace(",", "").GetSingle();
-						dic["ダ距"] = row.Cells[20].GetInnerHtml().Replace(",", "").GetSingle();
-
-						yield return dic;
-					}
-				}
-			}
-
-		}
-
-		public static async Task<IEnumerable<string>> GetCurrentRaceUrls()
-		{
-			return await GetCurrentRaceIds(DateTime.Now).RunAsync(arr =>
-			{
-				return arr
-					.Select(x => x.Left(10))
-					.Distinct()
-					.Select(x => $"https://race.netkeiba.com/race/shutuba.html?race_id={x}01");
-			});
-		}
-
 		public static async Task<IEnumerable<string>> GetCurrentRaceIds(DateTime date)
 		{
 			return await GetRaceIds(date).RunAsync(async arr =>
 			{
 				return arr.Any() ? arr : await GetCurrentRaceIds(date.AddDays(1));
 			});
-		}
-
-		public static async Task<IEnumerable<string>> GetRecentRaceIds(int start, int end, int month)
-		{
-			var now = DateTime.Now.ToString("yyyyMMdd").GetInt32();
-
-			Enumerable.Range(start, end - start + 1);
-
-			var dates = await Enumerable.Range(start, end - start + 1).Select(y =>
-			{
-				return Enumerable.Range(y == start ? month : 1, y < end ? 12 : DateTime.Now.Month)
-					.Select(m => GetKaisaiDate(y, m))
-					.WhenAllExpand();
-			}).WhenAllExpand();
-
-			return await dates
-				.Where(d => d.GetInt32() < now)
-				.Select(date => GetRaceIds(DateTime.ParseExact(date, "yyyyMMdd", null)))
-				.WhenAllExpand();
 		}
 
 		public static async Task<IEnumerable<string>> GetRaceIds(DateTime date)

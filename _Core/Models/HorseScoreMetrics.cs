@@ -10,8 +10,6 @@ namespace Netkeiba.Models
 		public float Tuka { get; set; }
 		public float AvgFinishPosition { get; set; }
 		public float MaxFinishPosition { get; set; }
-		public float AvgAdjustedScore { get; set; }
-		public float MaxAdjustedScore { get; set; }
 		public float AvgTime2Top { get; set; }
 		public float MaxTime2Top { get; set; }
 		public float AvgTime2Condition { get; set; }

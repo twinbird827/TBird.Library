@@ -105,18 +105,6 @@ namespace Netkeiba
 			}
 		}
 
-		public static async IAsyncEnumerable<string> GetRemoveShortageMissingDatas(this SQLiteControl conn)
-		{
-			var sql = @$"
-SELECT DISTINCT ﾚｰｽID FROM t_orig_d WHERE 着順 IS NULL OR 着順 = '' OR 着順 = 0 OR 着順 = '0'
-";
-
-			foreach (var x in await conn.GetRows(sql))
-			{
-				yield return x["ﾚｰｽID"].Str();
-			}
-		}
-
 		/// <summary>
 		/// 最後に確定ﾃﾞｰﾀを取得した月を取得します。
 		/// </summary>
@@ -223,20 +211,13 @@ SELECT DISTINCT ﾚｰｽID FROM t_orig_d WHERE 着順 IS NULL OR 着順 = '' OR
 
 		public static async Task InsertUmaInfoAsync(this SQLiteControl conn, string uma, string name)
 		{
-			try
+			if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
 			{
-				if (0 == await conn.ExecuteScalarAsync("SELECT COUNT(*) FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.Object, uma)).RunAsync(x => x.GetInt32()))
-				{
-					var info = await NetkeibaGetter.GetUmaInfo(uma, name);
+				var info = await NetkeibaGetter.GetUmaInfo(uma, name);
 
-					info["評価額"] = await conn.GetUmaValuation(info);
+				info["評価額"] = await conn.GetUmaValuation(info);
 
-					await conn.InsertAsync("t_uma", info);
-				}
-			}
-			catch (Exception ex)
-			{
-				throw;
+				await conn.InsertAsync("t_uma", info);
 			}
 		}
 
@@ -267,11 +248,6 @@ SELECT COALESCE(
 			};
 
 			return await conn.ExecuteScalarAsync(sql, parameters).RunAsync(x => x.Str());
-		}
-
-		public static async Task DropSTEP1Oikiri(this SQLiteControl conn)
-		{
-			await conn.ExecuteNonQueryAsync("DROP TABLE IF EXISTS t_oikiri");
 		}
 
 		public static async Task CreateOikiri(this SQLiteControl conn)
@@ -366,41 +342,6 @@ SELECT DISTINCT 馬ID FROM (SELECT 父ID 馬ID FROM t_uma UNION ALL SELECT 母�
 			}
 		}
 
-		//public static async Task InsertModelAsync(this SQLiteControl conn, IEnumerable<OptimizedHorseFeatures> data)
-		//{
-		//	if (!data.Any()) return;
-
-		//	using (await Locker.LockAsync(InsertModelKey))
-		//	{
-		//		foreach (var chunk in data.GroupBy(x => x.RaceId))
-		//		{
-		//			await conn.BeginTransaction();
-		//			foreach (var x in chunk)
-		//			{
-		//				var properties = OptimizedHorseFeatures.GetProperties();
-		//				var parameters = properties
-		//					.Select(p => SQLiteUtil.CreateParameter(p.GetDBType(), p.Property.GetValue(x)))
-		//					.ToArray();
-		//				var items = properties.Select(p => p.Name).GetString(",");
-		//				var values = properties.Select(p => "?").GetString(",");
-		//				await conn.ExecuteNonQueryAsync($"REPLACE INTO t_model ({items}) VALUES ({values})", parameters);
-		//			}
-		//			conn.Commit();
-		//		}
-		//	}
-		//}
-
-		private static string InsertModelKey = Guid.NewGuid().ToString();
-
-		public static async Task<bool> ExistsModelAsync(this SQLiteControl conn, string raceid)
-		{
-			var cnt = await conn.ExecuteScalarAsync(
-				"SELECT COUNT(*) FROM t_orig_h WHERE ﾚｰｽID = ?",
-				SQLiteUtil.CreateParameter(DbType.String, raceid)
-			).RunAsync(x => x.GetInt32());
-			return 0 < cnt;
-		}
-
 		public static async IAsyncEnumerable<Race> GetRaceAsync(this SQLiteControl conn)
 		{
 			var sql = @"
@@ -411,26 +352,6 @@ ORDER BY h.開催日, h.ﾚｰｽID
 ";
 
 			foreach (var x in await conn.GetRows(sql))
-			{
-				yield return new Race(x);
-			}
-		}
-
-		public static async IAsyncEnumerable<Race> GetRaceAsync(this SQLiteControl conn, DateTime date)
-		{
-			var sql = @"
-SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数
-FROM   t_orig_h h
-WHERE  CAST(h.障害 AS INTEGER) = 0 AND h.開催日 < ?
-ORDER BY h.開催日, h.ﾚｰｽID
-";
-
-			var parameters = new[]
-			{
-				SQLiteUtil.CreateParameter(DbType.Object, date.ToString("yyyy/MM/dd")),
-			};
-
-			foreach (var x in await conn.GetRows(sql, parameters))
 			{
 				yield return new Race(x);
 			}
@@ -571,53 +492,6 @@ AND    CAST(h.障害 AS INTEGER) = 0
 			return results;
 		}
 
-		public static async IAsyncEnumerable<Race> GetShutsubaRaceAsync(this SQLiteControl conn, IEnumerable<string> raceids)
-		{
-			var sql = $@"
-SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数
-FROM   t_orig_h h
-WHERE  h.ﾚｰｽID IN ({raceids.Select(_ => "?").GetString(",")})
-ORDER BY h.開催日, h.ﾚｰｽID
-";
-
-			foreach (var x in await conn.GetRows(sql, raceids.Select(x => SQLiteUtil.CreateParameter(DbType.String, x)).ToArray()))
-			{
-				yield return new Race(x);
-			}
-		}
-
-		//		public static async Task<List<RaceDetail>> GetShutsubaRaceDetailAsync(this SQLiteControl conn, DateTime date, params (string Key, string Value)[] kvp)
-		//		{
-		//			var sql = $@"
-		//SELECT h.ﾚｰｽID, h.ﾚｰｽ名, h.開催場所, h.距離, h.馬場, h.馬場状態, h.ﾗﾝｸ1, h.優勝賞金, h.開催日, h.頭数, d.馬番, d.馬ID, d.騎手ID, d.調教師ID, u.父ID, u.母父ID, u.生産者ID, d.着順, d.ﾀｲﾑ変換, d.賞金, u.評価額, u.生年月日, d.斤量, d.通過, d.上り, d.馬性, d.ﾀｲﾑ指数, d.着差, o.コース, o.馬場, o.乗り役, CAST(o.時間1 AS REAL) 時間1, CAST(o.時間2 AS REAL) 時間2, CAST(o.時間3 AS REAL) 時間3, CAST(o.時間4 AS REAL) 時間4, CAST(o.時間5 AS REAL) 時間5, o.時間評価1, o.時間評価2, o.時間評価3, o.時間評価4, o.時間評価5, o.脚色, o.一言, o.評価, CAST(d.体重 AS REAL) 体重, CAST(d.増減 AS REAL) 増減
-		//FROM   t_orig_h h, v_orig_d d, t_uma u, t_oikiri o
-		//WHERE  h.ﾚｰｽID = d.ﾚｰｽID AND d.馬ID = u.馬ID AND h.開催日 < ? AND {kvp.Select(x => $"{x.Key} = ?").GetString(" AND ")} AND d.ﾚｰｽID = o.ﾚｰｽID AND d.馬ID = o.馬ID
-		//ORDER BY h.開催日 ASC, h.ﾚｰｽID ASC
-		//";
-		//			var parameters = new[]
-		//			{
-		//				SQLiteUtil.CreateParameter(DbType.String, date.ToString("yyyy/MM/dd")),
-		//			}.Concat(
-		//				kvp.Select(x => SQLiteUtil.CreateParameter(DbType.String, x.Value))
-		//			).ToArray();
-
-		//			var results = new List<RaceDetail>();
-		//			foreach (var row in await conn.GetRows(sql, parameters).RunAsync(arr => arr.Select(x => new RaceDetail(x, new Race(x))).ToList()))
-		//			{
-		//				row.Initialize(results);
-		//				results.Insert(0, row);
-		//			}
-		//			return results;
-		//		}
-
-		public static async Task DeleteOrigAsync(this SQLiteControl conn, string[] raceids)
-		{
-			var parameters = raceids.Select(x => SQLiteUtil.CreateParameter(DbType.String, x)).ToArray();
-
-			await conn.ExecuteNonQueryAsync($"DELETE FROM t_orig_d WHERE ﾚｰｽID IN ({raceids.Select(x => "?").GetString(",")})", parameters);
-			await conn.ExecuteNonQueryAsync($"DELETE FROM t_orig_h WHERE ﾚｰｽID IN ({raceids.Select(x => "?").GetString(",")})", parameters);
-		}
-
 		public static async IAsyncEnumerable<Race> GetShutsubaRaceAsync(this SQLiteControl conn, string raceid)
 		{
 			var sql = $@"
@@ -633,28 +507,6 @@ ORDER BY h.開催日, h.ﾚｰｽID
 			}
 		}
 
-		public static async Task<List<RaceDetail>> GetShutsubaRaceDetailAsync(this SQLiteControl conn, DateTime date, params (string Key, string Value)[] kvp)
-		{
-			var sql = $@"{GetRaceDetailSql()}
-AND h.開催日 < ? AND {kvp.Select(x => $"{x.Key} = ?").GetString(" AND ")}
-ORDER BY h.開催日 DESC, h.ﾚｰｽID ASC, d.馬番 ASC
-LIMIT  1000
-";
-			var parameters = new[]
-			{
-				SQLiteUtil.CreateParameter(DbType.String, date.ToString("yyyy/MM/dd")),
-			}.Concat(
-				kvp.Select(x => SQLiteUtil.CreateParameter(DbType.String, x.Value))
-			).ToArray();
-
-			var results = new List<RaceDetail>();
-			foreach (var row in await conn.GetRows(sql, parameters).RunAsync(arr => arr.Select(x => new RaceDetail(x, new Race(x))).ToList()))
-			{
-				results.Add(row);
-			}
-			return results;
-		}
-
 		public static async Task DeleteOrigAsync(this SQLiteControl conn, string raceid)
 		{
 			var parameters = new[]
@@ -666,61 +518,5 @@ LIMIT  1000
 			await conn.ExecuteNonQueryAsync($"DELETE FROM t_orig_h WHERE ﾚｰｽID = ?", parameters);
 		}
 
-	}
-
-	public class CustomProperty
-	{
-		public CustomProperty(PropertyInfo property, string name, Type type, FeaturesAttribute? attribute)
-		{
-			Property = property;
-			Name = name;
-			Type = type;
-			Attribute = attribute;
-		}
-
-		public PropertyInfo Property { get; set; }
-		public string Name { get; set; }
-		public Type Type { get; set; }
-		public FeaturesAttribute? Attribute { get; set; }
-
-		public string GetTypeString() => Type.Name switch
-		{
-			"Single" => "REAL",
-			"UInt32" => "INTEGER",
-			"Int32" => "INTEGER",
-			"Boolean" => "INTEGER",
-			_ => "TEXT"
-		};
-
-		public DbType GetDBType() => Type.Name switch
-		{
-			"Single" => DbType.Single,
-			"UInt32" => DbType.Int32,
-			"Int32" => DbType.Int32,
-			"Boolean" => DbType.Int32,
-			_ => DbType.String
-		};
-
-		public void SetProperty(OptimizedHorseFeatures instance, Dictionary<string, object> x)
-		{
-			switch (Type.Name)
-			{
-				case "Single":
-					Property.SetValue(instance, x[Name].Single());
-					break;
-				case "UInt32":
-					Property.SetValue(instance, x[Name].UInt32());
-					break;
-				case "Int32":
-					Property.SetValue(instance, x[Name].Int32());
-					break;
-				case "Boolean":
-					Property.SetValue(instance, x[Name].Int32() > 0);
-					break;
-				default:
-					Property.SetValue(instance, x[Name]);
-					break;
-			}
-		}
 	}
 }

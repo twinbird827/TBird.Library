@@ -1432,14 +1432,6 @@ namespace Netkeiba.Models
 
 		public static CustomProperty[]? _properties;
 
-		public static string[] GetFeaturesTypeNames()
-		{
-			return GetProperties()
-				.Where(x => x.Attribute != null)
-				.Select(x => x.Name)
-				.ToArray();
-		}
-
 		public static string[] GetNormalizationNames()
 		{
 			return GetProperties()
@@ -1452,14 +1444,6 @@ namespace Netkeiba.Models
 		{
 			return GetProperties()
 				.Where(x => x.Attribute != null && x.Attribute.Type.HasFlag(type))
-				.Select(x => x.Name)
-				.ToArray();
-		}
-
-		public static string[] GetNormalizationNames(FeaturesType type)
-		{
-			return GetProperties()
-				.Where(x => x.Attribute != null && x.Attribute.Type.HasFlag(type) && x.Attribute.Normalization)
 				.Select(x => x.Name)
 				.ToArray();
 		}

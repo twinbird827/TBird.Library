@@ -1,2 +1,0 @@
-python historical_scraping.py
-pause

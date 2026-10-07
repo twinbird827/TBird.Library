@@ -44,27 +44,6 @@ namespace Netkeiba.Models
 			_ => false
 		};
 
-		public static bool IsCLASSIC(this GradeType grade) => grade switch
-		{
-			GradeType.G1ク => true,
-			GradeType.G2ク => true,
-			GradeType.G3ク => true,
-			GradeType.オープンク => true,
-			GradeType.勝2ク => true,
-			GradeType.勝1ク => true,
-			GradeType.未勝利ク => true,
-			GradeType.新馬ク => true,
-			_ => false,
-		};
-
-		public static DistanceCategory ToDistanceCategory(this int distance) => distance switch
-		{
-			<= 1400 => DistanceCategory.Sprint,
-			<= 1800 => DistanceCategory.Mile,
-			<= 2200 => DistanceCategory.Middle,
-			_ => DistanceCategory.Long
-		};
-
 		public static TrackType ToTrackType(this string track) => track switch
 		{
 			"芝" => TrackType.Grass,

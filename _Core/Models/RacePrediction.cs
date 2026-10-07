@@ -1,6 +1,5 @@
 using Microsoft.ML;
 using Microsoft.ML.Data;
-using OpenQA.Selenium.DevTools.V141.Overlay;
 using System;
 using System.Collections.Generic;
 using System.IO;
