@@ -9,8 +9,9 @@
       __FG__    : 文字色 (例 "#212121")
       __DIR__   : 書字方向の <html> の class ("horizontal" / "vertical")
       __BODY__  : EpisodeContentFormat.ToHtml() が作る本文 HTML (<p>・前書き/後書きの <div>・挿絵の <img>)
+      __POS__   : 復元するスクロール位置の比率 (0〜1、"0"=先頭)
 
-    NOTE: 下部 <script> の read-end / next-episode / prev-episode URI 発火は
+    NOTE: 下部 <script> の read-end / next-episode / prev-episode / scroll URI 発火は
     ReaderPage.OnWebViewNavigating と連動しているため変更禁止。
 -->
 <!doctype html><html lang="ja" class="__DIR__"><head><meta charset="utf-8">
@@ -42,13 +43,27 @@ img{display:block;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);mar
 __BODY__
 <script>
 var vertical=document.documentElement.classList.contains('vertical');
-(function(){var fired=false;function check(){if(fired)return;
-  var el=document.scrollingElement||document.documentElement;
-  var end=vertical
+var pos=__POS__;
+function scroller(){return document.scrollingElement||document.documentElement;}
+function atEnd(){var el=scroller();
+  return vertical
     ?el.scrollLeft<=-(el.scrollWidth-el.clientWidth)+10
-    :el.scrollTop+el.clientHeight>=el.scrollHeight-10;
-  if(end){fired=true;location.href='lanobe://read-end';}}
+    :el.scrollTop+el.clientHeight>=el.scrollHeight-10;}
+// 現在位置の比率。縦書き(vertical-rl)の scrollLeft は 0 から負へ進む。末尾到達は 0(読了後の再読は先頭から)。
+function ratio(){var el=scroller();
+  var max=vertical?el.scrollWidth-el.clientWidth:el.scrollHeight-el.clientHeight;
+  if(max<=0||atEnd())return 0;
+  return Math.min(1,(vertical?-el.scrollLeft:el.scrollTop)/max);}
+(function(){var fired=false;function check(){if(fired)return;
+  if(atEnd()){fired=true;location.href='lanobe://read-end';}}
   window.addEventListener('scroll',check,{passive:true});setTimeout(check,100);})();
+// 挿絵の読込で高さが確定した後に復元する。
+window.addEventListener('load',function(){if(pos<=0)return;var el=scroller();
+  if(vertical)el.scrollLeft=-pos*(el.scrollWidth-el.clientWidth);
+  else el.scrollTop=pos*(el.scrollHeight-el.clientHeight);});
+// スクロール停止 500ms 後に位置を通知する(プロセス終了前の保存処理に頼らない)。
+(function(){var t;window.addEventListener('scroll',function(){clearTimeout(t);
+  t=setTimeout(function(){location.href='lanobe://scroll?r='+ratio().toFixed(4);},500);},{passive:true});})();
 (function(){var sx,sy,st;
   document.addEventListener('touchstart',function(e){
     sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now();

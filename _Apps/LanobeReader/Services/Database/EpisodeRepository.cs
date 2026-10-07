@@ -275,4 +275,12 @@ public class EpisodeRepository(DatabaseService dbService)
             "UPDATE episodes SET is_favorite = ?, favorited_at = ? WHERE id = ?",
             favorite, now, episodeId).ConfigureAwait(false);
     }
+
+    public async Task SetScrollRatioAsync(int episodeId, double ratio)
+    {
+        await EnsureAsync().ConfigureAwait(false);
+        await dbService.Connection.ExecuteAsync(
+            "UPDATE episodes SET scroll_ratio = ? WHERE id = ?",
+            ratio, episodeId).ConfigureAwait(false);
+    }
 }

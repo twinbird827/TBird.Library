@@ -42,4 +42,8 @@ public class Episode
     // 目次がずれても誤った話を表示しなくなる。Narou は URL に episode_no を直接使うため null のまま。
     [Column("site_episode_id")]
     public string? SiteEpisodeId { get; set; }
+
+    // 読みかけ位置の比率（0〜1）。null と 0 は先頭。
+    [Column("scroll_ratio")]
+    public double? ScrollRatio { get; set; }
 }

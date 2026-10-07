@@ -6,6 +6,8 @@ using LanobeReader.Helpers;
 using TBird.Core;
 using LanobeReader.Platforms.Android;
 using LanobeReader.Services.Database;
+using LanobeReader.ViewModels;
+using LanobeReader.Views;
 
 namespace LanobeReader;
 
@@ -15,8 +17,14 @@ namespace LanobeReader;
                            ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 public class MainActivity : MauiAppCompatActivity
 {
+    private const string ReaderEpisodeIdKey = "readerEpisodeId";
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
+        // 保存状態は Activity の再生成(プロセス終了後、または ConfigurationChanges に無い構成変更)でだけ渡る。
+        // App.InitializeAppAsync は OnPostCreate で発火する Window.Created から走るので、ここで先に確定する。
+        App.RestoreReaderEpisodeId = savedInstanceState?.GetInt(ReaderEpisodeIdKey) ?? 0;
+
         base.OnCreate(savedInstanceState);
 
         NotificationHelper.CreateNotificationChannels(this);
@@ -90,7 +98,21 @@ public class MainActivity : MauiAppCompatActivity
             }
         });
 
-        HandleIntent(Intent);
+        // 再生成時の Intent はタスクを始めた元の Intent のままで、処理すると当初の通知先へ再遷移する。
+        if (savedInstanceState is null)
+        {
+            HandleIntent(Intent);
+        }
+    }
+
+    protected override void OnSaveInstanceState(Bundle outState)
+    {
+        base.OnSaveInstanceState(outState);
+        // 背面化した時点で最前面の閲覧画面だけを残す(プロセス終了後の再生成で復元する)。
+        if (Shell.Current?.CurrentPage is ReaderPage { BindingContext: ReaderViewModel vm } && vm.CurrentEpisodeId > 0)
+        {
+            outState.PutInt(ReaderEpisodeIdKey, vm.CurrentEpisodeId);
+        }
     }
 
     // 前面/背面の追跡は MainApplication が登録する ActivityForegroundCallbacks がアプリ全体の
@@ -130,6 +152,8 @@ public class MainActivity : MauiAppCompatActivity
 
             if (novelId > 0)
             {
+                // kill 後の通知タップは再生成の直後に OnNewIntent で届くので、通知先を優先して復元を取り消す。
+                App.RestoreReaderEpisodeId = 0;
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
                     // 未読話が解決できた場合はリーダーへ直行。解決できない(episodeId<=0)場合でも

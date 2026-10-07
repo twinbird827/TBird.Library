@@ -1,4 +1,6 @@
+using System.Globalization;
 using LanobeReader.ViewModels;
+using TBird.Core;
 
 namespace LanobeReader.Views;
 
@@ -40,6 +42,21 @@ public partial class ReaderPage : ContentPage
         {
             if (vm.PrevEpisodeCommand.CanExecute(null))
                 await vm.PrevEpisodeCommand.ExecuteAsync(null);
+        }
+        else if (e.Url.Contains("scroll", StringComparison.OrdinalIgnoreCase))
+        {
+            var i = e.Url.IndexOf("r=", StringComparison.Ordinal);
+            if (i < 0 || !double.TryParse(e.Url.AsSpan(i + 2), NumberStyles.Float, CultureInfo.InvariantCulture, out var r)) return;
+            try
+            {
+                await vm.SaveScrollRatioAsync(Math.Clamp(r, 0, 1));
+            }
+            catch (Exception ex)
+            {
+                // async void の例外は TaskScheduler.UnobservedTaskException で拾えないため、
+                // ここで握り潰してプロセスクラッシュを防ぐ。
+                MessageService.Warn($"Save scroll ratio failed: {ex.Message}");
+            }
         }
     }
 }
