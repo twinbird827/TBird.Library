@@ -89,7 +89,6 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ### コード標準
 
-- C# 10言語機能が有効
 - null許容参照型が有効（`<Nullable>enable</Nullable>`）
 - 拡張メソッドは`{型名}Extension.cs`の命名規則に従う
 - 名前空間規則：TBird.{レイヤー}.{機能}
