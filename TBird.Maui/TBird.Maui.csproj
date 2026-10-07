@@ -13,7 +13,8 @@
     <UseMaui>true</UseMaui>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>10</LangVersion>
+    <!-- CommunityToolkit.Mvvm の partial property 形式の [ObservableProperty] は C# 14 が必要。 -->
+    <LangVersion>14</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

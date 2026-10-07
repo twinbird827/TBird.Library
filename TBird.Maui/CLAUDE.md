@@ -7,7 +7,7 @@ Android MAUI アプリ共通基盤（ViewModel / Converter / 通知許可 / メ�
 - TFM は `net10.0-android`、`<UseMaui>true</UseMaui>` で MAUI コアを有効化
 - `Microsoft.Maui.Controls` は明示的に PackageReference する（純粋クラスライブラリでは auto FrameworkReference が不安定）
 - `Microsoft.Maui.Controls.Compatibility` は意図的に含めない（lib 依存膨張防止）
-- `ErrorAwareViewModel` は `[ObservableProperty]` で `HasError` / `ErrorMessage` を公開する基底 ViewModel（CommunityToolkit.Mvvm の partial class + source generator を使用）
+- `ErrorAwareViewModel` は `[ObservableProperty]` で `HasError` / `ErrorMessage` を公開する基底 ViewModel（CommunityToolkit.Mvvm の partial property 形式。C# 14 が必要なため `TBird.Maui` だけ `LangVersion` 14）
 - `NotificationPermissionService<TPermission>` は `Permissions.BasePlatformPermission` 派生型を型パラメータで受け取り、アプリ側で `PostNotificationsPermission` 等を渡す
 - `MauiMessageService` は `ConsoleMessageService` を継承し全 5 メソッド (Error/Exception/Info/Warn/Debug) を override（Android logcat は `Trace.WriteLine` を拾わないため `System.Diagnostics.Debug.WriteLine` 明示）
 - ファイル出力先は `FileSystem.AppDataDirectory/log/yyyy-MM-dd.log`（Error/Exception のみ）
