@@ -1,4 +1,5 @@
 using LanobeReader.ViewModels;
+using TBird.Core;
 
 namespace LanobeReader.Views;
 
@@ -15,7 +16,16 @@ public partial class SettingsPage : ContentPage
         base.OnAppearing();
         if (BindingContext is SettingsViewModel vm)
         {
-            await vm.InitializeAsync();
+            try
+            {
+                await vm.InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                // async void の例外は TaskScheduler.UnobservedTaskException で拾えないため、
+                // ここで握り潰してプロセスクラッシュを防ぐ。
+                MessageService.Warn($"OnAppearing failed: {ex.Message}");
+            }
         }
     }
 }
