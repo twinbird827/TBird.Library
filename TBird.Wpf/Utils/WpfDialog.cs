@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using TBird.Core;
+using TBird.Windows;
 
 namespace TBird.Wpf
 {
@@ -218,4 +219,4 @@ namespace TBird.Wpf
 		}
 
 	}
-}
+}
