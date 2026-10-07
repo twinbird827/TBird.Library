@@ -65,6 +65,9 @@ public partial class ReaderViewModel(
 
     private Episode? _episode;
 
+    // 表示中の話の DB Id(前後話の移動で更新される)。MainActivity が Activity の保存状態へ書く。
+    public int CurrentEpisodeId => _currentEpisodeId;
+
     partial void OnIsVerticalWritingChanged(bool value)
     {
         if (!string.IsNullOrEmpty(_episodeContent))
@@ -121,7 +124,7 @@ public partial class ReaderViewModel(
     {
         var state = BuildCssState();
         // EpisodeHtml 先・ReaderCss 後: 古い document への無駄な JS 適用を防ぐ
-        EpisodeHtml = ReaderHtmlBuilder.Build(_episodeContent, state, IsVerticalWriting);
+        EpisodeHtml = ReaderHtmlBuilder.Build(_episodeContent, state, IsVerticalWriting, _episode?.ScrollRatio ?? 0);
         ReaderCss = state;
     }
 
@@ -231,6 +234,15 @@ public partial class ReaderViewModel(
         await episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
         _episode.IsFavorite = newValue;
         IsCurrentEpisodeFavorite = newValue;
+    }
+
+    public async Task SaveScrollRatioAsync(double ratio)
+    {
+        var ep = _episode;
+        if (ep is null) return;
+        await episodeRepo.SetScrollRatioAsync(ep.Id, ratio);
+        // 縦横切替の RefreshHtml が最新位置で再構築するため。
+        ep.ScrollRatio = ratio;
     }
 
     [RelayCommand]

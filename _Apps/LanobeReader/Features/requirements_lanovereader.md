@@ -337,6 +337,8 @@ LanobeReader/
 5. 前の話・次の話が存在しない場合は該当ボタンを非活性化
 6. ヘッダ・フッタは常時表示
 7. 目次ボタンタップでSCR-003に戻る（バックスタック）
+8. スクロール位置を話ごとに `episodes.scroll_ratio` へ保存し、再表示時に復元（末尾到達時は 0=先頭）
+9. Activity の再生成（プロセス終了後の復帰など）では、背面化時に Activity の保存状態へ残した閲覧中の話 Id から閲覧画面（話一覧を間に積む）と位置を復元
 
 **非同期処理:** async/await
 **排他制御:** 不要
@@ -458,8 +460,8 @@ LanobeReader/
 1. 設定変更で `vertical_writing` を 0/1 で UPSERT
 2. SCR-004 を次回開いた時に `IsVerticalWriting` を反映
 3. 横書き・縦書きとも `ReaderWebView` で表示し、書字方向は HTML テンプレートの `<html>` の class（`horizontal` / `vertical`。縦書きは CSS `writing-mode: vertical-rl`）で切り替える
-4. 書字方向を問わず `ReaderHtmlBuilder.Build(content, cssState, isVerticalWriting)` で HTML を組み立て、CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
-5. WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉して既読/前後遷移コマンドに連動
+4. 書字方向を問わず `ReaderHtmlBuilder.Build(content, cssState, isVerticalWriting, scrollRatio)` で HTML を組み立て、CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+5. WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` / `lanobe://scroll` ナビゲーションをコードビハインドで捕捉して既読/前後遷移コマンドに連動
 
 **実装上の注意:**
 - `OnIsVerticalWritingChanged` で `RefreshHtml` を呼び、書字方向の切替時に表示中の話の HTML を作り直す
@@ -920,6 +922,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 | published_at | TEXT | OK | | NULL | 公開日時（ISO8601） |
 | is_favorite | INTEGER | NG | | 0 | お気に入りフラグ（F-010） |
 | favorited_at | TEXT | OK | | NULL | お気に入り登録日時（ISO8601） |
+| scroll_ratio | REAL | OK | | NULL | 読みかけ位置の比率（0〜1）。NULL/0=先頭 |
 
 インデックス:
 - `idx_episodes_novel_episode`: **UNIQUE** `(novel_id, episode_no)` - 前後話特定 + 重複防止（schema v2 で UNIQUE 化、重複レコードは除去後に再構築）
@@ -1006,6 +1009,7 @@ erDiagram
         text published_at
         integer is_favorite
         text favorited_at
+        real scroll_ratio
     }
 
     episode_cache {
@@ -1063,6 +1067,7 @@ public enum SiteType
 5. WorkManagerによる定期更新チェックのスケジュール設定
 6. novelsテーブルのレコード数確認 → 0件ならSCR-002（検索画面）へ強制遷移
 7. 1件以上ならSCR-001（一覧画面）を表示し更新チェックを非同期実行
+8. Activity の再生成（プロセス終了後、または未処理の構成変更）で savedInstanceState に閲覧中の話 Id があれば閲覧画面を復元する。再生成時は起動 Intent（通知ディープリンク）を処理せず、再生成直後に通知タップが届いたら復元を取り消して通知先を開く
 
 **終了時:**
 - 特別な後処理なし（HttpClientは都度使用・SQLite接続はusing管理）
@@ -1262,8 +1267,8 @@ public enum SiteType
 
 ### 8.11 WebView による横書き・縦書き表示（F-009）
 - 横書き・縦書きとも `ReaderWebView` で表示し、書字方向は HTML テンプレートの `<html>` の class（`horizontal` / `vertical`。縦書きは CSS `writing-mode: vertical-rl`）で切り替える
-- 書字方向を問わず `ReaderHtmlBuilder.Build(content, cssState, isVerticalWriting)` で HTML 組み立て。CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
-- WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` ナビゲーションをコードビハインドで捕捉し、対応コマンドへ連動
+- 書字方向を問わず `ReaderHtmlBuilder.Build(content, cssState, isVerticalWriting, scrollRatio)` で HTML 組み立て。CSS 変数（フォントサイズ・背景色・行間）は `ReaderCss` プロパティから WebView へ流す
+- WebView 側の `lanobe://read-end` / `lanobe://next-episode` / `lanobe://prev-episode` / `lanobe://scroll` ナビゲーションをコードビハインドで捕捉し、対応コマンドへ連動
 
 ### 8.12 グローバル例外ハンドラ
 - `App.xaml.cs` で `AppDomain.CurrentDomain.UnhandledException` と `TaskScheduler.UnobservedTaskException` の両方を購読する (PR-4 / L-5)

@@ -1,4 +1,6 @@
+using System.Globalization;
 using LanobeReader.ViewModels;
+using TBird.Core;
 
 namespace LanobeReader.Views;
 
@@ -26,20 +28,34 @@ public partial class ReaderPage : ContentPage
 
         if (BindingContext is not ReaderViewModel vm) return;
 
-        if (e.Url.Contains("read-end", StringComparison.OrdinalIgnoreCase))
+        try
         {
-            if (vm.AutoMarkReadEnabled)
+            if (e.Url.Contains("read-end", StringComparison.OrdinalIgnoreCase))
+            {
                 await vm.MarkAsReadFromAutoCommand.ExecuteAsync(null);
+            }
+            else if (e.Url.Contains("next-episode", StringComparison.OrdinalIgnoreCase))
+            {
+                if (vm.NextEpisodeCommand.CanExecute(null))
+                    await vm.NextEpisodeCommand.ExecuteAsync(null);
+            }
+            else if (e.Url.Contains("prev-episode", StringComparison.OrdinalIgnoreCase))
+            {
+                if (vm.PrevEpisodeCommand.CanExecute(null))
+                    await vm.PrevEpisodeCommand.ExecuteAsync(null);
+            }
+            else if (e.Url.Contains("scroll", StringComparison.OrdinalIgnoreCase))
+            {
+                var i = e.Url.IndexOf("r=", StringComparison.Ordinal);
+                if (i < 0 || !double.TryParse(e.Url.AsSpan(i + 2), NumberStyles.Float, CultureInfo.InvariantCulture, out var r)) return;
+                await vm.SaveScrollRatioAsync(Math.Clamp(r, 0, 1));
+            }
         }
-        else if (e.Url.Contains("next-episode", StringComparison.OrdinalIgnoreCase))
+        catch (Exception ex)
         {
-            if (vm.NextEpisodeCommand.CanExecute(null))
-                await vm.NextEpisodeCommand.ExecuteAsync(null);
-        }
-        else if (e.Url.Contains("prev-episode", StringComparison.OrdinalIgnoreCase))
-        {
-            if (vm.PrevEpisodeCommand.CanExecute(null))
-                await vm.PrevEpisodeCommand.ExecuteAsync(null);
+            // async void の例外は TaskScheduler.UnobservedTaskException で拾えないため、
+            // ここで握り潰してプロセスクラッシュを防ぐ。
+            MessageService.Warn($"WebView navigating failed: {ex.Message}");
         }
     }
 }

@@ -27,7 +27,7 @@ public static class ReaderHtmlBuilder
         return reader.ReadToEnd();
     }
 
-    public static string Build(string content, ReaderCssState state, bool isVerticalWriting)
+    public static string Build(string content, ReaderCssState state, bool isVerticalWriting, double scrollRatio)
     {
         var inv = CultureInfo.InvariantCulture;
         var (bgHex, fgHex) = ReaderStyleResolver.ResolveThemeColors(state.BackgroundThemeIndex);
@@ -41,6 +41,8 @@ public static class ReaderHtmlBuilder
             .Replace("__BG__", bgHex)
             .Replace("__FG__", fgHex)
             .Replace("__DIR__", isVerticalWriting ? "vertical" : "horizontal")
+            // __BODY__ より前に置く: 本文中の文字列 "__POS__" を置換しないため。
+            .Replace("__POS__", scrollRatio.ToString("0.####", inv))
             .Replace("__BODY__", EpisodeContentFormat.ToHtml(content));
     }
 }

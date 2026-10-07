@@ -1,4 +1,5 @@
 using LanobeReader.ViewModels;
+using TBird.Core;
 
 namespace LanobeReader.Views;
 
@@ -22,7 +23,16 @@ public partial class NovelListPage : ContentPage
         // 表示中だけ新着メッセージを購読し、非表示時に解除する(VM は Transient のため購読を
         // ライフサイクルに束ねないと旧 VM が積み上がり、非表示ページまで再読込してしまう)。
         _viewModel.SubscribeToUpdates();
-        await _viewModel.InitializeAsync();
+        try
+        {
+            await _viewModel.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            // async void の例外は TaskScheduler.UnobservedTaskException で拾えないため、
+            // ここで握り潰してプロセスクラッシュを防ぐ。
+            MessageService.Warn($"OnAppearing failed: {ex.Message}");
+        }
     }
 
     protected override void OnDisappearing()
