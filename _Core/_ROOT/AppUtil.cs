@@ -1,9 +1,7 @@
 ﻿using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using AngleSharp.Html.Parser;
 using Netkeiba.Models;
-using OpenQA.Selenium;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -110,43 +108,6 @@ namespace Netkeiba
 
 				return await context.OpenAsync(url).RunAsync(x => ((x.DocumentElement as IHtmlDocument) ?? x as IHtmlDocument).NotNull());
 			}
-			//var selenium = await TBirdSeleniumFactory.CreateSelenium(1);
-
-			//if (login)
-			//{
-			//	selenium.SetInitialize(driver =>
-			//	{
-			//		selenium.GoToUrl(@"https://regist.netkeiba.com/account/?pid=login");
-
-			//		driver.FindElement(By.Name("login_id")).SendKeys(AppSetting.Instance.NetkeibaId);
-			//		driver.FindElement(By.Name("pswd")).SendKeys(AppSetting.Instance.NetkeibaPassword);
-			//		driver.FindElement(By.XPath(@"//input[@alt='ログイン']")).Click();
-			//	});
-
-			//}
-			//else
-			//{
-			//	//using (await Locker.LockAsync(_guid, _pararell))
-			//	//{
-			//	//	MainViewModel.AddLog($"req: {url}");
-
-			//	//	var res = await WebUtil.GetStringAsync(url, _srcenc, _dstenc);
-
-			//	//	var doc = await _parser.ParseDocumentAsync(res);
-
-			//	//	return doc;
-			//	//}
-			//}
-
-			//MainViewModel.AddLog($"req: {url}");
-			//return await selenium.Execute(async driver =>
-			//{
-			//	selenium.GoToUrl(url);
-
-			//	var res = driver.PageSource;
-
-			//	return await _parser.ParseDocumentAsync(res);
-			//}).RunAsync(async x => await x);
 		}
 
 		private static int _pararell = 1;
@@ -157,41 +118,6 @@ namespace Netkeiba
 		private static IBrowsingContext? _logincontext;
 		private static DateTime _loginsession = DateTime.Now.AddDays(-1);
 		private static IBrowsingContext? _guestcontext;
-		//      private static DateTime _guestsession = DateTime.Now.AddDays(-1);
-
-		private static HtmlParser _parser = new HtmlParser();
-		private static Encoding _srcenc = Encoding.GetEncoding("euc-jp");
-		private static Encoding _dstenc = Encoding.UTF8;
-
-		public static async Task<IEnumerable<string>> GetFileHeaders(string path, string sepa)
-		{
-			var csvenum = File.ReadLinesAsync(path).GetAsyncEnumerator();
-			var csvheader = await csvenum.MoveNextAsync() ? csvenum.Current : string.Empty;
-			return csvheader.Split(sepa);
-		}
-
-		public static async Task<IEnumerable<T>> GetFileHeaders<T>(string path, string sepa, Func<string, T> func)
-		{
-			return await GetFileHeaders(path, sepa).ContinueWith(x => x.Result.Select(func));
-		}
-
-		public static async Task<IEnumerable<T>> GetFileHeaders<T>(string path, string sepa, Func<string, int, T> func)
-		{
-			return await GetFileHeaders(path, sepa).ContinueWith(x => x.Result.Select(func));
-		}
-
-		public static void DeleteEndress(string path)
-		{
-			_ = Task.Run(async () =>
-			{
-				while (File.Exists(path))
-				{
-					await Task.Delay(1000);
-
-					FileUtil.Delete(path);
-				}
-			}).ConfigureAwait(false);
-		}
 
 		public static int ToTotalDays(this DateTime date) => (date - DateTime.Parse("1990/01/01")).TotalDays.Int32();
 

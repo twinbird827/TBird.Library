@@ -17,14 +17,6 @@ namespace Netkeiba.Models
 		public FeaturesType Type { get; set; }
 
 		public bool Normalization { get; set; }
-
-		public static FeaturesType[] GetTargetTypes() => new[]
-		{
-			FeaturesType.Horse,
-			FeaturesType.Jockey,
-			FeaturesType.Blood,
-			FeaturesType.Connection,
-		};
 	}
 
 	[Flags]

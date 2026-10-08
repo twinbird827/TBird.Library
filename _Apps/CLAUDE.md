@@ -9,3 +9,5 @@
 - `STEP2Command` - データ前処理
 - `STEP3Command` - ML.NETによる機械学習モデル構築
 - `STEP4*` - 予測結果の表示・分析
+
+配備は `_Apps/deploy.ps1` を実行して `_Tools\Netkeiba\app\` へ出力し、`_Tools\Netkeiba\app\Netkeiba.exe` から起動する（ビルドでは配備しない）。

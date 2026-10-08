@@ -191,7 +191,6 @@ namespace Netkeiba.Models
 	public static class RaceDetailExtensions
 	{
 		private static float DefaultFinishPosition = float.NaN;
-		private static float DefaultAdjustedScore = float.NaN;
 		private static float DefaultRating = float.NaN;
 		private static float DefaultTime2Top = float.NaN;
 		private static float DefaultLastThreeFurlongs2Top = float.NaN;
@@ -894,25 +893,6 @@ namespace Netkeiba.Models
 			return 1F / (detail.FinishPosition - tmp);
 		}
 
-		private static float CalculateAdjustedScore(RaceDetail x)
-		{
-			var score = 0.0F;
-
-			score += CalculateFinishPosition(x) * 0.2F;
-
-			score += (4.9F - x.Time2Avg) / 9.8F * 0.2F;
-
-			score += (4.9F - x.LastThreeFurlongs2Avg) / 9.8F * 0.2F;
-
-			score += x.Race.Grade.GetGradeFeatures() * 0.15F;
-
-			score += (x.Race.AverageRating - 40F).MinMax(0F, 95F) / 95F * 0.15F;
-
-			score += (x.Race.NumberOfHorses.Single().MinMax(5F, 18F) - 5F) / 13F * 0.1F;
-
-			return score;
-		}
-
 		private static HorseScoreMetrics GetHorseScoreMetrics(this RaceDetail detail, List<RaceDetail> horses)
 		{
 			return new HorseScoreMetrics()
@@ -934,10 +914,6 @@ namespace Netkeiba.Models
 				// 着順
 				AvgFinishPosition = horses.Median(CalculateFinishPosition, DefaultFinishPosition),
 				MaxFinishPosition = horses.Max(CalculateFinishPosition, DefaultFinishPosition),
-
-				// 調整ｽｺｱ
-				AvgAdjustedScore = horses.Median(CalculateAdjustedScore, DefaultAdjustedScore),
-				MaxAdjustedScore = horses.Max(CalculateAdjustedScore, DefaultAdjustedScore),
 
 				// ﾄｯﾌﾟとのﾀｲﾑ差
 				AvgTime2Top = horses.Median(x => x.Time2Top, DefaultTime2Top),

@@ -1,5 +1,4 @@
-﻿using AngleSharp.Html.Dom;
-using Netkeiba.Models;
+﻿using Netkeiba.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -12,7 +11,6 @@ using TBird.DB.SQLite;
 using TBird.Wpf;
 using TBird.Wpf.Collections;
 using TBird.Wpf.Controls;
-using Tensorflow;
 
 namespace Netkeiba
 {
@@ -145,13 +143,6 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXEC => new STEP3Command(this).CreateCommand();
 
-		public string S4Text
-		{
-			get => _S4Text;
-			set => SetProperty(ref _S4Text, value);
-		}
-		private string _S4Text = string.Empty;
-
 		public ComboboxViewModel S4Dates
 		{
 			get => _S4Dates;
@@ -206,22 +197,6 @@ namespace Netkeiba
 		}
 
 		public static DateTime GetS4SelectedDate() => _this != null ? DateTime.ParseExact(_this.S4Dates.SelectedItem.Value, "yyyyMMdd", null) : DateTime.Now;
-
-		//public IRelayCommand S3EXECPREDICT => RelayCommand.Create(async _ =>
-		//{
-		//	var raceparser = await AppUtil.GetDocument(false, "https://race.netkeiba.com/race/shutuba.html?race_id=202505040202");
-
-		//	var racetable = raceparser.GetElementsByClassName("Shutuba_Table RaceTable01 ShutubaTable").FirstOrDefault() as IHtmlTableElement;
-
-		//	if (racetable == null) return;
-
-		//	foreach (var row in racetable.Rows.Skip(2))
-		//	{
-		//		if (row == null) continue;
-
-		//		AddLog(row.ToString().NotNull());
-		//	}
-		//});
 
 	}
 }

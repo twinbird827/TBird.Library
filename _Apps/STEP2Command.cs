@@ -1,5 +1,4 @@
-﻿using Jint.Parser.Ast;
-using Microsoft.ML.Data;
+﻿using Microsoft.ML.Data;
 using Netkeiba.Models;
 using System;
 using System.Collections.Generic;

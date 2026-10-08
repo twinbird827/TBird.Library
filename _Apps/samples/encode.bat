@@ -1,2 +1,0 @@
-python encode.py
-pause
