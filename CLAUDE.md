@@ -17,7 +17,7 @@ dotnet build TBird.Library.sln   # WPF/サーバ系（MAUI workload 不要）
 dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開発時のみ）
 ```
 
-- 一部プロジェクトは .NET Framework 4.8 のレガシー（非 SDK）形式（`TBird.Service` / `coretest` 等）。これらは Visual Studio もしくは `msbuild` でのビルドが確実
+- `TBird.Service` は .NET Framework 4.8 のレガシー（非 SDK）形式。Visual Studio もしくは `msbuild` でのビルドが確実
 - `_Core` / `_Browser` の CLAUDE.md はそれらのプロジェクトを持つ `app-*` ブランチでのみ存在（`master` には無い）
 
 ## ブランチとアプリケーションの構成
@@ -56,14 +56,9 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 - [_Core/CLAUDE.md](_Core/CLAUDE.md) - アプリケーション共有ライブラリ（`_Core` プロジェクトを持つ app-* ブランチでのみ存在）
 - [_Browser/CLAUDE.md](_Browser/CLAUDE.md) - Webフロントエンド（`_Browser` プロジェクトを持つ app-* ブランチでのみ存在）
 
-### テスト
-- [coretest/CLAUDE.md](coretest/CLAUDE.md) - Core テスト
-- [wpftest/CLAUDE.md](wpftest/CLAUDE.md) - WPF テスト
-- [roslyntest/CLAUDE.md](roslyntest/CLAUDE.md) - Roslyn テスト
-
 ## テスト
 
-新しいテストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Apps/<テスト対象プロジェクト名>.Tests/` に置いて `_Apps/App.sln` に含め、`dotnet test _Apps/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。既存の `coretest` / `wpftest` / `roslyntest` は実行可能なテストアプリケーションのまま残る。
+テストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Apps/<テスト対象プロジェクト名>.Tests/` に置いて `_Apps/App.sln` に含め、`dotnet test _Apps/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。
 
 ## 全体共通ルール
 
