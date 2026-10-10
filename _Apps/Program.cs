@@ -138,16 +138,26 @@ internal static class Program
 	{
 		if (!Directory.Exists(arg)) return ProcessOne(arg);
 
-		// バックアップ名も母集団に含める: 再実行時は 2 番目がバックアップになり ProcessOne でスキップされる
-		var second = Directory
-			.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly)
-			.Where(f => TargetExtensions.Contains(Path.GetExtension(f)))
-			.Order(Comparer<string>.Create(StrCmpLogicalW))
-			.ElementAtOrDefault(1);
+		var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(arg));
+		string? second;
+		try
+		{
+			// バックアップ名も母集団に含める: 再実行時は 2 番目がバックアップになり ProcessOne でスキップされる
+			second = Directory
+				.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly)
+				.Where(f => TargetExtensions.Contains(Path.GetExtension(f)))
+				.Order(Comparer<string>.Create(StrCmpLogicalW))
+				.ElementAtOrDefault(1);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[失敗] フォルダを読めません: {folder} / {ex.Message}");
+			return Result.Failed;
+		}
 
 		if (second is null)
 		{
-			Console.WriteLine($"[スキップ] 対象画像が 2 枚未満のフォルダ: {Path.GetFileName(Path.TrimEndingDirectorySeparator(arg))}");
+			Console.WriteLine($"[スキップ] 対象画像が 2 枚未満のフォルダ: {folder}");
 			return Result.Skipped;
 		}
 		return ProcessOne(second);
