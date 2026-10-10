@@ -17,7 +17,7 @@ dotnet build TBird.Library.sln   # WPF/サーバ系（MAUI workload 不要）
 dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開発時のみ）
 ```
 
-- 一部プロジェクトは .NET Framework 4.8 のレガシー（非 SDK）形式（`TBird.Service` / `coretest` 等）。これらは Visual Studio もしくは `msbuild` でのビルドが確実
+- `TBird.Service` は .NET Framework 4.8 のレガシー（非 SDK）形式。Visual Studio もしくは `msbuild` でのビルドが確実
 - `_Core` / `_Browser` の CLAUDE.md はそれらのプロジェクトを持つ `app-*` ブランチでのみ存在（`master` には無い）
 
 ## ブランチとアプリケーションの構成
@@ -56,14 +56,9 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 - [_Core/CLAUDE.md](_Core/CLAUDE.md) - アプリケーション共有ライブラリ（`_Core` プロジェクトを持つ app-* ブランチでのみ存在）
 - [_Browser/CLAUDE.md](_Browser/CLAUDE.md) - Webフロントエンド（`_Browser` プロジェクトを持つ app-* ブランチでのみ存在）
 
-### テスト
-- [coretest/CLAUDE.md](coretest/CLAUDE.md) - Core テスト
-- [wpftest/CLAUDE.md](wpftest/CLAUDE.md) - WPF テスト
-- [roslyntest/CLAUDE.md](roslyntest/CLAUDE.md) - Roslyn テスト
-
 ## テスト
 
-ユニットテストフレームワークではなく、実行可能なテストアプリケーションを使用している点に注意。
+テストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Apps/<テスト対象プロジェクト名>.Tests/` に置いて `_Apps/App.sln` に含め、`dotnet test _Apps/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。
 
 ## 全体共通ルール
 
@@ -77,12 +72,18 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 - ソリューションファイルは `_Apps/App.sln` とする（アプリ名のslnにしない）
 - ソリューションフォルダは作成しない（`_Apps/` 直下に `.sln` を配置）
-- プロジェクトフォルダも作成しない（`_Apps/` 直下に `.csproj` とソースファイルを配置）
+- 単一プロジェクトのアプリは `.csproj` とソースファイルを `_Apps/` 直下に置き、テスト等で複数プロジェクトになるアプリは各プロジェクトを `_Apps/<プロジェクト名>/` に分ける（`_Apps/` 直下の csproj は既定の `**/*.cs` で他プロジェクトのソースまで取り込み、ビルドが壊れるため）
+
+### ブランチ切替と `_Tools`
+
 - **git 追跡外だが実行に必要なファイル（DB・シークレット・学習モデル・ログ・ビルド成果物）を `_Apps` 内に置かない**。リポジトリルートの `_Tools/<アプリ名>/`（.gitignore 済）に集約する。`_Apps` はブランチ切替で内容が入れ替わるため、置くと切替や `_Apps` 内削除で失われる
+- post-checkout フック（正本は `.githooks/post-checkout`）が、`_Apps` / `_Core` / `_Browser` の `.sln` / `.csproj` に差分があるブランチ切替（別 app への切替、csproj を変えた fix/* との往復、rebase）で、そこの gitignore 済みファイルを `git clean -fdX` で消す。clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` で導入する
+- 定期実行（タスクスケジューラ）・常駐サーバは `_Tools/<アプリ名>/` に配備した実行物から起動する。登録に `_Apps` のパスを使わず、`dotnet run --project _Apps/...` で起動しない
+- 配備は app-* ブランチで追跡する `_Apps/deploy.ps1` を明示的に実行して行い、ブランチ切替では配備しない。`_Tools/<アプリ名>/` 内では、配備物（配備のたびに上書き）と実行時データ（DB・シークレット・ログ・モデル）を別フォルダに分ける
+- コンパイル時に必要な秘密ファイル（`Secrets.cs` 等）は `_Tools/<アプリ名>/` に置き、csproj から `Link` 付きで取り込む
 
 ### コード標準
 
-- C# 10言語機能が有効
 - null許容参照型が有効（`<Nullable>enable</Nullable>`）
 - 拡張メソッドは`{型名}Extension.cs`の命名規則に従う
 - 名前空間規則：TBird.{レイヤー}.{機能}

@@ -37,61 +37,23 @@ namespace TBird.Core
 		}
 
 		/// <summary>
-		/// ﾌﾟﾛｾｽを実行します。実行するﾌﾟﾛｾｽが複数存在する場合ﾊﾟｲﾌﾟします。
-		/// </summary>
-		/// <param name="pis">ﾌﾟﾛｾｽ実行情報</param>
-		public static void Execute(params ProcessStartInfo[] pis)
-		{
-			Process? process = null;
-			for (var i = 0; i < pis.Length; i++)
-			{
-				var pi = pis[i];
-				pi.CreateNoWindow = true;
-				pi.UseShellExecute = false;
-				pi.RedirectStandardInput = process != null;
-				// 最終ﾌﾟﾛｾｽの stdout は誰も読まないため redirect しない（redirect するとﾊﾟｲﾌﾟ満杯や
-				// 孫ﾌﾟﾛｾｽの handle 継承で WaitForExit が返らなくなりうる）。
-				pi.RedirectStandardOutput = i < pis.Length - 1;
-				// Redirect* を false にする段は対の *Encoding も null にする
-				// （encoding 設定済み＋redirect=false は Process.Start が InvalidOperationException で拒否するため）。
-				if (!pi.RedirectStandardOutput) pi.StandardOutputEncoding = null;
-				// stderr は誰も読まない経路のため強制 false（redirect すると子がﾊﾟｲﾌﾟ満杯で write ﾌﾞﾛｯｸしうる）。
-				pi.RedirectStandardError = false;
-				pi.StandardErrorEncoding = null;
-
-				var now = Process.Start(pi);
-
-				if (process != null)
-				{
-					using (process)
-					using (var reader = process.StandardOutput)
-					using (var writer = now.StandardInput)
-					{
-						writer.AutoFlush = true;
-						string line = reader.ReadToEnd();
-
-						writer.Write(line);
-					}
-				}
-
-				process = now;
-			}
-
-			if (process != null)
-			{
-				using (process)
-				{
-					process.WaitForExit();
-				}
-			}
-		}
-
-		/// <summary>
 		/// EOF 待ちの上限。子ﾌﾟﾛｾｽが stdout handle を継承した孫ﾌﾟﾛｾｽを残すと EOF が成立しないため、
 		/// exit 後この時間で読み取りを打ち切り、受信済み分＋警告で続行する（無限ﾌﾞﾛｯｸ回避）。
 		/// </summary>
 		private static readonly TimeSpan EofGrace = TimeSpan.FromSeconds(15);
 
+		/// <summary>
+		/// ﾌﾟﾛｾｽを実行し、exit code を返します。
+		/// </summary>
+		/// <param name="info">ﾌﾟﾛｾｽ実行情報</param>
+		/// <param name="action">stdout を redirect した場合に 1 行ずつ渡す処理</param>
+		/// <returns>exit code</returns>
+		/// <remarks>
+		/// 非ｾﾞﾛ exit code では throw せず、exit code をそのまま返す。検査は呼び出し元の義務。
+		/// <paramref name="action"/> の中で出た例外は最初の 1 件だけを捕捉し、終了後に再ｽﾛｰする。それ以降の出力行は <paramref name="action"/> に渡らない。
+		/// 起動失敗（実行ﾌｧｲﾙが無い等）は <see cref="System.ComponentModel.Win32Exception"/> が伝播する。
+		/// -1 は UseShellExecute=true で既存ﾌﾟﾛｾｽが再利用され、待つﾌﾟﾛｾｽが無いときだけ返り、実際の exit code -1 と区別できない。
+		/// </remarks>
 		public static async Task<int> ExecuteAsync(ProcessStartInfo info, Action<string>? action)
 		{
 			using (var process = new Process { StartInfo = info, EnableRaisingEvents = true })
@@ -141,11 +103,5 @@ namespace TBird.Core
 				}
 			}
 		}
-
-		public static int Execute(ProcessStartInfo info, Action<string>? action)
-		{
-			return ExecuteAsync(info, action).GetAwaiter().GetResult();
-		}
-
 	}
 }
