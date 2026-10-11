@@ -51,7 +51,7 @@ namespace ZIPConverter
 			get => GetProperty(_Option);
 			set => SetProperty(ref _Option, value);
 		}
-		private string _Option;
+		private string _Option = string.Empty;
 
 		/// <summary>
 		/// 並行処理数
