@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using TBird.Core;
@@ -34,15 +35,21 @@ namespace TBird.IO.Pdf.Tests
 		[TestCase("mid_over", 10, false, 7, true, 7)]
 		// ok7 の子 A を /Count 1
 		[TestCase("a_under", 6, true, 6, true, 6)]
-		public async Task FixtureBehavior(string fixture, int? pagesize, bool pdf2jpg, int? jpegs, bool put, int? pagesizeAfterPut)
+		// #232: gs へ渡すﾊﾟｽの対でない括弧・; を、ok7 をその名前にｺﾋﾟｰして確かめる
+		[TestCase("ok7", 7, true, 7, true, 7, "a(1")]
+		[TestCase("ok7", 7, true, 7, true, 7, "c;1")]
+		[TestCase("ok7", 7, true, 7, true, 7, "d;;1")]
+		// #235: PDF と同名の出力ﾌｫﾙﾀﾞの % を gs が OutputFile の書式指定として消費しないことを確かめる
+		[TestCase("ok7", 7, true, 7, true, 7, "p%1")]
+		public async Task FixtureBehavior(string fixture, int? pagesize, bool pdf2jpg, int? jpegs, bool put, int? pagesizeAfterPut, string? name = null)
 		{
 			var src = Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", fixture + ".pdf");
-			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, fixture);
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, name ?? fixture);
 
 			// Pdf2Jpg は前回の JPEG が残ると枚数が増え、PutPageNumber は原本を置換するため、毎回作り直して別ｺﾋﾟｰで処理する。
 			if (Directory.Exists(work)) Directory.Delete(work, true);
-			var jpgpdf = CopyTo(src, Path.Combine(work, "jpg"));
-			var putpdf = CopyTo(src, Path.Combine(work, "put"));
+			var jpgpdf = CopyTo(src, Path.Combine(work, "jpg"), (name ?? fixture) + ".pdf");
+			var putpdf = CopyTo(src, Path.Combine(work, "put"), (name ?? fixture) + ".pdf");
 
 			Assert.That(await GetPageSizeOrNull(jpgpdf), Is.EqualTo(pagesize));
 
@@ -56,9 +63,58 @@ namespace TBird.IO.Pdf.Tests
 			Assert.That(await GetPageSizeOrNull(putpdf), Is.EqualTo(pagesizeAfterPut));
 		}
 
-		private static string CopyTo(string src, string dir)
+		[Test]
+		public async Task UnmappablePathFailsWithoutTouchingBestFitTwin()
 		{
-			var dst = Path.Combine(Directory.CreateDirectory(dir).FullName, Path.GetFileName(src));
+			Assume.That(GetACP(), Is.EqualTo(932), "ACP 932 でのみ再現する");
+
+			var fixtures = Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures");
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, "bestfit");
+			if (Directory.Exists(work)) Directory.Delete(work, true);
+			Directory.CreateDirectory(work);
+			var cafe1 = Path.Combine(work, "café.pdf");
+			var cafe2 = Path.Combine(work, "cafe.pdf");
+			File.Copy(Path.Combine(fixtures, "ok7.pdf"), cafe1);
+			File.Copy(Path.Combine(fixtures, "a_under.pdf"), cafe2);
+			var bytes1 = File.ReadAllBytes(cafe1);
+			var bytes2 = File.ReadAllBytes(cafe2);
+
+			// #229: best-fit で é→e に置き換わると cafe.pdf(6 ﾍﾟｰｼﾞ) を黙って処理するため、失敗して両ﾌｧｲﾙが不変であることを固定する。
+			Assert.That(await GetPageSizeOrNull(cafe1), Is.Null);
+			Assert.That(await Succeeds(() => PdfUtil.PutPageNumberAsync(cafe1)), Is.False);
+			Assert.That(File.ReadAllBytes(cafe1), Is.EqualTo(bytes1));
+			Assert.That(File.ReadAllBytes(cafe2), Is.EqualTo(bytes2));
+		}
+
+		[Test]
+		public async Task PutPageNumberSucceedsWithPercentInTempPath()
+		{
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, "tmppct");
+			if (Directory.Exists(work)) Directory.Delete(work, true);
+			var tmp = Directory.CreateDirectory(Path.Combine(work, "t%1")).FullName;
+			var pdf = CopyTo(Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", "ok7.pdf"), work, "ok7.pdf");
+			var original = File.ReadAllBytes(pdf);
+
+			// #235: 一時ﾌｧｲﾙは子ﾌﾟﾛｾｽの Path.GetTempPath() 配下に作られるため、継承される TMP を % を含むﾌｫﾙﾀﾞへ差し替える。
+			var saved = Environment.GetEnvironmentVariable("TMP");
+			try
+			{
+				Environment.SetEnvironmentVariable("TMP", tmp);
+				Assert.That(await Succeeds(() => PdfUtil.PutPageNumberAsync(pdf)), Is.True);
+			}
+			finally
+			{
+				Environment.SetEnvironmentVariable("TMP", saved);
+			}
+			Assert.That(File.ReadAllBytes(pdf), Is.Not.EqualTo(original));
+		}
+
+		[DllImport("kernel32.dll")]
+		private static extern int GetACP();
+
+		private static string CopyTo(string src, string dir, string filename)
+		{
+			var dst = Path.Combine(Directory.CreateDirectory(dir).FullName, filename);
 			File.Copy(src, dst);
 			return dst;
 		}

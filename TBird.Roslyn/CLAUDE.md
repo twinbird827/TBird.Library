@@ -11,6 +11,5 @@ Roslynコンパイラを使用したC#スクリプティング機能（`.csx` �
 
 ## 開発時の注意
 
-- 利用側プロジェクトでは FluentValidation の不要カルチャーを除外する csproj 設定が必要（[roslyntest/roslyntest.csproj](../roslyntest/roslyntest.csproj) の `FluentValidationExcludedCultures` を参照。出力 `.csx` のサイズ肥大を防ぐ）
 - 使用フロー: `.csx` を `"scripts"` ディレクトリへ配置 → `RoslynManager.Instance.Initialize<T>(parameter)` → `RunAsync()`
 - partial クラスで `_dispose.cs` に破棄処理を分離するパターンを採用
