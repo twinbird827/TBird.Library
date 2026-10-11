@@ -12,7 +12,7 @@ namespace TBird.Maui;
 /// 転送されないため、明示的に System.Diagnostics.Debug.WriteLine を呼ぶ必要がある。
 ///
 /// GetString は base 実装を再利用し、[appName] プレフィックスを付加する形に override する。
-/// MessageService.AppendLogfile は AppDomain.CurrentDomain.BaseDirectory 相対パスを使うため
+/// MessageService.AppendLogfile は PathSetting.RootDirectory（lib\path-setting.json が無ければ AppContext.BaseDirectory）相対パスを使うため
 /// Android サンドボックスで書込権限エラーが出る。代わりに FileSystem.AppDataDirectory/log に書く。
 /// </summary>
 public class MauiMessageService : ConsoleMessageService
@@ -39,7 +39,8 @@ public class MauiMessageService : ConsoleMessageService
 
     // Error / Exception: base 実装は Writeline (= Trace.WriteLine) +
     // MessageService.AppendLogfile を呼ぶが、Android では Trace.WriteLine が logcat に
-    // 出ない & AppendLogfile が AppDomain.CurrentDomain.BaseDirectory 相対で
+    // 出ない & AppendLogfile が PathSetting.RootDirectory（lib\path-setting.json が無ければ
+    // AppContext.BaseDirectory）相対で
     // サンドボックス書込権限エラーを起こす。base を呼ばずに同等出力を組み立てる。
     public override void Error(string message,
         [CallerMemberName] string callerMemberName = "",

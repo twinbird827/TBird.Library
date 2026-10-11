@@ -11,7 +11,7 @@ namespace TBird.Maui.DB;
 /// SQLite (sqlite-net-pcl) を使う MAUI アプリ向けの DB 基底クラス。
 ///
 /// 派生クラスは以下を実装する:
-///   - <see cref="CreateTablesAsync"/> (必須): テーブル作成 + 既存カラム追加 + INDEX 再適用
+///   - <see cref="CreateTablesAsync"/> (必須): テーブル作成 + INDEX 再適用
 ///   - <see cref="SeedAsync"/> (任意): 既定値シード（既存値を上書きしないこと）
 ///   - <see cref="GetMigrations"/> (任意): IMigration 配列を FromVersion 昇順で返す
 ///   - <see cref="ReadSchemaVersionAsync"/> / <see cref="WriteSchemaVersionAsync"/> (必須):
@@ -65,7 +65,7 @@ public abstract class SqliteDatabaseBase
 
     private async Task InitializeInternalAsync()
     {
-        // 1. テーブル作成 + 既存カラム追加 + INDEX 再適用を派生に委譲
+        // 1. テーブル作成 + INDEX 再適用を派生に委譲
         await CreateTablesAsync(_connection).ConfigureAwait(false);
 
         // 2. 既定設定のシード（既存値は上書きしない冪等実装が派生側の責務）
@@ -94,7 +94,12 @@ public abstract class SqliteDatabaseBase
     }
 
     /// <summary>
-    /// CreateTableAsync 呼び出し + EnsureColumnAsync による既存カラム追加 + INDEX 再適用を行う。
+    /// CreateTableAsync 呼び出し + INDEX 再適用を行う。
+    /// 既存テーブルに足りない列は CreateTableAsync が nullable・DEFAULT なしで足す。
+    /// NOT NULL / DEFAULT が要る列は、CreateTableAsync より前に、conn.GetTableInfoAsync(table) が空でなく
+    /// その列を含まないときだけ、明示の ALTER TABLE ... ADD COLUMN ... DEFAULT で足すこと（本メソッドは起動のたびに走る）。
+    /// [NotNull] 列を自動マイグレーションに任せると DEFAULT なしの not null で ALTER され、
+    /// 行がある既存テーブルでは SQLite が拒否して初期化が失敗する。
     /// 初回 (テーブル無) でもアプリ起動するため、冪等な書き方とすること。
     /// </summary>
     protected abstract Task CreateTablesAsync(SQLiteAsyncConnection conn);
@@ -121,32 +126,4 @@ public abstract class SqliteDatabaseBase
     /// スキーマバージョンを永続化する。
     /// </summary>
     protected abstract Task WriteSchemaVersionAsync(SQLiteAsyncConnection conn, int version);
-
-    /// <summary>
-    /// PRAGMA table_info で既存カラムの有無を確認し、未存在なら ALTER TABLE ADD COLUMN を実行する。
-    /// </summary>
-    protected async Task EnsureColumnAsync(SQLiteAsyncConnection conn, string table, string column, string ddlSuffix)
-    {
-        try
-        {
-            var cols = await conn.QueryAsync<PragmaColumnInfo>($"PRAGMA table_info({table})").ConfigureAwait(false);
-            if (cols.Any(c => string.Equals(c.name, column, StringComparison.OrdinalIgnoreCase))) return;
-            await conn.ExecuteAsync($"ALTER TABLE {table} ADD COLUMN {column} {ddlSuffix}").ConfigureAwait(false);
-            MessageService.Info($"Added column {table}.{column}");
-        }
-        catch (Exception ex)
-        {
-            MessageService.Warn($"EnsureColumnAsync {table}.{column} failed: {ex.Message}");
-        }
-    }
-
-    private class PragmaColumnInfo
-    {
-        public int cid { get; set; }
-        public string name { get; set; } = string.Empty;
-        public string type { get; set; } = string.Empty;
-        public int notnull { get; set; }
-        public string? dflt_value { get; set; }
-        public int pk { get; set; }
-    }
 }
