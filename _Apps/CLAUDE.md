@@ -12,6 +12,5 @@ PDF を D&D するとページごとの JPG を同名フォルダに書き出す
 
 ```bash
 dotnet build _Apps/App.sln
-# 配備 (_Tools\PDF2JPG\ を Release の publish 出力で入れ替える。app-setting.json と log は残す)
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File _Apps/deploy.ps1
 ```
