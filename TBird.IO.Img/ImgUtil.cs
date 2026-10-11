@@ -82,7 +82,7 @@ namespace TBird.IO.Img
 					(int)scale.Multiply(before.Height)
 				);
 
-				// SkiaSharp 2.88.8 の SKFilterQuality.High に合わせる（縮小は mip 最寄り＋bilinear、拡大は bicubic）
+				// SkiaSharp 2.88.8 の SKFilterQuality.High に合わせる
 				var sampling = scale < 1
 					? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Nearest)
 					: new SKSamplingOptions(SKCubicResampler.Mitchell);
