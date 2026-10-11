@@ -150,49 +150,61 @@ public partial class NovelListViewModel(
     [RelayCommand]
     private async Task NavigateToDetail(NovelCardViewModel card)
     {
-        if (card.HasUnconfirmedUpdate)
+        await CommandGuard.RunAsync(async () =>
         {
-            await novelRepo.ClearUnconfirmedUpdateAsync(card.Id);
-            card.HasUnconfirmedUpdate = false;
-        }
+            if (card.HasUnconfirmedUpdate)
+            {
+                await novelRepo.ClearUnconfirmedUpdateAsync(card.Id);
+                card.HasUnconfirmedUpdate = false;
+            }
 
-        await Shell.Current.GoToAsync($"episodes?novelId={card.Id}");
+            await Shell.Current.GoToAsync($"episodes?novelId={card.Id}");
+        }, SetError, "作品を開けませんでした");
     }
 
     [RelayCommand]
     private async Task ToggleFavoriteAsync(NovelCardViewModel card)
     {
-        var newValue = !card.IsFavorite;
-        await novelRepo.SetFavoriteAsync(card.Id, newValue);
-        card.IsFavorite = newValue;
-        if (SortKey == "favorite_first")
+        await CommandGuard.RunAsync(async () =>
         {
-            await LoadNovelsAsync();
-        }
+            var newValue = !card.IsFavorite;
+            await novelRepo.SetFavoriteAsync(card.Id, newValue);
+            card.IsFavorite = newValue;
+            if (SortKey == "favorite_first")
+            {
+                await LoadNovelsAsync();
+            }
+        }, SetError, "お気に入りの更新に失敗しました");
     }
 
     [RelayCommand]
     private async Task DeleteCache(NovelCardViewModel card)
     {
-        bool confirm = await Shell.Current.DisplayAlertAsync(
-            "確認", "キャッシュを削除しますか？", "OK", "キャンセル");
-
-        if (confirm)
+        await CommandGuard.RunAsync(async () =>
         {
-            await cacheRepo.DeleteByNovelIdAsync(card.Id);
-        }
+            bool confirm = await Shell.Current.DisplayAlertAsync(
+                "確認", "キャッシュを削除しますか？", "OK", "キャンセル");
+
+            if (confirm)
+            {
+                await cacheRepo.DeleteByNovelIdAsync(card.Id);
+            }
+        }, SetError, "キャッシュの削除に失敗しました");
     }
 
     [RelayCommand]
     private async Task DeleteNovel(NovelCardViewModel card)
     {
-        bool confirm = await Shell.Current.DisplayAlertAsync(
-            "確認", "タイトルを削除しますか？この操作は元に戻せません。", "OK", "キャンセル");
-
-        if (confirm)
+        await CommandGuard.RunAsync(async () =>
         {
-            await novelRepo.DeleteAsync(card.Id);
-            Novels.Remove(card);
-        }
+            bool confirm = await Shell.Current.DisplayAlertAsync(
+                "確認", "タイトルを削除しますか？この操作は元に戻せません。", "OK", "キャンセル");
+
+            if (confirm)
+            {
+                await novelRepo.DeleteAsync(card.Id);
+                Novels.Remove(card);
+            }
+        }, SetError, "タイトルの削除に失敗しました");
     }
 }

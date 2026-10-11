@@ -522,26 +522,29 @@ public partial class EpisodeListViewModel(
     [RelayCommand]
     private async Task ReadContinueAsync()
     {
-        // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
-        var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([_novelDbId]);
-        if (targets.TryGetValue(_novelDbId, out var targetId) && _novel is not null)
+        await CommandGuard.RunAsync(async () =>
         {
-            // Reader 復帰時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。
-            // NavigateToEpisode（詳細タップ経由）ではセットしないため、タップ経路は scroll 位置維持。
-            _pendingScrollToAnchor = true;
-            try
+            // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
+            var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([_novelDbId]);
+            if (targets.TryGetValue(_novelDbId, out var targetId) && _novel is not null)
             {
-                await Shell.Current.GoToAsync(
-                    $"reader?novelId={_novelDbId}&episodeId={targetId}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+                // Reader 復帰時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。
+                // NavigateToEpisode（詳細タップ経由）ではセットしないため、タップ経路は scroll 位置維持。
+                _pendingScrollToAnchor = true;
+                try
+                {
+                    await Shell.Current.GoToAsync(
+                        $"reader?novelId={_novelDbId}&episodeId={targetId}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+                }
+                catch
+                {
+                    // GoToAsync が失敗した場合、Reader 遷移が起きていないのでフラグを巻き戻す。
+                    // 立てたままだと次回の詳細タップ→戻り遷移でも意図せず anchor ジャンプが走る。
+                    _pendingScrollToAnchor = false;
+                    throw;
+                }
             }
-            catch
-            {
-                // GoToAsync が失敗した場合、Reader 遷移が起きていないのでフラグを巻き戻す。
-                // 立てたままだと次回の詳細タップ→戻り遷移でも意図せず anchor ジャンプが走る。
-                _pendingScrollToAnchor = false;
-                throw;
-            }
-        }
+        }, SetError, "続きを開けませんでした");
     }
 
     [RelayCommand]
@@ -555,41 +558,50 @@ public partial class EpisodeListViewModel(
     [RelayCommand]
     private async Task ToggleEpisodeFavoriteAsync(EpisodeViewModel ep)
     {
-        var newValue = !ep.IsFavorite;
-        await episodeRepo.SetFavoriteAsync(ep.Id, newValue);
-        ep.IsFavorite = newValue;
-
-        var source = _allEpisodes.FirstOrDefault(e => e.Id == ep.Id);
-        if (source is not null) source.IsFavorite = newValue;
-
-        if (ShowFavoritesOnly)
+        await CommandGuard.RunAsync(async () =>
         {
-            RebuildFilterCache();
-            RecalcPaging();
-            LoadPage();
-        }
+            var newValue = !ep.IsFavorite;
+            await episodeRepo.SetFavoriteAsync(ep.Id, newValue);
+            ep.IsFavorite = newValue;
+
+            var source = _allEpisodes.FirstOrDefault(e => e.Id == ep.Id);
+            if (source is not null) source.IsFavorite = newValue;
+
+            if (ShowFavoritesOnly)
+            {
+                RebuildFilterCache();
+                RecalcPaging();
+                LoadPage();
+            }
+        }, SetError, "お気に入りの更新に失敗しました");
     }
 
     [RelayCommand]
     private async Task ToggleNovelFavoriteAsync()
     {
-        if (_novel is null) return;
-        var newValue = !IsNovelFavorite;
-        await novelRepo.SetFavoriteAsync(_novel.Id, newValue);
-        IsNovelFavorite = newValue;
-        _novel.IsFavorite = newValue;
+        await CommandGuard.RunAsync(async () =>
+        {
+            if (_novel is null) return;
+            var newValue = !IsNovelFavorite;
+            await novelRepo.SetFavoriteAsync(_novel.Id, newValue);
+            IsNovelFavorite = newValue;
+            _novel.IsFavorite = newValue;
+        }, SetError, "お気に入りの更新に失敗しました");
     }
 
     [RelayCommand]
     private async Task DownloadAllAsync()
     {
-        if (_novel is null) return;
-        var enqueued = await prefetch.EnqueueNovelAsync(_novelDbId, highPriority: true);
-        await Shell.Current.DisplayAlertAsync("一括ダウンロード",
-            enqueued > 0
-                ? $"{enqueued}話をバックグラウンドで取得します（Wi-Fi接続時のみ）"
-                : "新規取得する話はありません",
-            "OK");
+        await CommandGuard.RunAsync(async () =>
+        {
+            if (_novel is null) return;
+            var enqueued = await prefetch.EnqueueNovelAsync(_novelDbId, highPriority: true);
+            await Shell.Current.DisplayAlertAsync("一括ダウンロード",
+                enqueued > 0
+                    ? $"{enqueued}話をバックグラウンドで取得します（Wi-Fi接続時のみ）"
+                    : "新規取得する話はありません",
+                "OK");
+        }, SetError, "一括ダウンロードの登録に失敗しました");
     }
 
     [RelayCommand(CanExecute = nameof(CanGoPrev))]

@@ -229,11 +229,14 @@ public partial class ReaderViewModel(
     [RelayCommand]
     private async Task ToggleFavoriteAsync()
     {
-        if (_episode is null) return;
-        var newValue = !IsCurrentEpisodeFavorite;
-        await episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
-        _episode.IsFavorite = newValue;
-        IsCurrentEpisodeFavorite = newValue;
+        await CommandGuard.RunAsync(async () =>
+        {
+            if (_episode is null) return;
+            var newValue = !IsCurrentEpisodeFavorite;
+            await episodeRepo.SetFavoriteAsync(_episode.Id, newValue);
+            _episode.IsFavorite = newValue;
+            IsCurrentEpisodeFavorite = newValue;
+        }, SetError, "お気に入りの更新に失敗しました");
     }
 
     public async Task SaveScrollRatioAsync(double ratio)
@@ -258,9 +261,12 @@ public partial class ReaderViewModel(
 
     private async Task ApplyMarkAsReadAsync()
     {
-        if (_episode is null) return;
-        // N-2 仕様: 既読でも N+1 以降の未読化を走らせるため IsRead チェックは外す。
-        await episodeRepo.SetReadStateUpToAsync(_novelDbId, _episode.EpisodeNo);
-        _episode.IsRead = true;
+        await CommandGuard.RunAsync(async () =>
+        {
+            if (_episode is null) return;
+            // N-2 仕様: 既読でも N+1 以降の未読化を走らせるため IsRead チェックは外す。
+            await episodeRepo.SetReadStateUpToAsync(_novelDbId, _episode.EpisodeNo);
+            _episode.IsRead = true;
+        }, SetError, "既読の更新に失敗しました");
     }
 }
