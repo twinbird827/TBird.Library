@@ -27,10 +27,6 @@
     <ProjectReference Include="..\TBird.IO\TBird.IO.csproj" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy &quot;$(TargetDir)&quot; &quot;$(ProjectDir)..\_Tools\$(ProjectName)&quot; /E /H /C /I /Y" />
-  </Target>
-
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
     <Exec Command="rd &quot;$(TargetDir)&quot; /s /q" />
   </Target>
