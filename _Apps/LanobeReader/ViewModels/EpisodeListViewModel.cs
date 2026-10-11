@@ -76,7 +76,7 @@ public partial class EpisodeListViewModel(
     private Novel? _novel;
     private Task? _initTask;
 
-    // JumpToAnchorAsync の in-flight 追跡。続きから→Reader→戻る を連打されたとき、前回が
+    // JumpToAnchorAsync の in-flight 追跡。Reader→戻る のアンカー復帰を連打されたとき、前回が
     // 終わっていなければ次の起動をスキップする (二重 fetch / scroll target 競合 / _allEpisodes
     // mutate の並走を避ける)。fire-and-forget 起動なので Task を保持する必要がある。
     private Task? _jumpTask;
@@ -86,8 +86,8 @@ public partial class EpisodeListViewModel(
     // fetch を回避するためにスキップする。
     private bool _skipNextRefresh;
 
-    // Reader への遷移経路が「続きから読む」だった場合、戻り遷移時にアンカー位置（直前まで読んだ話）
-    // へ再ジャンプさせるマーカー。`NavigateToEpisode`（詳細タップ）では立てない → タップ経路は
+    // Reader からの戻り遷移時にアンカー位置（直前まで読んだ話）へ再ジャンプさせるマーカー。立てるのは
+    // 戻り遷移でアンカー復帰を要する遷移元だけで、`NavigateToEpisode`（詳細タップ）では立てない → タップ経路は
     // ApplyQueryAttributes 再発火時に何もせず、CollectionView の scroll 位置を維持する。
     // 注: `ShowUnreadOnly=true` でタップした話が Reader 内で既読化された場合、`OnAppearing` の
     // `RefreshReadStatusAsync` がフィルタ再構築で `LoadPage` を呼ぶためその話はリストから消える
@@ -115,8 +115,8 @@ public partial class EpisodeListViewModel(
         {
             // 既に init 起動済み: MAUI Shell が Reader→目次の戻り遷移で ApplyQueryAttributes を
             // 再発火させているケース。`_pendingScrollToAnchor` の有無で出し分け:
-            // - true (続きから読む経由)     → アンカー位置へ再ジャンプ
-            // - false (詳細タップ経由)      → 何もしない (Episodes / CurrentPage 不変 = scroll 維持)
+            // - true (アンカー復帰を要する遷移) → アンカー位置へ再ジャンプ
+            // - false (それ以外)                → 何もしない (Episodes / CurrentPage 不変 = scroll 維持)
             //
             // InitializeAsync が成功完了していない場合 (進行中 or 失敗) は JumpToAnchorAsync を
             // 走らせない: _allEpisodes が未確定だと不正な anchor 計算をし、Init の IsLoading 等の
@@ -140,6 +140,8 @@ public partial class EpisodeListViewModel(
         if (query.TryGetValue("novelId", out var novelIdObj) && int.TryParse(novelIdObj?.ToString(), out var novelId))
         {
             _novelDbId = novelId;
+            // 遷移元がこの直後に Reader を積む場合、その戻り遷移でアンカー位置へ再ジャンプさせる。
+            if (query.ContainsKey("resumeAnchor")) _pendingScrollToAnchor = true;
             _initTask = InitializeAsync();
         }
     }
@@ -163,7 +165,7 @@ public partial class EpisodeListViewModel(
     }
 
     /// <summary>
-    /// 新着検出時に _allEpisodes を再取得して現在ページを再描画する。初期化中・「続きから」戻りジャンプ中は
+    /// 新着検出時に _allEpisodes を再取得して現在ページを再描画する。初期化中・アンカー復帰の戻りジャンプ中は
     /// _allEpisodes の mutate と scroll target が競合するためスキップする(次の OnAppearing が反映する)。
     /// 新着が無ければ何もしない。閲覧位置を保つため scroll(PageContentReset)はあえて発火しない
     /// (新着は末尾ページに出るため現在ページの表示位置は変わらない)。
@@ -308,7 +310,7 @@ public partial class EpisodeListViewModel(
         return (page, indexInPage);
     }
 
-    // 続きから読む → Reader → 目次 戻り遷移用: IsRead を最新化してからアンカー位置にジャンプする。
+    // Reader → 目次 のアンカー復帰を要する戻り遷移用: IsRead を最新化してからアンカー位置にジャンプする。
     // MAUI Shell が ApplyQueryAttributes を再発火させるタイミングで呼ばれる想定。
     // `_skipNextRefresh = true` は呼び出し元 (ApplyQueryAttributes) で先に立てる
     // (race を避けるため。詳細は ApplyQueryAttributes 側コメント参照)。
@@ -534,7 +536,7 @@ public partial class EpisodeListViewModel(
                 try
                 {
                     await Shell.Current.GoToAsync(
-                        $"reader?novelId={_novelDbId}&episodeId={targetId}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+                        ReaderRoute.Build(_novelDbId, targetId, _novel.SiteType, _novel.NovelId));
                 }
                 catch
                 {
@@ -552,7 +554,7 @@ public partial class EpisodeListViewModel(
     {
         if (_novel is null) return;
         await Shell.Current.GoToAsync(
-            $"reader?novelId={_novelDbId}&episodeId={episode.Id}&siteType={_novel.SiteType}&siteNovelId={_novel.NovelId}");
+            ReaderRoute.Build(_novelDbId, episode.Id, _novel.SiteType, _novel.NovelId));
     }
 
     [RelayCommand]

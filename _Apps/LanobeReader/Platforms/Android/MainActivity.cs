@@ -159,7 +159,7 @@ public class MainActivity : MauiAppCompatActivity
                     // 未読話が解決できた場合はリーダーへ直行。解決できない(episodeId<=0)場合でも
                     // 無反応にせず、その小説の話一覧へ遷移してユーザの意図(=その小説を開く)を満たす。
                     var route = episodeId > 0
-                        ? $"reader?novelId={novelId}&episodeId={episodeId}&siteType={siteType}&siteNovelId={siteNovelId}"
+                        ? ReaderRoute.Build(novelId, episodeId, siteType, siteNovelId)
                         : $"episodes?novelId={novelId}";
                     try
                     {
