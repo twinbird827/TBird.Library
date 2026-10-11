@@ -20,7 +20,7 @@ public static class CommandGuard
         catch (Exception ex)
         {
             // AsyncRelayCommand は例外を UI スレッドへ再送出してプロセスを落とすため、ここで止める。
-            MessageService.Error($"{operationName} failed: {ex.Message}", operationName, filePath, lineNumber);
+            MessageService.Error($"{operationName} failed: {ex}", operationName, filePath, lineNumber);
             setError(userMessage);
         }
     }

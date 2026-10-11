@@ -74,7 +74,7 @@ public partial class NovelListViewModel(
         }
         catch (Exception ex)
         {
-            MessageService.Error($"LoadNovelsAsync failed: {ex.Message}");
+            MessageService.Error($"LoadNovelsAsync failed: {ex}");
             SetError("一覧の読み込みに失敗しました");
         }
     }

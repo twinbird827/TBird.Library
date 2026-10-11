@@ -36,7 +36,7 @@ public class UpdateAlarmReceiver : BroadcastReceiver
         {
             MessageService.Warn($"Start FGS failed; fallback to WorkManager: {ex.Message}");
             try { UpdateCheckScheduler.EnqueueOneTimeCheck(context); }
-            catch (Exception ex2) { MessageService.Error($"Enqueue one-time check failed: {ex2.Message}"); }
+            catch (Exception ex2) { MessageService.Error($"Enqueue one-time check failed: {ex2}"); }
         }
     }
 }

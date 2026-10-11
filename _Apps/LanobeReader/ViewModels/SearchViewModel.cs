@@ -167,7 +167,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            MessageService.Error($"{operationName} failed: {ex.Message}");
+            MessageService.Error($"{operationName} failed: {ex}");
             SetError("通信エラーが発生しました");
         }
         finally
@@ -338,7 +338,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
         }
         catch (Exception ex)
         {
-            MessageService.Error($"Register failed: {ex.Message}");
+            MessageService.Error($"Register failed: {ex}");
             if (novelInserted)
             {
                 try

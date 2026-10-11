@@ -6,8 +6,6 @@ namespace LanobeReader.Tests;
 
 public class CommandGuardTests
 {
-    // #278: XAML バインドの非同期コマンドは CommandGuard で例外を止め、ログと画面通知へ流す。
-
     private RecordingMessageService _messages = null!;
 
     [SetUp]
@@ -31,10 +29,9 @@ public class CommandGuardTests
             "利用者向け文言");
 
         Assert.That(shown, Is.EqualTo("利用者向け文言"));
-        Assert.That(_messages.Errors, Is.EqualTo(new[]
-        {
-            ($"{nameof(RunAsyncSwallowsExceptionAndReportsIt)} failed: boom", nameof(RunAsyncSwallowsExceptionAndReportsIt)),
-        }));
+        Assert.That(_messages.Errors, Has.Count.EqualTo(1));
+        Assert.That(_messages.Errors[0].Message, Does.StartWith($"{nameof(RunAsyncSwallowsExceptionAndReportsIt)} failed: System.InvalidOperationException: boom"));
+        Assert.That(_messages.Errors[0].Member, Is.EqualTo(nameof(RunAsyncSwallowsExceptionAndReportsIt)));
     }
 
     [Test]

@@ -270,7 +270,7 @@ public partial class EpisodeListViewModel(
         }
         catch (Exception ex)
         {
-            MessageService.Error($"InitializeAsync failed: {ex.Message}");
+            MessageService.Error($"InitializeAsync failed: {ex}");
             SetError($"目次の読み込みに失敗しました: {ex.Message}");
         }
         finally
@@ -405,7 +405,7 @@ public partial class EpisodeListViewModel(
         {
             // fire-and-forget で呼ばれるため、例外を握り潰さないと unobserved になる。
             // InitializeAsync と同等に SetError でユーザーに通知する。
-            MessageService.Error($"JumpToAnchorAsync failed: {ex.Message}");
+            MessageService.Error($"JumpToAnchorAsync failed: {ex}");
             SetError($"目次の再読込に失敗しました: {ex.Message}");
         }
         finally

@@ -69,7 +69,7 @@ public class UpdateCheckForegroundService : Service
                 return StartCommandResult.NotSticky;
             }
             try { UpdateCheckScheduler.EnqueueOneTimeCheck(ApplicationContext!); }
-            catch (Exception ex2) { MessageService.Error($"Fallback enqueue failed: {ex2.Message}"); }
+            catch (Exception ex2) { MessageService.Error($"Fallback enqueue failed: {ex2}"); }
             StopSelf(startId);
             return StartCommandResult.NotSticky;
         }
@@ -100,12 +100,12 @@ public class UpdateCheckForegroundService : Service
                     // WorkManager のバックオフ再試行へ委ねて取りこぼしを防ぐ(コールドブート窓対策)。
                     MessageService.Warn("FGS check returned Retry; enqueueing WorkManager fallback");
                     try { UpdateCheckScheduler.EnqueueOneTimeCheck(ApplicationContext!); }
-                    catch (Exception ex2) { MessageService.Error($"Fallback enqueue failed: {ex2.Message}"); }
+                    catch (Exception ex2) { MessageService.Error($"Fallback enqueue failed: {ex2}"); }
                 }
             }
             catch (Exception ex)
             {
-                MessageService.Error($"Foreground update check failed: {ex.Message}");
+                MessageService.Error($"Foreground update check failed: {ex}");
             }
             finally
             {

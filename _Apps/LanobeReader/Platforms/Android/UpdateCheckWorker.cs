@@ -38,7 +38,7 @@ public class UpdateCheckWorker : Worker
         }
         catch (Exception ex)
         {
-            MessageService.Error($"Unexpected error: {ex.Message}");
+            MessageService.Error($"Unexpected error: {ex}");
             return Result.InvokeFailure();
         }
         finally

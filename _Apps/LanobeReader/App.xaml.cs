@@ -110,7 +110,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageService.Error($"InitializeAppAsync failed: {ex.Message}");
+            MessageService.Error($"InitializeAppAsync failed: {ex}");
         }
     }
 
