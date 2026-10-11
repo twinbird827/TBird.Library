@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using ImageMagick;
@@ -23,20 +24,21 @@ internal static class Program
 	{
 		Console.OutputEncoding = Encoding.UTF8;
 
-		if (args.Length == 0)
+		if (args.Length == 0 || (args.Length > 1 && args.Any(a => !Directory.Exists(a))))
 		{
-			Console.WriteLine("画像ファイル（またはフォルダ）をこの exe にドラッグ＆ドロップしてください。");
+			Console.WriteLine("画像ファイル 1 つ、またはフォルダ（複数可）をこの exe にドラッグ＆ドロップしてください。");
+			Console.WriteLine("ファイルの複数指定、ファイルとフォルダの混在はできません。");
+			Console.WriteLine("フォルダは直下の対象画像のうち、名前順で 2 番目だけを白塗りします。");
 			Console.WriteLine("対象拡張子: " + string.Join(", ", TargetExtensions));
 			Pause();
 			return 1;
 		}
 
-		var files = ExpandArguments(args);
 		int ok = 0, skip = 0, ng = 0;
 
-		foreach (var path in files)
+		foreach (var arg in args)
 		{
-			switch (ProcessOne(path))
+			switch (ProcessArgument(arg))
 			{
 				case Result.Ok: ok++; break;
 				case Result.Skipped: skip++; break;
@@ -131,26 +133,38 @@ internal static class Program
 		return candidate;
 	}
 
-	/// <summary>フォルダが渡された場合は直下の対象画像に展開する</summary>
-	private static List<string> ExpandArguments(IEnumerable<string> args)
+	/// <summary>フォルダは表紙と裏表紙の見開きを崩さないよう、エクスプローラー順で 2 番目の画像だけを処理する</summary>
+	private static Result ProcessArgument(string arg)
 	{
-		var list = new List<string>();
-		foreach (var a in args)
+		if (!Directory.Exists(arg)) return ProcessOne(arg);
+
+		var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(arg));
+		string? second;
+		try
 		{
-			if (Directory.Exists(a))
-			{
-				list.AddRange(Directory
-					.EnumerateFiles(a, "*", SearchOption.TopDirectoryOnly)   // 再帰したければ AllDirectories
-					.Where(f => TargetExtensions.Contains(Path.GetExtension(f)))
-					.OrderBy(f => f, StringComparer.OrdinalIgnoreCase));
-			}
-			else
-			{
-				list.Add(a);
-			}
+			// バックアップ名も母集団に含める: 再実行時は 2 番目がバックアップになり ProcessOne でスキップされる
+			second = Directory
+				.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly)
+				.Where(f => TargetExtensions.Contains(Path.GetExtension(f)))
+				.Order(Comparer<string>.Create(StrCmpLogicalW))
+				.ElementAtOrDefault(1);
 		}
-		return list;
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[失敗] フォルダを読めません: {folder} / {ex.Message}");
+			return Result.Failed;
+		}
+
+		if (second is null)
+		{
+			Console.WriteLine($"[スキップ] 対象画像が 2 枚未満のフォルダ: {folder}");
+			return Result.Skipped;
+		}
+		return ProcessOne(second);
 	}
+
+	[DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+	private static extern int StrCmpLogicalW(string x, string y);
 
 	private static void TryDelete(string path)
 	{
