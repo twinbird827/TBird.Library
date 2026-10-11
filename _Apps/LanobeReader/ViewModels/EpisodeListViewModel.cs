@@ -499,7 +499,7 @@ public partial class EpisodeListViewModel(
 
     private async Task ReloadListAsync()
     {
-        // 初期化未完了/「続きから」ジャンプ中は Init/Jump 側がページを構築するため触らない。
+        // 初期化未完了/アンカー復帰の戻りジャンプ中は Init/Jump 側がページを構築するため触らない。
         // (Init の Task.Delay の隙間でフィルタ再構築と二重 LoadPage が競合し、ページング/アンカーが
         //  壊れるのを防ぐ。フィルタ切替は UI 操作=ページ描画後にしか起きないため、ここでのスキップは安全。)
         if (_initTask is null || !_initTask.IsCompletedSuccessfully) return;

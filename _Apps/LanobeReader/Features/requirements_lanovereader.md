@@ -327,7 +327,7 @@ LanobeReader/
 
 #### F-005: 小説閲覧
 
-**トリガー:** SCR-002のタイトルカードタップ（最新未読話を開く） / SCR-003の話一覧からエピソードタップ / 通知タップ
+**トリガー:** SCR-001のNEW付きタイトルカードタップ（最初の未読話、未読が無ければ最後の既読話を開く） / SCR-003の話一覧からエピソードタップ / 通知タップ
 
 **処理フロー（正常系）:**
 1. F-004（キャッシュ取得）を呼び出し本文を取得
@@ -571,7 +571,8 @@ LanobeReader/
 | 設定 | cog | SCR-005 |
 
 **スタック遷移（ボトムナビに含まない）:**
-- SCR-001 → SCR-003（タイトルカードタップ）
+- SCR-001 → SCR-003（NEWの無いタイトルカードタップ）
+- SCR-001 → SCR-003 → SCR-004（NEW付きタイトルカードタップ。目次を積んでからリーダーを積む）
 - SCR-003 → SCR-004（エピソードタップ / 続きから読むボタン）
 - SCR-004 ⇔ SCR-004（前話・次話ボタン / スワイプ）
 - SCR-004 → SCR-003（目次ボタンタップ、バックスタックに戻る）
@@ -579,6 +580,7 @@ LanobeReader/
 ```mermaid
 graph TD
     A[SCR-001: タイトル一覧] -->|タイトルカードタップ| B[SCR-003: 話一覧]
+    A -->|NEW付きカードタップ（目次を経由して積む）| E
     A -->|ボトムナビ| C[SCR-002: 検索]
     A -->|ボトムナビ| D[SCR-005: 設定]
     B -->|エピソードタップ| E[SCR-004: 閲覧]
@@ -613,6 +615,7 @@ graph TD
 | タイトル名 | Label | Novel.Title | |
 | サイト種別バッジ | Label | Novel.SiteTypeLabel | 「なろう」「カクヨム」 |
 | 未読話数 | Label | Novel.UnreadCount | UnreadCount > 0 のときのみ表示。カード最終行の右側 |
+| NEWバッジ | Label | Novel.HasUnconfirmedUpdate | has_unconfirmed_update=1 のときのみ表示 |
 | 既読数/総話数 | Label | Novel.ReadCount / Novel.EpisodeCount | `${ReadCount}/${EpisodeCount}` 形式。カード最終行の右端 |
 | 最終更新日時 | Label | Novel.LastUpdatedAt | カード最終行の左端 |
 | 連載/完結バッジ | Label | Novel.IsCompleted | |
@@ -632,7 +635,7 @@ graph TD
 | コマンド名 | CanExecute条件 | Execute処理 |
 |---|---|---|
 | RefreshCommand | !IsLoading | F-003手動更新チェック実行 |
-| NavigateToDetailCommand | 常時 | SCR-003へ遷移（引数: novel_id） |
+| NavigateToDetailCommand | 常時 | NEW付きならNEWを解除し、遷移先の話（最初の未読話、未読が無ければ最後の既読話）が解決できればSCR-003（`resumeAnchor=1`）を積んでからSCR-004を開く。それ以外はSCR-003へ遷移（引数: novel_id） |
 | DeleteCacheCommand | 常時 | 確認ダイアログ → F-004キャッシュ削除 |
 | DeleteNovelCommand | 常時 | 確認ダイアログ → novelsレコード削除（CASCADE） |
 
@@ -752,7 +755,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 >
 > **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を
 > 再発火させる仕様を利用して、遷移経路ごとに挙動を出し分ける:
-> - **続きから読む経由** (`ReadContinueAsync` で `_pendingScrollToAnchor=true` をセット):
+> - **アンカー復帰経由** (`ReadContinueAsync` が `_pendingScrollToAnchor=true` をセット、または本棚の NEW 付きカードタップが目次ルートに付けた `resumeAnchor=1` クエリを `ApplyQueryAttributes` が受けてセット):
 >   `JumpToAnchorAsync` を起動し、IsRead を再 fetch → アンカー再計算 → `CurrentPage` 更新
 >   → `LoadPage` → `PageContentReset(ToCenter=true)` 発火でアンカー位置へジャンプする。
 >   Reader 内で既読化された話があれば `firstUnread` が進み、新しいアンカー (= Reader で読んだ
@@ -763,7 +766,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 >   `OnAppearing` の `RefreshReadStatusAsync` がフィルタ再構築で `LoadPage` を呼ぶため
 >   その話はリストから消える (scroll 位置は ObservableCollection の Clear+Add で維持)。
 >
-> 「続きから読む」経路では `ApplyQueryAttributes` 側で `_skipNextRefresh=true` を先に立てて
+> アンカー復帰経由では `ApplyQueryAttributes` 側で `_skipNextRefresh=true` を先に立てて
 > から `JumpToAnchorAsync` を fire-and-forget するため、直後に走る `OnAppearing` の
 > `RefreshReadStatusAsync` は DB の二重 fetch を回避してスキップする。
 
@@ -791,7 +794,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 **ViewModelイベント:**
 | イベント名 | ペイロード | 発火タイミング |
 |---|---|---|
-| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToAnchorAsync` 完了時（「続きから読む」経由の Reader 戻り遷移、`ToCenter=true`）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新および詳細タップ経由の Reader 戻り遷移では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
+| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToAnchorAsync` 完了時（アンカー復帰経由の Reader 戻り遷移、`ToCenter=true`）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新および詳細タップ経由の Reader 戻り遷移では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
