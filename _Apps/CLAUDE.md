@@ -21,4 +21,6 @@ exe に画像ファイルまたはフォルダをドラッグ＆ドロップし�
 
 ```bash
 dotnet build _Apps/App.sln
+# 配備 (_Tools\WhiteCopy\ へ Release の単一 exe を入れ替える)
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File _Apps/deploy.ps1
 ```

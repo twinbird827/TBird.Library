@@ -1,16 +1,9 @@
-﻿# WhiteCopy を Release の単一 exe で _Tools\WhiteCopy\ へ配備する (D&D 先は _Tools\WhiteCopy\WhiteCopy.exe)
-# 配備先は丸ごと消してから publish する (-o は既存ファイルを消さず、旧ビルドの DLL が残るため)
-# ブランチ切替では配備しない (app-white-copy のメイン作業ツリーから明示的に実行する)
-#
-# 実行例 (<repo> は実パスに置換):
-#   powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\_Apps\deploy.ps1
-#
+﻿# 配備先は丸ごと消してから publish する (-o は既存ファイルを消さず、旧ビルドの DLL が残るため)
 # 出力リテラルは ASCII に限定する (Windows PowerShell 5.1 は BOM 無し .ps1 を cp932 解釈するため)
 # 同じ理由で、日本語コメントの行末は ASCII で終える (全角文字の末尾バイトが cp932 の先行バイトだと改行を食う)
 
 $ErrorActionPreference = "Stop"
 
-# スクリプト位置基準で解決 (カレントディレクトリに依存しない)。$PSScriptRoot=_Apps
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $appDir   = Join-Path $repoRoot "_Tools\WhiteCopy"
 
