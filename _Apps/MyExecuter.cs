@@ -45,6 +45,14 @@ namespace ZIPConverter
 
 		private static async Task<bool> Execute(int option, string arg)
 		{
+			if (string.IsNullOrWhiteSpace(arg))
+			{
+				return true;
+			}
+
+			// 末尾の区切り文字や . .. が残ると名前が空・.・..になり、作業用ﾃﾞｨﾚｸﾄﾘが一意な親自身かその上を指す
+			arg = Path.TrimEndingDirectorySeparator(Path.GetFullPath(arg));
+
 			var argdir = Path.GetDirectoryName(arg);
 			var argfile = Path.GetFileName(arg);
 
@@ -53,13 +61,11 @@ namespace ZIPConverter
 				return true;
 			}
 
-			// 作業用ﾃﾞｨﾚｸﾄﾘﾊﾟｽ
-			var tmpdir = Path.GetTempPath();
-			// 画像変換のための一時ﾃﾞｨﾚｸﾄﾘ
-			var tmp1 = Path.Combine(tmpdir, System.Guid.NewGuid().ToString());
-			// zip圧縮用ﾌｧｲﾙ名
-			var tmp2 = Path.Combine(tmpdir, argfile);
-			var zip = tmp2 + ".zip";
+			// 実行ごとに一意にして、%TEMP% の同名ﾃﾞｨﾚｸﾄﾘ・zip や同名引数の並行実行と衝突させない
+			var tmpdir = Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString());
+			// zip 内のﾌｫﾙﾀﾞ名を元の名前にするため引数名で作る
+			var tmp1 = Path.Combine(tmpdir, argfile);
+			var zip = tmp1 + ".zip";
 
 			try
 			{
@@ -93,11 +99,8 @@ namespace ZIPConverter
 				// ﾌｧｲﾙ名を連番にする。
 				DirectoryUtil.OrganizeNumber(tmp1);
 
-				// 元のﾃﾞｨﾚｸﾄﾘ名に変更
-				DirectoryUtil.Move(tmp1, tmp2);
-
 				// zip圧縮
-				ZipUtil.CreateFromDirectory(tmp2, zip);
+				ZipUtil.CreateFromDirectory(tmp1, zip);
 
 				MessageService.Info("終了(ZIP):" + arg);
 
@@ -105,10 +108,6 @@ namespace ZIPConverter
 				FileUtil.Move(zip, Path.Combine(argdir, Path.GetFileName(zip)));
 
 				MessageService.Info("終了(移動):" + arg);
-
-				// 作業用ﾃﾞｨﾚｸﾄﾘ削除
-				DirectoryUtil.Delete(tmp1);
-				DirectoryUtil.Delete(tmp2);
 
 				// 元のﾃﾞｨﾚｸﾄﾘ削除
 				DirectoryUtil.Delete(arg);
@@ -125,8 +124,7 @@ namespace ZIPConverter
 			finally
 			{
 				// 作業用ﾃﾞｨﾚｸﾄﾘ削除
-				DirectoryUtil.Delete(tmp1);
-				DirectoryUtil.Delete(tmp2);
+				DirectoryUtil.Delete(tmpdir);
 			}
 		}
 
