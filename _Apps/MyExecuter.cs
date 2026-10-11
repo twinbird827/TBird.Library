@@ -56,7 +56,7 @@ namespace ZIPConverter
 			// 作業用ﾃﾞｨﾚｸﾄﾘﾊﾟｽ
 			var tmpdir = Path.GetTempPath();
 			// 画像変換のための一時ﾃﾞｨﾚｸﾄﾘ
-			var tmp1 = Path.Combine(tmpdir, Guid.NewGuid().ToString());
+			var tmp1 = Path.Combine(tmpdir, System.Guid.NewGuid().ToString());
 			// zip圧縮用ﾌｧｲﾙ名
 			var tmp2 = Path.Combine(tmpdir, argfile);
 			var zip = tmp2 + ".zip";
