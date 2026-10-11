@@ -7,7 +7,7 @@ namespace TBird.DB
 	{
 		public static async Task<T> ExecuteScalarAsync<T>(this DbControl command, string sql, params DbParameter[] parameters)
 		{
-			return DbUtil.GetValue<T>(await command.ExecuteScalarAsync(sql, parameters));
+			return DbUtil.GetValue<T>(await command.ExecuteScalarAsync(sql, parameters).ConfigureAwait(false));
 		}
 	}
 }

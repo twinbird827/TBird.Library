@@ -66,7 +66,7 @@ namespace TBird.Core
 			var start = s.Length - length;
 			if (start < 0)
 			{
-				return new string(padding, length - start) + s;
+				return new string(padding, length + start) + s;
 			}
 			else
 			{

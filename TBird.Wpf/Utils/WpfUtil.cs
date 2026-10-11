@@ -50,6 +50,16 @@ namespace TBird.Wpf
 
 		private static SynchronizationContext _context;
 
+		public static void Post(Action action)
+		{
+			GetContext().Post(x => action(), null);
+		}
+
+		public static void Post<T>(Action<T> action, T arg)
+		{
+			GetContext().Post(x => action((T)x), arg);
+		}
+
 		/// <summary>
 		/// UI上で処理を実行します。
 		/// </summary>
@@ -151,6 +161,24 @@ namespace TBird.Wpf
 				.IsInDesignModeProperty
 				.GetMetadata(typeof(DependencyObject))
 				.DefaultValue;
+		}
+
+		/// <summary>
+		/// 画面ｲﾍﾞﾝﾄをすべて実行します。
+		/// </summary>
+		public static void DoEvents()
+		{
+			ExecuteOnUI(() =>
+			{
+				DispatcherFrame frame = new DispatcherFrame();
+				var callback = new DispatcherOperationCallback(obj =>
+				{
+					((DispatcherFrame)obj).Continue = false;
+					return null;
+				});
+				Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, callback, frame);
+				Dispatcher.PushFrame(frame);
+			});
 		}
 
 	}

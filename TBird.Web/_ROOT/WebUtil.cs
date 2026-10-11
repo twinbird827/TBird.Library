@@ -66,7 +66,7 @@ namespace TBird.Web
 		{
 			if (response.IsSuccessStatusCode)
 			{
-				return await response.Content.ReadAsStringAsync();
+				return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 			}
 			else
 			{
@@ -76,12 +76,12 @@ namespace TBird.Web
 
 		public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
 		{
-			return await CreateClient().SendAsync(request);
+			return await CreateClient().SendAsync(request).ConfigureAwait(false);
 		}
 
 		public static async Task<string> SendStringAsync(HttpRequestMessage request)
 		{
-			return await ResponseToStr(await SendAsync(request));
+			return await ResponseToStr(await SendAsync(request).ConfigureAwait(false)).ConfigureAwait(false);
 		}
 
 		public static async Task<string> PostStringAsync(string url, string content, string mediatype)
@@ -90,7 +90,7 @@ namespace TBird.Web
 			{
 				Content = new StringContent(content, Encoding.UTF8, mediatype)
 			};
-			return await SendStringAsync(request);
+			return await SendStringAsync(request).ConfigureAwait(false);
 		}
 
 		/// <summary>
@@ -100,24 +100,24 @@ namespace TBird.Web
 		/// <returns></returns>
 		public static async Task<string> GetStringAsync(string url)
 		{
-			return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url));
+			return await SendStringAsync(new HttpRequestMessage(HttpMethod.Get, url)).ConfigureAwait(false);
 		}
 
 		public static async Task<string> GetStringAsync(string url, Encoding srcenc, Encoding dstenc)
 		{
-			return dstenc.GetString(Encoding.Convert(srcenc, dstenc, await GetBytesAsync(url)));
+			return dstenc.GetString(Encoding.Convert(srcenc, dstenc, await GetBytesAsync(url).ConfigureAwait(false)));
 		}
 
 		public static async Task<byte[]> GetBytesAsync(string url)
 		{
-			var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+			var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url)).ConfigureAwait(false);
 			if (response.IsSuccessStatusCode)
 			{
-				return await response.Content.ReadAsByteArrayAsync();
+				return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 			}
 			else
 			{
-				return await GetBytesAsync(url);
+				return await GetBytesAsync(url).ConfigureAwait(false);
 			}
 		}
 
@@ -127,7 +127,7 @@ namespace TBird.Web
 		/// <param name="url">URL</param>
 		public static async Task<dynamic> GetJsonAsync(string url)
 		{
-			return DynamicJson.Parse(await GetStringAsync(url).TryCatch());
+			return DynamicJson.Parse(await GetStringAsync(url).TryCatch().ConfigureAwait(false));
 		}
 
 		/// <summary>
@@ -136,7 +136,7 @@ namespace TBird.Web
 		/// <param name="url">URL</param>
 		public static async Task<XElement> GetXmlAsync(string url)
 		{
-			return XmlUtil.ToXml(await GetStringAsync(url));
+			return XmlUtil.ToXml(await GetStringAsync(url).ConfigureAwait(false));
 		}
 	}
 }

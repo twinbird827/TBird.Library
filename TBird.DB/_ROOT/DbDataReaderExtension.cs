@@ -50,10 +50,10 @@ namespace TBird.DB
 		/// <returns></returns>
 		public static async Task<List<T>> GetRows<T>(this DbControl conn, Func<DbDataReader, T> func, string sql, params DbParameter[] parameters)
 		{
-			using (var reader = await conn.ExecuteReaderAsync(sql, parameters))
+			using (var reader = await conn.ExecuteReaderAsync(sql, parameters).ConfigureAwait(false))
 			{
 				var ret = new List<T>();
-				while (await reader.ReadAsync())
+				while (await reader.ReadAsync().ConfigureAwait(false))
 				{
 					ret.Add(func(reader));
 				}
@@ -108,9 +108,9 @@ namespace TBird.DB
 		/// <returns></returns>
 		public static async Task<T> GetRow<T>(this DbControl conn, Func<DbDataReader, T> func, string sql, params DbParameter[] parameters)
 		{
-			using (var reader = await conn.ExecuteReaderAsync(sql, parameters))
+			using (var reader = await conn.ExecuteReaderAsync(sql, parameters).ConfigureAwait(false))
 			{
-				if (await reader.ReadAsync())
+				if (await reader.ReadAsync().ConfigureAwait(false))
 				{
 					return func(reader);
 				}

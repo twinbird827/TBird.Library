@@ -3,10 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Data.SQLite;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
 
@@ -30,7 +26,9 @@ namespace TBird.DB.SQLite
 		{
 			lock (_lock)
 			{
-				_cs = connectionString;
+				var fn = this.GetType().FullName;
+				var ds = ToConnectionDictionary(connectionString)["datasource"];
+				_lockstring = $"{fn}+{ds}";
 
 				if (_manages.ContainsKey(connectionString))
 				{
@@ -46,92 +44,21 @@ namespace TBird.DB.SQLite
 			}
 		}
 
-		internal string _cs;
 		internal Manager _m;
 		private static object _lock = new object();
 		private static Dictionary<string, Manager> _manages = new Dictionary<string, Manager>();
+		private string _lockstring;
 
-		protected override string CreateLock(string connectionString)
+		protected override string GetLockString()
 		{
-			var fn = this.GetType().FullName;
-			var ds = ToConnectionDictionary(connectionString)["datasource"];
-			return $"{fn}+{ds}";
+			return _lockstring ?? base.GetLockString();
 		}
 
-		private async Task OpenAsync(bool executerecovery)
+		protected override async Task OpenAsync()
 		{
-			await base.OpenAsync();
-
-			if (!executerecovery) return;
+			await base.OpenAsync().ConfigureAwait(false);
 
 			if (!_m._init) return;
-
-			var result = "ok"; // await Task.Run(() => this.ExecuteScalarAsync<string>("PRAGMA integrity_check"));
-			var isok = result.ToLower() == "ok";
-
-			if (!isok)
-			{
-				// indexが壊れていないか確認
-				var mindex = Regex.Match(result, @"row [0-9]+ missing from index (?<s>[\w]+)");
-				if (mindex.Success)
-				{
-					// indexが壊れていたら修復して再帰
-					await ExecuteNonQueryAsync($"REINDEX {mindex.Groups["s"]}");
-					await OpenAsync(true);
-				}
-				else
-				{
-					// 何らかのｴﾗｰ時はﾀﾞﾝﾌﾟしてﾃﾞｰﾀﾍﾞｰｽを再作成する。
-					var exe = Directories.GetAbsolutePath("sqlite3.exe");
-
-					var dic = ToConnectionDictionary(_cs);
-					var password = dic["password"];
-					var src = dic["datasource"];
-					var bak = $"{src}.bak";
-					var dst = $"{src}.tmp";
-
-					// ｿｰｽﾌｧｲﾙをﾊﾞｯｸｱｯﾌﾟ
-					await FileUtil.CopyAsync(src, bak);
-
-					if (!string.IsNullOrEmpty(password))
-					{
-						// ﾀﾞﾝﾌﾟするためにﾊﾟｽﾜｰﾄﾞを解除する。
-						await ExecuteNonQueryAsync($"PRAGMA key = '{password}'");
-						await ExecuteNonQueryAsync($"PRAGMA key = ''");
-					}
-					Close();
-
-					// 一次的なﾃﾞｰﾀﾍﾞｰｽﾌｧｲﾙをﾊﾟｽﾜｰﾄﾞなしで作成
-					dic["datasource"] = dst;
-					dic["password"] = string.Empty;
-					var dcs = dic.Select(x => $"{x.Key}={x.Value}").GetString(";");
-
-					using (var control = new SQLiteControl(dcs))
-					{
-						await control.OpenAsync();
-					}
-
-					// ﾀﾞﾝﾌﾟ実行
-					CoreUtil.Execute(new[]
-					{
-						new ProcessStartInfo(exe, $"\"{src}\" .dump") { StandardOutputEncoding = Encoding.UTF8 },
-						new ProcessStartInfo(exe, $"\"{dst}\""),
-					});
-
-					// ﾊﾟｽﾜｰﾄﾞ再設定
-					if (!string.IsNullOrEmpty(password))
-					{
-						using (var control = new SQLiteControl(dcs))
-						{
-							await control.ExecuteNonQueryAsync($"PRAGMA rekey = '{password}'");
-						}
-					}
-
-					// ｵﾘｼﾞﾅﾙﾃﾞｰﾀﾍﾞｰｽに差し替えて再帰
-					FileUtil.Move(dst, src);
-					await OpenAsync(true);
-				}
-			}
 
 			_m._init = false;
 
@@ -146,21 +73,6 @@ namespace TBird.DB.SQLite
 				_m._conn.LoadExtension(extensionpath);
 			}
 		}
-
-		protected override Task OpenAsync()
-		{
-			if (_openinit)
-			{
-				_openinit = false;
-				return OpenAsync(true);
-			}
-			else
-			{
-				return OpenAsync(false);
-			}
-		}
-
-		private bool _openinit = true;
 
 		public override void Close()
 		{

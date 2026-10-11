@@ -12,7 +12,7 @@ namespace TBird.Core
 		{
 			try
 			{
-				await task;
+				await task.ConfigureAwait(false);
 			}
 			catch (Exception ex)
 			{
@@ -30,7 +30,7 @@ namespace TBird.Core
 
 		public static async Task<T> TryCatch<T>(this Task<T> task)
 		{
-			if (await ((Task)task).TryCatch())
+			if (await ((Task)task).TryCatch().ConfigureAwait(false))
 			{
 				return task.Result;
 			}
@@ -47,7 +47,7 @@ namespace TBird.Core
 			using (var tmp = CancellationTokenSource.CreateLinkedTokenSource(arr))
 			using (tmp.Token.Register(() => ccs.TrySetResult(true)))
 			{
-				if (task != await Task.WhenAny(task, ccs.Task))
+				if (task != await Task.WhenAny(task, ccs.Task).ConfigureAwait(false))
 				{
 					throw new TimeoutException("The process was interrupted.", new OperationCanceledException(tmp.Token));
 				}
@@ -61,7 +61,7 @@ namespace TBird.Core
 
 		public static async Task<T> Cts<T>(this Task<T> task, params CancellationTokenSource[] cancellations)
 		{
-			await ((Task)task).Cts(cancellations);
+			await ((Task)task).Cts(cancellations).ConfigureAwait(false);
 			return task.Result;
 		}
 
@@ -87,7 +87,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static async Task<T> Timeout<T>(this Task<T> task, TimeSpan timeout, CancellationTokenSource? src)
 		{
-			await ((Task)task).Timeout(timeout, src);
+			await ((Task)task).Timeout(timeout, src).ConfigureAwait(false);
 			return task.Result;
 		}
 
@@ -118,7 +118,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		public static async Task<IEnumerable<T>> WhenAllExpand<T>(this IEnumerable<Task<IEnumerable<T>>> tasks)
 		{
-			var arr = await Task.WhenAll(tasks);
+			var arr = await Task.WhenAll(tasks).ConfigureAwait(false);
 			return arr.Expand();
 		}
 

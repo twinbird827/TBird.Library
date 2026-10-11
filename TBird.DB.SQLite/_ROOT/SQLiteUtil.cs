@@ -16,7 +16,7 @@ namespace TBird.DB.SQLite
 		{
 			FileUtil.BeforeCreate(path);
 
-			using (await Locker.LockAsync(src.Lock))
+			using (await src.LockAsync().ConfigureAwait(false))
 			using (var dst = new SQLiteControl($"datasource={path}"))
 			{
 				src._m._conn.BackupDatabase(dst._m._conn, "main", "main", -1, null, 0);
@@ -34,6 +34,22 @@ namespace TBird.DB.SQLite
 			return new SQLiteParameter()
 			{
 				DbType = type,
+				Value = value
+			};
+		}
+
+		/// <summary>
+		/// Sqlite3用ﾊﾟﾗﾒｰﾀを作成します。
+		/// </summary>
+		/// <param name="type">ﾊﾟﾗﾒｰﾀの型</param>
+		/// <param name="value">ﾊﾟﾗﾒｰﾀに設定する値</param>
+		/// <returns></returns>
+		public static SQLiteParameter CreateParameter(DbType type, string name, object value)
+		{
+			return new SQLiteParameter()
+			{
+				DbType = type,
+				ParameterName = name,
 				Value = value
 			};
 		}
@@ -76,7 +92,7 @@ namespace TBird.DB.SQLite
 			var count = await conn.ExecuteScalarAsync<long>(
 				$"SELECT COUNT(*) FROM PRAGMA_TABLE_INFO(?) WHERE NAME=?",
 				parameters
-			);
+			).ConfigureAwait(false);
 			return 0 < count;
 		}
 

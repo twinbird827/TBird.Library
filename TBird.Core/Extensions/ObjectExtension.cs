@@ -17,11 +17,29 @@ namespace TBird.Core
 		public static KeyValuePair<TKey, TValue> Kvp<TKey, TValue>(this TKey key, TValue value) => new KeyValuePair<TKey, TValue>(key, value);
 
 		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="DateTime"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <returns></returns>
+		public static DateTime Date(this object? value) => value is DateTime x ? x : DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""));
+
+		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="DateTime"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <returns></returns>
+		public static DateTime Date(this object? value, DateTime def) => value is DateTime x
+			? x
+			: value != null
+			? DateTime.Parse(value.Str().Replace("年", "/").Replace("月", "/").Replace("日", ""))
+			: def;
+
+		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="string"/>型に変換します。
 		/// </summary>
 		/// <param name="value">元となる値</param>
 		/// <returns></returns>
-		public static string Str(this object value) => value is string s ? s : $"{value}";
+		public static string Str(this object? value, string def = "") => CoreUtil.Nvl(value is string s ? s : string.Empty, def, $"{value}");
 
 		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="bool"/>型に変換します。
@@ -29,7 +47,7 @@ namespace TBird.Core
 		/// <param name="value">元となる値</param>
 		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
 		/// <returns></returns>
-		public static bool Bool(this object value, bool def = false) => bool.TryParse(value.Str(), out bool o) ? o : def;
+		public static bool Bool(this object? value, bool def = false) => bool.TryParse(value.Str(), out bool o) ? o : def;
 
 		/// <summary>
 		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="double"/>型に変換します。
@@ -64,12 +82,20 @@ namespace TBird.Core
 		public static long Int64(this object? value, long def = 0L) => GetInt64(value, def);
 
 		/// <summary>
+		/// <see cref="object"/>型のｲﾝｽﾀﾝｽを<see cref="uint"/>型に変換します。
+		/// </summary>
+		/// <param name="value">元となる値</param>
+		/// <param name="def">変換できない場合のﾃﾞﾌｫﾙﾄ値</param>
+		/// <returns></returns>
+		public static uint UInt32(this object? value, uint def = 0) => GetUInt32(value, def);
+
+		/// <summary>
 		/// 指定したｵﾌﾞｼﾞｪｸﾄがIDisposableを実装しているなら破棄します。
 		/// </summary>
 		/// <param name="value">ｵﾌﾞｼﾞｪｸﾄ</param>
-		public static void TryDispose(this object value)
+		public static void TryDispose(this object? value)
 		{
-			if (value is IDisposable disposable)
+			if (value is System.IDisposable disposable)
 			{
 				disposable.Dispose();
 			}
@@ -148,6 +174,11 @@ namespace TBird.Core
 			return value.Get(def, x => (long)x);
 		}
 
+		public static uint GetUInt32(this object? value, uint def = 0)
+		{
+			return value.Get(def, x => (uint)x);
+		}
+
 		public static T Run<T>(this T target, Action<T> action)
 		{
 			action(target);
@@ -161,15 +192,15 @@ namespace TBird.Core
 
 		public static async Task<T> RunAsync<T>(this Task<T> target, Action<T> action)
 		{
-			var x = await target;
+			var x = await target.ConfigureAwait(false);
 			action(x);
 			return x;
 		}
 
 		public static async Task<T> RunAsync<T>(this Task<T> target, Func<T, Task> action)
 		{
-			var x = await target;
-			await action(x);
+			var x = await target.ConfigureAwait(false);
+			await action(x).ConfigureAwait(false);
 			return x;
 		}
 
@@ -180,7 +211,7 @@ namespace TBird.Core
 
 		public static async Task<TResult> RunAsync<T, TResult>(this Task<T> target, Func<T, Task<TResult>> action)
 		{
-			return await action(await target);
+			return await action(await target.ConfigureAwait(false)).ConfigureAwait(false);
 		}
 
 		public static T NotNull<T>(this T? value, string message = "value can not null.") => value ?? throw new ArgumentNullException(message);

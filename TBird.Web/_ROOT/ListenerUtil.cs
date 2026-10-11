@@ -54,7 +54,7 @@ namespace TBird.Web
 			response.ContentLength64 = buffer.Length;
 			using (var stream = response.OutputStream)
 			{
-				await stream.WriteAsync(buffer, 0, buffer.Length);
+				await stream.WriteAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
 			}
 			response.Close();
 		}

@@ -28,11 +28,11 @@ namespace TBird.Service
 			_timer = new IntervalTimer(async () =>
 			{
 				// 開始処理を行っていない場合は開始処理を行い、正常終了したら後続処理を行う。
-				if (_startasync = _startasync || await StartProcess())
+				if (_startasync = _startasync || await StartProcess().ConfigureAwait(false))
 				{
 					try
 					{
-						await TickProcess();
+						await TickProcess().ConfigureAwait(false);
 					}
 					catch (Exception ex)
 					{

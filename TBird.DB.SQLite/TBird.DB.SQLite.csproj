@@ -11,7 +11,6 @@
   <ItemGroup>
     <None Remove="extension-functions-32.dll" />
     <None Remove="extension-functions-64.dll" />
-    <None Remove="sqlite3.exe" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,13 +20,10 @@
     <Content Include="extension-functions-64.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="sqlite3.exe">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.112" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
   </ItemGroup>
     <!--
 

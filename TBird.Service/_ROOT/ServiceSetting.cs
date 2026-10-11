@@ -14,7 +14,7 @@ namespace TBird.Service
 		}
 		private static ServiceSetting _Instance;
 
-		public ServiceSetting() : base(_path)
+		public ServiceSetting() : base(PathSetting.GetPath(_path))
 		{
 			if (!Load())
 			{

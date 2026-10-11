@@ -257,6 +257,12 @@ ServiceFabricBackup/
 *.ldf
 *.ndf
 
+# SQLite runtime DBs (app data)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout
@@ -306,6 +312,11 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# App ML artifacts: virtualenv & trained models (sources are tracked)
+.venv/
+_Apps/ml/models/
 
 # Cake - Uncomment if you are using it
 # tools/**
@@ -349,3 +360,13 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Claude Code working folder
+.claude/
+
+# docs
+docs/
+
+#secret files
+**/*Secrets.cs
+**/*Secrets.json
