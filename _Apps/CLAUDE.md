@@ -15,7 +15,7 @@ exe に画像ファイルまたはフォルダをドラッグ＆ドロップし�
 - 処理前に原本のバックアップを同フォルダへ作成する。命名は初回 `name - copy.ext`、衝突時のみ `name - copy (2).ext` 以降の連番（`Program.cs` の `UniquePath`）
 - バックアップ名パターンに一致するファイルは二重処理防止のためスキップ
 - 白塗り時に `image.Strip()` で EXIF 等のプロファイル（サムネイル・GPS・撮影日時）も除去
-- ビルド成果物は PostBuild で `_Tools\WhiteCopy\` へコピーされる
+- 配備は `_Apps/deploy.ps1` を実行して `_Tools\WhiteCopy\` を Release の単一 exe で入れ替え、`_Tools\WhiteCopy\WhiteCopy.exe` を D&D 先にする（ビルドでは配備しない）
 
 ## ビルド
 
