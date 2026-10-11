@@ -178,7 +178,7 @@ public partial class SettingsViewModel(AppSettingsRepository settingsRepo, Episo
         }
         catch (Exception ex)
         {
-            MessageService.Error($"ClearCacheAsync failed: {ex.Message}");
+            MessageService.Error($"ClearCacheAsync failed: {ex}");
             SetError($"キャッシュの削除に失敗しました: {ex.Message}");
         }
     }
