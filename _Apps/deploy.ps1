@@ -18,7 +18,7 @@ if ($gitDirs[0] -ne $gitDirs[1]) {
     throw "Run deploy.ps1 from the main working tree, not a linked worktree: $repoRoot"
 }
 
-& dotnet publish (Join-Path $PSScriptRoot "Netkeiba.csproj") -c Release -o $appDir
+& dotnet publish (Join-Path $PSScriptRoot "Netkeiba\Netkeiba.csproj") -c Release -o $appDir
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed: ExitCode=$LASTEXITCODE" }
 
 Write-Host "Deployed to $appDir"
