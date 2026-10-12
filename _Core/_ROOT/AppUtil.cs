@@ -38,17 +38,20 @@ namespace Netkeiba
 			{
 				if (_logincontext == null)
 				{
-					_logincontext = BrowsingContext.New(config);
+					var logincontext = BrowsingContext.New(config);
 
-					await _logincontext.OpenAsync(@"https://regist.netkeiba.com/account/?pid=login");
+					await logincontext.OpenAsync(@"https://regist.netkeiba.com/account/?pid=login");
 
-					if (_logincontext.Active == null) throw new ApplicationException();
+					if (logincontext.Active == null) throw new ApplicationException();
 
-					await _logincontext.Active.QuerySelectorAll<IHtmlFormElement>("form").First(x => x.GetAttribute("action") == @"https://regist.netkeiba.com/account/").SubmitAsync(new
+					await logincontext.Active.QuerySelectorAll<IHtmlFormElement>("form").First(x => x.QuerySelector("input[name='login_id']") != null).SubmitAsync(new
 					{
 						login_id = AppSetting.Instance.NetkeibaId,
 						pswd = AppSetting.Instance.NetkeibaPassword
 					});
+
+					// 送信完了前に代入すると、失敗時に未ログインの context が以後の login 経路で使い回される
+					_logincontext = logincontext;
 				}
 			}
 			else
