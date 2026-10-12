@@ -256,6 +256,11 @@ namespace Netkeiba
 						arr.Add(dic);
 					}
 				}
+				// 追切の無いﾚｰｽでも表は無いため、ﾌﾟﾚﾐｱﾑ誘導があるときだけ止める
+				else if (raceparser.GetElementsByClassName("Premium_Regist_Btn").Any())
+				{
+					throw new InvalidOperationException($"追切が取得できません。netkeibaにﾛｸﾞｲﾝできていないか、ﾌﾟﾚﾐｱﾑ会員ではない可能性があります。raceid:{raceid}");
+				}
 			}
 
 			return arr;

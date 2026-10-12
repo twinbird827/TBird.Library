@@ -100,6 +100,11 @@ namespace Netkeiba
 			{
 				var arr = await NetkeibaGetter.GetRaceResults(raceid);
 
+				if (arr.Any(x => !string.IsNullOrWhiteSpace(x["ﾀｲﾑ指数"]) && !int.TryParse(x["ﾀｲﾑ指数"], out _)))
+				{
+					throw new InvalidOperationException($"ﾀｲﾑ指数が数値ではありません。netkeibaにﾛｸﾞｲﾝできていない可能性があります。raceid:{raceid}");
+				}
+
 				if (arr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) yield break;
 
 				yield return arr;
