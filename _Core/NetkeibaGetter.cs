@@ -542,12 +542,8 @@ namespace Netkeiba
 
 					var rowspan16 = GetRowSpan(table, 16);
 					var f = func(rowspan16, 0);
-					var m = func(rowspan16, 1);
 					var rowspan08 = GetRowSpan(table, 8);
-					var ff = func(rowspan08, 0);
-					var fm = func(rowspan08, 1);
 					var mf = func(rowspan08, 2);
-					var mm = func(rowspan08, 3);
 
 					dic["父ID"] = f;
 					dic["母父ID"] = mf;
