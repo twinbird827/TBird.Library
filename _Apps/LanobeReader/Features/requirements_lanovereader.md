@@ -755,7 +755,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 >
 > **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を
 > 再発火させる仕様を利用して、遷移経路ごとに挙動を出し分ける:
-> - **アンカー復帰経由** (`ReadContinueAsync` が `_pendingScrollToAnchor=true` をセット、または本棚の NEW 付きカードタップが目次ルートに付けた `resumeAnchor=1` クエリを `ApplyQueryAttributes` が受けてセット):
+> - **アンカー復帰経由** (`ReadContinueAsync` が `_pendingScrollToAnchor=true` をセット、または本棚の NEW 付きカードタップとプロセス復帰時の閲覧復元の 2 経路が目次ルートに付けた `resumeAnchor=1` クエリを `ApplyQueryAttributes` が受けてセット):
 >   `JumpToAnchorAsync` を起動し、IsRead を再 fetch → アンカー再計算 → `CurrentPage` 更新
 >   → `LoadPage` → `PageContentReset(ToCenter=true)` 発火でアンカー位置へジャンプする。
 >   Reader 内で既読化された話があれば `firstUnread` が進み、新しいアンカー (= Reader で読んだ
