@@ -5,10 +5,6 @@ using TBird.Core;
 
 namespace LanobeReader.Platforms.Android;
 
-/// <summary>
-/// <see cref="IUpdateNotificationService"/> の Android 実装。
-/// OEM ランチャー向け数字バッジ(未確認更新を持つ小説数)の算出を行い、NotificationHelper で通知を表示する。
-/// </summary>
 public class UpdateNotificationService(NovelRepository novelRepo) : IUpdateNotificationService
 {
 	public async Task ShowUpdatesAsync(IReadOnlyList<(Novel novel, int newEpisodeCount)> updates)
@@ -22,7 +18,7 @@ public class UpdateNotificationService(NovelRepository novelRepo) : IUpdateNotif
 
 		var context = global::Android.App.Application.Context;
 
-		// バッジ数を解決する。バッジは通知本体とは別物のため、ここでのクエリ失敗で通知全体を止めない:
+		// バッジは通知本体とは別物のため、ここでのクエリ失敗で通知全体を止めない:
 		// バッジは表示中の通知数へフォールバックし、通知だけは確実に投稿する。
 		int badgeTotal;
 		try

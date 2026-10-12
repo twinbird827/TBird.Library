@@ -162,8 +162,7 @@ public class MainActivity : MauiAppCompatActivity
                         var episodeRepo = (await PlatformServiceReadiness.WaitForServicesAsync())?.GetService<EpisodeRepository>();
                         if (episodeRepo is not null)
                         {
-                            var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([novelId]);
-                            episodeId = targets.GetValueOrDefault(novelId);
+                            episodeId = await episodeRepo.GetDeepLinkTargetEpisodeIdAsync(novelId);
                         }
                     }
                     catch (System.Exception ex)

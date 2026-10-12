@@ -197,9 +197,9 @@ public class DatabaseService : SqliteDatabaseBase
     }
 
     /// <summary>
-    /// v3 → v4: 更新チェック系クエリ向けのインデックスを整備。
-    /// - episodes(novel_id, is_read, episode_no): GetDeepLinkTargetEpisodeIdsAsync の
-    ///   相関サブクエリの ORDER BY episode_no LIMIT 1 をインデックス端のシークで解決する covering index。
+    /// v3 → v4: インデックスを整備。
+    /// - episodes(novel_id, is_read, episode_no): GetDeepLinkTargetEpisodeIdAsync の
+    ///   サブクエリの ORDER BY episode_no LIMIT 1 をインデックス端のシークで解決する covering index。
     ///   (novel_id, is_read) の上位互換のため旧 idx_episodes_novel_isread は DROP する。
     /// - novels(last_checked_at): GetAllForCheckAsync の「最終チェック古い順」ソートを索引化する
     ///   (NULL=未チェックが先頭に来るラウンドロビン順)。

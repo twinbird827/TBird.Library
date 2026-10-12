@@ -160,8 +160,8 @@ public partial class NovelListViewModel(
             }
 
             // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
-            var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([card.Id]);
-            if (targets.TryGetValue(card.Id, out var targetId))
+            var targetId = await episodeRepo.GetDeepLinkTargetEpisodeIdAsync(card.Id);
+            if (targetId > 0)
             {
                 await Shell.Current.GoToAsync(ReaderRoute.Build(card.Id, targetId, (int)card.SiteType, card.NovelId));
                 return;

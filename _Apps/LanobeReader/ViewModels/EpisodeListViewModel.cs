@@ -511,8 +511,8 @@ public partial class EpisodeListViewModel(
         await CommandGuard.RunAsync(async () =>
         {
             // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
-            var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([_novelDbId]);
-            if (targets.TryGetValue(_novelDbId, out var targetId) && _novel is not null)
+            var targetId = await episodeRepo.GetDeepLinkTargetEpisodeIdAsync(_novelDbId);
+            if (targetId > 0 && _novel is not null)
             {
                 await Shell.Current.GoToAsync(
                     ReaderRoute.Build(_novelDbId, targetId, _novel.SiteType, _novel.NovelId));
