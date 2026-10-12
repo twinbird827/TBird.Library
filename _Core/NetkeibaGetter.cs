@@ -516,35 +516,37 @@ namespace Netkeiba
 			dic["馬ID"] = uma;
 			dic["馬名"] = name;
 
+			async Task<IHtmlDocument> GetTableDocument(string url, params string[] classnames)
+			{
+				for (var i = 0; i < 3; i++)
+				{
+					if (0 < i) await Task.Delay(10000);
+
+					var doc = await AppUtil.GetDocument(false, url);
+					if (classnames.Any(x => doc.GetElementsByClassName(x).FirstOrDefault() is IHtmlTableElement)) return doc;
+					doc.Dispose();
+				}
+				throw new InvalidOperationException($"ﾃｰﾌﾞﾙが取得できません。ﾍﾟｰｼﾞ構造の変更、ﾒﾝﾃﾅﾝｽ中、または馬IDが誤っている可能性があります。url:{url}");
+			}
+
 			async Task SetKetto()
 			{
 				var url = $"https://db.netkeiba.com/horse/ped/{uma}/";
 
-				using (var ped = await AppUtil.GetDocument(false, url))
+				using (var ped = await GetTableDocument(url, "blood_table detail"))
 				{
 					IElement[] GetRowSpan(IHtmlTableElement table, int i) => table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == i).ToArray();
 
-					if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
-					{
-						Func<IElement[], int, string> func = (tags, i) => tags.ElementAtOrDefault(i)?.GetHrefId() ?? string.Empty;
+					var table = (IHtmlTableElement)ped.GetElementsByClassName("blood_table detail").First();
+					Func<IElement[], int, string> func = (tags, i) => tags.ElementAtOrDefault(i)?.GetHrefId() ?? string.Empty;
 
-						var rowspan16 = GetRowSpan(table, 16);
-						var f = func(rowspan16, 0);
-						var m = func(rowspan16, 1);
-						var rowspan08 = GetRowSpan(table, 8);
-						var ff = func(rowspan08, 0);
-						var fm = func(rowspan08, 1);
-						var mf = func(rowspan08, 2);
-						var mm = func(rowspan08, 3);
+					var rowspan16 = GetRowSpan(table, 16);
+					var f = func(rowspan16, 0);
+					var rowspan08 = GetRowSpan(table, 8);
+					var mf = func(rowspan08, 2);
 
-						dic["父ID"] = f;
-						dic["母父ID"] = mf;
-					}
-					else
-					{
-						await Task.Delay(10000);
-						await SetKetto();
-					}
+					dic["父ID"] = f;
+					dic["母父ID"] = mf;
 				}
 			}
 			await SetKetto();
@@ -584,8 +586,9 @@ namespace Netkeiba
 			async Task SetUmaInfo()
 			{
 				var url = $"https://db.netkeiba.com/horse/{uma}/";
+				var classnames = Arr("db_prof_table ", "db_prof_table no_OwnerUnit");
 
-				using (var ped = await AppUtil.GetDocument(false, url))
+				using (var ped = await GetTableDocument(url, classnames))
 				{
 					dic["生年月日"] = string.Empty;
 					dic["調教師ID"] = string.Empty;
@@ -602,8 +605,6 @@ namespace Netkeiba
 						dic["馬名"] = ped.GetElementsByClassName("horse_title").First().GetElementsByTagName("h1").First().GetInnerHtml();
 					}
 
-					var classnames = Arr("db_prof_table ", "db_prof_table no_OwnerUnit");
-					var isget = false;
 					foreach (var classname in classnames)
 					{
 						string GetId(IHtmlTableRowElement r) => !string.IsNullOrEmpty(r.Cells[1].GetHrefAttribute("href"))
@@ -642,13 +643,7 @@ namespace Netkeiba
 										break;
 								}
 							}
-							isget = true;
 						}
-					}
-					if (!isget)
-					{
-						await Task.Delay(10000);
-						await SetUmaInfo();
 					}
 				}
 			}
