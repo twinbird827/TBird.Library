@@ -49,14 +49,14 @@ namespace Browser.Pages
 			using (await _lock.LockAsync())
 			{
 				// 過去データの初期化は約 20 秒かかるため、基準日が変わったときだけ作り直す
-				var date = DateTime.Now.AddDays(-4).Date;
-				if (_initializedDate != date)
+				var date = DateTime.Now.AddDays(-4);
+				if (_initializedDate != date.Date)
 				{
 					using (var conn = AppUtil.CreateSQLiteControl())
 					{
-						await PreviousDataSets.Initialize(conn, DateTime.Now.AddDays(-4));
+						await PreviousDataSets.Initialize(conn, date);
 					}
-					_initializedDate = date;
+					_initializedDate = date.Date;
 				}
 
 				predictions = await RacePrediction.PredictShutsubaAsync(raceid);
@@ -68,7 +68,6 @@ namespace Browser.Pages
 
 			RaceHeader = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
 
-			// 結果を設定
 			Results = predictions.Select(x =>
 			{
 				var probs = new[] { x.Vars1.WinProb, x.Vars2.WinProb, x.TotalMedium.WinProb, x.TotalSmall.WinProb, x.Total.WinProb, x.Horse.WinProb };

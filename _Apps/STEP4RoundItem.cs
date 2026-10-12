@@ -1,18 +1,12 @@
 ﻿using Codeplex.Data;
-using Microsoft.ML;
 using Netkeiba.Models;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
-using TBird.DB;
-using TBird.DB.SQLite;
 using TBird.Wpf;
 
 namespace Netkeiba
@@ -41,10 +35,8 @@ namespace Netkeiba
 			var race = predictions[0].Detail.Race;
 			var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
 
-			// 明細の設定
 			var arr = predictions.Select(x => new STEP4ResultItem(x)).ToArray();
 
-			// EV列のRank計算
 			arr.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
 
 			SetResult(header, arr);

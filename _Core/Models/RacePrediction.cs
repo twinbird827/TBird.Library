@@ -76,7 +76,6 @@ namespace Netkeiba.Models
 			{
 				var getShutsuba = false;
 
-				// 該当ﾚｰｽの出馬表を取得する
 				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
 				if (!await conn.ExistsOrigAsync(raceid))
 				{
@@ -95,41 +94,27 @@ namespace Netkeiba.Models
 
 					Initialize(ml);
 
-					// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
 					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
 					var race = await conn.GetShutsubaRaceAsync(raceid).FirstOrDefaultAsync();
 					if (race == null) return Array.Empty<RacePrediction>();
 
-					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
 					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
 
-					// 過去ﾃﾞｰﾀ設定
 					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
-					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
 					race.AverageRating = details.Average(x => x.AverageRating);
 
-					// 特徴量を生成
-					var features = details.Select(x =>
-					{
-						var value = x.ExtractFeatures(details);
-
-						// ラベル生成（難易度調整済み着順スコア）
-						value.Label = 0;
-
-						return value;
-					});
+					var features = details.Select(x => x.ExtractFeatures(details));
 
 					var inraces = features.CalculateInRaces();
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の特徴量を作成しました。");
 
-					// ｽｺｱ計算
 					var predictions = CalculatePrediction(ml, details, inraces).ToArray();
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} のスコアを計算しました。");
