@@ -150,6 +150,7 @@
 
     int GetEVRank(Browser.Pages.RaceResultItem item, IEnumerable<Browser.Pages.RaceResultItem> results)
     {
+        if (float.IsNaN(item.EV)) return 0;
         return results.OrderByDescending(x => x.EV).Select((x, i) => new { x, Rank = i + 1 }).First(x => x.x == item).Rank;
     }
 }
