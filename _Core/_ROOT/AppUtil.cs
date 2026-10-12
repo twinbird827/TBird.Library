@@ -37,6 +37,11 @@ namespace Netkeiba
 			return $"{x.GetElementsByTagName("a").Select(a => a.GetAttribute(attribute)).FirstOrDefault() ?? string.Empty}";
 		}
 
+		public static string GetHrefId(this AngleSharp.Dom.IElement x)
+		{
+			return x.GetHrefAttribute("href").Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? string.Empty;
+		}
+
 		public static string GetHrefInnerHtml(this AngleSharp.Dom.IElement x)
 		{
 			var innerhtml = x.GetElementsByTagName("a").Any()

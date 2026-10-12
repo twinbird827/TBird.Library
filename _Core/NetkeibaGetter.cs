@@ -122,7 +122,7 @@ namespace Netkeiba
 					// 馬名
 					dic["馬名"] = row.Cells[3].GetHrefAttribute("title");
 					// 馬ID
-					dic["馬ID"] = row.Cells[3].GetHrefAttribute("href").Split('/')[2];
+					dic["馬ID"] = row.Cells[3].GetHrefId();
 					// 性
 					dic["馬性"] = row.Cells[4].GetInnerHtml().Left(1);
 					// 齢
@@ -132,7 +132,7 @@ namespace Netkeiba
 					// 騎手
 					dic["騎手名"] = row.Cells[6].GetHrefAttribute("title");
 					// 騎手ID
-					dic["騎手ID"] = row.Cells[6].GetHrefAttribute("href").Split('/')[4];
+					dic["騎手ID"] = row.Cells[6].GetHrefId();
 					// ﾀｲﾑ
 					dic["ﾀｲﾑ"] = row.Cells[7].GetInnerHtml();
 					dic["ﾀｲﾑ変換"] = dic["ﾀｲﾑ"].Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle()).Str();
@@ -164,11 +164,11 @@ namespace Netkeiba
 					// 調教師名
 					dic["調教師名"] = row.Cells[22].GetHrefAttribute("title");
 					// 調教師ID
-					dic["調教師ID"] = row.Cells[22].GetHrefAttribute("href").Split('/')[4];
+					dic["調教師ID"] = row.Cells[22].GetHrefId();
 					// 馬主名
 					dic["馬主名"] = row.Cells[23].GetHrefAttribute("title");
 					// 馬主ID
-					dic["馬主ID"] = row.Cells[23].GetHrefAttribute("href").Split('/')[4];
+					dic["馬主ID"] = row.Cells[23].GetHrefId();
 					// 賞金
 					dic["賞金"] = $"{row.Cells[24].GetInnerHtml().Replace(",", "").GetSingle()}";
 
@@ -218,7 +218,7 @@ namespace Netkeiba
 						// 馬番
 						dic["馬番"] = row.Cells[1].GetInnerHtml();
 						// 馬ID
-						dic["馬ID"] = row.Cells[3].GetHrefAttribute("href").Split('/').Last();
+						dic["馬ID"] = row.Cells[3].GetHrefId();
 
 						if (row.Cells.Length < 6)
 						{
@@ -351,7 +351,7 @@ namespace Netkeiba
 					// 馬名
 					dic["馬名"] = row.Cells[3].GetHrefAttribute("title");
 					// 馬ID
-					dic["馬ID"] = row.Cells[3].GetHrefAttribute("href").Split("horse/")[1];
+					dic["馬ID"] = row.Cells[3].GetHrefId();
 					// 性
 					dic["馬性"] = row.Cells[4].GetInnerHtml().Left(1);
 					// 齢
@@ -361,7 +361,7 @@ namespace Netkeiba
 					// 騎手
 					dic["騎手名"] = row.Cells[6].GetHrefAttribute("title");
 					// 騎手ID
-					dic["騎手ID"] = row.Cells[6].GetHrefAttribute("href").Split('/').Reverse().ToArray()[1];
+					dic["騎手ID"] = row.Cells[6].GetHrefId();
 					// ﾀｲﾑ(なし)
 					dic["ﾀｲﾑ"] = "0:00.0";
 					dic["ﾀｲﾑ変換"] = dic["ﾀｲﾑ"].Str().Split(':').Run(x => x[0].GetSingle() * 60 + x[1].GetSingle()).Str();
@@ -389,7 +389,7 @@ namespace Netkeiba
 					// 調教師名
 					dic["調教師名"] = row.Cells[7].GetHrefAttribute("title");
 					// 調教師ID
-					dic["調教師ID"] = row.Cells[7].GetHrefAttribute("href").Split('/').Reverse().ToArray()[1];
+					dic["調教師ID"] = row.Cells[7].GetHrefId();
 
 					// 馬主情報の枠だけ用意する
 					dic["馬主名"] = string.Empty;
@@ -521,11 +521,7 @@ namespace Netkeiba
 
 					if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
 					{
-						Func<IElement[], int, string> func = (tags, i) => tags
-							.Skip(i).Take(1)
-							.Select(x => x.GetHrefAttribute("href"))
-							.Select(x => !string.IsNullOrEmpty(x) ? x.Split('/').Run(split => split[split.Length - 2]) : string.Empty)
-							.FirstOrDefault() ?? string.Empty;
+						Func<IElement[], int, string> func = (tags, i) => tags.ElementAtOrDefault(i)?.GetHrefId() ?? string.Empty;
 
 						var rowspan16 = GetRowSpan(table, 16);
 						var f = func(rowspan16, 0);
@@ -606,7 +602,7 @@ namespace Netkeiba
 					foreach (var classname in classnames)
 					{
 						string GetId(IHtmlTableRowElement r) => !string.IsNullOrEmpty(r.Cells[1].GetHrefAttribute("href"))
-							? r.Cells[1].GetHrefAttribute("href").Split('/')[2]
+							? r.Cells[1].GetHrefId()
 							: r.Cells[1].GetInnerHtml();
 						string GetName(IHtmlTableRowElement r) => !string.IsNullOrEmpty(r.Cells[1].GetHrefAttribute("href"))
 							? r.Cells[1].GetHrefAttribute("title")
