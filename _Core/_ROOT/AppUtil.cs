@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
 using TBird.DB;
@@ -21,41 +20,6 @@ namespace Netkeiba
 		public static string Sqlitepath { get; } = PathSetting.GetPath(@"database", "database.sqlite3");
 
 		public static SQLiteControl CreateSQLiteControl() => new SQLiteControl(Sqlitepath, string.Empty, false, false, 1024 * 1024, true);
-
-		public static string GetInnerHtml(this AngleSharp.Dom.IElement x)
-		{
-			var innerhtml = x.GetElementsByTagName("span").Any()
-				? x.GetElementsByTagName("span").First().InnerHtml
-				: x.GetElementsByTagName("div").Any()
-				? x.GetElementsByTagName("div").First().InnerHtml
-				: x.InnerHtml;
-			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
-		}
-
-		public static string GetHrefAttribute(this AngleSharp.Dom.IElement x, string attribute)
-		{
-			return $"{x.GetElementsByTagName("a").Select(a => a.GetAttribute(attribute)).FirstOrDefault() ?? string.Empty}";
-		}
-
-		public static string GetHrefInnerHtml(this AngleSharp.Dom.IElement x)
-		{
-			var innerhtml = x.GetElementsByTagName("a").Any()
-				? x.GetElementsByTagName("a").First().InnerHtml
-				: x.InnerHtml;
-			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
-		}
-
-		public static string GetTryCatch(this AngleSharp.Dom.IElement x, Func<string, string> func)
-		{
-			try
-			{
-				return func(x.GetInnerHtml());
-			}
-			catch
-			{
-				return string.Empty;
-			}
-		}
 
 		public static async Task<IHtmlDocument> GetDocument(bool login, string url)
 		{
@@ -118,48 +82,6 @@ namespace Netkeiba
 		private static IBrowsingContext? _logincontext;
 		private static DateTime _loginsession = DateTime.Now.AddDays(-1);
 		private static IBrowsingContext? _guestcontext;
-
-		public static int ToTotalDays(this DateTime date) => (date - DateTime.Parse("1990/01/01")).TotalDays.Int32();
-
-		public static float CalculateStandardDeviation(float[] values)
-		{
-			if (values.Length < 2) return 1.0f;
-			var mean = values.Average();
-			var variance = values.Select(v => (v - mean) * (v - mean)).Average();
-			return (float)Math.Sqrt(variance);
-		}
-
-		public static float GetRank(this float val, float[] arr, bool higherIsBetter)
-		{
-			if (float.IsNaN(val)) return float.NaN;
-			var validArr = arr.Where(x => !float.IsNaN(x)).ToArray();
-			if (validArr.Length == 0) return float.NaN;
-			var same = validArr.Count(x => Math.Abs(x - val) < 0.01f);
-			var wrse = higherIsBetter ? validArr.Count(x => x < val) : validArr.Count(x => x > val);
-
-			return (wrse + same / 2.0f) / validArr.Length;
-		}
-
-		public static float GetRank<T>(this T detail, IEnumerable<T> src, Func<T, float> func, bool higherIsBetter)
-		{
-			return func(detail).GetRank(src.Select(func).ToArray(), higherIsBetter);
-		}
-
-		public static float GetZScore(this float val, float[] arr)
-		{
-			if (float.IsNaN(val)) return float.NaN;
-			var validArr = arr.Where(x => !float.IsNaN(x)).ToArray();
-			if (validArr.Length < 2) return 0f;
-			var mean = validArr.Average();
-			var std = CalculateStandardDeviation(validArr);
-			if (std < 0.0001f) return 0f;
-			return (val - mean) / std;
-		}
-
-		public static float GetZScore<T>(this T detail, IEnumerable<T> src, Func<T, float> func)
-		{
-			return func(detail).GetZScore(src.Select(func).ToArray());
-		}
 
 	}
 }
