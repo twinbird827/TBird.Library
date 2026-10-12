@@ -133,7 +133,7 @@ namespace Netkeiba
 					Score = score
 				}).ToArray();
 
-				var ndcg = GetNDCG(featuresPredictions);
+				var ndcg = featuresPredictions.GetNDCG();
 
 				var result = new RankingTrain(
 					DateTime.Now,
@@ -155,83 +155,6 @@ namespace Netkeiba
 				var message = $"{grade}\tNDCG@1\t{ndcg.NDCG1:F4}\tNDCG@3\t{ndcg.NDCG3:F4}\tNDCG@5\t{ndcg.NDCG5:F4}\tTemperature\t{result.Temperature:F2}\tモデルを保存しました: {result.Path}";
 				WpfUtil.ExecuteOnUI(() => MessageService.Debug(message));
 			});
-		}
-
-		private AggregateNDCG GetNDCG(FeaturesPrediction[] tests)
-		{
-			var raceGroups = tests.GroupBy(x => x.RaceId).ToArray();
-
-			// 最適化: Parallel.ForEachで並列処理
-			var results = new System.Collections.Concurrent.ConcurrentBag<AggregateNDCG>();
-
-			Parallel.ForEach(raceGroups, raceGroup =>
-			{
-				if (raceGroup.Count() < 3) return; // 3頭未満のレースは除外
-
-				// 予測スコア順にソート（高いスコア = 良い予測順位）
-				var sortedByPrediction = raceGroup.OrderByDescending(x => x.Score).ToArray();
-
-				// DCG@kを計算
-				double CalculateDCG(int k)
-				{
-					double dcg = 0;
-					for (int i = 0; i < Math.Min(k, sortedByPrediction.Length); i++)
-					{
-						var actualRank = sortedByPrediction[i].ActualRank;
-						var relevance = 1.0 / actualRank;
-						var discount = Math.Log2(i + 2);
-						dcg += relevance / discount;
-					}
-					return dcg;
-				}
-
-				// Ideal DCG@k（完璧な順位予想）
-				double CalculateIDCG(int k)
-				{
-					var idealOrder = raceGroup.OrderBy(x => x.ActualRank).ToArray();
-					double idcg = 0;
-					for (int i = 0; i < Math.Min(k, idealOrder.Length); i++)
-					{
-						var actualRank = idealOrder[i].ActualRank;
-						var relevance = 1.0 / actualRank;
-						var discount = Math.Log2(i + 2);
-						idcg += relevance / discount;
-					}
-					return idcg;
-				}
-
-				var dcg1 = CalculateDCG(1);
-				var dcg3 = CalculateDCG(3);
-				var dcg5 = CalculateDCG(5);
-
-				var idcg1 = CalculateIDCG(1);
-				var idcg3 = CalculateIDCG(3);
-				var idcg5 = CalculateIDCG(5);
-
-				double ndcg1 = idcg1 > 0 ? dcg1 / idcg1 : 0;
-				double ndcg3 = idcg3 > 0 ? dcg3 / idcg3 : 0;
-				double ndcg5 = idcg5 > 0 ? dcg5 / idcg5 : 0;
-
-				results.Add(new AggregateNDCG()
-				{
-					NDCG1 = ndcg1,
-					NDCG3 = ndcg3,
-					NDCG5 = ndcg5,
-				});
-			});
-
-			// 集計
-			var validRaces = results.Count;
-			var ndcg1Sum = results.Sum(x => x.NDCG1);
-			var ndcg3Sum = results.Sum(x => x.NDCG3);
-			var ndcg5Sum = results.Sum(x => x.NDCG5);
-
-			return new AggregateNDCG()
-			{
-				NDCG1 = validRaces > 0 ? ndcg1Sum / validRaces : 0,
-				NDCG3 = validRaces > 0 ? ndcg3Sum / validRaces : 0,
-				NDCG5 = validRaces > 0 ? ndcg5Sum / validRaces : 0,
-			};
 		}
 
 		private double GetCalibration(FeaturesPrediction[] tests)
@@ -277,23 +200,6 @@ namespace Netkeiba
 			}
 
 			return bestT;
-		}
-
-		private class FeaturesPrediction
-		{
-			public string RaceId { get; set; }
-
-			public uint ActualRank { get; set; }
-
-			public float Score { get; set; }
-		}
-
-		private class AggregateNDCG
-		{
-			public double NDCG1 { get; set; }
-			public double NDCG3 { get; set; }
-			public double NDCG5 { get; set; }
-
 		}
 
 	}

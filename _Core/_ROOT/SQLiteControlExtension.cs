@@ -97,7 +97,7 @@ namespace Netkeiba
 				await conn.BeginTransaction();
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_d WHERE ﾚｰｽID IN (SELECT ﾚｰｽID FROM t_orig_h WHERE 開催日 >= ?)", parameter);
 				await conn.ExecuteNonQueryAsync("DELETE FROM t_oikiri WHERE ﾚｰｽID IN (SELECT ﾚｰｽID FROM t_orig_h WHERE 開催日 >= ?)", parameter);
-				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_h WHERE 開催日 >= ?)", parameter);
+				await conn.ExecuteNonQueryAsync("DELETE FROM t_orig_h WHERE 開催日 >= ?", parameter);
 				conn.Commit();
 			}
 		}

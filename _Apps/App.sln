@@ -25,11 +25,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TBird.Wpf", "..\TBird.Wpf\T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Service", "..\TBird.Service\TBird.Service.csproj", "{52B3C905-E004-4D94-9348-22AD09854617}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Netkeiba", "Netkeiba.csproj", "{D9F80FD1-0642-4151-ADCE-1B838901B0F5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Netkeiba", "Netkeiba\Netkeiba.csproj", "{D9F80FD1-0642-4151-ADCE-1B838901B0F5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{1DD22878-7250-4A74-97F8-F93C0320BEC8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Netkeiba.Core", "..\_Core\Netkeiba.Core.csproj", "{E2D21918-104A-C6BC-DFB6-FD2A63500375}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Netkeiba.Core.Tests", "Netkeiba.Core.Tests\Netkeiba.Core.Tests.csproj", "{0F6DA064-2C62-4C6C-8B8E-892156D8039F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -89,6 +91,10 @@ Global
 		{E2D21918-104A-C6BC-DFB6-FD2A63500375}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E2D21918-104A-C6BC-DFB6-FD2A63500375}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E2D21918-104A-C6BC-DFB6-FD2A63500375}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
