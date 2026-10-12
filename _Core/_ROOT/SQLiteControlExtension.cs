@@ -15,7 +15,7 @@ using TBird.DB.SQLite;
 
 namespace Netkeiba
 {
-	public static partial class SQLite3Extensions
+	public static class SQLiteControlExtension
 	{
 		private static string[] Arr(params string[] arr) => arr;
 
@@ -70,10 +70,7 @@ namespace Netkeiba
 
 			public bool IsKey { get; set; }
 		}
-	}
 
-	public static partial class SQLite3Extensions
-	{
 		/// <summary>
 		/// 教育ﾃﾞｰﾀ作成用ﾃｰﾌﾞﾙを削除します。
 		/// </summary>
