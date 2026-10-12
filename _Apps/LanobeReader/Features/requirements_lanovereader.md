@@ -281,7 +281,7 @@ LanobeReader/
 **通知仕様:**
 - タイトル: アプリ名（ラノベリーダ）
 - 本文: `{novel.title}: {n}話更新`
-- タップ時遷移: SCR-004（該当タイトルの最新未読話）
+- タップ時遷移: SCR-004（該当タイトルの最新未読話）。遷移先の話は通知の投稿時でなくタップした時点で解決し、解決できなければ SCR-003 を開く。SCR-004 表示中のタップは、表示中の閲覧画面を解決結果の画面（SCR-004、解決できなければ SCR-003）で置き換える
 - 通知チャンネルID: `update_notification`
 - 通知確認済み（タップ）→ has_unconfirmed_update = 0 にUPDATE
 
@@ -327,7 +327,7 @@ LanobeReader/
 
 #### F-005: 小説閲覧
 
-**トリガー:** SCR-001のNEW付きタイトルカードタップ（最初の未読話、未読が無ければ最後の既読話を開く） / SCR-003の話一覧からエピソードタップ / 通知タップ
+**トリガー:** SCR-001のタイトルカードタップ（最初の未読話、未読が無ければ最後の既読話を開く） / SCR-003の話一覧からエピソードタップ / 通知タップ
 
 **処理フロー（正常系）:**
 1. F-004（キャッシュ取得）を呼び出し本文を取得
@@ -336,9 +336,9 @@ LanobeReader/
 4. 前の話・次の話ボタン / 左右スワイプで隣話に遷移（episodesテーブルのepisode_noで前後を特定）
 5. 前の話・次の話が存在しない場合は該当ボタンを非活性化
 6. ヘッダ・フッタは常時表示
-7. 目次ボタンタップでSCR-003に戻る（バックスタック）
+7. 目次ボタンタップで、直下が同じ作品のSCR-003ならそこへ戻り（バックスタック）、無ければ閲覧画面をその作品のSCR-003に置き換える
 8. スクロール位置を話ごとに `episodes.scroll_ratio` へ保存し、再表示時に復元（末尾到達時は 0=先頭）
-9. Activity の再生成（プロセス終了後の復帰など）では、背面化時に Activity の保存状態へ残した閲覧中の話 Id から閲覧画面（話一覧を間に積む）と位置を復元
+9. Activity の再生成（プロセス終了後の復帰など）では、背面化時に Activity の保存状態へ残した閲覧中の話 Id から閲覧画面と位置を復元
 
 **非同期処理:** async/await
 **排他制御:** 不要
@@ -571,24 +571,25 @@ LanobeReader/
 | 設定 | cog | SCR-005 |
 
 **スタック遷移（ボトムナビに含まない）:**
-- SCR-001 → SCR-003（NEWの無いタイトルカードタップ）
-- SCR-001 → SCR-003 → SCR-004（NEW付きタイトルカードタップ。目次を積んでからリーダーを積む）
+- SCR-001 → SCR-004（タイトルカードタップ）
+- SCR-001 → SCR-003（話が 0 件のタイトルカードタップ）
 - SCR-003 → SCR-004（エピソードタップ / 続きから読むボタン）
 - SCR-004 ⇔ SCR-004（前話・次話ボタン / スワイプ）
-- SCR-004 → SCR-003（目次ボタンタップ、バックスタックに戻る）
+- SCR-004 → SCR-003（目次ボタンタップ。直下が同じ作品の SCR-003 ならバックスタックに戻り、無ければ閲覧画面を SCR-003 に置き換える）
 
 ```mermaid
 graph TD
-    A[SCR-001: タイトル一覧] -->|タイトルカードタップ| B[SCR-003: 話一覧]
-    A -->|NEW付きカードタップ（目次を経由して積む）| E
+    A[SCR-001: タイトル一覧] -->|話 0 件のカードタップ| B[SCR-003: 話一覧]
+    A -->|タイトルカードタップ| E
     A -->|ボトムナビ| C[SCR-002: 検索]
     A -->|ボトムナビ| D[SCR-005: 設定]
     B -->|エピソードタップ| E[SCR-004: 閲覧]
     B -->|続きから読む| E
     E -->|前話・次話・スワイプ| E
-    E -->|目次ボタン| B
+    E -->|目次ボタン（戻る / 置き換え）| B
     C -->|登録完了| A
     X[通知タップ] -->|ディープリンク| E
+    X -->|遷移先の話を解決できないとき（閲覧画面表示中なら置き換え）| B
 ```
 
 ### 4.3 画面詳細
@@ -635,7 +636,7 @@ graph TD
 | コマンド名 | CanExecute条件 | Execute処理 |
 |---|---|---|
 | RefreshCommand | !IsLoading | F-003手動更新チェック実行 |
-| NavigateToDetailCommand | 常時 | NEW付きならNEWを解除し、遷移先の話（最初の未読話、未読が無ければ最後の既読話）が解決できればSCR-003 を積んでからSCR-004を開く。それ以外はSCR-003へ遷移（引数: novel_id） |
+| NavigateToDetailCommand | 常時 | NEW付きならNEWを解除する。遷移先の話（最初の未読話、未読が無ければ最後の既読話）が解決できればSCR-004を開き、解決できなければSCR-003へ遷移（引数: novel_id） |
 | DeleteCacheCommand | 常時 | 確認ダイアログ → F-004キャッシュ削除 |
 | DeleteNovelCommand | 常時 | 確認ダイアログ → novelsレコード削除（CASCADE） |
 
@@ -729,32 +730,17 @@ graph TD
 
 **初期表示位置（anchor 選定）:**
 
-`InitializeAsync` で全話を `episode_no` 昇順で読み込んだ後、anchor を以下の優先順で決める:
+SCR-003 は SCR-004 の目次ボタン（置き換え）か、話が 0 件のタイトルカードタップか、遷移先の話を解決できない通知タップ（SCR-004 表示中なら置き換え）でだけ新規に開かれる。`InitializeAsync` で全話を `episode_no` 昇順で読み込んだ後、anchor を次のとおり決める:
 
-1. `firstUnread = FirstOrDefault(IsRead == false)` が存在 → anchor = その 1 つ前の話（= 直前まで読んだ話）。
-   `firstUnread` が先頭話なら anchor 無し。
-2. 全話既読（`firstUnread == null`） → anchor = `LastOrDefault(IsRead == true)`（= 最終話）。完結作品を再度開いたとき
-   最終話付近を提示する目的。
-3. 0 話登録（`_allEpisodes.Count == 0`） → anchor 無し。
-
-anchor が決まったら、それを含むページを `CurrentPage` として `LoadPage` 実行。`LoadPage` 完了と
-同じ UI tick で `PageContentReset` イベントを発火し、View 側で `ScrollTo(idx, ScrollToPosition.Center,
-animate=false)` を同期呼び出しすることで対象行を画面中央に配置する（同一レイアウトパスでアイテム配置と
-スクロール target の両方が処理され、ユーザーには「先頭→アンカー」の中間スクロールが見えない）。
-anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToCenter=false)` を発火し、
-`ScrollToPosition.Start` で先頭リセットする。
-
-> **anchor が「直前まで読んだ話 = firstUnread の 1 つ前」と一致する根拠**: `EpisodeRepository.SetReadStateUpToAsync` は
-> 「読了点までを既読化、それ以降を未読化」する仕様のため、既読/未読の境界は常に連続している（飛ばし読みによる穴は
-> 発生しない）。よって `firstUnread の前` = `MAX(episode_no WHERE is_read=1)` と一致する。将来 `UpdateAsync` 経由で
-> 個別話 IsRead=true を許す経路ができた場合、anchor 選定を `LastOrDefault(IsRead == true)` 単独に変更する。
+- `ReaderViewModel.LastShownEpisode`（Reader で最後に表示した話）の作品 Id が目次の作品と一致 → anchor = その話。その話を含むページを `CurrentPage` として `LoadPage` 実行し、同じ UI tick で `PageContentReset(ToCenter=true)` を発火して View 側の `ScrollTo(idx, ScrollToPosition.Center, animate=false)` で中央に配置する（ユーザーには「先頭→アンカー」の中間スクロールが見えない）。
+- 作品 Id が一致しない、またはその話がフィルタ（`ShowUnreadOnly` / `ShowFavoritesOnly`）で除外されている → anchor 無し。1 ページ目で `PageContentReset(ScrollIndex=0, ToCenter=false)` を発火し、`ScrollToPosition.Start` で先頭リセットする。
 
 > フィルタ ON/OFF (`ShowUnreadOnly`/`ShowFavoritesOnly`) の再ロードや、ページ手動切替
 > (`PrevPage`/`NextPage`) では anchor スクロールではなく先頭リセット
 > (`PageContentReset(ScrollIndex=0, ToCenter=false)`) を発火する。
 >
 > **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を再発火させる仕様を利用する:
-> - 遷移元（詳細タップ・続きから読む・本棚の NEW 付きカードタップ・閲覧復元）を問わず、Reader で最後に表示した話の位置へ `JumpToEpisodeAsync` でジャンプする（`PageContentReset(ToCenter=true)`）。
+> - 目次から開いた Reader（話タップ・続きから読む）からの戻りでは、Reader で最後に表示した話の位置へ `JumpToEpisodeAsync` でジャンプする（`PageContentReset(ToCenter=true)`）。
 > - 最後に表示した話は `ReaderViewModel.LastShownEpisode`（作品 Id と話 Id）で受け渡し、作品 Id が目次の作品と一致するときだけ使う。
 > - その話が現在と別のページにあれば、そのページへ切り替える。
 > - その話が目次の一覧に無ければ（Reader 閲覧中に取り込まれた新話）、一覧を取り直してから位置を計算する。
@@ -786,7 +772,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 **ViewModelイベント:**
 | イベント名 | ペイロード | 発火タイミング |
 |---|---|---|
-| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToEpisodeAsync` 完了時（Reader からの戻り遷移、`ToCenter=true`。戻り先がフィルタで除外されていれば発火しない）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
+| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（Reader で最後に表示した話へのスクロール、`ToCenter=true`。作品不一致・除外時は先頭リセット）/ `JumpToEpisodeAsync` 完了時（Reader からの戻り遷移、`ToCenter=true`。戻り先がフィルタで除外されていれば発火しない）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
@@ -810,7 +796,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 |---|---|---|---|
 | ヘッダ | Grid | | |
 | 話タイトル（ヘッダ） | Label | Episode.Title | |
-| 目次ボタン（ヘッダ） | Button | NavigateToTocCommand | SCR-003に戻る |
+| 目次ボタン（ヘッダ） | Button | NavigateToTocCommand | 直下が同じ作品のSCR-003なら戻り、無ければ閲覧画面をSCR-003に置き換える |
 | 前へボタン（ヘッダ） | Button | PrevEpisodeCommand | 前話なしの場合非活性 |
 | 本文 | ReaderWebView | EpisodeHtml / ReaderCss | 終端検知の `lanobe://read-end` で既読マーク |
 | フッタ | Grid | | |
@@ -837,7 +823,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 |---|---|---|
 | PrevEpisodeCommand | HasPrevEpisode | 前話をSCR-004で開く |
 | NextEpisodeCommand | HasNextEpisode | 次話をSCR-004で開く |
-| NavigateToTocCommand | 常時 | SCR-003に戻る |
+| NavigateToTocCommand | 常時 | 直下が同じ作品のSCR-003なら戻り、無ければ閲覧画面をSCR-003に置き換える |
 | MarkAsReadCommand | !Episode.IsRead | F-006既読マーク（自動経路は WebView の `lanobe://read-end` 受信時の `MarkAsReadFromAutoCommand`） |
 
 **スワイプ操作:**
@@ -1238,7 +1224,7 @@ public enum SiteType
 - `MainActivity.OnCreate` で `update_interval_hours` と `last_scheduled_hours` を比較し、差分があるときだけ `ExistingPeriodicWorkPolicy.Update` で再登録（毎起動でのリセット防止、PR-1 / C-1）
 
 ### 8.6 通知ディープリンク
-- 更新通知タップ時はSCR-004へ遷移するためIntentにnovel_idとepisode_idを埋め込む
+- 更新通知タップ時はSCR-004へ遷移するためIntentにnovel_idを埋め込み、遷移先の話（最初の未読話、未読が無ければ最後の既読話）はタップ時に解決する
 - 通知タップ後に`has_unconfirmed_update`を0にUPDATEする
 
 ### 8.7 閲覧画面の既読マーク

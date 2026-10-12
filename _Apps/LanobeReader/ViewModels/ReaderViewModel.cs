@@ -68,7 +68,7 @@ public partial class ReaderViewModel(
     // 表示中の話の DB Id(前後話の移動で更新される)。MainActivity が Activity の保存状態へ書く。
     public int CurrentEpisodeId => _currentEpisodeId;
 
-    // 目次が戻り遷移時にスクロール先として読む。ハードウェアの戻るでは ".." に値を載せられないため静的に持つ。
+    // 目次が初期表示・戻り遷移時にスクロール先として読む。ハードウェアの戻るでは ".." に値を載せられないため静的に持つ。
     public static (int NovelId, int EpisodeId) LastShownEpisode { get; private set; }
 
     partial void OnIsVerticalWritingChanged(bool value)
@@ -229,7 +229,12 @@ public partial class ReaderViewModel(
     [RelayCommand]
     private async Task NavigateToTocAsync()
     {
-        await Shell.Current.GoToAsync("..");
+        var stack = Shell.Current.Navigation.NavigationStack;
+        var below = stack.Count >= 2 ? stack[^2] : null;
+        // 本棚・通知・復元から開いたリーダーの下には目次が無いため、自分を目次へ置き換えて戻るで下の画面へ帰す。
+        await Shell.Current.GoToAsync(below?.BindingContext is EpisodeListViewModel toc && toc.NovelDbId == _novelDbId
+            ? ".."
+            : $"../episodes?novelId={_novelDbId}");
     }
 
     [RelayCommand]

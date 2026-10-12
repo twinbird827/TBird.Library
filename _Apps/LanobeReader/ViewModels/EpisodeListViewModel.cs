@@ -18,6 +18,7 @@ public partial class EpisodeListViewModel(
     PrefetchService prefetch) : AutoReloadViewModel, IQueryAttributable
 {
     private int _novelDbId;
+    public int NovelDbId => _novelDbId;
     private List<Episode> _allEpisodes = [];
     private HashSet<int> _cachedIds = [];
     private List<Episode> _filteredCache = [];
@@ -236,9 +237,11 @@ public partial class EpisodeListViewModel(
 
             RecalcPaging();
 
-            // 一覧 → 目次（初回）: アンカー位置（直前まで読んだ話）へジャンプする。
             // ApplyQueryAttributes 側で再走を抑止しているため、ここに到達するのは VM ライフタイムで 1 回のみ。
-            var (anchorPage, anchorIdxInPage) = ComputeAnchor();
+            var (lastNovelId, lastEpisodeId) = ReaderViewModel.LastShownEpisode;
+            var (anchorPage, anchorIdxInPage) = lastNovelId == _novelDbId
+                ? ComputePosition(lastEpisodeId)
+                : (null, null);
             if (anchorPage.HasValue) CurrentPage = anchorPage.Value;
 
             // Shell スライドアニメ完了を待ってからリスト構築する (アイテム追加との競合回避)。
@@ -266,28 +269,6 @@ public partial class EpisodeListViewModel(
             IsLoading = false;
             _mutateGate.Release();
         }
-    }
-
-    // アンカー（直前まで読んだ話 = firstUnread の 1 つ前、無ければ最新既読話）の
-    // フィルタ後ページ番号と当該ページ内インデックスを返す。
-    // 個別話 IsRead を flip する経路が無い前提で firstUnread の 1 つ前 == MAX(EpisodeNo WHERE IsRead) と一致する。
-    // 該当話がフィルタ（未読のみ等）で除外されている／そもそも既読話が無い場合は (null, null)。
-    private (int? page, int? indexInPage) ComputeAnchor()
-    {
-        Episode? anchor = null;
-        var firstUnread = _allEpisodes.FirstOrDefault(e => !e.IsRead);
-        if (firstUnread is not null)
-        {
-            var idx = _allEpisodes.IndexOf(firstUnread);
-            if (idx > 0) anchor = _allEpisodes[idx - 1];
-        }
-        else
-        {
-            anchor = _allEpisodes.LastOrDefault(e => e.IsRead);
-        }
-
-        if (anchor is null) return (null, null);
-        return ComputePosition(anchor.Id);
     }
 
     private (int? page, int? indexInPage) ComputePosition(int episodeId)
@@ -530,8 +511,8 @@ public partial class EpisodeListViewModel(
         await CommandGuard.RunAsync(async () =>
         {
             // 遷移先の規則(最初の未読話、無ければ最後の既読話)は通知のディープリンクと共用する。
-            var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([_novelDbId]);
-            if (targets.TryGetValue(_novelDbId, out var targetId) && _novel is not null)
+            var targetId = await episodeRepo.GetDeepLinkTargetEpisodeIdAsync(_novelDbId);
+            if (targetId > 0 && _novel is not null)
             {
                 await Shell.Current.GoToAsync(
                     ReaderRoute.Build(_novelDbId, targetId, _novel.SiteType, _novel.NovelId));

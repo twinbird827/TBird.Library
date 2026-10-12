@@ -82,46 +82,15 @@ public class EpisodeRepository(DatabaseService dbService)
         return ids.ToHashSet();
     }
 
-    /// <summary>
-    /// 複数小説のディープリンク先エピソード Id をまとめて解決する。各小説につき
-    /// 「最初の未読話(最小 episode_no)」、未読が無ければ「最後に読んだ話(最大 episode_no)」。
-    /// 通知ループでの作品ごと逐次クエリ(最大 2×N 往復)を、チャンクごとに 1 クエリへ集約する。戻り値は novelId -> episodeId。
-    /// 該当話が無い小説はキーを持たない(呼び出し側で 0 フォールバック)。
-    /// </summary>
-    public async Task<Dictionary<int, int>> GetDeepLinkTargetEpisodeIdsAsync(IReadOnlyList<int> novelIds)
+    public async Task<int> GetDeepLinkTargetEpisodeIdAsync(int novelId)
     {
-        var result = new Dictionary<int, int>();
-        if (novelIds.Count == 0) return result;
         await EnsureAsync().ConfigureAwait(false);
-
-        // SQLite の変数上限(既定 999)に達しないよう IN 句の引数をチャンク分割して照会する。
-        const int ChunkSize = 900;
-        for (int offset = 0; offset < novelIds.Count; offset += ChunkSize)
-        {
-            var chunk = novelIds.Skip(offset).Take(ChunkSize).ToList();
-            var placeholders = string.Join(",", chunk.Select(_ => "?"));
-            var args = chunk.Cast<object>().ToArray();
-            // 作品ごとに未読の最小 episode_no、無ければ既読の最大 episode_no の 1 件。各相関サブクエリは
-            // idx_episodes_novel_isread_epno の (novel_id, is_read) 範囲の端をシークして 1 行で止まる。
-            // 話が無い作品は Id が NULL になる(WHERE で除くと相関サブクエリが二重評価されるため C# 側で飛ばす)。
-            var rows = await dbService.Connection.QueryAsync<EpisodeRef>(
-                "SELECT n.id AS NovelId, COALESCE(" +
-                "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 0 ORDER BY episode_no LIMIT 1), " +
-                "(SELECT id FROM episodes WHERE novel_id = n.id AND is_read = 1 ORDER BY episode_no DESC LIMIT 1)) AS Id " +
-                $"FROM novels n WHERE n.id IN ({placeholders})",
-                args).ConfigureAwait(false);
-            foreach (var r in rows)
-            {
-                if (r.Id is int id) result[r.NovelId] = id;
-            }
-        }
-        return result;
-    }
-
-    private sealed class EpisodeRef
-    {
-        public int NovelId { get; set; }
-        public int? Id { get; set; }
+        // 各サブクエリは idx_episodes_novel_isread_epno の (novel_id, is_read) 範囲の端をシークして 1 行で止まる。
+        return await dbService.Connection.ExecuteScalarAsync<int>(
+            "SELECT COALESCE(" +
+            "(SELECT id FROM episodes WHERE novel_id = ? AND is_read = 0 ORDER BY episode_no LIMIT 1), " +
+            "(SELECT id FROM episodes WHERE novel_id = ? AND is_read = 1 ORDER BY episode_no DESC LIMIT 1), 0)",
+            novelId, novelId).ConfigureAwait(false);
     }
 
     /// <summary>
