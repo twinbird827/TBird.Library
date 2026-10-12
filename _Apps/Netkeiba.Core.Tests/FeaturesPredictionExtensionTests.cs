@@ -35,6 +35,20 @@ namespace Netkeiba.Core.Tests
 		}
 
 		[Test]
+		public void SecondPlaceOnTopLowersNDCG3And5()
+		{
+			var ndcg = new[]
+			{
+				Prediction("r1", 1, 0.5f),
+				Prediction("r1", 2, 0.9f),
+				Prediction("r1", 3, 0.1f),
+			}.GetNDCG();
+
+			Assert.That(ndcg.NDCG3, Is.EqualTo(0.8754934242986115).Within(1e-9));
+			Assert.That(ndcg.NDCG5, Is.EqualTo(0.8754934242986115).Within(1e-9));
+		}
+
+		[Test]
 		public void RacesUnderThreeHorsesAreIgnored()
 		{
 			var ndcg = new[]

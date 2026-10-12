@@ -8,8 +8,6 @@ namespace Netkeiba.Core.Tests
 {
 	public class SQLiteControlExtensionTests
 	{
-		// #287: 着順 0 の明細を持つ開催日以降だけを 3 テーブルから消し、それより前の確定済みレースを残すことを固定する。
-
 		[Test]
 		public async Task RemoveShortageMissingDatasKeepsOnlyConfirmedRaces()
 		{
