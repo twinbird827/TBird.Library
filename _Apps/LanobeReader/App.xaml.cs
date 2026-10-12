@@ -131,7 +131,7 @@ public partial class App : Application
                     if (RestoreReaderEpisodeId != episodeId) return;
                     if (Shell.Current is null) return;
                     // 話一覧を間に積み、戻る操作が 閲覧 → 話一覧 → 一覧 と通常どおり戻るようにする。
-                    await Shell.Current.GoToAsync(ReaderRoute.BuildEpisodesWithAnchor(novel.Id));
+                    await Shell.Current.GoToAsync($"episodes?novelId={novel.Id}");
                     await Shell.Current.GoToAsync(ReaderRoute.Build(novel.Id, episode.Id, novel.SiteType, novel.NovelId));
                 }
                 catch (Exception ex)

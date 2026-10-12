@@ -163,7 +163,7 @@ public partial class NovelListViewModel(
                 if (targets.TryGetValue(card.Id, out var targetId))
                 {
                     // 目次を間に積み、戻る操作が 閲覧 → 目次 → 一覧 と通常どおり戻るようにする。
-                    await Shell.Current.GoToAsync(ReaderRoute.BuildEpisodesWithAnchor(card.Id));
+                    await Shell.Current.GoToAsync($"episodes?novelId={card.Id}");
                     await Shell.Current.GoToAsync(ReaderRoute.Build(card.Id, targetId, (int)card.SiteType, card.NovelId));
                     return;
                 }

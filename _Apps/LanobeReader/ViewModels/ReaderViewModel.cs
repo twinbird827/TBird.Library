@@ -68,6 +68,9 @@ public partial class ReaderViewModel(
     // 表示中の話の DB Id(前後話の移動で更新される)。MainActivity が Activity の保存状態へ書く。
     public int CurrentEpisodeId => _currentEpisodeId;
 
+    // 目次が戻り遷移時にスクロール先として読む。ハードウェアの戻るでは ".." に値を載せられないため静的に持つ。
+    public static (int NovelId, int EpisodeId) LastShownEpisode { get; private set; }
+
     partial void OnIsVerticalWritingChanged(bool value)
     {
         if (!string.IsNullOrEmpty(_episodeContent))
@@ -94,6 +97,7 @@ public partial class ReaderViewModel(
         if (query.TryGetValue("episodeId", out var eid)) int.TryParse(eid?.ToString(), out _currentEpisodeId);
         if (query.TryGetValue("siteType", out var st)) int.TryParse(st?.ToString(), out _siteType);
         if (query.TryGetValue("siteNovelId", out var snid)) _siteNovelId = snid?.ToString() ?? "";
+        LastShownEpisode = (_novelDbId, _currentEpisodeId);
 
         _ = InitializeAsync();
     }
@@ -205,6 +209,7 @@ public partial class ReaderViewModel(
     {
         if (_prevEpisodeId is not int prevId) return;
         _currentEpisodeId = prevId;
+        LastShownEpisode = (_novelDbId, _currentEpisodeId);
         await LoadEpisodeAsync(prevId);
     }
 
@@ -215,6 +220,7 @@ public partial class ReaderViewModel(
     {
         if (_nextEpisodeId is not int nextId) return;
         _currentEpisodeId = nextId;
+        LastShownEpisode = (_novelDbId, _currentEpisodeId);
         await LoadEpisodeAsync(nextId);
     }
 

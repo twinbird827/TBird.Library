@@ -635,7 +635,7 @@ graph TD
 | コマンド名 | CanExecute条件 | Execute処理 |
 |---|---|---|
 | RefreshCommand | !IsLoading | F-003手動更新チェック実行 |
-| NavigateToDetailCommand | 常時 | NEW付きならNEWを解除し、遷移先の話（最初の未読話、未読が無ければ最後の既読話）が解決できればSCR-003（`resumeAnchor=1`）を積んでからSCR-004を開く。それ以外はSCR-003へ遷移（引数: novel_id） |
+| NavigateToDetailCommand | 常時 | NEW付きならNEWを解除し、遷移先の話（最初の未読話、未読が無ければ最後の既読話）が解決できればSCR-003 を積んでからSCR-004を開く。それ以外はSCR-003へ遷移（引数: novel_id） |
 | DeleteCacheCommand | 常時 | 確認ダイアログ → F-004キャッシュ削除 |
 | DeleteNovelCommand | 常時 | 確認ダイアログ → novelsレコード削除（CASCADE） |
 
@@ -753,22 +753,14 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 > (`PrevPage`/`NextPage`) では anchor スクロールではなく先頭リセット
 > (`PageContentReset(ScrollIndex=0, ToCenter=false)`) を発火する。
 >
-> **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を
-> 再発火させる仕様を利用して、遷移経路ごとに挙動を出し分ける:
-> - **アンカー復帰経由** (`ReadContinueAsync` が `_pendingScrollToAnchor=true` をセット、または本棚の NEW 付きカードタップとプロセス復帰時の閲覧復元の 2 経路が目次ルートに付けた `resumeAnchor=1` クエリを `ApplyQueryAttributes` が受けてセット):
->   `JumpToAnchorAsync` を起動し、IsRead を再 fetch → アンカー再計算 → `CurrentPage` 更新
->   → `LoadPage` → `PageContentReset(ToCenter=true)` 発火でアンカー位置へジャンプする。
->   Reader 内で既読化された話があれば `firstUnread` が進み、新しいアンカー (= Reader で読んだ
->   最終話あたり) へ移動する。
-> - **詳細タップ経由** (`NavigateToEpisode`, フラグ立てない): 何もしない。`Episodes` と
->   `CurrentPage` を一切触らないため `CollectionView` の scroll 位置が自然に維持される。
->   ただし `ShowUnreadOnly=true` 状態でタップした話が Reader 側で既読化された場合、
->   `OnAppearing` の `RefreshReadStatusAsync` がフィルタ再構築で `LoadPage` を呼ぶため
->   その話はリストから消える (scroll 位置は ObservableCollection の Clear+Add で維持)。
->
-> アンカー復帰経由では `ApplyQueryAttributes` 側で `_skipNextRefresh=true` を先に立てて
-> から `JumpToAnchorAsync` を fire-and-forget するため、直後に走る `OnAppearing` の
-> `RefreshReadStatusAsync` は DB の二重 fetch を回避してスキップする。
+> **Reader 画面からの戻り遷移時の挙動**: MAUI Shell が戻り遷移時に `ApplyQueryAttributes` を再発火させる仕様を利用する:
+> - 遷移元（詳細タップ・続きから読む・本棚の NEW 付きカードタップ・閲覧復元）を問わず、Reader で最後に表示した話の位置へ `JumpToEpisodeAsync` でジャンプする（`PageContentReset(ToCenter=true)`）。
+> - 最後に表示した話は `ReaderViewModel.LastShownEpisode`（作品 Id と話 Id）で受け渡し、作品 Id が目次の作品と一致するときだけ使う。
+> - その話が現在と別のページにあれば、そのページへ切り替える。
+> - その話が目次の一覧に無ければ（Reader 閲覧中に取り込まれた新話）、一覧を取り直してから位置を計算する。
+> - IsRead を取り直したフィルタ再構築（`ShowUnreadOnly` / `ShowFavoritesOnly`）でその話が除外されれば、再スクロールしない（先頭へ戻さない）。
+> - 別作品の Reader（通知のディープリンクで目次の上に積まれたもの）からの戻りでは、`OnAppearing` の `RefreshReadStatusAsync` による既読表示の更新だけを行う。
+> - ジャンプ時は `ApplyQueryAttributes` 側で `_skipNextRefresh=true` を先に立ててから `JumpToEpisodeAsync` を fire-and-forget するため、直後に走る `OnAppearing` の `RefreshReadStatusAsync` は DB の二重 fetch を回避してスキップする。
 
 **UIコントロール一覧:**
 | コントロール | 種別 | バインディング先 | 備考 |
@@ -794,7 +786,7 @@ anchor 無しのときは 1 ページ目で `PageContentReset(ScrollIndex=0, ToC
 **ViewModelイベント:**
 | イベント名 | ペイロード | 発火タイミング |
 |---|---|---|
-| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToAnchorAsync` 完了時（アンカー復帰経由の Reader 戻り遷移、`ToCenter=true`）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新および詳細タップ経由の Reader 戻り遷移では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
+| PageContentReset | `(ScrollIndex: int, ToCenter: bool)` | `InitializeAsync` 完了時（初回 anchor スクロール、`ToCenter=true`）/ `JumpToEpisodeAsync` 完了時（Reader からの戻り遷移、`ToCenter=true`。戻り先がフィルタで除外されていれば発火しない）/ `PrevPage` / `NextPage` / フィルタ切替による `ReloadListAsync`（先頭リセット、`ToCenter=false`）。`RefreshReadStatusAsync` の in-place 更新では発火しない。View 側はコンストラクタで購読し、`ScrollTo` を同期呼び出しする push 型設計 |
 
 **ViewModelコマンド:**
 | コマンド名 | CanExecute条件 | Execute処理 |
