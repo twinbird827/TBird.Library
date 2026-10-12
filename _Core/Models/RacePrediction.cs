@@ -2,11 +2,13 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TBird.Core;
+using TBird.DB.SQLite;
 
 namespace Netkeiba.Models
 {
@@ -50,6 +52,8 @@ namespace Netkeiba.Models
 
 		public int Result { get; set; }
 
+		public string Name { get; set; } = string.Empty;
+
 		public static void Initialize(MLContext ml)
 		{
 			_key = new[]
@@ -64,6 +68,104 @@ namespace Netkeiba.Models
 			};
 
 			_dic = _key.ToDictionary(key => key, key => LoadModel(ml, key));
+		}
+
+		public static async Task<RacePrediction[]> PredictShutsubaAsync(string raceid)
+		{
+			using (var conn = AppUtil.CreateSQLiteControl())
+			{
+				var getShutsuba = false;
+
+				// 該当ﾚｰｽの出馬表を取得する
+				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
+				if (!await conn.ExistsOrigAsync(raceid))
+				{
+					var racearr = await NetkeibaGetter.GetRaceShutubas(raceid);
+					await conn.BeginTransaction();
+					await conn.InsertShutsubaAsync(racearr);
+					await conn.InsertOikiriAsync(raceid);
+					conn.Commit();
+					getShutsuba = true;
+					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データが取得できました。");
+				}
+
+				try
+				{
+					var ml = new MLContext(seed: 1);
+
+					Initialize(ml);
+
+					// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
+					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
+					var race = await conn.GetShutsubaRaceAsync(raceid).FirstOrDefaultAsync();
+					if (race == null) return Array.Empty<RacePrediction>();
+
+					// 今ﾚｰｽの情報を取得する
+					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
+					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
+
+					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
+
+					// 過去ﾃﾞｰﾀ設定
+					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
+
+					MessageService.Debug($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
+
+					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
+					race.AverageRating = details.Average(x => x.AverageRating);
+
+					// 特徴量を生成
+					var features = details.Select(x =>
+					{
+						var value = x.ExtractFeatures(details);
+
+						// ラベル生成（難易度調整済み着順スコア）
+						value.Label = 0;
+
+						return value;
+					});
+
+					var inraces = features.CalculateInRaces();
+
+					MessageService.Debug($"ﾚｰｽID：{raceid} の特徴量を作成しました。");
+
+					// ｽｺｱ計算
+					var predictions = CalculatePrediction(ml, details, inraces).ToArray();
+
+					MessageService.Debug($"ﾚｰｽID：{raceid} のスコアを計算しました。");
+
+					if (race.RaceDate < DateTime.Now)
+					{
+						var tya = await NetkeibaGetter.GetTyakujun(race.RaceId);
+
+						predictions.ForEach(p =>
+						{
+							p.Result = tya
+								.Where(x => x["馬番"].Int32() == p.Detail.Umaban)
+								.Select(x => x["着順"].Int32())
+								.FirstOrDefault();
+						});
+					}
+
+					foreach (var p in predictions)
+					{
+						p.Name = (await conn.ExecuteScalarAsync($"SELECT 馬名 FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, p.Detail.Horse))).Str();
+					}
+
+					MessageService.Debug($"ﾚｰｽID：{raceid} の処理が完了しました。");
+
+					return predictions;
+				}
+				finally
+				{
+					if (getShutsuba)
+					{
+						await conn.BeginTransaction();
+						await conn.DeleteOrigAsync(raceid);
+						conn.Commit();
+					}
+				}
+			}
 		}
 
 		public static IEnumerable<RacePrediction> CalculatePrediction(MLContext ml, RaceDetail[] details, OptimizedHorseFeatures[] features)
