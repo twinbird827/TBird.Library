@@ -204,8 +204,6 @@ namespace Netkeiba
 
 			using (var raceparser = await AppUtil.GetDocument(true, url))
 			{
-				ThrowIfOikiriPremiumOnly(raceparser, raceid);
-
 				if (raceparser.GetElementById("All_Oikiri_Table") is IHtmlTableElement table)
 				{
 					for (var i = 1; i < table.Rows.Length; i++)
@@ -258,18 +256,14 @@ namespace Netkeiba
 						arr.Add(dic);
 					}
 				}
+				// 追切の無いﾚｰｽでも表は無いため、ﾌﾟﾚﾐｱﾑ誘導があるときだけ止める
+				else if (raceparser.GetElementsByClassName("Premium_Regist_Btn").Any())
+				{
+					throw new InvalidOperationException($"追切が取得できません。netkeibaにﾛｸﾞｲﾝできていないか、ﾌﾟﾚﾐｱﾑ会員ではない可能性があります。raceid:{raceid}");
+				}
 			}
 
 			return arr;
-		}
-
-		public static void ThrowIfOikiriPremiumOnly(IHtmlDocument raceparser, string raceid)
-		{
-			// 追切の無いﾚｰｽでも表は無いため、ﾌﾟﾚﾐｱﾑ誘導があるときだけ止める
-			if (raceparser.GetElementById("All_Oikiri_Table") == null && raceparser.GetElementsByClassName("Premium_Regist_Btn").Any())
-			{
-				throw new InvalidOperationException($"追切が取得できません。netkeibaにﾛｸﾞｲﾝできていないか、ﾌﾟﾚﾐｱﾑ会員ではない可能性があります。raceid:{raceid}");
-			}
 		}
 
 		public static async Task<List<Dictionary<string, string>>> GetRaceShutubas(string raceid)
