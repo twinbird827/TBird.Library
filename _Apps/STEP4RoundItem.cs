@@ -118,7 +118,7 @@ namespace Netkeiba
 					}).WhenAll();
 
 					// EV列のRank計算
-					arr.OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
+					arr.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
 
 					SetResult(header, arr);
 

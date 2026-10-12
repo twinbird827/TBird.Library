@@ -53,7 +53,8 @@ namespace Netkeiba.Models
 			FinishDiff = finishDiff;
 			Weight = weight;
 			WeightChange = weightChange;
-			Odds = odds;
+			// 単勝は 1.0 未満が存在しないため、0 以下は取得失敗・発売前の欠損として扱う
+			Odds = 0 < odds ? odds : float.NaN;
 		}
 
 		public RaceDetail(DbDataReader r, Race race, int offset = 10) : this(
