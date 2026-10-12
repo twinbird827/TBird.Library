@@ -290,7 +290,6 @@ public partial class EpisodeListViewModel(
         return ComputePosition(anchor.Id);
     }
 
-    // 指定話のフィルタ後ページ番号と当該ページ内インデックス。フィルタで除外されていれば (null, null)。
     private (int? page, int? indexInPage) ComputePosition(int episodeId)
     {
         var idxInFiltered = _filteredCache.FindIndex(e => e.Id == episodeId);
@@ -398,7 +397,6 @@ public partial class EpisodeListViewModel(
                 }
             }
 
-            // Stage 1A で scroll してない、または位置が変わった場合は再 scroll。
             // フィルタで除外された話は先頭へ戻さず、見ていた位置を保つ。
             if (freshTargetIdx is int targetIdx
                 && (!sameStartingPage || pageChanged || freshTargetIdx != staleTargetIdx))
