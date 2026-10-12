@@ -85,7 +85,7 @@ public class EpisodeRepository(DatabaseService dbService)
     /// <summary>
     /// 複数小説のディープリンク先エピソード Id をまとめて解決する。各小説につき
     /// 「最初の未読話(最小 episode_no)」、未読が無ければ「最後に読んだ話(最大 episode_no)」。
-    /// 通知ループでの作品ごと逐次クエリ(最大 2×N 往復)を、チャンクごとに 1 クエリへ集約する。戻り値は novelId -> episodeId。
+    /// 戻り値は novelId -> episodeId。
     /// 該当話が無い小説はキーを持たない(呼び出し側で 0 フォールバック)。
     /// </summary>
     public async Task<Dictionary<int, int>> GetDeepLinkTargetEpisodeIdsAsync(IReadOnlyList<int> novelIds)

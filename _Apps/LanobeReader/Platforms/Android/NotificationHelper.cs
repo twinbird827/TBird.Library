@@ -43,14 +43,13 @@ public static class NotificationHelper
 	/// <summary>一括投稿する新着通知 1 通分のデータ。</summary>
 	public readonly record struct UpdateNotificationItem(
 		int NotificationId, string Title, string Body,
-		int NovelId, int EpisodeId, int SiteType, string SiteNovelId, int BadgeNumber);
+		int NovelId, int SiteType, string SiteNovelId, int BadgeNumber);
 
 	private static Notification BuildUpdateNotification(Context context, UpdateNotificationItem item)
 	{
 		var intent = new Intent(context, typeof(MainActivity));
 		intent.SetFlags(ActivityFlags.ClearTop | ActivityFlags.SingleTop);
 		intent.PutExtra("novelId", item.NovelId);
-		intent.PutExtra("episodeId", item.EpisodeId);
 		intent.PutExtra("siteType", item.SiteType);
 		intent.PutExtra("siteNovelId", item.SiteNovelId);
 

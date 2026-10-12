@@ -143,10 +143,9 @@ public class MainActivity : MauiAppCompatActivity
 
     private void HandleIntent(Intent? intent)
     {
-        if (intent?.HasExtra("novelId") == true && intent.HasExtra("episodeId"))
+        if (intent?.HasExtra("novelId") == true)
         {
             var novelId = intent.GetIntExtra("novelId", -1);
-            var episodeId = intent.GetIntExtra("episodeId", -1);
             var siteType = intent.GetIntExtra("siteType", 1);
             var siteNovelId = intent.GetStringExtra("siteNovelId") ?? "";
 
@@ -156,11 +155,29 @@ public class MainActivity : MauiAppCompatActivity
                 App.RestoreReaderEpisodeId = 0;
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
+                    // 遷移先は投稿後に読み進められて古くなるため、タップ時に解決する。
+                    var episodeId = 0;
+                    try
+                    {
+                        var episodeRepo = (await PlatformServiceReadiness.WaitForServicesAsync())?.GetService<EpisodeRepository>();
+                        if (episodeRepo is not null)
+                        {
+                            var targets = await episodeRepo.GetDeepLinkTargetEpisodeIdsAsync([novelId]);
+                            episodeId = targets.GetValueOrDefault(novelId);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MessageService.Warn($"Notification deep-link target resolution failed: {ex.Message}");
+                    }
+
                     // 未読話が解決できた場合はリーダーへ直行。解決できない(episodeId<=0)場合でも
                     // 無反応にせず、その小説の話一覧へ遷移してユーザの意図(=その小説を開く)を満たす。
                     var route = episodeId > 0
                         ? ReaderRoute.Build(novelId, episodeId, siteType, siteNovelId)
                         : $"episodes?novelId={novelId}";
+                    // リーダーの上に積むと戻るで旧い話へ戻るため置き換える。
+                    if (Shell.Current?.CurrentPage is ReaderPage) route = "../" + route;
                     try
                     {
                         // コールドスタートの通知タップでは Shell 構築前にここへ到達しうる。async void 内の
