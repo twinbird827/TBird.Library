@@ -281,7 +281,7 @@ LanobeReader/
 **通知仕様:**
 - タイトル: アプリ名（ラノベリーダ）
 - 本文: `{novel.title}: {n}話更新`
-- タップ時遷移: SCR-004（該当タイトルの最新未読話）。遷移先の話は通知の投稿時でなくタップした時点で解決し、解決できなければ SCR-003 を開く。SCR-004 表示中のタップは、表示中の閲覧画面を新しい閲覧画面で置き換える
+- タップ時遷移: SCR-004（該当タイトルの最新未読話）。遷移先の話は通知の投稿時でなくタップした時点で解決し、解決できなければ SCR-003 を開く。SCR-004 表示中のタップは、表示中の閲覧画面を解決結果の画面（SCR-004、解決できなければ SCR-003）で置き換える
 - 通知チャンネルID: `update_notification`
 - 通知確認済み（タップ）→ has_unconfirmed_update = 0 にUPDATE
 
@@ -589,6 +589,7 @@ graph TD
     E -->|目次ボタン（戻る / 置き換え）| B
     C -->|登録完了| A
     X[通知タップ] -->|ディープリンク| E
+    X -->|遷移先の話を解決できないとき（閲覧画面表示中なら置き換え）| B
 ```
 
 ### 4.3 画面詳細
@@ -729,7 +730,7 @@ graph TD
 
 **初期表示位置（anchor 選定）:**
 
-SCR-003 は SCR-004 の目次ボタン（置き換え）か、話が 0 件のタイトルカードタップでだけ新規に開かれる。`InitializeAsync` で全話を `episode_no` 昇順で読み込んだ後、anchor を次のとおり決める:
+SCR-003 は SCR-004 の目次ボタン（置き換え）か、話が 0 件のタイトルカードタップか、遷移先の話を解決できない通知タップ（SCR-004 表示中なら置き換え）でだけ新規に開かれる。`InitializeAsync` で全話を `episode_no` 昇順で読み込んだ後、anchor を次のとおり決める:
 
 - `ReaderViewModel.LastShownEpisode`（Reader で最後に表示した話）の作品 Id が目次の作品と一致 → anchor = その話。その話を含むページを `CurrentPage` として `LoadPage` 実行し、同じ UI tick で `PageContentReset(ToCenter=true)` を発火して View 側の `ScrollTo(idx, ScrollToPosition.Center, animate=false)` で中央に配置する（ユーザーには「先頭→アンカー」の中間スクロールが見えない）。
 - 作品 Id が一致しない、またはその話がフィルタ（`ShowUnreadOnly` / `ShowFavoritesOnly`）で除外されている → anchor 無し。1 ページ目で `PageContentReset(ScrollIndex=0, ToCenter=false)` を発火し、`ScrollToPosition.Start` で先頭リセットする。
