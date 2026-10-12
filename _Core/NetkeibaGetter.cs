@@ -100,7 +100,7 @@ namespace Netkeiba
 					dic["ﾚｰｽID"] = raceid;
 					dic["ﾚｰｽ名"] = title;
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
-					dic["開催日数"] = AppUtil.ToTotalDays(date).Str();
+					dic["開催日数"] = date.ToTotalDays().Str();
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
@@ -326,7 +326,7 @@ namespace Netkeiba
 					dic["ﾚｰｽ名"] = title;
 					dic["優勝賞金"] = prise.Str();
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
-					dic["開催日数"] = AppUtil.ToTotalDays(date).Str();
+					dic["開催日数"] = date.ToTotalDays().Str();
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);

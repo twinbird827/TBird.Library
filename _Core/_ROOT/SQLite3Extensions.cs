@@ -468,8 +468,8 @@ AND    CAST(h.障害 AS INTEGER) = 0
 ";
 			var parameters = new[]
 			{
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(start)),
-				SQLiteUtil.CreateParameter(DbType.Int32, AppUtil.ToTotalDays(end)),
+				SQLiteUtil.CreateParameter(DbType.Int32, start.ToTotalDays()),
+				SQLiteUtil.CreateParameter(DbType.Int32, end.ToTotalDays()),
 			};
 
 			var dbarr = await conn.GetRows(sql, parameters);
