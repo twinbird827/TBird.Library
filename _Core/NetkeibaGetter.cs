@@ -537,22 +537,20 @@ namespace Netkeiba
 				{
 					IElement[] GetRowSpan(IHtmlTableElement table, int i) => table.GetElementsByTagName("td").Where(x => x.GetAttribute("rowspan").GetInt32() == i).ToArray();
 
-					if (ped.GetElementsByClassName("blood_table detail").FirstOrDefault() is AngleSharp.Html.Dom.IHtmlTableElement table)
-					{
-						Func<IElement[], int, string> func = (tags, i) => tags.ElementAtOrDefault(i)?.GetHrefId() ?? string.Empty;
+					var table = (IHtmlTableElement)ped.GetElementsByClassName("blood_table detail").First();
+					Func<IElement[], int, string> func = (tags, i) => tags.ElementAtOrDefault(i)?.GetHrefId() ?? string.Empty;
 
-						var rowspan16 = GetRowSpan(table, 16);
-						var f = func(rowspan16, 0);
-						var m = func(rowspan16, 1);
-						var rowspan08 = GetRowSpan(table, 8);
-						var ff = func(rowspan08, 0);
-						var fm = func(rowspan08, 1);
-						var mf = func(rowspan08, 2);
-						var mm = func(rowspan08, 3);
+					var rowspan16 = GetRowSpan(table, 16);
+					var f = func(rowspan16, 0);
+					var m = func(rowspan16, 1);
+					var rowspan08 = GetRowSpan(table, 8);
+					var ff = func(rowspan08, 0);
+					var fm = func(rowspan08, 1);
+					var mf = func(rowspan08, 2);
+					var mm = func(rowspan08, 3);
 
-						dic["父ID"] = f;
-						dic["母父ID"] = mf;
-					}
+					dic["父ID"] = f;
+					dic["母父ID"] = mf;
 				}
 			}
 			await SetKetto();
