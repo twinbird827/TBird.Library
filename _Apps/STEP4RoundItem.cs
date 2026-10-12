@@ -1,18 +1,12 @@
 ﻿using Codeplex.Data;
-using Microsoft.ML;
 using Netkeiba.Models;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
-using TBird.DB;
-using TBird.DB.SQLite;
 using TBird.Wpf;
 
 namespace Netkeiba
@@ -35,115 +29,17 @@ namespace Netkeiba
 		{
 			if (!IsChecked) return;
 
-			using (var conn = AppUtil.CreateSQLiteControl())
-			{
-				var getShutsuba = false;
-				var raceid = Value;
+			var predictions = await RacePrediction.PredictShutsubaAsync(Value);
+			if (!predictions.Any()) return;
 
-				// 該当ﾚｰｽの出馬表を取得する
-				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
-				await conn.BeginTransaction();
-				foreach (var racearr in await GetSTEP4Racearrs(conn, raceid).ToArrayAsync())
-				{
-					await conn.InsertShutsubaAsync(racearr);
-					await conn.InsertOikiriAsync(raceid);
-					getShutsuba = true;
-					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データが取得できました。");
-				}
-				conn.Commit();
+			var race = predictions[0].Detail.Race;
+			var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
 
-				var ml = new MLContext(seed: 1);
+			var arr = predictions.Select(x => new STEP4ResultItem(x)).ToArray();
 
-				RacePrediction.Initialize(ml);
+			arr.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
 
-				// 出馬表からﾚｰｽﾃﾞｰﾀを作成する
-				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データをデータベースから取得します。");
-				foreach (var race in await conn.GetShutsubaRaceAsync(raceid).ToArrayAsync())
-				{
-					// 今ﾚｰｽの情報を取得する
-					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
-					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
-
-					MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データがデータベースから取得できました。");
-
-					// 過去ﾃﾞｰﾀ設定
-					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
-
-					MessageService.Debug($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
-
-					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
-					race.AverageRating = details.Average(x => x.AverageRating);
-
-					// 特徴量を生成
-					var features = details.Select(x =>
-					{
-						var value = x.ExtractFeatures(details);
-
-						// ラベル生成（難易度調整済み着順スコア）
-						value.Label = 0;
-
-						return value;
-					});
-
-					var inraces = features.CalculateInRaces();
-
-					MessageService.Debug($"ﾚｰｽID：{raceid} の特徴量を作成しました。");
-
-					// ｽｺｱ計算
-					var predictions = RacePrediction.CalculatePrediction(ml, details, inraces);
-
-					MessageService.Debug($"ﾚｰｽID：{raceid} のスコアを計算しました。");
-
-					if (race.RaceDate < DateTime.Now)
-					{
-						var tya = await NetkeibaGetter.GetTyakujun(race.RaceId);
-
-						predictions.ForEach(p =>
-						{
-							p.Result = tya
-								.Where(x => x["馬番"].Int32() == p.Detail.Umaban)
-								.Select(x => x["着順"].Int32())
-								.FirstOrDefault();
-						});
-					}
-
-					var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
-
-					// 明細の設定
-					var arr = await predictions.Select(async x =>
-					{
-						var name = await conn.ExecuteScalarAsync($"SELECT 馬名 FROM t_uma WHERE 馬ID = ?", SQLiteUtil.CreateParameter(DbType.String, x.Detail.Horse));
-
-						return new STEP4ResultItem(x, name.Str());
-					}).WhenAll();
-
-					// EV列のRank計算
-					arr.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
-
-					SetResult(header, arr);
-
-					MessageService.Debug($"ﾚｰｽID：{raceid} の処理が完了しました。");
-				}
-
-				if (getShutsuba)
-				{
-					await conn.BeginTransaction();
-					await conn.DeleteOrigAsync(raceid);
-					conn.Commit();
-				}
-			}
-		}
-
-		private async IAsyncEnumerable<List<Dictionary<string, string>>> GetSTEP4Racearrs(SQLiteControl conn, string raceid)
-		{
-			if (!await conn.ExistsOrigAsync(raceid))
-			{
-				var arr = await NetkeibaGetter.GetRaceShutubas(raceid);
-
-				if (arr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) yield break;
-
-				yield return arr;
-			}
+			SetResult(header, arr);
 		}
 
 	}

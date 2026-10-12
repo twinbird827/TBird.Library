@@ -1,11 +1,9 @@
 using Browser.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.ML;
 using Netkeiba;
 using Netkeiba.Models;
 using TBird.Core;
-using TBird.DB.SQLite;
 
 namespace Browser.Pages
 {
@@ -39,143 +37,65 @@ namespace Browser.Pages
 			}
 		}
 
+		// PreviousDataSets と RacePrediction の static 状態・同じ raceid の出馬表挿入をリクエスト間で交差させない
+		private static readonly SemaphoreSlim _lock = new(1, 1);
+
+		private static DateTime _initializedDate;
+
 		private async Task ExecuteSTEP4(string raceid)
 		{
-			using (var conn = AppUtil.CreateSQLiteControl())
+			RacePrediction[] predictions;
+
+			using (await _lock.LockAsync())
 			{
-				var getShutsuba = false;
-
-				var ini = InitializePreviousDataSets(conn);
-
-				// 該当レースの出馬表を取得する
-				MessageService.Debug($"レースID：{raceid} の出馬表データを取得します。");
-				await conn.BeginTransaction();
-				await foreach (var racearr in GetSTEP4Racearrs(conn, raceid))
+				// 過去データの初期化は約 20 秒かかるため、基準日が変わったときだけ作り直す
+				var date = DateTime.Now.AddDays(-4);
+				if (_initializedDate != date.Date)
 				{
-					await conn.InsertShutsubaAsync(racearr);
-					await conn.InsertOikiriAsync(raceid);
-					getShutsuba = true;
-					MessageService.Debug($"レースID：{raceid} の出馬表データが取得できました。");
-				}
-				conn.Commit();
-
-				await ini;
-
-				var ml = new MLContext(seed: 1);
-
-				RacePrediction.Initialize(ml);
-
-				// 出馬表からレースデータを作成する
-				MessageService.Debug($"レースID：{raceid} の出馬表データをデータベースから取得します。");
-				await foreach (var race in conn.GetShutsubaRaceAsync(raceid))
-				{
-					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
-
-					// 今レースの情報を取得する
-					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
-
-					MessageService.Debug($"レースID：{raceid} の出馬表データがデータベースから取得できました。");
-
-					// 過去データ設定
-					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
-
-					MessageService.Debug($"レースID：{raceid} の関連情報を取得しました。");
-
-					// 今レースのレーティング情報をセットする
-					race.AverageRating = details.Average(x => x.AverageRating);
-
-					// 特徴量を生成
-					var features = details.Select(x =>
+					using (var conn = AppUtil.CreateSQLiteControl())
 					{
-						var value = x.ExtractFeatures(details);
-
-						// ラベル生成（難易度調整済み着順スコア）
-						value.Label = 0;
-
-						return value;
-					}).CalculateInRaces();
-
-					MessageService.Debug($"レースID：{raceid} の特徴量を作成しました。");
-
-					// スコア計算
-					var predictions = RacePrediction.CalculatePrediction(ml, details, features);
-
-					MessageService.Debug($"レースID：{raceid} のスコアを計算しました。");
-
-					if (race.RaceDate < DateTime.Now)
-					{
-						var tya = await NetkeibaGetter.GetTyakujun(race.RaceId);
-
-						predictions.ForEach(p =>
-						{
-							p.Result = tya
-								.Where(x => x["馬番"].Int32() == p.Detail.Umaban)
-								.Select(x => x["着順"].Int32())
-								.FirstOrDefault();
-						});
+						await PreviousDataSets.Initialize(conn, date);
 					}
-
-					RaceHeader = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
-
-					// 結果を設定
-					Results = await predictions.Select(async x =>
-					{
-						var name = await conn.ExecuteScalarAsync($"SELECT 馬名 FROM t_uma WHERE 馬ID = ?", TBird.DB.SQLite.SQLiteUtil.CreateParameter(System.Data.DbType.String, x.Detail.Horse));
-
-						var probs = new[] { x.Vars1.WinProb, x.Vars2.WinProb, x.TotalMedium.WinProb, x.TotalSmall.WinProb, x.Total.WinProb, x.Horse.WinProb };
-						Array.Sort(probs);
-						var medianProb = (probs[2] + probs[3]) / 2f;
-
-						return new RaceResultItem
-						{
-							Wakuban = x.Detail.Wakuban,
-							Umaban = x.Detail.Umaban,
-							Name = name.Str(),
-							Result = x.Result.Str(),
-							TotalWinProb = x.Total.WinProb,
-							TotalRank = x.Total.Rank,
-							HorseWinProb = x.Horse.WinProb,
-							HorseRank = x.Horse.Rank,
-							TotalMediumWinProb = x.TotalMedium.WinProb,
-							TotalMediumRank = x.TotalMedium.Rank,
-							TotalSmallWinProb = x.TotalSmall.WinProb,
-							TotalSmallRank = x.TotalSmall.Rank,
-							Vars2WinProb = x.Vars2.WinProb,
-							Vars2Rank = x.Vars2.Rank,
-							Vars1WinProb = x.Vars1.WinProb,
-							Vars1Rank = x.Vars1.Rank,
-							Odds = x.Detail.Odds,
-							EV = medianProb * x.Detail.Odds
-						};
-					}).WhenAll();
-
-					MessageService.Debug($"レースID：{raceid} の処理が完了しました。");
+					_initializedDate = date.Date;
 				}
 
-				if (getShutsuba)
-				{
-					await conn.BeginTransaction();
-					await conn.DeleteOrigAsync(raceid);
-					conn.Commit();
-				}
+				predictions = await RacePrediction.PredictShutsubaAsync(raceid);
 			}
-		}
 
-		private async Task InitializePreviousDataSets(SQLiteControl conn)
-		{
-			await PreviousDataSets.Initialize(conn, DateTime.Now.AddDays(-4));
-		}
+			if (!predictions.Any()) return;
 
-		private async IAsyncEnumerable<List<Dictionary<string, string>>> GetSTEP4Racearrs(SQLiteControl conn, string raceid)
-		{
-			if (!await conn.ExistsOrigAsync(raceid))
+			var race = predictions[0].Detail.Race;
+
+			RaceHeader = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
+
+			Results = predictions.Select(x =>
 			{
-				var arr = await NetkeibaGetter.GetRaceShutubas(raceid);
+				var probs = new[] { x.Vars1.WinProb, x.Vars2.WinProb, x.TotalMedium.WinProb, x.TotalSmall.WinProb, x.Total.WinProb, x.Horse.WinProb };
+				Array.Sort(probs);
+				var medianProb = (probs[2] + probs[3]) / 2f;
 
-				if (arr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) yield break;
-
-				yield return arr;
-			}
+				return new RaceResultItem
+				{
+					Wakuban = x.Detail.Wakuban,
+					Umaban = x.Detail.Umaban,
+					Name = x.Name,
+					Result = x.Result.Str(),
+					TotalWinProb = x.Total.WinProb,
+					TotalRank = x.Total.Rank,
+					HorseWinProb = x.Horse.WinProb,
+					HorseRank = x.Horse.Rank,
+					TotalMediumWinProb = x.TotalMedium.WinProb,
+					TotalMediumRank = x.TotalMedium.Rank,
+					TotalSmallWinProb = x.TotalSmall.WinProb,
+					TotalSmallRank = x.TotalSmall.Rank,
+					Vars2WinProb = x.Vars2.WinProb,
+					Vars2Rank = x.Vars2.Rank,
+					Vars1WinProb = x.Vars1.WinProb,
+					Vars1Rank = x.Vars1.Rank,
+					Odds = x.Detail.Odds,
+					EV = medianProb * x.Detail.Odds
+				};
+			}).ToArray();
 		}
 
 		public string RaceId { get; set; } = string.Empty;

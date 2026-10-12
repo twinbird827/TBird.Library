@@ -11,11 +11,11 @@ namespace Netkeiba
 {
 	public class STEP4ResultItem : BindableBase
 	{
-		public STEP4ResultItem(RacePrediction x, string name)
+		public STEP4ResultItem(RacePrediction x)
 		{
 			Wakuban = x.Detail.Wakuban;
 			Umaban = x.Detail.Umaban;
-			Name = name.Str();
+			Name = x.Name;
 			Result = x.Result.Str();
 			Total = x.Total;
 			Horse = x.Horse;
