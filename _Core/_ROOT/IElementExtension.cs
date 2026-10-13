@@ -14,7 +14,7 @@ namespace Netkeiba
 				: x.GetElementsByTagName("div").Any()
 				? x.GetElementsByTagName("div").First().InnerHtml
 				: x.InnerHtml;
-			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ");
+			return Regex.Replace(innerhtml.Replace("&nbsp;", " "), " +", " ").Trim();
 		}
 
 		public static string GetHrefAttribute(this AngleSharp.Dom.IElement x, string attribute)
