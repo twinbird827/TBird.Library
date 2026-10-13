@@ -654,10 +654,15 @@ namespace Netkeiba
 
 		public static async Task<IEnumerable<string>> GetCurrentRaceIds(DateTime date)
 		{
-			return await GetRaceIds(date).RunAsync(async arr =>
+			// 7日あれば起点が非開催日でも翌週末の開催日に届く
+			const int days = 7;
+
+			for (var i = 0; i < days; i++)
 			{
-				return arr.Any() ? arr : await GetCurrentRaceIds(date.AddDays(1));
-			});
+				var arr = await GetRaceIds(date.AddDays(i)).RunAsync(x => x.ToArray());
+				if (arr.Any()) return arr;
+			}
+			throw new InvalidOperationException($"ﾚｰｽIDが取得できません。ﾍﾟｰｼﾞ構造の変更、ﾒﾝﾃﾅﾝｽ中、またはﾚｰｽ一覧が未公開の可能性があります。kaisai_date:{date:yyyyMMdd}-{date.AddDays(days - 1):yyyyMMdd}");
 		}
 
 		public static async Task<IEnumerable<string>> GetRaceIds(DateTime date)

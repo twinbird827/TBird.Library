@@ -37,40 +37,48 @@ namespace Netkeiba
 			{
 				if (string.IsNullOrWhiteSpace(S4Dates.SelectedItem.Value)) return;
 
-				var basyos = new Dictionary<string, string>()
+				try
 				{
-					{ "01", "札幌" },
-					{ "02", "函館" },
-					{ "03", "福島" },
-					{ "04", "新潟" },
-					{ "05", "東京" },
-					{ "06", "中山" },
-					{ "07", "中京" },
-					{ "08", "京都" },
-					{ "09", "阪神" },
-					{ "10", "小倉" },
-				};
+					var basyos = new Dictionary<string, string>()
+					{
+						{ "01", "札幌" },
+						{ "02", "函館" },
+						{ "03", "福島" },
+						{ "04", "新潟" },
+						{ "05", "東京" },
+						{ "06", "中山" },
+						{ "07", "中京" },
+						{ "08", "京都" },
+						{ "09", "阪神" },
+						{ "10", "小倉" },
+					};
 
-				using var conn = AppUtil.CreateSQLiteControl();
-				var ini = PreviousDataSets.Initialize(conn, MainViewModel.GetS4SelectedDate().AddDays(-3));
+					// Initialize より先に取得する: 取得が例外だと conn が Initialize 実行中に破棄され、その失敗が観測されない
+					var arr = await NetkeibaGetter.GetCurrentRaceIds(MainViewModel.GetS4SelectedDate());
 
-				var arr = await NetkeibaGetter.GetCurrentRaceIds(MainViewModel.GetS4SelectedDate());
+					using var conn = AppUtil.CreateSQLiteControl();
+					var ini = PreviousDataSets.Initialize(conn, MainViewModel.GetS4SelectedDate().AddDays(-3));
 
-				S4RoundHeader.TryDispose();
-				S4RoundHeader = new UniformViewModel(arr.Select(x => x.Mid(4, 2)).Distinct().Select(x => new ComboboxItemModel(x, basyos[x])));
+					S4RoundHeader.TryDispose();
+					S4RoundHeader = new UniformViewModel(arr.Select(x => x.Mid(4, 2)).Distinct().Select(x => new ComboboxItemModel(x, basyos[x])));
 
-				string GetBasyoRound(string basyo, int i) => arr.FirstOrDefault(x => x.Mid(4, 2) == basyo && x.EndsWith(i.ToString(2))) ?? string.Empty;
+					string GetBasyoRound(string basyo, int i) => arr.FirstOrDefault(x => x.Mid(4, 2) == basyo && x.EndsWith(i.ToString(2))) ?? string.Empty;
 
-				S4RoundItemSources.Clear();
-				foreach (var i in Enumerable.Range(1, 12))
-				{
-					S4RoundItemSources.Add(new UniformViewModel<STEP4RoundItem>(S4RoundHeader.ColumnsSource
-						.Select(x => GetBasyoRound(x.Value, i))
-						.Select(x => new STEP4RoundItem(x))
-					));
+					S4RoundItemSources.Clear();
+					foreach (var i in Enumerable.Range(1, 12))
+					{
+						S4RoundItemSources.Add(new UniformViewModel<STEP4RoundItem>(S4RoundHeader.ColumnsSource
+							.Select(x => GetBasyoRound(x.Value, i))
+							.Select(x => new STEP4RoundItem(x))
+						));
+					}
+
+					await ini;
 				}
-
-				await ini;
+				catch (Exception ex)
+				{
+					MessageService.Exception(ex);
+				}
 			});
 
 			AppSetting.Instance.Save();
