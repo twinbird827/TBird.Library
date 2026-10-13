@@ -177,7 +177,7 @@ namespace Netkeiba.Models
 
 			// ﾚｰｽ平均を元に計算
 			Time2Avg = (Time - tcd.Time).MinMax(-4.9F, 4.9F);
-			LastThreeFurlongs2Avg = (LastThreeFurlongs - tcd.LastThreeFurlongs).MinMax(-4.9F, 4.9F);
+			LastThreeFurlongs2Avg = (LastThreeFurlongs - GetLastThreeFurlongs(tcd.LastThreeFurlongs)).MinMax(-4.9F, 4.9F);
 
 			// 直近の情報から計算
 			Last = horses.FirstOrDefault();
