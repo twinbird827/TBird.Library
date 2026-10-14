@@ -20,6 +20,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Maui", "..\TBird.Maui
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{B5B142DB-DA56-47E6-B6AC-8462562C060A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core.Tests", "NewReleaseChecker.Core.Tests\NewReleaseChecker.Core.Tests.csproj", "{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,10 @@ Global
 		{A698F13A-532A-6640-41F2-324A73D80ABE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A698F13A-532A-6640-41F2-324A73D80ABE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A698F13A-532A-6640-41F2-324A73D80ABE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
