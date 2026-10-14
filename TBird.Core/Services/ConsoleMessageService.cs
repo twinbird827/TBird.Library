@@ -5,7 +5,7 @@ namespace TBird.Core
 {
 	public class ConsoleMessageService : IMessageService
 	{
-		public ConsoleMessageService()
+		static ConsoleMessageService()
 		{
 			System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.TextWriterTraceListener(Console.Out));
 		}

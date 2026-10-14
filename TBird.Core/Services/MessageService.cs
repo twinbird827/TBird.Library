@@ -113,7 +113,7 @@ namespace TBird.Core
 		{
 			lock (_lock)
 			{
-				var dir = Directories.GetAbsolutePath("log");
+				var dir = PathSetting.GetPath("log");
 				var tmp = Path.Combine(dir, $"{DateTime.Now.ToString("yyyy-MM-dd")}.log");
 
 				// ﾃﾞｨﾚｸﾄﾘを作成

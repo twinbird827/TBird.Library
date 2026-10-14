@@ -13,7 +13,7 @@
     <UseMaui>true</UseMaui>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>10</LangVersion>
+    <LangVersion>14</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
