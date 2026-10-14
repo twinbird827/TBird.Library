@@ -1,7 +1,8 @@
 ﻿name,ja-JP,en-US
-H_ShowSaveFileDialog,保存するﾌｫﾙﾀﾞを選択してﾌｧｲﾙ名を入力してください。,
-L_Cancel,ｷｬﾝｾﾙ,
+H_ShowSaveFileDialog,保存するフォルダを選択してファイル名を入力してください。,
+L_Cancel,キャンセル,
+L_Copy,コピー,
 L_Ok,OK,
 TBird_Wpf_Controls_WpfMessageType_Confirm,確認,
-TBird_Wpf_Controls_WpfMessageType_Error,ｴﾗｰ,
+TBird_Wpf_Controls_WpfMessageType_Error,エラー,
 TBird_Wpf_Controls_WpfMessageType_Information,情報,

@@ -5,7 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+    <!-- 4.153.1 以降は RAW / DNG を decode せず、ZIPConverter は decode できないファイルを除外したうえで元ディレクトリを消すため 4.153.0 に留める -->
+    <PackageReference Include="SkiaSharp" Version="4.153.0" />
   </ItemGroup>
 
   <ItemGroup>

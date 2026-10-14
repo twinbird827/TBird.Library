@@ -6,10 +6,12 @@
 
 		Info,
 
+		Warn,
+
 		Confirm,
 
 		Error,
 
 		Exception,
 	}
-}
+}

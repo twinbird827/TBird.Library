@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TBird.Core;
-
-namespace TBird.Console
+﻿namespace TBird.Console
 {
 	public abstract class ConsoleAsyncExecuter : ConsoleExecuter
 	{

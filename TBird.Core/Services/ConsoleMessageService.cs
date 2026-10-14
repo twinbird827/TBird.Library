@@ -1,12 +1,11 @@
 ﻿using System;
-using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace TBird.Core
 {
 	public class ConsoleMessageService : IMessageService
 	{
-		public ConsoleMessageService()
+		static ConsoleMessageService()
 		{
 			System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.TextWriterTraceListener(Console.Out));
 		}
@@ -16,7 +15,9 @@ namespace TBird.Core
 				[CallerFilePath] string callerFilePath = "",
 				[CallerLineNumber] int callerLineNumber = 0)
 		{
-			Writeline(GetString(MessageType.Error, message, callerMemberName, callerFilePath, callerLineNumber));
+			var line = GetString(MessageType.Error, message, callerMemberName, callerFilePath, callerLineNumber);
+			Writeline(line);
+			MessageService.AppendLogfile(line);
 		}
 
 		public virtual void Info(string message,
@@ -25,6 +26,14 @@ namespace TBird.Core
 				[CallerLineNumber] int callerLineNumber = 0)
 		{
 			Writeline(GetString(MessageType.Info, message, callerMemberName, callerFilePath, callerLineNumber));
+		}
+
+		public virtual void Warn(string message,
+				[CallerMemberName] string callerMemberName = "",
+				[CallerFilePath] string callerFilePath = "",
+				[CallerLineNumber] int callerLineNumber = 0)
+		{
+			Writeline(GetString(MessageType.Warn, message, callerMemberName, callerFilePath, callerLineNumber));
 		}
 
 		public virtual void Debug(string message,
@@ -56,31 +65,23 @@ namespace TBird.Core
 				[CallerFilePath] string callerFilePath = "",
 				[CallerLineNumber] int callerLineNumber = 0)
 		{
-			Writeline(GetString(MessageType.Exception, exception.ToString(), callerMemberName, callerFilePath, callerLineNumber));
+			var line = GetString(MessageType.Exception, exception.ToString(), callerMemberName, callerFilePath, callerLineNumber);
+			Writeline(line);
+			MessageService.AppendLogfile(line);
 		}
 
-		private string GetString(MessageType type,
+		protected virtual string GetString(MessageType type,
 				string message,
 				string callerMemberName,
 				string callerFilePath,
 				int callerLineNumber)
 		{
-			var txt = $"[{type}][{DateTime.Now.ToString("yy/MM/dd HH:mm:ss.fff")}][{callerFilePath}][{callerMemberName}][{callerLineNumber}]\n{message}";
-
-			switch (type)
-			{
-				case MessageType.Error:
-				case MessageType.Exception:
-					MessageService.AppendLogfile(txt);
-					break;
-			}
-
-			return txt;
+			return $"[{type}][{DateTime.Now.ToString("yy/MM/dd HH:mm:ss.fff")}][{callerFilePath}][{callerMemberName}][{callerLineNumber}]\n{message}";
 		}
 
 		private void Writeline(string message)
 		{
-			System.Console.WriteLine(message);
+			System.Diagnostics.Trace.WriteLine(message);
 		}
 	}
-}
+}

@@ -47,6 +47,7 @@ namespace TBird.Wpf.Controls
 				window.Show();
 			});
 		}
+
 		public bool ShowDialog(Func<Window> func)
 		{
 			return WpfUtil.ExecuteOnUI(() =>

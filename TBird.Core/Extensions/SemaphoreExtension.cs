@@ -8,7 +8,7 @@ namespace TBird.Core
 	{
 		public static async Task<IDisposable> LockAsync(this SemaphoreSlim slim)
 		{
-			await slim.WaitAsync();
+			await slim.WaitAsync().ConfigureAwait(false);
 			return slim.Disposer(arg => arg.Release());
 		}
 	}

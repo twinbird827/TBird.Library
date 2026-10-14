@@ -82,8 +82,13 @@ namespace TBird.IO.Img
 					(int)scale.Multiply(before.Height)
 				);
 
+				// SkiaSharp 2.88.8 の SKFilterQuality.High に合わせる
+				var sampling = scale < 1
+					? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Nearest)
+					: new SKSamplingOptions(SKCubicResampler.Mitchell);
+
 				using (var afterwriter = File.OpenWrite(FileUtil.GetFullPathWithoutExtension(src) + ".jpg"))
-				using (var after = before.Resize(info, SKFilterQuality.High))
+				using (var after = before.Resize(info, sampling))
 				{
 					after.Encode(afterwriter, SKEncodedImageFormat.Jpeg, quality);
 				}

@@ -227,5 +227,15 @@ namespace TBird.Wpf
 				}
 			}
 		}
+
+		public static MenuItem CreateMenuItem(string header, RoutedEventHandler click)
+		{
+			var item = new MenuItem();
+
+			item.Header = header;
+			item.Click += click;
+
+			return item;
+		}
 	}
 }

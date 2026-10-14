@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace TBird.Core
 {
@@ -19,7 +18,7 @@ namespace TBird.Core
 				return true;
 			}
 
-			return await Task.Delay(delay, cts != null ? cts.Token : CancellationToken.None).TryCatch();
+			return await Task.Delay(delay, cts != null ? cts.Token : CancellationToken.None).TryCatch().ConfigureAwait(false);
 		}
 
 		/// <summary>
@@ -28,7 +27,7 @@ namespace TBird.Core
 		/// <param name="delay">待機時間(ﾐﾘ秒)</param>
 		public static async Task<bool> Delay(int delay)
 		{
-			return await Delay(delay, null);
+			return await Delay(delay, null).ConfigureAwait(false);
 		}
 
 		/// <summary>
@@ -41,7 +40,7 @@ namespace TBird.Core
 		{
 			while (!func() && !token.IsCancellationRequested)
 			{
-				await Task.Delay(16);
+				await Task.Delay(16).ConfigureAwait(false);
 			}
 			return !token.IsCancellationRequested;
 		}
@@ -117,7 +116,7 @@ namespace TBird.Core
 		{
 			while (!iar.IsCompleted)
 			{
-				await Task.Delay(16);
+				await Task.Delay(16).ConfigureAwait(false);
 			}
 			return iar.IsCompleted;
 		}

@@ -4,7 +4,7 @@ using TBird.Core;
 
 namespace TBird.Wpf
 {
-	public interface IRelayCommand : ICommand, IDisposable, ILocker
+	public interface IRelayCommand : ICommand, IDisposable
 	{
 		/// <summary>
 		/// <see cref="ICommand.CanExecuteChanged"/>ｲﾍﾞﾝﾄを発行します。

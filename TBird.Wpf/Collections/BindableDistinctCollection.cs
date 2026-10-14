@@ -11,26 +11,26 @@ namespace TBird.Wpf.Collections
 		private Func<T, T, int> _func;
 		private string[] _names;
 
-		internal BindableDistinctCollection(BindableCollection<T> collection, Func<T, T, int> func, params string[] names) : base(collection)
+		internal BindableDistinctCollection(BindableCollection<T> collection, Func<T, T, int> func, params string[] names) : base(collection, false)
 		{
 			_func = func;
 			_names = names;
 
 			collection.ForEach(Add);
 
-			AddCollectionChanged(collection, (sender, e) =>
+			AddBindableCollectionChanged((sender, e) =>
 			{
 				switch (e.Action)
 				{
 					case NotifyCollectionChangedAction.Add:
-						Add((T)e.NewItems[0]);
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Remove:
-						Remove((T)e.OldItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
 						break;
 					case NotifyCollectionChangedAction.Replace:
-						Remove((T)e.OldItems[0]);
-						Add((T)e.NewItems[0]);
+						e.OldItems.OfType<T>().ForEach(item => Remove(item));
+						e.NewItems.OfType<T>().ForEach(Add);
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						Clear();

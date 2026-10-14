@@ -84,35 +84,35 @@ namespace TBird.Core
 						var nextloop = true;
 						if (x is Action a)
 						{
-							await ExecuteAsync(a);
+							await ExecuteAsync(a).ConfigureAwait(false);
 						}
 						else if (x is Func<Task> b)
 						{
-							await ExecuteAsync(b);
+							await ExecuteAsync(b).ConfigureAwait(false);
 						}
 						else if (x is Action<T?> c)
 						{
-							await ExecuteAsync(() => c(parameter));
+							await ExecuteAsync(() => c(parameter)).ConfigureAwait(false);
 						}
 						else if (x is Func<T?, Task> d)
 						{
-							await ExecuteAsync(() => d(parameter));
+							await ExecuteAsync(() => d(parameter)).ConfigureAwait(false);
 						}
 						else if (x is Func<bool> e)
 						{
-							nextloop = await ExecuteAsync(e);
+							nextloop = await ExecuteAsync(e).ConfigureAwait(false);
 						}
 						else if (x is Func<Task<bool>> f)
 						{
-							nextloop = await ExecuteAsync(f);
+							nextloop = await ExecuteAsync(f).ConfigureAwait(false);
 						}
 						else if (x is Func<T?, bool> g)
 						{
-							nextloop = await ExecuteAsync(() => g(parameter));
+							nextloop = await ExecuteAsync(() => g(parameter)).ConfigureAwait(false);
 						}
 						else if (x is Func<T?, Task<bool>> h)
 						{
-							nextloop = await ExecuteAsync(() => h(parameter));
+							nextloop = await ExecuteAsync(() => h(parameter)).ConfigureAwait(false);
 						}
 						if (!nextloop) break;
 					}

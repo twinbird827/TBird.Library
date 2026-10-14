@@ -1,22 +1,22 @@
 ﻿using Codeplex.Data;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace TBird.Core
 {
 	public abstract class JsonBase : TBirdObject
 	{
 		// 読み込みﾌﾗｸﾞ
-		internal static bool _load = false;
+		internal static Dictionary<string, bool> _load = new();
 
 		// 読み込み処理を一意に実行するためのﾛｯｸｵﾌﾞｼﾞｪｸﾄ
 		internal static object _lock = new object();
 
 		// 設定ﾌｧｲﾙ
-		internal string? _basepath;
+		internal string _basepath = string.Empty;
 
 		// 暗号化ﾌﾗｸﾞ
 		internal bool _encrypt;
@@ -141,7 +141,7 @@ namespace TBird.Core
 		/// <returns></returns>
 		protected bool Load()
 		{
-			if (_load)
+			if (_load.TryGetValue(_basepath, out bool load) ? load : _load[_basepath] = false)
 			{
 				return false;
 			}
@@ -149,10 +149,10 @@ namespace TBird.Core
 			lock (_lock)
 			{
 				// 既存ﾌｧｲﾙ読込
-				_load = true;
+				_load[_basepath] = true;
 				src = Deserialize();
 				if (src != null) src._basepath = _basepath;
-				_load = false;
+				_load[_basepath] = false;
 
 				if (src != null)
 				{
@@ -199,7 +199,7 @@ namespace TBird.Core
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine(ex.ToString());
+				MessageService.Debug(ex.ToString());
 				throw;
 			}
 		}

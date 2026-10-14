@@ -28,7 +28,7 @@ namespace TBird.Core
 		public static async Task CreateZipFromDirectoryAsync(string src, string dst, CompressionLevel level = CompressionLevel.Optimal, bool includeBaseDirectory = true)
 		{
 			// 処理を待機
-			await TaskUtil.WaitAsync(() => CreateFromDirectory(src, dst, level, includeBaseDirectory));
+			await TaskUtil.WaitAsync(() => CreateFromDirectory(src, dst, level, includeBaseDirectory)).ConfigureAwait(false);
 		}
 
 	}
