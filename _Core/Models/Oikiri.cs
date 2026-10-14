@@ -115,11 +115,9 @@ namespace Netkeiba.Models
 				var weight = 0.0F;
 				var score = 0.0F;
 
-				// 調教強度スコア
 				weight += 0.2F;
 				score += Adaptation * 0.2F;
 
-				// 評価スコア
 				weight += 0.3F;
 				score += Rating * 0.3F;
 

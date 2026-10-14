@@ -36,5 +36,34 @@ namespace Netkeiba.Core.Tests
 
 			Assert.That(detail.LastThreeFurlongs2Avg, Is.EqualTo(0f).Within(1e-3f));
 		}
+
+		// 1000m の最適年齢は 4.1 歳で、そこから若くても高齢でも順位が下がる。
+		[Test]
+		public void AgeRankIsHighestNearBestAge()
+		{
+			var race = new Race(new Dictionary<string, object>
+			{
+				["開催日"] = "2026/10/13",
+				["ﾗﾝｸ1"] = "G1古",
+				["馬場"] = "芝",
+				["距離"] = "1000",
+			});
+			var inraces = new[] { "2024/04/01", "2022/09/01", "2019/04/01" }.Select((birth, i) =>
+			{
+				var x = new[]
+				{
+					"乗り役", "時間1", "時間2", "時間3", "時間4", "時間5",
+					"時間評価1", "時間評価2", "時間評価3", "時間評価4", "時間評価5", "脚色", "評価",
+				}.ToDictionary(k => k, k => (object)"");
+				x["馬ID"] = $"H{i}";
+				x["生年月日"] = birth;
+				return new RaceDetail(x, race);
+			}).ToArray();
+
+			var ranks = inraces.Select(x => x.ExtractFeatures(inraces).AgeRank).ToArray();
+
+			Assert.That(ranks[1], Is.GreaterThan(ranks[0]));
+			Assert.That(ranks[1], Is.GreaterThan(ranks[2]));
+		}
 	}
 }
