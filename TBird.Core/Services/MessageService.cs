@@ -44,6 +44,18 @@ namespace TBird.Core
 		}
 
 		/// <summary>
+		/// 警告をﾒｯｾｰｼﾞ処理します。
+		/// </summary>
+		/// <param name="message">ﾒｯｾｰｼﾞ</param>
+		public static void Warn(string message,
+				[CallerMemberName] string callerMemberName = "",
+				[CallerFilePath] string callerFilePath = "",
+				[CallerLineNumber] int callerLineNumber = 0)
+		{
+			_service.Warn(message, callerMemberName, callerFilePath, callerLineNumber);
+		}
+
+		/// <summary>
 		/// 確認をﾒｯｾｰｼﾞ処理します。
 		/// </summary>
 		/// <param name="message">ﾒｯｾｰｼﾞ</param>
@@ -101,7 +113,7 @@ namespace TBird.Core
 		{
 			lock (_lock)
 			{
-				var dir = Directories.GetAbsolutePath("log");
+				var dir = PathSetting.GetPath("log");
 				var tmp = Path.Combine(dir, $"{DateTime.Now.ToString("yyyy-MM-dd")}.log");
 
 				// ﾃﾞｨﾚｸﾄﾘを作成
@@ -120,4 +132,4 @@ namespace TBird.Core
 
 		private static object _lock = new object();
 	}
-}
+}
