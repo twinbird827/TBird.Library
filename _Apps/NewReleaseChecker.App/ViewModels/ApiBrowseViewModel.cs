@@ -134,7 +134,7 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
         Title = rb.Title,
         Author = rb.Author,
         Publisher = rb.Publisher,
-        ImageUrl = rb.ImageUrl,
+        ImageUrl = rb.DisplayImageUrl,
         ReleaseDisplay = DisplayFormat.Release(ReleaseDateParser.ToIso(rb.SalesDate)),
         SeriesName = string.Empty,
         Rank = rank,

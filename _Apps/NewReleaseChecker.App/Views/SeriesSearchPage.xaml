@@ -21,7 +21,7 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="8" ColumnDefinitions="56,*" ColumnSpacing="10">
-                        <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="56" HeightRequest="80" />
+                        <Image Grid.Column="0" Source="{Binding DisplayImageUrl}" Aspect="AspectFit" WidthRequest="56" HeightRequest="80" />
                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                             <Label Text="{Binding Title}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
                             <Label Text="{Binding Author}" FontSize="12" TextColor="{StaticResource Gray500}" />

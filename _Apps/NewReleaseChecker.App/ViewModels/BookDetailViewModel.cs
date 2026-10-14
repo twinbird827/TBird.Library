@@ -84,7 +84,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
         Title = b.Title;
         Author = b.Author ?? string.Empty;
         Publisher = b.Publisher ?? string.Empty;
-        ImageUrl = b.ImageUrl ?? string.Empty;
+        ImageUrl = CoverImageUrl.ForDisplay(b.ImageUrl, b.ReleaseDate, DateTime.Now) ?? string.Empty;
         ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate);
         CaptionText = b.Caption ?? string.Empty;
         IsbnText = string.IsNullOrEmpty(b.Isbn) ? string.Empty : $"ISBN: {b.Isbn}";
@@ -113,7 +113,7 @@ public partial class BookDetailViewModel : ObservableObject, IQueryAttributable
         Title = rb.Title;
         Author = rb.Author ?? string.Empty;
         Publisher = rb.Publisher ?? string.Empty;
-        ImageUrl = rb.ImageUrl ?? string.Empty;
+        ImageUrl = rb.DisplayImageUrl ?? string.Empty;
         ReleaseDisplay = DisplayFormat.Release(iso);
         CaptionText = rb.Caption ?? string.Empty;
         IsbnText = string.IsNullOrEmpty(rb.Isbn) ? string.Empty : $"ISBN: {rb.Isbn}";

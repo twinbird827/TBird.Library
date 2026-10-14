@@ -97,7 +97,7 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
                 Title = b.Title,
                 Author = b.Author,
                 Publisher = b.Publisher,
-                ImageUrl = b.ImageUrl,
+                ImageUrl = CoverImageUrl.ForDisplay(b.ImageUrl, b.ReleaseDate, now),
                 ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate),
                 SeriesName = seriesName,
                 IsPurchased = b.IsPurchased == 1,

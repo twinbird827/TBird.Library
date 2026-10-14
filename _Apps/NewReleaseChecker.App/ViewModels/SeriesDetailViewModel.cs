@@ -54,7 +54,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
             // 発売日が確定（非 NULL）した最新巻をヘッダに採用する。GetBySeriesAsync は NULL 日付を末尾へ
             // 並べるため、LastOrDefault() のままだと未確定日の巻をヘッダに拾ってしまう。
             var latest = books.LastOrDefault(b => b.ReleaseDate != null) ?? books.LastOrDefault();
-            HeaderImageUrl = latest?.ImageUrl ?? string.Empty;
+            HeaderImageUrl = CoverImageUrl.ForDisplay(latest?.ImageUrl, latest?.ReleaseDate, now) ?? string.Empty;
             AuthorDisplay = latest?.Author ?? DisplayFormat.Authors(_model.AuthorSet);
             Publisher = latest?.Publisher ?? string.Empty;
             VolumeCountText = $"既刊 {books.Count} 冊";
@@ -72,7 +72,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
                     Title = b.Title,
                     Author = b.Author,
                     Publisher = b.Publisher,
-                    ImageUrl = b.ImageUrl,
+                    ImageUrl = CoverImageUrl.ForDisplay(b.ImageUrl, b.ReleaseDate, now),
                     ReleaseDisplay = DisplayFormat.Release(b.ReleaseDate),
                     SeriesName = _model.SeriesKey,
                     IsPurchased = b.IsPurchased == 1,
