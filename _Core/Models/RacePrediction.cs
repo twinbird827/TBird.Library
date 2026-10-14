@@ -107,8 +107,6 @@ namespace Netkeiba.Models
 
 					MessageService.Debug($"ﾚｰｽID：{raceid} の関連情報を取得しました。");
 
-					race.AverageRating = details.Average(x => x.AverageRating);
-
 					var features = details.Select(x => x.ExtractFeatures(details));
 
 					var inraces = features.CalculateInRaces();

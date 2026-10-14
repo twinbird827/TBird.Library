@@ -11,13 +11,11 @@ namespace Netkeiba.Models
 {
 	public class Oikiri
 	{
-		private Oikiri(string course, string track, string rider,
+		private Oikiri(string rider,
 			float time1, float time2, float time3, float time4, float time5,
 			string timeRating1, string timeRating2, string timeRating3, string timeRating4, string timeRating5,
-			string adaptation, string comment, string rating)
+			string adaptation, string rating)
 		{
-			Course = course;
-			Track = track;
 			Rider = rider.Run(x => x == "助手" ? 0F : 1F);
 			Time1 = time1;
 			Time2 = time2;
@@ -48,7 +46,6 @@ namespace Netkeiba.Models
 				_ => 0.00F
 			};
 
-			Comment = comment;
 			Rating = rating switch
 			{
 				"A" => 1.00F,
@@ -59,9 +56,7 @@ namespace Netkeiba.Models
 			};
 		}
 
-		public Oikiri(DbDataReader r, int hTrackIndex = 4, int offset = 31) : this(
-			r.GetValue(offset + 0).Str(),       // コース
-			r.GetValue(hTrackIndex).Str(),       // 馬場 (h.馬場互換)
+		public Oikiri(DbDataReader r, int offset) : this(
 			r.GetValue(offset + 2).Str(),        // 乗り役
 			r.GetValue(offset + 3).Single(),     // 時間1
 			r.GetValue(offset + 4).Single(),     // 時間2
@@ -74,14 +69,11 @@ namespace Netkeiba.Models
 			r.GetValue(offset + 11).Str(),       // 時間評価4
 			r.GetValue(offset + 12).Str(),       // 時間評価5
 			r.GetValue(offset + 13).Str(),       // 脚色
-			r.GetValue(offset + 14).Str(),       // 一言
 			r.GetValue(offset + 15).Str()        // 評価
 		)
 		{ }
 
 		public Oikiri(Dictionary<string, object> x) : this(
-			x["コース"].Str(),
-			x["馬場"].Str(),
 			x["乗り役"].Str(),
 			x["時間1"].Single(),
 			x["時間2"].Single(),
@@ -94,13 +86,10 @@ namespace Netkeiba.Models
 			x["時間評価4"].Str(),
 			x["時間評価5"].Str(),
 			x["脚色"].Str(),
-			x["一言"].Str(),
 			x["評価"].Str()
 		)
 		{ }
 
-		public string Course { get; set; }
-		public string Track { get; set; }
 		public float Rider { get; set; }
 		public float Time1 { get; set; }
 		public float Time2 { get; set; }
@@ -116,7 +105,6 @@ namespace Netkeiba.Models
 		public float TimeRating => (TimeRating5 + TimeRating4 + TimeRating3 + TimeRating2 + TimeRating1) / (1 + new[] { Time4, Time3, Time2, Time1 }.Count(x => x > 0F));
 
 		public float Adaptation { get; set; }
-		public string Comment { get; set; }
 		public float Rating { get; set; }
 
 		/// <summary>総合調教質スコア（複合指標）</summary>
@@ -127,11 +115,9 @@ namespace Netkeiba.Models
 				var weight = 0.0F;
 				var score = 0.0F;
 
-				// 調教強度スコア(一杯=5, Ｇ強=4, 強め=3, 馬也=2, 攻手=1, 欠損=0)
 				weight += 0.2F;
 				score += Adaptation * 0.2F;
 
-				// 評価スコア(A=4, B=3, C=2, D=1, 欠損=2)
 				weight += 0.3F;
 				score += Rating * 0.3F;
 
@@ -145,7 +131,7 @@ namespace Netkeiba.Models
 
 				// 時計
 				weight += 0.4F;
-				score += 5F / Math.Max(Time5 - 5F, 5F) * 0.4F;
+				score += 5F / Math.Max(AdjustedTime5 - 5F, 5F) * 0.4F;
 
 				// 重みで正規化して0-1スケールに
 				return score / weight;

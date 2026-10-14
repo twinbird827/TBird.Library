@@ -13,14 +13,5 @@ namespace Netkeiba
 			"ダート" => TrackType.Dirt,
 			_ => TrackType.Unknown
 		};
-
-		public static TrackConditionType ToTrackConditionType(this string condition) => condition switch
-		{
-			"良" => TrackConditionType.Good,
-			"稍重" => TrackConditionType.SlightlyHeavy,
-			"重" => TrackConditionType.Heavy,
-			"不良" => TrackConditionType.Poor,
-			_ => TrackConditionType.Unknown
-		};
 	}
 }

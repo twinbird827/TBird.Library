@@ -278,9 +278,6 @@ namespace Netkeiba.Models
 					details.ForEach(detail => detail.SetHistoricalData(GetHorses(detail), details, tcd));
 					swSetHist.Stop();
 
-					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
-					race.AverageRating = details.Average(x => x.AverageRating);
-
 					// 今ﾚｰｽの情報をﾒﾓﾘに格納
 					swAddHist.Start();
 					details.ForEach(AddHistory);

@@ -35,6 +35,21 @@ namespace Netkeiba.Core.Tests
 			Assert.That(results.Select(x => x.AvgTime2Top3ZScore), Is.EqualTo(new[] { z, 0f, -z }).Within(1e-4f));
 		}
 
+		[Test]
+		public void PaceIgnoresHorsesWithoutTuka()
+		{
+			var results = new[]
+			{
+				new OptimizedHorseFeatures { Tuka = 0.2f },
+				new OptimizedHorseFeatures { Tuka = 0.6f },
+				new OptimizedHorseFeatures { Tuka = float.NaN },
+			}.CalculateInRaces();
+
+			// pace = (0.2 + 0.6) / 2 = 0.4 → 1 - |0.4 - Tuka|。
+			Assert.That(results.Take(2).Select(x => x.PaceAdvantage), Is.EqualTo(new[] { 0.8f, 0.8f }).Within(1e-4f));
+			Assert.That(results[2].PaceAdvantage, Is.NaN);
+		}
+
 		private static OptimizedHorseFeatures[] Calculate() => new[]
 		{
 			new OptimizedHorseFeatures { RaceCount = 10, DistanceDiff = -100, AvgTime2Top3 = 0.5f },
