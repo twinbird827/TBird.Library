@@ -1,12 +1,26 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.10.12224.181 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core", "NewReleaseChecker.Core\NewReleaseChecker.Core.csproj", "{A1111111-1111-1111-1111-111111111111}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Data", "NewReleaseChecker.Data\NewReleaseChecker.Data.csproj", "{A2222222-2222-2222-2222-222222222222}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.App", "NewReleaseChecker.App\NewReleaseChecker.App.csproj", "{A3333333-3333-3333-3333-333333333333}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Core", "..\TBird.Core\TBird.Core.csproj", "{FB712D58-2833-70F0-C61B-DE153D6D551D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Maui.Web", "..\TBird.Maui.Web\TBird.Maui.Web.csproj", "{37047E9A-11B0-2A87-B7B0-27829D75815D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Maui.DB", "..\TBird.Maui.DB\TBird.Maui.DB.csproj", "{B01FBF83-17A4-DAE8-56FE-EE4C34719E86}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Maui.Background", "..\TBird.Maui.Background\TBird.Maui.Background.csproj", "{075E7B9E-09B3-DC3D-2BB8-D344BEC23CE5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Maui", "..\TBird.Maui\TBird.Maui.csproj", "{A698F13A-532A-6640-41F2-324A73D80ABE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{B5B142DB-DA56-47E6-B6AC-8462562C060A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core.Tests", "NewReleaseChecker.Core.Tests\NewReleaseChecker.Core.Tests.csproj", "{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,10 +38,42 @@ Global
 		{A2222222-2222-2222-2222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A3333333-3333-3333-3333-333333333333}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A3333333-3333-3333-3333-333333333333}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3333333-3333-3333-3333-333333333333}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
 		{A3333333-3333-3333-3333-333333333333}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A3333333-3333-3333-3333-333333333333}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB712D58-2833-70F0-C61B-DE153D6D551D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB712D58-2833-70F0-C61B-DE153D6D551D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB712D58-2833-70F0-C61B-DE153D6D551D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB712D58-2833-70F0-C61B-DE153D6D551D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37047E9A-11B0-2A87-B7B0-27829D75815D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37047E9A-11B0-2A87-B7B0-27829D75815D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37047E9A-11B0-2A87-B7B0-27829D75815D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37047E9A-11B0-2A87-B7B0-27829D75815D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B01FBF83-17A4-DAE8-56FE-EE4C34719E86}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B01FBF83-17A4-DAE8-56FE-EE4C34719E86}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B01FBF83-17A4-DAE8-56FE-EE4C34719E86}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B01FBF83-17A4-DAE8-56FE-EE4C34719E86}.Release|Any CPU.Build.0 = Release|Any CPU
+		{075E7B9E-09B3-DC3D-2BB8-D344BEC23CE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{075E7B9E-09B3-DC3D-2BB8-D344BEC23CE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{075E7B9E-09B3-DC3D-2BB8-D344BEC23CE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{075E7B9E-09B3-DC3D-2BB8-D344BEC23CE5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A698F13A-532A-6640-41F2-324A73D80ABE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A698F13A-532A-6640-41F2-324A73D80ABE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A698F13A-532A-6640-41F2-324A73D80ABE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A698F13A-532A-6640-41F2-324A73D80ABE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FB712D58-2833-70F0-C61B-DE153D6D551D} = {B5B142DB-DA56-47E6-B6AC-8462562C060A}
+		{37047E9A-11B0-2A87-B7B0-27829D75815D} = {B5B142DB-DA56-47E6-B6AC-8462562C060A}
+		{B01FBF83-17A4-DAE8-56FE-EE4C34719E86} = {B5B142DB-DA56-47E6-B6AC-8462562C060A}
+		{075E7B9E-09B3-DC3D-2BB8-D344BEC23CE5} = {B5B142DB-DA56-47E6-B6AC-8462562C060A}
+		{A698F13A-532A-6640-41F2-324A73D80ABE} = {B5B142DB-DA56-47E6-B6AC-8462562C060A}
 	EndGlobalSection
 EndGlobal

@@ -1,3 +1,5 @@
+using NewReleaseChecker.Core.Services;
+
 namespace NewReleaseChecker.Core.Models;
 
 /// <summary>
@@ -12,6 +14,7 @@ public sealed class RakutenBook
     public string? Publisher { get; init; }
     public string? SalesDate { get; init; }
     public string? ImageUrl { get; init; }
+    public string? DisplayImageUrl => CoverImageUrl.ForDisplay(ImageUrl, ReleaseDateParser.ToIso(SalesDate), DateTime.Now);
     public string? ItemUrl { get; init; }
     public string? AffiliateUrl { get; init; }
     public string? Caption { get; init; }
