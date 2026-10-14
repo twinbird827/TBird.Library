@@ -72,9 +72,6 @@ namespace Netkeiba
 					// 過去ﾃﾞｰﾀ設定
 					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
 
-					// 今ﾚｰｽのﾚｰﾃｨﾝｸﾞ情報をｾｯﾄする
-					race.AverageRating = details.Average(x => x.AverageRating);
-
 					if (!already.Contains(race.RaceId))
 					{
 						// 特徴量を生成

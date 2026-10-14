@@ -60,7 +60,7 @@ namespace Netkeiba
 
 				// 1文字目(ダ or 芝 or 障)
 				var left = spans[0].Left(1);
-				// 2文字目(左 or 右) TODO 障害ﾚｰｽは1文字目が"障"になってる。
+				// 2文字目(左 or 右)。障害ﾚｰｽは"障"
 				var mawari = left == "障" ? left : spans[0].Mid(1, 1);
 				// 距離
 				var kyori = Regex.Match(spans[0], @"\d{3,}").Value;
@@ -82,8 +82,6 @@ namespace Netkeiba
 				var basyo = Regex.Match(detail, @"\d+回(?<basyo>.+)\d+日目").Groups["basyo"].Value;
 				// ｸﾗｽ
 				var clas = details[2];
-				// その他
-				var sonota = details.Skip(3).GetString();
 
 				// *****
 				// ﾚｰｽ名を取得
@@ -103,7 +101,6 @@ namespace Netkeiba
 					dic["開催日数"] = date.ToTotalDays().Str();
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
-					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = mawari;
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;
@@ -151,12 +148,8 @@ namespace Netkeiba
 					dic["人気"] = row.Cells[17].GetInnerHtml();
 					// 体重
 					dic["体重"] = row.Cells[18].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
-					// 増減 TODO 軽量不能時はｾﾞﾛ
+					// 増減
 					dic["増減"] = row.Cells[18].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
-					//// 調教ﾀｲﾑ(有料)
-					//dic["調教ﾀｲﾑ"] = row.Cells[19].GetInnerHtml();
-					//// 厩舎ｺﾒﾝﾄ(有料)
-					//dic["厩舎ｺﾒﾝﾄ"] = row.Cells[20].GetInnerHtml();
 					// 備考(有料)
 					dic["備考"] = row.Cells[21].GetInnerHtml().Replace("\n", "");
 					// 調教場所
@@ -288,7 +281,7 @@ namespace Netkeiba
 
 				// 1文字目(ダ or 芝 or 障)
 				var left = babakyori.Left(1);
-				// 2文字目(左 or 右) TODO 障害ﾚｰｽは1文字目が"障"になってるので仮に右回りとする
+				// 2文字目(左 or 右)。障害ﾚｰｽは"障"
 				var mawari = left == "障" ? "障" : Regex.Match(racedata01.InnerHtml, @"\((?<x>.+)\)").Groups["x"].Value.Split("&nbsp;")[0].Trim();
 				// 距離
 				var kyori = Regex.Match(babakyori, @"\d+").Value;
@@ -334,7 +327,6 @@ namespace Netkeiba
 					dic["開催日数"] = date.ToTotalDays().Str();
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
-					//dic["ﾗﾝｸ2"] = AppUtil.Getﾗﾝｸ2(dic["ﾗﾝｸ1"]);
 					dic["回り"] = title.Contains("障害") ? "障" : mawari;
 					dic["距離"] = kyori;
 					dic["天候"] = tenki;

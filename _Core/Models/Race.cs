@@ -19,7 +19,6 @@ namespace Netkeiba.Models
 			Track = track;
 			TrackType = Track.ToTrackType();
 			TrackCondition = trackCondition;
-			TrackConditionType = TrackCondition.ToTrackConditionType();
 			Grade = grade.ToGrade();
 			FirstPrizeMoney = firstPrizeMoney;
 			RaceDate = raceDate;
@@ -61,14 +60,10 @@ namespace Netkeiba.Models
 		public string Track { get; }
 		public TrackType TrackType { get; private set; }
 		public string TrackCondition { get; }
-		public TrackConditionType TrackConditionType { get; private set; }
 		public GradeType Grade { get; private set; }
 		public long FirstPrizeMoney { get; private set; }
 		public int NumberOfHorses { get; private set; }
 		public DateTime RaceDate { get; private set; }
-		public float AverageRating { get; set; }
-		public string TrackDistance => $"{Track}-{Distance}";
-		public string TrackConditionDistance => $"{Track}-{TrackCondition}-{Distance}";
 
 		public override bool Equals(object? obj)
 		{

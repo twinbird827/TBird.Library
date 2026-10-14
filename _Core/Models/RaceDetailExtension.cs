@@ -77,8 +77,8 @@ namespace Netkeiba.Models
 				RaceCount = horses.Count,
 				// 年齢
 				Age = detail.Age,
-				// 年齢ﾗﾝｸ(5歳に近い方が良い)
-				AgeRank = detail.GetRank(inraces, x => Math.Abs(CalculateBestAge(x) - x.Age), true),
+				// 年齢ﾗﾝｸ(距離ごとの最適年齢に近い方が良い)
+				AgeRank = detail.GetRank(inraces, x => Math.Abs(CalculateBestAge(x) - x.Age), false),
 				// 性別(牡：1.0, セ：0.5, 牝：0.0)
 				Gender = detail.Gender switch
 				{
@@ -208,7 +208,6 @@ namespace Netkeiba.Models
 				SireBrosAvgPrizeMoney = sirebros.AvgPrizeMoney,
 				SireBrosAvgRating = sirebros.AvgRating,
 				SireBrosDistanceDiff = sirebros.DistanceDiff,
-				//SireBrosTuka = sirebros.Tuka,
 				SireBrosAvgFinishPosition = sirebros.AvgFinishPosition,
 				SireBrosAvgTime2Top = sirebros.AvgTime2Top,
 				SireBrosAvgLastThreeFurlongs2Top = sirebros.AvgLastThreeFurlongs2Top,
@@ -219,7 +218,6 @@ namespace Netkeiba.Models
 				SireDamSireBrosAvgPrizeMoney = siredamsirebros.AvgPrizeMoney,
 				SireDamSireBrosAvgRating = siredamsirebros.AvgRating,
 				SireDamSireBrosDistanceDiff = siredamsirebros.DistanceDiff,
-				//SireDamSireBrosTuka = siredamsirebros.Tuka,
 				SireDamSireBrosAvgFinishPosition = siredamsirebros.AvgFinishPosition,
 				SireDamSireBrosAvgTime2Top = siredamsirebros.AvgTime2Top,
 				SireDamSireBrosAvgLastThreeFurlongs2Top = siredamsirebros.AvgLastThreeFurlongs2Top,
@@ -350,7 +348,7 @@ namespace Netkeiba.Models
 
 		private static float CalculateBestAge(RaceDetail detail)
 		{
-			return (5.5F - 4.1F) / (3600F - 1000F) * detail.Race.Distance;
+			return 4.1F + (5.5F - 4.1F) / (3600F - 1000F) * (detail.Race.Distance - 1000F);
 		}
 
 		private static float CalculateFinishPosition(RaceDetail detail)

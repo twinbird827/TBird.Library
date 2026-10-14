@@ -70,7 +70,6 @@ namespace Netkeiba
 			{
 				await Task.Delay(1250);
 
-				// TODO MainViewModel.AddLog($"req: {url}");
 				MessageService.Debug($"req: {url}");
 
 				return await context.OpenAsync(url).RunAsync(x => ((x.DocumentElement as IHtmlDocument) ?? x as IHtmlDocument).NotNull());

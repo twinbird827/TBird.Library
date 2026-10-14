@@ -158,7 +158,6 @@ namespace Netkeiba.Models
 
 		private float GetLastThreeFurlongs(float basevalue)
 		{
-			//return basevalue;
 			return Race.TrackType == TrackType.Grass
 				? basevalue * (0.94F + Race.Distance / 20000F)
 				: Race.TrackType == TrackType.Dirt

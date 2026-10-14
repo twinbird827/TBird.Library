@@ -11,7 +11,7 @@ namespace Netkeiba.Models
 		{
 			var results = features.ToArray();
 
-			var pace = results.Average(x => x.Tuka);
+			var pace = results.Select(x => x.Tuka).Where(x => !float.IsNaN(x)).DefaultIfEmpty(float.NaN).Average();
 
 			results.ForEach(x =>
 			{

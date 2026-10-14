@@ -131,8 +131,6 @@ namespace Netkeiba
 				Arr("ﾚｰｽID")
 			);
 
-			// TODO 開催日時と着順をINTEGERにする
-
 			await conn.Create(
 				"t_orig_d",
 				col_orig_d,
@@ -144,8 +142,6 @@ namespace Netkeiba
 				col_uma,
 				Arr("馬ID")
 			);
-
-			// TODO indexの作成
 		}
 
 		public static async Task InsertOrigAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
@@ -315,8 +311,6 @@ SELECT DISTINCT 馬ID FROM (SELECT 父ID 馬ID FROM t_uma UNION ALL SELECT 母�
 					new Column() { Name = "Features", Type = "BLOB", IsKey = false },
 				]
 			);
-
-			// TODO indexの作成
 		}
 
 		public static async Task<bool> ExistsModelTableAsync(this SQLiteControl conn)
