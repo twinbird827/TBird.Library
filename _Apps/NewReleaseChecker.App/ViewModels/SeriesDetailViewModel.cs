@@ -36,12 +36,12 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
     private bool _isLoading;
 
     // 読込トリガは OnAppearing（SeriesDetailPage）に一本化する。QueryProperty セッタからは起動しない。
-    // OnSeriesIdChanged で fire-and-forget すると OnAppearing と二重起動し Books.Clear()/Add() が交錯するため。
+    // OnSeriesIdChanged で fire-and-forget すると OnAppearing と二重起動し Books の再構築（ReplaceAll）が二重に走るため。
 
     public async Task LoadAsync()
     {
         if (SeriesId <= 0) return;
-        if (_isLoading) return; // 再入ガード（万一の二重起動でもコレクション操作を交錯させない）
+        if (_isLoading) return; // 再入ガード（万一の二重起動でも Books の再構築を二重に走らせない）
         _isLoading = true;
         try
         {
