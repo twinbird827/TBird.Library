@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NewReleaseChecker.App.ViewModels"
+             xmlns:core="clr-namespace:NewReleaseChecker.Core.Models;assembly=NewReleaseChecker.Core"
              x:Class="NewReleaseChecker.App.Views.SeriesSearchPage"
+             x:DataType="vm:SeriesSearchViewModel"
              Title="シリーズ検索・登録">
     <Grid RowDefinitions="Auto,Auto,*" Padding="10" RowSpacing="8">
         <VerticalStackLayout Grid.Row="0" Spacing="2">
@@ -19,7 +22,7 @@
         <CollectionView Grid.Row="2" ItemsSource="{Binding Results}" SelectionMode="Single"
                         SelectionChanged="OnResultSelected">
             <CollectionView.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="core:RakutenBook">
                     <Grid Padding="8" ColumnDefinitions="56,*" ColumnSpacing="10">
                         <Image Grid.Column="0" Source="{Binding DisplayImageUrl}" Aspect="AspectFit" WidthRequest="56" HeightRequest="80" />
                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">

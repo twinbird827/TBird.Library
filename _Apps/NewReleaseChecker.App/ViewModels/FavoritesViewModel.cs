@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Models;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Collections;
 using NewReleaseChecker.Core.Models;
 using NewReleaseChecker.Core.Services;
 using TBird.Core;
@@ -20,7 +21,7 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
         _series = series;
     }
 
-    public ObservableCollection<BookListItem> Items { get; } = new();
+    public BulkObservableCollection<BookListItem> Items { get; } = new();
 
     [ObservableProperty] private bool _isBusy;
 
@@ -86,12 +87,11 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
             _ => filtered.OrderBy(b => ReleaseDateParser.Parse(b.ReleaseDate) ?? DateTime.MaxValue),
         };
 
-        Items.Clear();
-        foreach (var b in sorted)
+        Items.ReplaceAll(sorted.Select(b =>
         {
             var future = ReleaseDateParser.IsFuture(b.ReleaseDate, now);
             var seriesName = b.SeriesId.HasValue && _seriesNames.TryGetValue(b.SeriesId.Value, out var k) ? k : "未追跡";
-            Items.Add(new BookListItem
+            return new BookListItem
             {
                 BookId = b.Id,
                 Title = b.Title,
@@ -103,8 +103,8 @@ public partial class FavoritesViewModel : SelectableBookListViewModel
                 IsPurchased = b.IsPurchased == 1,
                 IsFavorite = b.IsFavorite == 1,
                 ShowCalendarBadge = future && b.IsCalendarRegistered == 0,
-            });
-        }
+            };
+        }));
         OnPropertyChanged(nameof(IsEmpty));
         NotifyListChanged(); // 空一覧での「選択」無効化を再評価（F-015）。
     }

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Models;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Collections;
 using NewReleaseChecker.Core.Models;
 using NewReleaseChecker.Core.Services;
 using TBird.Core;
@@ -21,7 +22,7 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
         _series = series;
     }
 
-    public ObservableCollection<BookListItem> Books { get; } = new();
+    public BulkObservableCollection<BookListItem> Books { get; } = new();
 
     [ObservableProperty] private int _seriesId;
     [ObservableProperty] private string _seriesKey = string.Empty;
@@ -62,11 +63,10 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
                 ? "最終チェック: 未実施"
                 : $"最終チェック: {DisplayFormat.Release(_model.LastCheckedAt)}";
 
-            Books.Clear();
-            foreach (var b in books)
+            Books.ReplaceAll(books.Select(b =>
             {
                 var future = ReleaseDateParser.IsFuture(b.ReleaseDate, now);
-                Books.Add(new BookListItem
+                return new BookListItem
                 {
                     BookId = b.Id,
                     Title = b.Title,
@@ -78,8 +78,8 @@ public partial class SeriesDetailViewModel : SelectableBookListViewModel
                     IsPurchased = b.IsPurchased == 1,
                     IsFavorite = b.IsFavorite == 1,
                     ShowCalendarBadge = future && b.IsCalendarRegistered == 0,
-                });
-            }
+                };
+            }));
         }
         catch (Exception ex)
         {
