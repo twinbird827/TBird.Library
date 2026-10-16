@@ -50,15 +50,21 @@ public static class MauiProgram
                 ConnectCallback = async (context, ct) =>
                 {
                     // 公開アドレスが先: LAN を先にすると、宅外で同じプライベート IP の別機器に繋がり TLS エラーで終わる。
-                    using var publicTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    publicTimeout.CancelAfter(TimeSpan.FromSeconds(3));
                     try
                     {
-                        return await ConnectAsync(context.DnsEndPoint, publicTimeout.Token);
+                        return await ConnectAsync(context.DnsEndPoint, ct);
                     }
                     catch (Exception ex) when ((ex is SocketException or OperationCanceledException) && !ct.IsCancellationRequested)
                     {
-                        return await ConnectAsync(relayLan, ct);
+                        try
+                        {
+                            return await ConnectAsync(relayLan, ct);
+                        }
+                        catch (Exception lanEx) when ((lanEx is SocketException or OperationCanceledException) && !ct.IsCancellationRequested)
+                        {
+                            // 両方の失敗理由をログに残すため、公開側・LAN 側の順でまとめる。
+                            throw new AggregateException(ex, lanEx);
+                        }
                     }
                 },
             };
@@ -125,9 +131,12 @@ public static class MauiProgram
     private static async Task<Stream> ConnectAsync(EndPoint endPoint, CancellationToken ct)
     {
         var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        // 別トークンにすることで、タイムアウトは SocketsHttpHandler に接続失敗（transient）として扱われる。
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
         try
         {
-            await socket.ConnectAsync(endPoint, ct);
+            await socket.ConnectAsync(endPoint, timeout.Token);
             return new NetworkStream(socket, ownsSocket: true);
         }
         catch
