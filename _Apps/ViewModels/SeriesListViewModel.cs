@@ -3,10 +3,10 @@ using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Models;
 using NewReleaseChecker.Core;
 using NewReleaseChecker.Core.Abstractions;
-using NewReleaseChecker.Core.Collections;
 using NewReleaseChecker.Core.Models;
 using NewReleaseChecker.Core.Services;
 using TBird.Core;
+using TBird.Maui.Collections;
 
 namespace NewReleaseChecker.App.ViewModels;
 
