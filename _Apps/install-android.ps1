@@ -11,8 +11,8 @@
 $ErrorActionPreference = "Stop"
 
 # スクリプト位置基準で解決 (カレントディレクトリに依存しない)。$PSScriptRoot=_Apps
-$project    = Join-Path $PSScriptRoot "NewReleaseChecker.App\NewReleaseChecker.App.csproj"
-$publishDir = Join-Path $PSScriptRoot "NewReleaseChecker.App\bin\Release\net10.0-android\publish"
+$project    = Join-Path $PSScriptRoot "NewReleaseChecker.App.csproj"
+$publishDir = Join-Path $PSScriptRoot "bin\Release\net10.0-android\publish"
 
 # adb は PATH に無いことが多いので、ANDROID_HOME と VS 既定の SDK も探す (先勝ち)
 $adb = (Get-Command adb -ErrorAction SilentlyContinue).Source

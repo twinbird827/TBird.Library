@@ -38,30 +38,30 @@
 ## 3. プロジェクト構成
 
 ```
-NewReleaseChecker.Relay/
-├── NewReleaseChecker.Relay.sln
-├── .gitignore                          # appsettings.Secrets.json を必ず除外
-├── NewReleaseChecker.Relay/
-│   ├── NewReleaseChecker.Relay.csproj
-│   ├── Program.cs                      # エントリポイント・DI・ミドルウェア・エンドポイント定義
-│   ├── appsettings.json                # 公開設定（リッスンポート・上流URL・レート制限値）
-│   ├── appsettings.Production.json     # 本番上書き（コミット可、機密値は含めない）
-│   ├── appsettings.Secrets.json        # ★Git管理外（applicationId, accessKey, sharedSecret）。正本は _Tools/NewReleaseChecker/ にあり csproj がリンク
-│   ├── appsettings.Secrets.json.example # 雛形（コミット可）
-│   ├── web.config                      # IIS in-process 用（dotnet publish が自動生成）
-│   ├── Endpoints/
-│   │   ├── KoboSearchEndpoint.cs       # POST /api/kobo/search
-│   │   ├── KoboGenresEndpoint.cs       # POST /api/kobo/genres
-│   │   └── HealthEndpoint.cs           # GET /healthz
-│   ├── Services/
-│   │   ├── IRakutenProxy.cs            # プロキシ抽象
-│   │   ├── RakutenProxyService.cs      # 透過プロキシ本体
-│   │   └── UpstreamHeaderBuilder.cs    # Referer/Origin/Auth ヘッダ組立
-│   ├── Middleware/
-│   │   └── SharedSecretAuthMiddleware.cs
-│   └── Options/
-│       ├── RakutenOptions.cs           # ApplicationId, AccessKey, OriginDomain, UpstreamBaseUrl
-│       └── RelayAuthOptions.cs         # SharedSecret
+_Server/
+├── CLAUDE.md                           # 本ファイル
+├── 中継サーバー_要件定義書.md
+├── NewReleaseChecker.Relay.sln         # Relay 単体用（MAUI workload の無い PC で開く）。_Apps/App.sln にも含まれる
+├── NewReleaseChecker.Relay.csproj
+├── Program.cs                          # エントリポイント・DI・ミドルウェア・エンドポイント定義
+├── appsettings.json                    # 公開設定（リッスンポート・上流URL・レート制限値）
+├── appsettings.Production.json         # 本番上書き（コミット可、機密値は含めない）
+├── appsettings.Secrets.json            # ★Git管理外（applicationId, accessKey, sharedSecret）。正本は _Tools/NewReleaseChecker/ にあり csproj がリンク
+├── appsettings.Secrets.json.example    # 雛形（コミット可）
+├── web.config                          # IIS in-process 用（dotnet publish が自動生成）
+├── Endpoints/
+│   ├── KoboSearchEndpoint.cs           # POST /api/kobo/search
+│   ├── KoboGenresEndpoint.cs           # POST /api/kobo/genres
+│   └── HealthEndpoint.cs               # GET /healthz
+├── Services/
+│   ├── IRakutenProxy.cs                # プロキシ抽象
+│   ├── RakutenProxyService.cs          # 透過プロキシ本体
+│   └── UpstreamHeaderBuilder.cs        # Referer/Origin/Auth ヘッダ組立
+├── Middleware/
+│   └── SharedSecretAuthMiddleware.cs
+└── Options/
+    ├── RakutenOptions.cs               # ApplicationId, AccessKey, OriginDomain, UpstreamBaseUrl
+    └── RelayAuthOptions.cs             # SharedSecret
 ```
 
 ### レイヤー・依存
@@ -134,9 +134,7 @@ NewReleaseChecker.Relay/
 ```
 
 ### `.gitignore`
-```
-appsettings.Secrets.json
-```
+Git からの除外はリポジトリ直下の `.gitignore` の `**/*Secrets.json` が担う。
 
 ### 共有シークレットの生成方法
 - PowerShell:
@@ -461,7 +459,7 @@ icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayP
 1. 前提ソフト: Git と .NET 10 SDK（その PC で publish するため）を入れる。IIS の有効化は §10.1、Hosting Bundle は §10.2 で入れる
 2. リポジトリ: clone する（既にあれば pull する）。`git checkout app-new-book-checker` で切り替え、clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` を実行する
 3. 秘密ファイル: `_Tools/NewReleaseChecker/appsettings.Secrets.json` を元の PC から手作業（USB メモリ等）で複製する。クラウド共有・チャット・メールは使わない。手元に無ければ §10.9 で作る。SharedSecret を新しく作った場合は、App 側の `_Tools/NewReleaseChecker/Secrets.cs` の `RelayServerApiKey` も同じ値にし、Android アプリを再ビルドして端末へ入れ直す
-4. ローカル起動確認: IIS を入れる前に `dotnet run --project _Apps/NewReleaseChecker.Relay/NewReleaseChecker.Relay/NewReleaseChecker.Relay.csproj --urls http://localhost:5199` で起動し、`http://localhost:5199/healthz` が 200 を返すことを確かめてから止める（秘密ファイルとビルドの不備を IIS の問題と切り分けるため）
+4. ローカル起動確認: IIS を入れる前に `dotnet run --project _Server/NewReleaseChecker.Relay.csproj --urls http://localhost:5199` で起動し、`http://localhost:5199/healthz` が 200 を返すことを確かめてから止める（秘密ファイルとビルドの不備を IIS の問題と切り分けるため）
 5. 配備: §10.6（`deploy.ps1`）
 6. IIS 構築: §10.1〜§10.5、権限は §10.7
 7. 旧 PC からサーバを移す場合: §11 のポート転送先を新しい PC の内部 IP に変える。§9 の証明書は新しい PC で取り直す（証明書と自動更新タスクは、win-acme を実行した旧 PC 側にある）。新しい PC での確認が済んでから旧 PC のサイトを止める

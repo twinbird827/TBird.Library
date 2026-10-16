@@ -11,7 +11,7 @@
 
   <!-- 機密設定: 正本は _Tools/NewReleaseChecker/appsettings.Secrets.json。bin と publish 出力（= deploy.ps1 の配備物フォルダ）へ写す -->
   <ItemGroup>
-    <Content Include="..\..\..\_Tools\NewReleaseChecker\appsettings.Secrets.json" Link="appsettings.Secrets.json" Condition="Exists('..\..\..\_Tools\NewReleaseChecker\appsettings.Secrets.json')">
+    <Content Include="..\_Tools\NewReleaseChecker\appsettings.Secrets.json" Link="appsettings.Secrets.json" Condition="Exists('..\_Tools\NewReleaseChecker\appsettings.Secrets.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </Content>

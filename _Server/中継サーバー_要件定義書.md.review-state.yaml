@@ -1,4 +1,4 @@
-plan_file: "_Apps/中継サーバー_要件定義書.md"
+plan_file: "_Server/中継サーバー_要件定義書.md"
 outer_round: 3
 inner_iteration: 0
 max_outer_rounds: 9
@@ -7,7 +7,7 @@ opt_fix_minor: true
 phase: COMPLETE
 this_round_had_fixes: false
 companion_files:
-  - "_Apps/中継サーバー_CLAUDE.md"
+  - "_Server/CLAUDE.md"
   - "_Apps/Android引き継ぎメモ.md"
 verified_external_facts:
   - "楽天WS 2026移行は実在(公式ブログ2026-02-10+複数技術記事で裏付け): 告知2026-02-10 / 移行期間〜5-13 / 旧app.rakuten.co.jp停止5-14"
