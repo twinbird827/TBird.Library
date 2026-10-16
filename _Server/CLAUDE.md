@@ -447,7 +447,7 @@ icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayP
 | 外部ポート 60344 → 内部 443 | TCP、サーバー機の内部 IP へ転送 |
 | 外部ポート 80 → 内部 80 | TCP（**Let's Encrypt 取得時・更新時のみ必要**。常時開放しても可、セキュリティを気にするなら更新時のみ有効化） |
 | DDNS | MyDNS.JP（`kaz.server-on.net`）。自動更新が動いていること |
-| サーバー機の内部 IP | DHCP 予約等で固定推奨 |
+| サーバー機の内部 IP | DHCP 予約等で**固定必須**。アプリが宅内フォールバック先として埋め込むため。変えたら `_Tools/NewReleaseChecker/Secrets.cs` の `RelayLanEndPoint` も変えて再ビルドする |
 
 > ⚠️ **証明書の自動更新と 80 番ポートの関係**: §9.3 で win-acme はタスクスケジューラに自動更新を登録するが、**HTTP-01 チャレンジは更新時にも 80 番ポートの到達性を要する**。80 番を「更新時のみ手動開放」にすると、自動更新タスクが期限前に走っても 80 番が閉じていて**サイレントに失敗 → 証明書失効でサーバー停止**となる。対策は次のいずれか: (a) 80 番を常時フォワーディングして自動更新を機能させる（推奨）／(b) 自動更新に頼らず、期限（30 日前〜）に手動で 80 番を開けて `wacs.exe --renew` を実行する運用にする。**「80 番は更新時のみ手動開放」かつ「自動更新任せ」の組み合わせは避ける**。なお外部 HTTPS は 60344・内部 443 のため、HTTP-01 の代替に TLS-ALPN-01（443）を使う手も外部 443 が開いておらず不可。代替するなら MyDNS.JP の DNS-01 を使う。
 
@@ -462,7 +462,7 @@ icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayP
 4. ローカル起動確認: IIS を入れる前に `dotnet run --project _Server/NewReleaseChecker.Relay.csproj --urls http://localhost:5199` で起動し、`http://localhost:5199/healthz` が 200 を返すことを確かめてから止める（秘密ファイルとビルドの不備を IIS の問題と切り分けるため）
 5. 配備: §10.6（`deploy.ps1`）
 6. IIS 構築: §10.1〜§10.5、権限は §10.7
-7. 旧 PC からサーバを移す場合: §11 のポート転送先を新しい PC の内部 IP に変える。§9 の証明書は新しい PC で取り直す（証明書と自動更新タスクは、win-acme を実行した旧 PC 側にある）。新しい PC での確認が済んでから旧 PC のサイトを止める
+7. 旧 PC からサーバを移す場合: §11 のポート転送先を新しい PC の内部 IP に変える。App 側の `_Tools/NewReleaseChecker/Secrets.cs` の `RelayLanEndPoint` も新しい IP にし、Android アプリを再ビルドして端末へ入れ直す。§9 の証明書は新しい PC で取り直す（証明書と自動更新タスクは、win-acme を実行した旧 PC 側にある）。新しい PC での確認が済んでから旧 PC のサイトを止める
 8. 証明書: §9（移行でない新規構築の場合）
 9. 起動確認: §10.10
 

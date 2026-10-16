@@ -160,6 +160,7 @@
 > 2026 年新仕様への対応で楽天 API は中継サーバー（NewReleaseChecker.Relay）経由に移行（`Android引き継ぎメモ.md`）。**楽天 applicationId / accessKey は Android 側で保持しない**（中継サーバーが保持）。Android が持つ秘密情報は**中継サーバーとの共有シークレット `RelayServerApiKey` のみ**。
 
 - `RelayServerApiKey` を `Secrets` クラスに集約し、全 API リクエストの `X-Relay-Auth` ヘッダで送る（`MauiProgram` で HttpClient のデフォルトヘッダに設定）。値は中継サーバー側 `appsettings.Secrets.json` の `RelayAuth:SharedSecret` と**一致させる**。
+- 宅内 Wi-Fi で公開アドレスへ届かないときの接続先 `RelayLanEndPoint`（中継サーバー機の LAN IP と IIS の内部ポート。`"<IP>:<ポート>"`）も `Secrets` に置く。秘密ではないが、リポジトリ外に置くため同じ仕組みに乗せる。
 - `Secrets.cs` は **`_Tools/NewReleaseChecker/Secrets.cs` に置き**（`_Tools/` は gitignore 済み）、csproj が `Compile Link` で取り込む。`_Apps` 内に置くとブランチ切替の掃除で消えるため。リポジトリには `Secrets.cs.example`（ダミー値の見本）のみコミット。
 - **キー値はこのファイルにも要件定義書にも書かない**。開発者が `_Tools/NewReleaseChecker/Secrets.cs` に直接配置する。
 - `Secrets` は `ISecretsProvider` 越しに参照し、将来「環境変数/CI Secretsから読む実装」へ差し替え可能にする。
@@ -169,12 +170,14 @@
 public interface ISecretsProvider
 {
     string RelayServerApiKey { get; } // 中継サーバーとの共有シークレット（X-Relay-Auth で送信）
+    string RelayLanEndPoint { get; }  // 宅内フォールバック先 "<IP>:<ポート>"（ヘアピン NAT が効かないとき）
 }
 
 // 例: _Tools/NewReleaseChecker/Secrets.cs （.gitignore 対象。コミットしない）
 internal sealed class Secrets : ISecretsProvider
 {
     public string RelayServerApiKey => "ここに中継サーバー側と同じ共有シークレットを記入";
+    public string RelayLanEndPoint => "ここに中継サーバー機の LAN IP:443 を記入";
 }
 ```
 
