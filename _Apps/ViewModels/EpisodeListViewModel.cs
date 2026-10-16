@@ -1,8 +1,8 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
 using TBird.Core;
+using TBird.Maui.Collections;
 using LanobeReader.Models;
 using LanobeReader.Services;
 using LanobeReader.Services.Background;
@@ -26,12 +26,11 @@ public partial class EpisodeListViewModel(
     [ObservableProperty]
     public partial string NovelTitle { get; set; } = string.Empty;
 
-    // ItemsSource は ObservableCollection の同一インスタンスを保持し、ページ切替時は
-    // Clear + Add で内容のみ差し替える。List 再代入だと CollectionView がアダプタを
-    // 全リセットしてコンテナ再利用 (RecyclerView のプール) が効かず、ページ切替が体感重くなる。
-    // 単発 Reset (notifyDataSetChanged 相当) は Android で逆に全アイテム invalidate が走り
-    // 遅いことが多いため、incremental な Clear + Add の方が体感が速い。
-    public ObservableCollection<EpisodeViewModel> Episodes { get; } = [];
+    // ItemsSource は同一インスタンスを保持し、ページ切替時は ReplaceAll で内容のみ差し替える。
+    // ItemsSource を差し替えると CollectionView がアダプタを作り直してコンテナ再利用 (RecyclerView の
+    // プール) が効かない。Clear + Add は Reset に加えて行数分の NotifyItemInserted を出すため、
+    // Reset 1 回で済む ReplaceAll にする。
+    public BulkObservableCollection<EpisodeViewModel> Episodes { get; } = [];
 
     // 「ページが切り替わった」セマンティクスを View へ通知する。Episodes 更新と同一 UI tick で
     // 発火することで、View 側で ScrollTo を呼んでもユーザーには「先頭で表示されてからスクロール」
@@ -67,7 +66,7 @@ public partial class EpisodeListViewModel(
     [ObservableProperty]
     public partial bool ShowFavoritesOnly { get; set; }
 
-    // Shell のスライドアニメ (~250ms) と LoadPage の Clear+Add が UI スレッドで競合すると
+    // Shell のスライドアニメ (~250ms) と LoadPage の ReplaceAll が UI スレッドで競合すると
     // 遷移が中途半端な位置で詰まって見える。Dispatcher.Dispatch (1 tick) では不足、200ms で
     // 詰まりが解消することを実機検証済。InitializeAsync / JumpToEpisodeAsync / RefreshReadStatusAsync
     // の 3 か所で同じ意味で使うため定数化。
@@ -95,7 +94,7 @@ public partial class EpisodeListViewModel(
     // _allEpisodes / _filteredCache / Episodes / CurrentPage を変更する全経路(Initialize / ReloadEpisodes /
     // JumpToEpisode / RefreshReadStatus / ReloadList)を直列化するゲート。これらは UI スレッド上で動くが、
     // 各々が await(DB fetch / アニメ待ち)で yield するため、yield 中に別経路が割り込んで「fetch 前に読んだ
-    // 状態」を前提に代入を進め、アンカー誤算出・誤スクロール・Episodes の Clear+Add 競合を起こしうる
+    // 状態」を前提に代入を進め、アンカー誤算出・誤スクロール・Episodes の ReplaceAll 競合を起こしうる
     // (各経路の冒頭ガードは最初の await の前でしか評価されず、await 後の再チェックが無い)。本ゲートで
     // 変更シーケンス全体を排他にし、await 跨ぎの再入を断つ。通常の単一フローでは無競合で即時取得のため
     // UX タイミングは不変、実際に並走したときだけ直列化される。どの経路も他経路を呼ばないため再入なし。
@@ -290,7 +289,7 @@ public partial class EpisodeListViewModel(
     //                       Stage 2 でずれるのはフィルタ再構築による位置だけなので、
     //                       stale でもユーザーには遅延なく「ほぼ正しい位置」が見える。
     //   Stage 1B (ページ跨ぎ): pre-Reader のページ内容を即時 hide (Episodes.Clear + IsLoading=true)。
-    //                       Stage 2 相当の Clear+Add (LoadPage) をアニメ中に走らせると詰まるため
+    //                       Stage 2 相当の ReplaceAll (LoadPage) をアニメ中に走らせると詰まるため
     //                       Stage 2 に回すが、「pre-Reader 位置を見せて急に飛ぶ」よりは「ローディング
     //                       → アンカー位置で表示」の方が違和感が小さい (ユーザー要望)。
     //   Stage 2: アニメ完了 (Task.Delay ShellAnimationSettleMs) を待ってから DB fetch + IsRead 反映 +
@@ -317,7 +316,7 @@ public partial class EpisodeListViewModel(
             else if (staleTargetPage.HasValue)
             {
                 // Stage 1B: ページ跨ぎ → pre-Reader のページ内容を即時 hide。
-                // Episodes.Clear は Reset 通知だが空リスト化なので Clear+Add より軽い (ViewHolder 解放のみ)。
+                // Episodes.Clear は Reset 通知だが空リスト化なので行の再バインドを伴わず、ReplaceAll より軽い (ViewHolder 解放のみ)。
                 Episodes.Clear();
                 IsLoading = true;
                 clearedInStage1B = true;
@@ -371,7 +370,7 @@ public partial class EpisodeListViewModel(
             else
             {
                 // 同じページ・フィルタ内で IsRead だけ変わるケース: in-place 更新で済ませる。
-                // Clear+Add しないので Stage 1A の scroll 位置がそのまま温存される (フラッシュ無し)。
+                // ReplaceAll しないので Stage 1A の scroll 位置がそのまま温存される (フラッシュ無し)。
                 foreach (var vm in Episodes)
                 {
                     vm.IsRead = readIds.Contains(vm.Id);
@@ -421,11 +420,10 @@ public partial class EpisodeListViewModel(
 
     private void LoadPage()
     {
-        Episodes.Clear();
-        foreach (var e in _filteredCache.Skip((CurrentPage - 1) * _episodesPerPage).Take(_episodesPerPage))
-        {
-            Episodes.Add(EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id)));
-        }
+        Episodes.ReplaceAll(_filteredCache
+            .Skip((CurrentPage - 1) * _episodesPerPage)
+            .Take(_episodesPerPage)
+            .Select(e => EpisodeViewModel.FromModel(e, _cachedIds.Contains(e.Id))));
     }
 
     public async Task RefreshReadStatusAsync()

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
 using TBird.Core;
+using TBird.Maui.Collections;
 using TBird.Maui.ViewModels;
 using LanobeReader.Models;
 using LanobeReader.Services;
@@ -71,8 +72,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
     [ObservableProperty]
     public partial bool SearchKakuyomu { get; set; } = true;
 
-    [ObservableProperty]
-    public partial ObservableCollection<SearchResultViewModel> SearchResults { get; set; } = [];
+    public BulkObservableCollection<SearchResultViewModel> SearchResults { get; } = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
@@ -265,7 +265,7 @@ public partial class SearchViewModel : ErrorAwareViewModel
         var viewModels = results.Select(r =>
             SearchResultViewModel.FromModel(r, existingIds.Contains(((int)r.SiteType, r.NovelId)))
         ).ToList();
-        SearchResults = new ObservableCollection<SearchResultViewModel>(viewModels);
+        SearchResults.ReplaceAll(viewModels);
         HasSearched = true;
     }
 
