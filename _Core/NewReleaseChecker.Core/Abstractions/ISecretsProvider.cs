@@ -10,4 +10,8 @@ public interface ISecretsProvider
     /// 中継サーバー側 appsettings.Secrets.json の RelayAuth:SharedSecret と一致させること。
     /// </summary>
     string RelayServerApiKey { get; }
+
+    /// <summary>宅内でヘアピン NAT が効かないときの接続先。中継サーバー機の LAN IP と IIS の内部ポート（"&lt;IP&gt;:&lt;ポート&gt;"）。</summary>
+    string RelayLanEndPoint { get; }
+
 }

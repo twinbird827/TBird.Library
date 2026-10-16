@@ -11,6 +11,8 @@ using NewReleaseChecker.Data.Database;
 using NewReleaseChecker.Data.Preferences;
 using Plugin.LocalNotification;
 using Plugin.LocalNotification.EventArgs;
+using System.Net;
+using System.Net.Sockets;
 using TBird.Core;
 using TBird.Maui;
 using TBird.Maui.Background;
@@ -38,10 +40,35 @@ public static class MauiProgram
         // --- HTTP / レート制限（1 リクエストごとに 1 秒以上。要件 §6.1 / §7.3） ---
         // 中継サーバー（NewReleaseChecker.Relay）専用 HttpClient。共有シークレットを X-Relay-Auth
         // デフォルトヘッダで全リクエストに付与する。タイムアウトは中継→楽天の上流(15秒)＋余裕で 20 秒。
+        // ルーターがヘアピン NAT をせず宅内からは公開アドレスに届かないため、TCP 接続だけ LAN アドレスへ張り直す。
         s.AddSingleton(sp =>
         {
             var secrets = sp.GetRequiredService<ISecretsProvider>();
-            var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var relayLan = IPEndPoint.Parse(secrets.RelayLanEndPoint);
+            var handler = new SocketsHttpHandler
+            {
+                ConnectCallback = async (context, ct) =>
+                {
+                    // 公開アドレスが先: LAN を先にすると、宅外で同じプライベート IP の別機器に繋がり TLS エラーで終わる。
+                    try
+                    {
+                        return await ConnectAsync(context.DnsEndPoint, ct);
+                    }
+                    catch (Exception ex) when ((ex is SocketException or OperationCanceledException) && !ct.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            return await ConnectAsync(relayLan, ct);
+                        }
+                        catch (Exception lanEx) when ((lanEx is SocketException or OperationCanceledException) && !ct.IsCancellationRequested)
+                        {
+                            // 両方の失敗理由をログに残すため、公開側・LAN 側の順でまとめる。
+                            throw new AggregateException(ex, lanEx);
+                        }
+                    }
+                },
+            };
+            var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
             http.DefaultRequestHeaders.Add("X-Relay-Auth", secrets.RelayServerApiKey);
             return http;
         });
@@ -99,6 +126,24 @@ public static class MauiProgram
         LocalNotificationCenter.Current.NotificationActionTapped += OnNotificationTapped;
 
         return app;
+    }
+
+    private static async Task<Stream> ConnectAsync(EndPoint endPoint, CancellationToken ct)
+    {
+        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        // 別トークンにすることで、タイムアウトは SocketsHttpHandler に接続失敗（transient）として扱われる。
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
+        try
+        {
+            await socket.ConnectAsync(endPoint, timeout.Token);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
     }
 
     private static void OnNotificationTapped(NotificationActionEventArgs e)
