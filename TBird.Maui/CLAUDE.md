@@ -13,3 +13,4 @@ Android MAUI アプリ共通基盤（ViewModel / Converter / 通知許可 / メ�
 - ファイル出力先は `FileSystem.AppDataDirectory/log/yyyy-MM-dd.log`（Error/Exception のみ）
 - 通知許可ダイアログは `Shell.Current.DisplayAlert` 直接呼出のため、消費アプリは Shell ナビゲーション構成前提
 - `Converters/` に 5 種の `IValueConverter`: `BoolToColorConverter` / `BoolToOpacityConverter` / `HasValueConverter` / `IntToBoolConverter` / `InverseBoolConverter`（XAML バインディング用、いずれも `IValueConverter` 実装）
+- `Collections/BulkObservableCollection<T>` は中身を Reset 1 回で入れ替える `ObservableCollection<T>` 派生。`ItemsSource` を差し替えずに一覧を作り直すときに使う（テストは `TBird.Maui.Tests` でソースをリンクして走らせる）
