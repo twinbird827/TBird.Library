@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LanobeReader.Helpers;
@@ -7,6 +6,7 @@ using LanobeReader.Services;
 using LanobeReader.Services.Database;
 using TBird.Core;
 using TBird.Maui;
+using TBird.Maui.Collections;
 
 namespace LanobeReader.ViewModels;
 
@@ -28,8 +28,7 @@ public partial class NovelListViewModel(
         await LoadNovelsAsync();
     }
 
-    [ObservableProperty]
-    public partial ObservableCollection<NovelCardViewModel> Novels { get; set; } = [];
+    public BulkObservableCollection<NovelCardViewModel> Novels { get; } = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
@@ -66,7 +65,7 @@ public partial class NovelListViewModel(
         try
         {
             var rows = await novelRepo.GetAllWithUnreadCountAsync(SortKey);
-            Novels = new ObservableCollection<NovelCardViewModel>(
+            Novels.ReplaceAll(
                 rows.Select(r => NovelCardViewModel.FromModel(r.Novel, r.UnreadCount, r.ReadCount, r.EpisodeCount)));
             if (rows.Any(r => r.Novel.HasCheckError))
                 SetError("一部のタイトルで更新チェックに失敗しました");
