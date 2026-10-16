@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 
-namespace NewReleaseChecker.Core.Collections;
+namespace TBird.Maui.Collections;
 
 public class BulkObservableCollection<T> : ObservableCollection<T>
 {

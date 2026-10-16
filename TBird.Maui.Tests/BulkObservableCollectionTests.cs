@@ -1,8 +1,8 @@
 using System.Collections.Specialized;
-using NewReleaseChecker.Core.Collections;
 using NUnit.Framework;
+using TBird.Maui.Collections;
 
-namespace NewReleaseChecker.Core.Tests;
+namespace TBird.Maui.Tests;
 
 public class BulkObservableCollectionTests
 {
