@@ -63,9 +63,87 @@
     <ProjectReference Include="..\TBird.Maui.Background\TBird.Maui.Background.csproj" />
   </ItemGroup>
 
+  <!-- 秘密情報の正本は中継サーバーと共有する _Tools/NewReleaseChecker/appsettings.Secrets.json（_Apps 内はブランチ切替の掃除で消えるため）。
+       楽天キーを APK に入れないため、App が使う 2 値だけを抜いて Secrets クラスを生成する。 -->
+  <PropertyGroup>
+    <SecretsJsonPath>$(MSBuildProjectDirectory)\..\_Tools\NewReleaseChecker\appsettings.Secrets.json</SecretsJsonPath>
+  </PropertyGroup>
+
+  <!-- IntermediateOutputPath は本体より後の SDK targets で決まるため、プロパティに写さずアイテム・ターゲット内で直接参照する。 -->
   <ItemGroup>
-    <!-- 秘密ファイルの正本は _Tools/NewReleaseChecker/Secrets.cs（_Apps 内はブランチ切替の掃除で消えるため）。 -->
-    <Compile Include="..\_Tools\NewReleaseChecker\Secrets.cs" Link="Secrets.cs" />
+    <Compile Include="$(IntermediateOutputPath)Secrets.g.cs" />
+    <UpToDateCheckInput Include="$(SecretsJsonPath)" />
   </ItemGroup>
+
+  <Target Name="GenerateSecrets" BeforeTargets="CoreCompile" Inputs="$(SecretsJsonPath);$(MSBuildProjectFullPath)" Outputs="$(IntermediateOutputPath)Secrets.g.cs">
+    <GenerateSecretsClass JsonPath="$(SecretsJsonPath)" OutputPath="$(IntermediateOutputPath)Secrets.g.cs" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)Secrets.g.cs" />
+    </ItemGroup>
+  </Target>
+
+  <!-- System.Text.Json は dotnet build のインラインタスクから参照を解決できないため、JsonReaderWriterFactory で読む。 -->
+  <UsingTask TaskName="GenerateSecretsClass" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <JsonPath ParameterType="System.String" Required="true" />
+      <OutputPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Runtime.Serialization.Json" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Xml" />
+      <Using Namespace="System.Xml.Linq" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        if (!File.Exists(JsonPath))
+        {
+            Log.LogError("秘密情報の正本がありません: " + JsonPath);
+            return false;
+        }
+
+        XElement root;
+        try
+        {
+            using (var reader = JsonReaderWriterFactory.CreateJsonReader(File.ReadAllBytes(JsonPath), XmlDictionaryReaderQuotas.Max))
+            {
+                root = XElement.Load(reader);
+            }
+        }
+        catch (XmlException ex)
+        {
+            Log.LogError("秘密情報の正本を厳格な JSON として読めません（コメント・末尾カンマ不可）: " + JsonPath + ": " + ex.Message);
+            return false;
+        }
+
+        Func<string, string, string> read = (section, key) =>
+        {
+            var element = root.Element(section);
+            var value = element == null ? null : (string)element.Element(key);
+            if (string.IsNullOrEmpty(value))
+            {
+                Log.LogError("秘密情報の正本に " + section + ":" + key + " がないか空です: " + JsonPath);
+            }
+            return (value ?? "").Replace("\"", "\"\"");
+        };
+
+        var apiKey = read("RelayAuth", "SharedSecret");
+        var lanEndPoint = read("App", "RelayLanEndPoint");
+        if (Log.HasLoggedErrors)
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(OutputPath));
+        File.WriteAllText(OutputPath,
+            "namespace NewReleaseChecker.App;\r\n\r\n" +
+            "internal sealed class Secrets : global::NewReleaseChecker.Core.Abstractions.ISecretsProvider\r\n" +
+            "{\r\n" +
+            "    public string RelayServerApiKey => @\"" + apiKey + "\";\r\n" +
+            "    public string RelayLanEndPoint => @\"" + lanEndPoint + "\";\r\n" +
+            "}\r\n",
+            new UTF8Encoding(false));
+]]></Code>
+    </Task>
+  </UsingTask>
 
 </Project>

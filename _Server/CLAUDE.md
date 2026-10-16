@@ -107,8 +107,11 @@ _Server/
 ### 配置方法
 `appsettings.Secrets.json` に集約。**正本は `_Tools/NewReleaseChecker/appsettings.Secrets.json`** に置き、csproj がリンクして bin と publish 出力へ写す。Git にはコミットしない。
 
-```jsonc
-// appsettings.Secrets.json（Git 管理外。正本は _Tools/NewReleaseChecker/ に置く）
+同じファイルを Android アプリも正本にする。App はビルド時に `RelayAuth:SharedSecret` と `App:RelayLanEndPoint` だけを抜く（楽天キーは APK に入らない）。正本はコメント・末尾カンマ不可の厳格な JSON にする（App のビルドが失敗する）。
+
+`appsettings.Secrets.json`（Git 管理外。正本は `_Tools/NewReleaseChecker/` に置く）:
+
+```json
 {
   "Rakuten": {
     "ApplicationId": "ここに楽天アプリID",
@@ -116,12 +119,16 @@ _Server/
   },
   "RelayAuth": {
     "SharedSecret": "ここに 32 バイト以上のランダム文字列"
+  },
+  "App": {
+    "RelayLanEndPoint": "ここに中継サーバー機の LAN IP:443"
   }
 }
 ```
 
-```jsonc
-// appsettings.Secrets.json.example（リポジトリにコミット）
+`appsettings.Secrets.json.example`（リポジトリにコミット）:
+
+```json
 {
   "Rakuten": {
     "ApplicationId": "REPLACE_WITH_RAKUTEN_APPLICATION_ID",
@@ -129,6 +136,9 @@ _Server/
   },
   "RelayAuth": {
     "SharedSecret": "REPLACE_WITH_LONG_RANDOM_STRING"
+  },
+  "App": {
+    "RelayLanEndPoint": "REPLACE_WITH_LAN_IP:PORT"
   }
 }
 ```
@@ -142,7 +152,7 @@ Git からの除外はリポジトリ直下の `.gitignore` の `**/*Secrets.jso
   [Convert]::ToBase64String((1..48 | ForEach-Object {Get-Random -Maximum 256}) -as [byte[]])
   ```
 - または、`openssl rand -base64 48` 相当の任意のランダム生成ツール
-- 同じ値を Android アプリの `Secrets.cs` の `RelayServerApiKey` にも設定する
+- Android アプリも同じファイルの同じキーから読むため、App 側への二重記入は不要（変えたら App を再ビルドして端末へ入れ直す）
 
 ### 設定読み込み（`Program.cs`）
 ```csharp
@@ -447,7 +457,7 @@ icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayP
 | 外部ポート 60344 → 内部 443 | TCP、サーバー機の内部 IP へ転送 |
 | 外部ポート 80 → 内部 80 | TCP（**Let's Encrypt 取得時・更新時のみ必要**。常時開放しても可、セキュリティを気にするなら更新時のみ有効化） |
 | DDNS | MyDNS.JP（`kaz.server-on.net`）。自動更新が動いていること |
-| サーバー機の内部 IP | DHCP 予約等で**固定必須**。アプリが宅内フォールバック先として埋め込むため。変えたら `_Tools/NewReleaseChecker/Secrets.cs` の `RelayLanEndPoint` も変えて再ビルドする |
+| サーバー機の内部 IP | DHCP 予約等で**固定必須**。アプリが宅内フォールバック先として埋め込むため。変えたら `_Tools/NewReleaseChecker/appsettings.Secrets.json` の `App:RelayLanEndPoint` も変えて App を再ビルドする |
 
 > ⚠️ **証明書の自動更新と 80 番ポートの関係**: §9.3 で win-acme はタスクスケジューラに自動更新を登録するが、**HTTP-01 チャレンジは更新時にも 80 番ポートの到達性を要する**。80 番を「更新時のみ手動開放」にすると、自動更新タスクが期限前に走っても 80 番が閉じていて**サイレントに失敗 → 証明書失効でサーバー停止**となる。対策は次のいずれか: (a) 80 番を常時フォワーディングして自動更新を機能させる（推奨）／(b) 自動更新に頼らず、期限（30 日前〜）に手動で 80 番を開けて `wacs.exe --renew` を実行する運用にする。**「80 番は更新時のみ手動開放」かつ「自動更新任せ」の組み合わせは避ける**。なお外部 HTTPS は 60344・内部 443 のため、HTTP-01 の代替に TLS-ALPN-01（443）を使う手も外部 443 が開いておらず不可。代替するなら MyDNS.JP の DNS-01 を使う。
 
@@ -458,11 +468,11 @@ icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayP
 ### 初回（別の PC でリポジトリを同期して構築するときもこの手順）
 1. 前提ソフト: Git と .NET 10 SDK（その PC で publish するため）を入れる。IIS の有効化は §10.1、Hosting Bundle は §10.2 で入れる
 2. リポジトリ: clone する（既にあれば pull する）。`git checkout app-new-book-checker` で切り替え、clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` を実行する
-3. 秘密ファイル: `_Tools/NewReleaseChecker/appsettings.Secrets.json` を元の PC から手作業（USB メモリ等）で複製する。クラウド共有・チャット・メールは使わない。手元に無ければ §10.9 で作る。SharedSecret を新しく作った場合は、App 側の `_Tools/NewReleaseChecker/Secrets.cs` の `RelayServerApiKey` も同じ値にし、Android アプリを再ビルドして端末へ入れ直す
+3. 秘密ファイル: `_Tools/NewReleaseChecker/appsettings.Secrets.json` を元の PC から手作業（USB メモリ等）で複製する。クラウド共有・チャット・メールは使わない。手元に無ければ §10.9 で作る。SharedSecret を新しく作った場合は、同じファイルを読む Android アプリを再ビルドして端末へ入れ直す
 4. ローカル起動確認: IIS を入れる前に `dotnet run --project _Server/NewReleaseChecker.Relay.csproj --urls http://localhost:5199` で起動し、`http://localhost:5199/healthz` が 200 を返すことを確かめてから止める（秘密ファイルとビルドの不備を IIS の問題と切り分けるため）
 5. 配備: §10.6（`deploy.ps1`）
 6. IIS 構築: §10.1〜§10.5、権限は §10.7
-7. 旧 PC からサーバを移す場合: §11 のポート転送先を新しい PC の内部 IP に変える。App 側の `_Tools/NewReleaseChecker/Secrets.cs` の `RelayLanEndPoint` も新しい IP にし、Android アプリを再ビルドして端末へ入れ直す。§9 の証明書は新しい PC で取り直す（証明書と自動更新タスクは、win-acme を実行した旧 PC 側にある）。新しい PC での確認が済んでから旧 PC のサイトを止める
+7. 旧 PC からサーバを移す場合: §11 のポート転送先を新しい PC の内部 IP に変える。`_Tools/NewReleaseChecker/appsettings.Secrets.json` の `App:RelayLanEndPoint` も新しい IP にし、Android アプリを再ビルドして端末へ入れ直す。§9 の証明書は新しい PC で取り直す（証明書と自動更新タスクは、win-acme を実行した旧 PC 側にある）。新しい PC での確認が済んでから旧 PC のサイトを止める
 8. 証明書: §9（移行でない新規構築の場合）
 9. 起動確認: §10.10
 
