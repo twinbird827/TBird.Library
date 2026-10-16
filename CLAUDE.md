@@ -18,7 +18,6 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 ```
 
 - `TBird.Service` は .NET Framework 4.8 のレガシー（非 SDK）形式。Visual Studio もしくは `msbuild` でのビルドが確実
-- `_` フォルダ配下の CLAUDE.md は、そのフォルダを持つ `app-*` ブランチでのみ存在（`master` には無い）
 
 ## ブランチとアプリケーションの構成
 
@@ -52,13 +51,11 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 - [TBird.Maui.Web/CLAUDE.md](TBird.Maui.Web/CLAUDE.md) - AngleSharp / HTTP transient リトライ
 
 ### アプリケーション（ブランチ固有）
-- [_Apps/CLAUDE.md](_Apps/CLAUDE.md) - アプリケーション本体
-- [_Core/CLAUDE.md](_Core/CLAUDE.md) - アプリケーション共有ライブラリ（`_Core` プロジェクトを持つ app-* ブランチでのみ存在）
-- [_Browser/CLAUDE.md](_Browser/CLAUDE.md) - Webフロントエンド（`_Browser` プロジェクトを持つ app-* ブランチでのみ存在）
+- `_Tools` を除く各 `_` フォルダに `_<フォルダ>/CLAUDE.md`（`_Apps/CLAUDE.md`・`_Server/CLAUDE.md` 等）を置いてよい。そのフォルダを持つ app-* ブランチにだけ存在する（`master` には無い）
 
 ## テスト
 
-テストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Tests/<テスト対象プロジェクト名>.Tests/` に置いて `_Apps/App.sln` に含め、`dotnet test _Tests/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。
+テストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Tests/<テスト対象プロジェクト名>.Tests/` に置き、`dotnet test _Tests/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。
 
 ## 全体共通ルール
 
@@ -70,7 +67,7 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ### アプリ新規開発時のルール
 
-- ソリューションファイルは `_Apps/App.sln` とする（アプリ名のslnにしない）
+- 主のソリューションファイルは `_Apps/App.sln` とし（アプリ名のslnにしない）、`_Tools` を除く全 `_` フォルダのプロジェクトを含める。`_Apps` 以外の `_` フォルダは、そのフォルダだけ開く・ビルドする事情（必要な workload・TFM の違い等）があれば直下に別 sln を 1 つ置いてよい（名前は問わない）
 - 仮想ソリューションフォルダは `App.sln` 内に置いてよい（例: 参照する TBird.* ライブラリをまとめる `Libraries`）
 - プロジェクトはリポジトリ直下の `_` フォルダに用途別に置く：
   - `_Apps` - WPF / Android アプリ（csproj を `_Apps/` 直下に 1 つだけ置く）
