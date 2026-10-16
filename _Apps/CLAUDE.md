@@ -44,22 +44,27 @@
 ## 3. ソリューション構成
 
 ```
-_Apps/                          # app-new-book-checker ブランチのアプリ本体（このフォルダ直下）
-├── App.sln
-├── NewReleaseChecker.App/      # MAUI UI 層
-│   ├── Views/                  # XAML（SCR-001〜011）
-│   ├── ViewModels/             # 各画面の ViewModel
+（リポジトリ直下）
+├── _Apps/                          # MAUI UI 層（NewReleaseChecker.App。csproj をこのフォルダ直下に置く）
+│   ├── App.sln                     # 主ソリューション（_Core / _Tests / _Server のプロジェクトも含む）
+│   ├── NewReleaseChecker.App.csproj
+│   ├── Views/                      # XAML（SCR-001〜011）
+│   ├── ViewModels/                 # 各画面の ViewModel
 │   ├── App.xaml(.cs)
-│   ├── AppShell.xaml(.cs)      # ボトムタブ定義
-│   ├── MauiProgram.cs          # DI 登録
-│   └── Platforms/Android/      # WorkManager 実装・通知のAndroid固有処理・権限
-├── NewReleaseChecker.Core/     # ドメイン層（再利用可能）
-│   ├── Models/                 # Series, Book 等のモデル
-│   ├── Services/               # 新刊チェック共通サービス等
-│   └── Abstractions/           # インターフェース群
-└── NewReleaseChecker.Data/     # データ層（再利用可能基盤）
-    ├── Database/               # SQLite アクセス
-    └── Api/                    # 楽天Kobo API クライアント
+│   ├── AppShell.xaml(.cs)          # ボトムタブ定義
+│   ├── MauiProgram.cs              # DI 登録
+│   └── Platforms/Android/          # WorkManager 実装・通知のAndroid固有処理・権限
+├── _Core/
+│   ├── NewReleaseChecker.Core/     # ドメイン層（再利用可能）
+│   │   ├── Models/                 # Series, Book 等のモデル
+│   │   ├── Services/               # 新刊チェック共通サービス等
+│   │   └── Abstractions/           # インターフェース群
+│   └── NewReleaseChecker.Data/     # データ層（再利用可能基盤）
+│       ├── Database/               # SQLite アクセス
+│       └── Api/                    # 楽天Kobo API クライアント
+├── _Tests/
+│   └── NewReleaseChecker.Core.Tests/   # Core のユニットテスト（NUnit）
+└── _Server/                        # 中継サーバー（NewReleaseChecker.Relay）。詳細は _Server/CLAUDE.md
 ```
 
 ### レイヤー依存ルール
@@ -235,7 +240,7 @@ DB は SQLite（sqlite-net-pcl）。テーブルは **Series / Book の2つの�
 
 ## 9. 外部API（楽天ウェブサービス）
 
-> 2026 年新仕様により Android から楽天 API への直接アクセスは不可。**すべて中継サーバー（NewReleaseChecker.Relay, `https://kaz.server-on.net:60344`）経由**で利用する（`Android引き継ぎメモ.md` / `中継サーバー_要件定義書.md` 参照）。
+> 2026 年新仕様により Android から楽天 API への直接アクセスは不可。**すべて中継サーバー（NewReleaseChecker.Relay, `https://kaz.server-on.net:60344`）経由**で利用する（`Android引き継ぎメモ.md` / `_Server/中継サーバー_要件定義書.md` 参照）。
 
 - **楽天Kobo電子書籍検索API**: 検索・新刊チェック・発売予定表・ランキング。中継の `POST /api/kobo/search` を叩く（本文 JSON のキー名・値は楽天クエリと 1:1。`formatVersion` は付けず既定の `Items[].Item` ラップ構造＝DTO と整合）。REST/JSON、標準HttpClient + System.Text.Json。
 - **楽天Koboジャンル検索API**: 発売予定表・ランキングのジャンルメニュー生成。中継の `POST /api/kobo/genres`。

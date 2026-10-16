@@ -9,9 +9,9 @@
 
   <!-- Core は net10.0-android 単一 TFM でホストの dotnet test から参照できないため、BCL のみに依存するファイルをリンクする -->
   <ItemGroup>
-    <Compile Include="..\NewReleaseChecker.Core\Services\CoverImageUrl.cs" Link="Linked\CoverImageUrl.cs" />
-    <Compile Include="..\NewReleaseChecker.Core\Services\ReleaseDateParser.cs" Link="Linked\ReleaseDateParser.cs" />
-    <Compile Include="..\NewReleaseChecker.Core\Collections\BulkObservableCollection.cs" Link="Linked\BulkObservableCollection.cs" />
+    <Compile Include="..\..\_Core\NewReleaseChecker.Core\Services\CoverImageUrl.cs" Link="Linked\CoverImageUrl.cs" />
+    <Compile Include="..\..\_Core\NewReleaseChecker.Core\Services\ReleaseDateParser.cs" Link="Linked\ReleaseDateParser.cs" />
+    <Compile Include="..\..\_Core\NewReleaseChecker.Core\Collections\BulkObservableCollection.cs" Link="Linked\BulkObservableCollection.cs" />
   </ItemGroup>
 
   <ItemGroup>

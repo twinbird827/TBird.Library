@@ -2,11 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.10.12224.181 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core", "NewReleaseChecker.Core\NewReleaseChecker.Core.csproj", "{A1111111-1111-1111-1111-111111111111}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core", "..\_Core\NewReleaseChecker.Core\NewReleaseChecker.Core.csproj", "{A1111111-1111-1111-1111-111111111111}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Data", "NewReleaseChecker.Data\NewReleaseChecker.Data.csproj", "{A2222222-2222-2222-2222-222222222222}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Data", "..\_Core\NewReleaseChecker.Data\NewReleaseChecker.Data.csproj", "{A2222222-2222-2222-2222-222222222222}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.App", "NewReleaseChecker.App\NewReleaseChecker.App.csproj", "{A3333333-3333-3333-3333-333333333333}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.App", "NewReleaseChecker.App.csproj", "{A3333333-3333-3333-3333-333333333333}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Core", "..\TBird.Core\TBird.Core.csproj", "{FB712D58-2833-70F0-C61B-DE153D6D551D}"
 EndProject
@@ -20,7 +20,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TBird.Maui", "..\TBird.Maui
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{B5B142DB-DA56-47E6-B6AC-8462562C060A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core.Tests", "NewReleaseChecker.Core.Tests\NewReleaseChecker.Core.Tests.csproj", "{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Core.Tests", "..\_Tests\NewReleaseChecker.Core.Tests\NewReleaseChecker.Core.Tests.csproj", "{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewReleaseChecker.Relay", "..\_Server\NewReleaseChecker.Relay.csproj", "{F4CF8C13-B2BB-4D44-BF09-F7BEE73A4165}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -65,6 +67,10 @@ Global
 		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E4864F9A-31AB-4AB9-B4F8-1CD2926A19D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4CF8C13-B2BB-4D44-BF09-F7BEE73A4165}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4CF8C13-B2BB-4D44-BF09-F7BEE73A4165}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4CF8C13-B2BB-4D44-BF09-F7BEE73A4165}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4CF8C13-B2BB-4D44-BF09-F7BEE73A4165}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

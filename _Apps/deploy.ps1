@@ -1,4 +1,4 @@
-# 中継サーバ（NewReleaseChecker.Relay）を _Tools/NewReleaseChecker/bin/ へ配備する。IIS の物理パスは bin/
+﻿# 中継サーバ（NewReleaseChecker.Relay）を _Tools/NewReleaseChecker/bin/ へ配備する。IIS の物理パスは bin/
 #   秘密ファイルの正本 : _Tools/NewReleaseChecker/appsettings.Secrets.json (publish が配備物フォルダへ写す)
 #   稼働中の上書き     : app_offline.htm を置いてアプリを止めてから入れ替え、成功したら消す (次の要求で起動する)
 #
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 
 # スクリプト位置基準で解決 (カレントディレクトリに依存しない)。$PSScriptRoot=_Apps
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$project  = Join-Path $PSScriptRoot "NewReleaseChecker.Relay\NewReleaseChecker.Relay\NewReleaseChecker.Relay.csproj"
+$project  = Join-Path $repoRoot "_Server\NewReleaseChecker.Relay.csproj"
 $toolsDir = Join-Path $repoRoot "_Tools\NewReleaseChecker"
 $secrets  = Join-Path $toolsDir "appsettings.Secrets.json"
 $binDir   = Join-Path $toolsDir "bin"
