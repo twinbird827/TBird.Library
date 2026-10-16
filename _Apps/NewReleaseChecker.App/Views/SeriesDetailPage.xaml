@@ -2,8 +2,10 @@
 <views:SelectableBookListPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:views="clr-namespace:NewReleaseChecker.App.Views"
+             xmlns:vm="clr-namespace:NewReleaseChecker.App.ViewModels"
+             xmlns:models="clr-namespace:NewReleaseChecker.App.Models"
              x:Class="NewReleaseChecker.App.Views.SeriesDetailPage"
-             x:Name="Root"
+             x:DataType="vm:SeriesDetailViewModel"
              Title="シリーズ詳細">
 
     <ContentPage.ToolbarItems>
@@ -26,15 +28,15 @@
 
         <CollectionView Grid.Row="1" ItemsSource="{Binding Books}" SelectionMode="None">
             <CollectionView.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="models:BookListItem">
                     <Grid Padding="10" ColumnDefinitions="Auto,48,*,Auto" ColumnSpacing="10">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer
-                                Command="{Binding BindingContext.RowTappedCommand, Source={x:Reference Root}}"
+                                Command="{Binding RowTappedCommand, Source={RelativeSource AncestorType={x:Type vm:SeriesDetailViewModel}}, x:DataType=vm:SeriesDetailViewModel}"
                                 CommandParameter="{Binding .}" />
                         </Grid.GestureRecognizers>
                         <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" InputTransparent="True"
-                                  IsVisible="{Binding BindingContext.IsSelectionMode, Source={x:Reference Root}}" />
+                                  IsVisible="{Binding IsSelectionMode, Source={RelativeSource AncestorType={x:Type vm:SeriesDetailViewModel}}, x:DataType=vm:SeriesDetailViewModel}" />
                         <Image Grid.Column="1" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="48" HeightRequest="68" />
                         <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
                             <Label Text="{Binding Title}" LineBreakMode="TailTruncation" />

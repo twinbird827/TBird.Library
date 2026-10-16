@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:NewReleaseChecker.App.ViewModels"
              xmlns:models="clr-namespace:NewReleaseChecker.App.Models"
              x:Class="NewReleaseChecker.App.Views.SeriesListPage"
-             x:Name="Root"
+             x:DataType="vm:SeriesListViewModel"
              Title="シリーズ">
 
     <ContentPage.ToolbarItems>
@@ -42,19 +42,19 @@
                     </StackLayout>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="models:SeriesListItem">
                         <SwipeView>
                             <SwipeView.RightItems>
                                 <SwipeItems>
                                     <SwipeItem Text="削除" BackgroundColor="#E53935"
-                                               Command="{Binding BindingContext.DeleteSeriesCommand, Source={x:Reference Root}}"
+                                               Command="{Binding DeleteSeriesCommand, Source={RelativeSource AncestorType={x:Type vm:SeriesListViewModel}}, x:DataType=vm:SeriesListViewModel}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>
                             </SwipeView.RightItems>
                             <Grid Padding="10" ColumnDefinitions="64,*,Auto" ColumnSpacing="10">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
-                                        Command="{Binding BindingContext.OpenSeriesCommand, Source={x:Reference Root}}"
+                                        Command="{Binding OpenSeriesCommand, Source={RelativeSource AncestorType={x:Type vm:SeriesListViewModel}}, x:DataType=vm:SeriesListViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
                                 <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFit" WidthRequest="64" HeightRequest="90" />

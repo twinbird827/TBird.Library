@@ -1,9 +1,9 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Models;
 using NewReleaseChecker.Core;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Collections;
 using NewReleaseChecker.Core.Models;
 using NewReleaseChecker.Core.Services;
 using TBird.Core;
@@ -28,7 +28,7 @@ public partial class SeriesListViewModel : ObservableObject
         _notifier = notifier;
     }
 
-    public ObservableCollection<SeriesListItem> Items { get; } = new();
+    public BulkObservableCollection<SeriesListItem> Items { get; } = new();
 
     [ObservableProperty] private bool _isRefreshing;
     [ObservableProperty] private bool _isBusy;
@@ -63,6 +63,7 @@ public partial class SeriesListViewModel : ObservableObject
                                    .ToDictionary(g => g.Key, g => g.ToList());
 
             var items = new List<SeriesListItem>();
+            var now = DateTime.Now;
             foreach (var sr in allSeries)
             {
                 bySeries.TryGetValue(sr.Id, out var books);
@@ -77,6 +78,7 @@ public partial class SeriesListViewModel : ObservableObject
                     Series = sr,
                     LatestBook = latest,
                     UnpurchasedCount = unpurchased,
+                    ImageUrl = CoverImageUrl.ForDisplay(latest?.ImageUrl, latest?.ReleaseDate, now),
                     AuthorDisplay = latest?.Author ?? DisplayFormat.Authors(sr.AuthorSet),
                     LatestReleaseInfo = latest is null ? string.Empty : $"最新刊: {DisplayFormat.Release(latest.ReleaseDate)}",
                 });
@@ -113,8 +115,7 @@ public partial class SeriesListViewModel : ObservableObject
             _ => filtered.OrderByDescending(i => ReleaseDateParser.Parse(i.LatestBook?.ReleaseDate) ?? DateTime.MinValue),
         };
 
-        Items.Clear();
-        foreach (var i in sorted) Items.Add(i);
+        Items.ReplaceAll(sorted);
         OnPropertyChanged(nameof(IsEmpty));
     }
 

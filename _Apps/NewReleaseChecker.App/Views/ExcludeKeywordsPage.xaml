@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NewReleaseChecker.App.ViewModels"
              x:Class="NewReleaseChecker.App.Views.ExcludeKeywordsPage"
-             x:Name="Root"
+             x:DataType="vm:ExcludeKeywordsViewModel"
              Title="除外キーワード">
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="既定に戻す" Command="{Binding ResetCommand}" />
@@ -13,11 +14,11 @@
 
         <CollectionView Grid.Row="1" ItemsSource="{Binding Keywords}" SelectionMode="None">
             <CollectionView.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="x:String">
                     <Grid Padding="4" ColumnDefinitions="*,Auto">
                         <Label Grid.Column="0" Text="{Binding .}" VerticalOptions="Center" />
                         <Button Grid.Column="1" Text="削除" FontSize="12"
-                                Command="{Binding BindingContext.RemoveCommand, Source={x:Reference Root}}"
+                                Command="{Binding RemoveCommand, Source={RelativeSource AncestorType={x:Type vm:ExcludeKeywordsViewModel}}, x:DataType=vm:ExcludeKeywordsViewModel}"
                                 CommandParameter="{Binding .}" />
                     </Grid>
                 </DataTemplate>

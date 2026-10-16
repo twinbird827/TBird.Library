@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NewReleaseChecker.App.ViewModels"
+             xmlns:models="clr-namespace:NewReleaseChecker.App.Models"
              x:Class="NewReleaseChecker.App.Views.RegisterConfirmPage"
+             x:DataType="vm:RegisterConfirmContext"
              Title="シリーズ登録">
     <Grid RowDefinitions="*,Auto" Padding="16" RowSpacing="12">
         <ScrollView Grid.Row="0">
@@ -24,7 +27,7 @@
                 <Label Text="著者集合（不要な著者のチェックを外す）" FontAttributes="Bold" />
                 <CollectionView ItemsSource="{Binding Authors}" HeightRequest="200">
                     <CollectionView.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:AuthorSelection">
                             <HorizontalStackLayout Padding="0,4" Spacing="8">
                                 <CheckBox IsChecked="{Binding IsSelected}" />
                                 <Label Text="{Binding Name}" VerticalOptions="Center" />

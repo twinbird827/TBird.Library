@@ -1,8 +1,8 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Models;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Collections;
 using NewReleaseChecker.Core.Models;
 using NewReleaseChecker.Core.Services;
 using TBird.Core;
@@ -22,7 +22,7 @@ public partial class SeriesSearchViewModel : ErrorAwareViewModel
         _check = check;
     }
 
-    public ObservableCollection<RakutenBook> Results { get; } = new();
+    public BulkObservableCollection<RakutenBook> Results { get; } = new();
 
     [ObservableProperty] private string _searchKeyword = string.Empty;
     [ObservableProperty] private bool _isBusy;
@@ -36,8 +36,7 @@ public partial class SeriesSearchViewModel : ErrorAwareViewModel
             IsBusy = true;
             ClearError();
             var items = await _api.SearchAsync(new RakutenSearchQuery { Keyword = SearchKeyword, Hits = 30 });
-            Results.Clear();
-            foreach (var it in items) Results.Add(it);
+            Results.ReplaceAll(items);
             if (Results.Count == 0) SetError("該当する作品が見つかりませんでした。");
         }
         catch (Exception ex)

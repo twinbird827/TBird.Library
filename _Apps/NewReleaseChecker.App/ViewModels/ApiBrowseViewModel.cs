@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NewReleaseChecker.App.Models;
 using NewReleaseChecker.Core.Abstractions;
+using NewReleaseChecker.Core.Collections;
 using NewReleaseChecker.Core.Models;
 using NewReleaseChecker.Core.Services;
 using TBird.Core;
@@ -25,7 +26,7 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
         _actions = actions;
     }
 
-    public ObservableCollection<BookListItem> Items { get; } = new();
+    public BulkObservableCollection<BookListItem> Items { get; } = new();
     public ObservableCollection<RakutenGenreNode> Genres { get; } = new();
 
     [ObservableProperty] private bool _isBusy;
@@ -97,13 +98,7 @@ public abstract partial class ApiBrowseViewModel : SelectableBookListViewModel
             var results = await Api.SearchAsync(BuildQuery(genreId), ct);
             if (ct.IsCancellationRequested) return;
 
-            Items.Clear();
-            int rank = 1;
-            foreach (var rb in results)
-            {
-                Items.Add(ToItem(rb, rank));
-                rank++;
-            }
+            Items.ReplaceAll(results.Select((rb, i) => ToItem(rb, i + 1)));
             // 非永続巻のため、表示後に DB のお気に入り状態を照合して★を反映する（最新読込のみ）。
             if (_loadCts == cts) await RefreshFavoriteFlagsAsync();
         }

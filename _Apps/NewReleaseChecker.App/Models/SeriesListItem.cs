@@ -1,5 +1,4 @@
 using NewReleaseChecker.Core.Models;
-using NewReleaseChecker.Core.Services;
 
 namespace NewReleaseChecker.App.Models;
 
@@ -13,7 +12,7 @@ public sealed class SeriesListItem
     public int Id => Series.Id;
     public string SeriesKey => Series.SeriesKey;
     public string MediaType => Series.MediaType;
-    public string? ImageUrl => CoverImageUrl.ForDisplay(LatestBook?.ImageUrl, LatestBook?.ReleaseDate, DateTime.Now);
+    public string? ImageUrl { get; init; }
 
     public string AuthorDisplay { get; init; } = string.Empty;
     public string LatestReleaseInfo { get; init; } = string.Empty;
