@@ -27,9 +27,9 @@ if (-not $adb) {
 }
 
 # ビルドに数分かかるので、実機未接続はその前に止める (exit 1)
-$state = & $adb get-state 2>&1
+$state = & $adb get-state
 if ($LASTEXITCODE -ne 0 -or "$state" -ne "device") {
-    throw "No device connected: $state"
+    throw "Device is not ready (state='$state'). See the adb output above for the reason."
 }
 
 & dotnet publish $project -c Release -f net10.0-android
