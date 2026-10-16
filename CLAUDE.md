@@ -8,7 +8,7 @@ TBird.Libraryは、WPFアプリケーション、Android MAUIアプリケーシ�
 
 ソリューションファイルは 2 つに分かれており、用途に応じて使い分ける：
 - `TBird.Library.sln` - WPF / Console / Service / DB / IO 等の WPF 系・サーバ系プロジェクト集合（MAUI workload 不要）
-- `TBird.Maui.sln` - TBird.Core + TBird.Maui.* 4 プロジェクト（MAUI workload 必要、Android MAUI アプリ開発時のみ開く）
+- `TBird.Maui.sln` - TBird.Core + TBird.Maui.* 4 プロジェクト + `TBird.Maui.Tests`（MAUI workload 必要、Android MAUI アプリ開発時のみ開く）
 
 ## ビルド
 
