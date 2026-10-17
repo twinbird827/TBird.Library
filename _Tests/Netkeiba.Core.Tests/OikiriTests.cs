@@ -28,7 +28,18 @@ namespace Netkeiba.Core.Tests
 			Assert.That(Create("", adaptation).Adaptation, Is.EqualTo(expected));
 		}
 
-		private static Oikiri Create(string time5, string adaptation = "")
+		[TestCase("助手", 0.69f)]
+		[TestCase("", 0.00f)]
+		[TestCase("師", 1.00f)]
+		[TestCase("攻手", 0.81f)]
+		[TestCase("見習", 0.13f)]
+		[TestCase("丹内", 0.58f)]
+		public void RiderMapsEveryDbValue(string rider, float expected)
+		{
+			Assert.That(Create("", rider: rider).Rider, Is.EqualTo(expected));
+		}
+
+		private static Oikiri Create(string time5, string adaptation = "", string rider = "")
 		{
 			var x = new[]
 			{
@@ -37,6 +48,7 @@ namespace Netkeiba.Core.Tests
 			}.ToDictionary(k => k, k => (object)"");
 			x["時間5"] = time5;
 			x["脚色"] = adaptation;
+			x["乗り役"] = rider;
 			return new Oikiri(x);
 		}
 	}
