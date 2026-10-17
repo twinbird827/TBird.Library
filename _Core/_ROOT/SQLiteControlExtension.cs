@@ -352,9 +352,9 @@ ORDER BY h.開催日, h.ﾚｰｽID
 		{
 			var sql = @"
 WITH
-v_orig AS (SELECT 馬場, 馬場状態, 距離, CAST(上り AS REAL) 上り, CAST(ﾀｲﾑ変換 AS REAL) ﾀｲﾑ変換 FROM t_orig_h h, t_orig_d d WHERE h.ﾚｰｽID = d.ﾚｰｽID AND CAST(h.障害 AS INTEGER) = 0),
+v_orig AS (SELECT 馬場, 馬場状態, 距離, NULLIF(CAST(上り AS REAL), 0) 上り, CAST(ﾀｲﾑ変換 AS REAL) ﾀｲﾑ変換 FROM t_orig_h h, t_orig_d d WHERE h.ﾚｰｽID = d.ﾚｰｽID AND CAST(h.障害 AS INTEGER) = 0),
 v_group1 AS (SELECT 馬場, 馬場状態, 距離, AVG(上り) 上り, AVG(ﾀｲﾑ変換) ﾀｲﾑ変換, COUNT(*) CNT FROM v_orig GROUP BY 馬場, 馬場状態, 距離),
-v_group2 AS (SELECT 馬場, 距離, SUM(上り * CNT) / SUM(CNT) 上り, SUM(ﾀｲﾑ変換 * CNT) / SUM(CNT) ﾀｲﾑ変換 FROM v_group1 GROUP BY 馬場, 距離),
+v_group2 AS (SELECT 馬場, 距離, AVG(上り) 上り, AVG(ﾀｲﾑ変換) ﾀｲﾑ変換 FROM v_orig GROUP BY 馬場, 距離),
 v_baba AS (SELECT DISTINCT 馬場状態 FROM v_group1)
 SELECT o2.馬場, b.馬場状態, o2.距離, (CASE WHEN o1.CNT > 100 THEN o1.上り ELSE o2.上り END) 上り, (CASE WHEN o1.CNT > 100 THEN o1.ﾀｲﾑ変換 ELSE o2.ﾀｲﾑ変換 END) ﾀｲﾑ変換 FROM v_group2 o2 CROSS JOIN v_baba b LEFT JOIN v_group1 o1 ON o2.馬場 = o1.馬場 AND b.馬場状態 = o1.馬場状態 AND o2.距離 = o1.距離
 ";

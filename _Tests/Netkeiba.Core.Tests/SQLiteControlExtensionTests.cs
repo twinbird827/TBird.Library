@@ -65,5 +65,29 @@ namespace Netkeiba.Core.Tests
 				Assert.That(rows[0].LastThreeFurlongs, Is.EqualTo(33f));
 			}
 		}
+
+		[Test]
+		public async Task GetTrackDistanceIgnoresMissingAgari()
+		{
+			var work = Path.Combine(TestContext.CurrentContext.WorkDirectory, "track-distance-missing-agari");
+			if (Directory.Exists(work)) Directory.Delete(work, true);
+			Directory.CreateDirectory(work);
+
+			using (var conn = new SQLiteControl(Path.Combine(work, "database.sqlite3"), string.Empty, false, false, 1024 * 1024, true))
+			{
+				await conn.CreateOrig();
+
+				foreach (var (raceid, condition, agari) in new[] { ("good", "良", "33"), ("soft", "稍", "0") })
+				{
+					await conn.ExecuteNonQueryAsync($"INSERT INTO t_orig_h (ﾚｰｽID, 馬場, 馬場状態, 距離, 障害) VALUES ('{raceid}', '芝', '{condition}', '1600', '0')");
+					await conn.ExecuteNonQueryAsync($"INSERT INTO t_orig_d (ﾚｰｽID, 馬番, 上り, ﾀｲﾑ変換) VALUES ('{raceid}', '1', '{agari}', '95')");
+				}
+
+				var rows = await conn.GetTrackDistanceAsync().ToArrayAsync();
+
+				Assert.That(rows, Has.Length.EqualTo(2));
+				Assert.That(rows.Select(x => x.LastThreeFurlongs), Is.All.EqualTo(33f));
+			}
+		}
 	}
 }

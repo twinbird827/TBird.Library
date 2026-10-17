@@ -179,7 +179,7 @@ namespace Netkeiba
 
 		public static string GetAgari(string 距離, string 馬場, bool 障害, string 上り)
 		{
-			var nobo = 上り.GetDouble().Run(x => x == 0D ? 50D : x);
+			var nobo = 上り.GetDouble();
 
 			return 障害
 				? nobo.Divide(0.36 + 距離.GetDouble().Multiply(1.5).Divide(100000)).ToString()

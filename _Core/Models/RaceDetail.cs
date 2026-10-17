@@ -46,7 +46,8 @@ namespace Netkeiba.Models
 				.Run(y => (object)y)
 				.Single() / (float)Race.NumberOfHorses;
 			Tuka = Math.Min(Tuka, 1.0F);
-			LastThreeFurlongs = GetLastThreeFurlongs(agari);
+			// 上りを取得できなかった行は 0 で保存されるため、欠損として扱う
+			LastThreeFurlongs = 0 < agari ? GetLastThreeFurlongs(agari) : float.NaN;
 			Gender = gender;
 			Age = (Race.RaceDate - BirthDate).TotalDays.Single() / 365F;
 			TimeIndex = timeIndex.MinMax(40F, 135F);
@@ -171,7 +172,7 @@ namespace Netkeiba.Models
 
 			// ﾚｰｽ結果を元に計算
 			Time2Top = (Time - inraces.Min(x => x.Time)).MinMax(-4.9F, 4.9F);
-			LastThreeFurlongs2Top = (LastThreeFurlongs - inraces.Min(x => x.LastThreeFurlongs)).MinMax(-4.9F, 4.9F);
+			LastThreeFurlongs2Top = (LastThreeFurlongs - inraces.Min(x => x.LastThreeFurlongs, float.NaN)).MinMax(-4.9F, 4.9F);
 			FinishDiff = FinishDiff == "同着" ? inraces.First(x => x.FinishPosition == FinishPosition && x.Umaban != Umaban).FinishDiff : FinishDiff;
 
 			// ﾚｰｽ平均を元に計算
