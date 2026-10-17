@@ -1,6 +1,5 @@
 #!/bin/sh
-# ブランチ切替で前の app-* ブランチの gitignore 済みファイルが _Tools を除くリポジトリ直下の _ フォルダに残り、次のビルドを壊すのを防ぐ。
-# 導入は clone ごとに 1 回: cp .githooks/post-checkout .git/hooks/
+# ブランチ切替と、post-merge から呼ばれる pull / merge で、前の内容の gitignore 済みファイルが _Tools を除くリポジトリ直下の _ フォルダに残り、次のビルドを壊すのを防ぐ。
 
 # $3 が 1 以外はファイル単位の checkout
 [ "$3" = 1 ] || exit 0
