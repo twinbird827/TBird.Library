@@ -57,7 +57,9 @@ namespace Netkeiba.Models
 			var trainerbreeders = GetConnectionScoreMetrics(detail, PreviousDataSets.GetTrainerBreeders(detail));
 
 			// 休養日数とベル型変換（交差特徴量で使用）
-			var restDays = Math.Min((float)(detail.Race.RaceDate - detail.LastRaceDate).Days, 365F);
+			var restDays = detail.Last != null
+				? Math.Min((float)(detail.Race.RaceDate - detail.Last.Race.RaceDate).Days, 365F)
+				: float.NaN;
 			var restDaysFactor = restDays <= 90F ? restDays / 90F
 				: restDays <= 180F ? 1.0F
 				: Math.Max(0F, 1F - (restDays - 180F) / 185F);
@@ -90,8 +92,8 @@ namespace Netkeiba.Models
 				Wakuban = detail.Wakuban,
 				Umaban = detail.Umaban,
 				// 前走変化
-				JockeyChange = detail.Last != null && detail.Jockey != detail.Last.Jockey ? 1F : 0F,
-				SurfaceChange = detail.Last != null && detail.Race.TrackType != detail.Last.Race.TrackType ? 1F : 0F,
+				JockeyChange = detail.Last == null ? float.NaN : detail.Jockey != detail.Last.Jockey ? 1F : 0F,
+				SurfaceChange = detail.Last == null ? float.NaN : detail.Race.TrackType != detail.Last.Race.TrackType ? 1F : 0F,
 				// 過去ﾚｰｽの休養日数（個別）
 				RestDaysN1 = restDaysArr.Length > 0 ? restDaysArr[0] : float.NaN,
 				RestDaysN2 = restDaysArr.Length > 1 ? restDaysArr[1] : float.NaN,
@@ -128,11 +130,11 @@ namespace Netkeiba.Models
 				// 距離
 				DistanceDiff = horses5.DistanceDiff,
 				// 前走距離差
-				DistanceFromLast = detail.Last != null ? detail.Race.Distance - detail.Last.Race.Distance : 0F,
+				DistanceFromLast = detail.Last != null ? detail.Race.Distance - detail.Last.Race.Distance : float.NaN,
 				// クラス変化
 				GradeChange = detail.Last != null
 					? detail.Race.Grade.GetGradeFeatures() - detail.Last.Race.Grade.GetGradeFeatures()
-					: 0F,
+					: float.NaN,
 
 				// 通過順
 				Tuka = horses5.Tuka,
@@ -369,8 +371,8 @@ namespace Netkeiba.Models
 			return new HorseScoreMetrics()
 			{
 				// 獲得賞金
-				AvgPrizeMoney = horses.Median(x => x.PrizeMoney, 0F),
-				MaxPrizeMoney = horses.Max(x => x.PrizeMoney, 0F),
+				AvgPrizeMoney = horses.Median(x => x.PrizeMoney, float.NaN),
+				MaxPrizeMoney = horses.Max(x => x.PrizeMoney, float.NaN),
 
 				// ﾚｰﾃｨﾝｸﾞ
 				AvgRating = horses.Median(x => x.TimeIndex, DefaultRating),
@@ -409,7 +411,7 @@ namespace Netkeiba.Models
 			return new ConnectionScoreMetrics()
 			{
 				// 獲得賞金
-				AvgPrizeMoney = horses.Median(x => x.PrizeMoney, 0F),
+				AvgPrizeMoney = horses.Median(x => x.PrizeMoney, float.NaN),
 
 				// ﾚｰﾃｨﾝｸﾞ
 				AvgRating = horses.Median(x => x.TimeIndex, DefaultRating),
