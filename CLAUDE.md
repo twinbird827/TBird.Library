@@ -82,7 +82,7 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 ### ブランチ切替と `_Tools`
 
 - **git 追跡外だが実行に必要なファイル（DB・シークレット・学習モデル・ログ・ビルド成果物）を `_Tools` 以外の `_` フォルダ内に置かない**。リポジトリルートの `_Tools/<アプリ名>/`（.gitignore 済）に集約する。`_Tools` 以外の `_` フォルダはブランチ切替で内容が入れ替わるため、置くと切替や `_` フォルダ内削除で失われる
-- post-checkout フック（正本は `.githooks/post-checkout`）が、`_Tools` を除くリポジトリ直下の `_` フォルダの `.sln` / `.csproj` に差分があるブランチ切替（別 app への切替、csproj を変えた fix/* との往復、rebase）で、そこの gitignore 済みファイルを `git clean -fdX` で消す。clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` で導入する
+- post-checkout フック（正本は `.githooks/post-checkout`）と、それを呼ぶ post-merge フック（`.githooks/post-merge`）が、`_Tools` を除くリポジトリ直下の `_` フォルダの `.sln` / `.csproj` に差分があるブランチ切替（別 app への切替、csproj を変えた fix/* との往復、rebase）と pull / merge で、そこの gitignore 済みファイルを `git clean -fdX` で消す。clone ごとに 1 回 `cp .githooks/post-checkout .githooks/post-merge .git/hooks/` で導入する
 - 定期実行（タスクスケジューラ）・常駐サーバは `_Tools/<アプリ名>/` に配備した実行物から起動する。登録に `_Tools` 以外の `_` フォルダのパスを使わず、`dotnet run --project _Server/...` や `dotnet run --project _Scheduler/...` で起動しない
 - 配備は app-* ブランチで追跡する `_Apps/deploy.ps1` を明示的に実行して行い、ブランチ切替では配備しない。`_Tools/<アプリ名>/` 内の配備物（配備のたびに上書き）以外、すなわち実行時データ（DB・シークレット・設定・ログ・モデル）とコンパイル時の秘密ファイルは配備で消さない
 - コンパイル時に必要な秘密ファイルは `_Tools/<アプリ名>/` に置き、csproj から取り込む
