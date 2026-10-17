@@ -16,7 +16,16 @@ namespace Netkeiba.Models
 			string timeRating1, string timeRating2, string timeRating3, string timeRating4, string timeRating5,
 			string adaptation, string rating)
 		{
-			Rider = rider.Run(x => x == "助手" ? 0F : 1F);
+			// 値は学習期間の調教師補正着順から決めたもの。既定分岐は騎手名を受ける
+			Rider = rider switch
+			{
+				"師" => 1.00F,
+				"攻手" => 0.81F,
+				"助手" => 0.69F,
+				"見習" => 0.13F,
+				"" => 0.00F,
+				_ => 0.58F
+			};
 			Time1 = time1;
 			Time2 = time2;
 			Time3 = time3;
@@ -36,13 +45,17 @@ namespace Netkeiba.Models
 			TimeRating4 = ToTimeRating(timeRating4);
 			TimeRating5 = ToTimeRating(timeRating5);
 
-			Adaptation = adaptation switch
+			// 値は強度順でなく学習期間の調教師補正着順から決めたもの。強度順に並べ直さない
+			Adaptation = adaptation.Normalize(NormalizationForm.FormKC) switch
 			{
-				"一杯" => 1.00F,
-				"Ｇ強" => 0.80F,
-				"強め" => 0.60F,
-				"馬也" => 0.40F,
-				"攻手" => 0.20F,
+				"直強" => 1.00F,
+				"仕掛" => 0.91F,
+				"馬也" => 0.90F,
+				"G強" => 0.86F,
+				"G一" => 0.63F,
+				"直一" => 0.57F,
+				"強め" => 0.48F,
+				"一杯" => 0.18F,
 				_ => 0.00F
 			};
 
@@ -121,7 +134,6 @@ namespace Netkeiba.Models
 				weight += 0.3F;
 				score += Rating * 0.3F;
 
-				// 乗り役(0=助手, 1=騎手)
 				weight += 0.2F;
 				score += Rider * 0.2F;
 
