@@ -467,7 +467,7 @@ icacls _Tools\NewReleaseChecker\logs /grant "IIS AppPool\NewReleaseCheckerRelayP
 
 ### 初回（別の PC でリポジトリを同期して構築するときもこの手順）
 1. 前提ソフト: Git と .NET 10 SDK（その PC で publish するため）を入れる。IIS の有効化は §10.1、Hosting Bundle は §10.2 で入れる
-2. リポジトリ: clone する（既にあれば pull する）。`git checkout app-new-book-checker` で切り替え、clone ごとに 1 回 `cp .githooks/post-checkout .git/hooks/` を実行する
+2. リポジトリ: clone する（既にあれば pull する）。`git checkout app-new-book-checker` で切り替え、root `CLAUDE.md` の「ブランチ切替と `_Tools`」節の導入手順どおり clone ごとに 1 回フックを導入する
 3. 秘密ファイル: `_Tools/NewReleaseChecker/appsettings.Secrets.json` を元の PC から手作業（USB メモリ等）で複製する。クラウド共有・チャット・メールは使わない。手元に無ければ §10.9 で作る。SharedSecret を新しく作った場合は、同じファイルを読む Android アプリを再ビルドして端末へ入れ直す
 4. ローカル起動確認: IIS を入れる前に `dotnet run --project _Server/NewReleaseChecker.Relay.csproj --urls http://localhost:5199` で起動し、`http://localhost:5199/healthz` が 200 を返すことを確かめてから止める（秘密ファイルとビルドの不備を IIS の問題と切り分けるため）
 5. 配備: §10.6（`deploy.ps1`）
