@@ -95,5 +95,40 @@ namespace Netkeiba.Core.Tests
 			Assert.That(ranks[1], Is.GreaterThan(ranks[0]));
 			Assert.That(ranks[1], Is.GreaterThan(ranks[2]));
 		}
+
+		[Test]
+		public void FeaturesWithoutLastRaceAreNaN()
+		{
+			var race = new Race(new Dictionary<string, object>
+			{
+				["開催日"] = "2026/10/13",
+				["ﾗﾝｸ1"] = "G1古",
+				["馬場"] = "芝",
+				["距離"] = "2000",
+			});
+			var x = new[]
+			{
+				"乗り役", "時間1", "時間2", "時間3", "時間4", "時間5",
+				"時間評価1", "時間評価2", "時間評価3", "時間評価4", "時間評価5", "脚色", "評価",
+			}.ToDictionary(k => k, k => (object)"");
+			x["生年月日"] = "2023/04/01";
+			var detail = new RaceDetail(x, race);
+			var inraces = new[] { detail };
+			detail.SetHistoricalData(new List<RaceDetail>(), inraces, new TrackConditionDistance(new Dictionary<string, object>()));
+
+			var f = detail.ExtractFeatures(inraces);
+
+			Assert.Multiple(() =>
+			{
+				Assert.That(f.RestDays, Is.NaN);
+				Assert.That(f.JockeyChange, Is.NaN);
+				Assert.That(f.SurfaceChange, Is.NaN);
+				Assert.That(f.DistanceFromLast, Is.NaN);
+				Assert.That(f.GradeChange, Is.NaN);
+				Assert.That(f.AvgPrizeMoney, Is.NaN);
+				Assert.That(f.MaxPrizeMoney, Is.NaN);
+				Assert.That(f.Weight, Is.NaN);
+			});
+		}
 	}
 }

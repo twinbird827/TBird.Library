@@ -67,7 +67,7 @@ namespace Netkeiba.Models
 				"B" => 0.65F,
 				"C" => 0.40F,
 				"D" => 0.00F,
-				_ => 0.30F
+				_ => float.NaN
 			};
 		}
 
@@ -138,8 +138,12 @@ namespace Netkeiba.Models
 				weight += 0.2F;
 				score += Adaptation * 0.2F;
 
-				weight += 0.3F;
-				score += Rating * 0.3F;
+				// 評価（欠損は NaN が全体を NaN にするので外す）
+				if (!float.IsNaN(Rating))
+				{
+					weight += 0.3F;
+					score += Rating * 0.3F;
+				}
 
 				weight += 0.2F;
 				score += Rider * 0.2F;

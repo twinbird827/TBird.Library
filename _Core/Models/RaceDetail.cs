@@ -135,7 +135,6 @@ namespace Netkeiba.Models
 
 		// これまでの実績に紐づく情報
 		public int RaceCount { get; private set; }
-		public float AverageRating { get; private set; }
 
 		// ﾚｰｽ結果
 		public float Tuka { get; }
@@ -147,7 +146,6 @@ namespace Netkeiba.Models
 		public float AdjustedTime => Time + (JockeyWeight - 55f) * 0.2f;
 		public float TimeIndex { get; }
 		public RaceDetail? Last { get; private set; }
-		public DateTime LastRaceDate { get; private set; }
 
 		// ﾚｰｽ結果(ﾄｯﾌﾟとの差)
 		public float Time2Top { get; private set; }
@@ -181,11 +179,7 @@ namespace Netkeiba.Models
 
 			// 直近の情報から計算
 			Last = horses.FirstOrDefault();
-			Weight = Weight > 300F ? Weight : Last != null ? Last.Weight : 460F;
-			LastRaceDate = Last != null ? Last.Race.RaceDate : Race.RaceDate.AddDays(-60);
-
-			// 直近5戦の情報
-			AverageRating = horses.Median(x => x.TimeIndex, 60F);
+			Weight = Weight > 300F ? Weight : Last != null ? Last.Weight : float.NaN;
 		}
 	}
 }

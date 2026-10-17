@@ -17,7 +17,7 @@ namespace Netkeiba
 		{
 			if (float.IsNaN(val)) return float.NaN;
 			var validArr = arr.Where(x => !float.IsNaN(x)).ToArray();
-			if (validArr.Length == 0) return float.NaN;
+			if (validArr.Length < 2) return float.NaN;
 			var same = validArr.Count(x => Math.Abs(x - val) < 0.01f);
 			var wrse = higherIsBetter ? validArr.Count(x => x < val) : validArr.Count(x => x > val);
 
@@ -28,7 +28,7 @@ namespace Netkeiba
 		{
 			if (float.IsNaN(val)) return float.NaN;
 			var validArr = arr.Where(x => !float.IsNaN(x)).ToArray();
-			if (validArr.Length < 2) return 0f;
+			if (validArr.Length < 2) return float.NaN;
 			var mean = validArr.Average();
 			var std = CalculateStandardDeviation(validArr);
 			if (std < 0.0001f) return 0f;

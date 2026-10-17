@@ -52,7 +52,15 @@ namespace Netkeiba.Core.Tests
 			Assert.That(Create("", rider: rider).Rider, Is.EqualTo(expected));
 		}
 
-		private static Oikiri Create(string time5, string adaptation = "", string rider = "")
+		[TestCase("A", 1.00f)]
+		[TestCase("D", 0.00f)]
+		[TestCase("", float.NaN)]
+		public void RatingMapsBlankToNaN(string rating, float expected)
+		{
+			Assert.That(Create("", rating: rating).Rating, Is.EqualTo(expected));
+		}
+
+		private static Oikiri Create(string time5, string adaptation = "", string rider = "", string rating = "")
 		{
 			var x = new[]
 			{
@@ -62,6 +70,7 @@ namespace Netkeiba.Core.Tests
 			x["時間5"] = time5;
 			x["脚色"] = adaptation;
 			x["乗り役"] = rider;
+			x["評価"] = rating;
 			return new Oikiri(x);
 		}
 	}
