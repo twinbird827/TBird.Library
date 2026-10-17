@@ -6,10 +6,23 @@ namespace Netkeiba.Core.Tests
 {
 	public class OikiriTests
 	{
-		[Test]
-		public void MissingTime5ScoresAsAverageTime()
+		[TestCase("12.9", 12.9f)]
+		[TestCase("?12.9", 12.9f)]
+		[TestCase("102.751.7", 51.7f)]
+		[TestCase("-", float.NaN)]
+		[TestCase("", float.NaN)]
+		[TestCase("中間軽め", float.NaN)]
+		public void Time5ReadsLastOneDecimalNumber(string time5, float expected)
 		{
-			Assert.That(Create("").TotalScore, Is.EqualTo(Create("13.5").TotalScore).Within(1e-6f));
+			Assert.That(Create(time5).Time5, Is.EqualTo(expected));
+		}
+
+		[Test]
+		public void MissingTime5StaysNaNAndTotalScoreDropsTimeTerm()
+		{
+			var oikiri = Create("");
+			Assert.That(oikiri.AdjustedTime5, Is.NaN);
+			Assert.That(oikiri.TotalScore, Is.Not.NaN);
 		}
 
 		[TestCase("馬也", 0.90f)]

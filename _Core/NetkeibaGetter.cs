@@ -147,7 +147,7 @@ namespace Netkeiba
 					// 人気
 					dic["人気"] = row.Cells[17].GetInnerHtml();
 					// 体重
-					dic["体重"] = row.Cells[18].GetInnerHtml().Split('(')[0].GetSingle(450).ToString();
+					dic["体重"] = row.Cells[18].GetInnerHtml().Split('(')[0].GetSingle().ToString();
 					dic["増減"] = row.Cells[18].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
 					// 備考(有料)
 					dic["備考"] = row.Cells[21].GetInnerHtml().Replace("\n", "");

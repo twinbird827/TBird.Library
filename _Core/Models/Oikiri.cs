@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TBird.Core;
 
@@ -71,11 +73,11 @@ namespace Netkeiba.Models
 
 		public Oikiri(DbDataReader r, int offset) : this(
 			r.GetValue(offset + 2).Str(),        // 乗り役
-			r.GetValue(offset + 3).Single(),     // 時間1
-			r.GetValue(offset + 4).Single(),     // 時間2
-			r.GetValue(offset + 5).Single(),     // 時間3
-			r.GetValue(offset + 6).Single(),     // 時間4
-			r.GetValue(offset + 7).Single(),     // 時間5
+			ToTime(r.GetValue(offset + 3).Str()), // 時間1
+			ToTime(r.GetValue(offset + 4).Str()), // 時間2
+			ToTime(r.GetValue(offset + 5).Str()), // 時間3
+			ToTime(r.GetValue(offset + 6).Str()), // 時間4
+			ToTime(r.GetValue(offset + 7).Str()), // 時間5
 			r.GetValue(offset + 8).Str(),        // 時間評価1
 			r.GetValue(offset + 9).Str(),        // 時間評価2
 			r.GetValue(offset + 10).Str(),       // 時間評価3
@@ -88,11 +90,11 @@ namespace Netkeiba.Models
 
 		public Oikiri(Dictionary<string, object> x) : this(
 			x["乗り役"].Str(),
-			x["時間1"].Single(),
-			x["時間2"].Single(),
-			x["時間3"].Single(),
-			x["時間4"].Single(),
-			x["時間5"].Single(),
+			ToTime(x["時間1"].Str()),
+			ToTime(x["時間2"].Str()),
+			ToTime(x["時間3"].Str()),
+			ToTime(x["時間4"].Str()),
+			ToTime(x["時間5"].Str()),
 			x["時間評価1"].Str(),
 			x["時間評価2"].Str(),
 			x["時間評価3"].Str(),
@@ -103,13 +105,18 @@ namespace Netkeiba.Models
 		)
 		{ }
 
+		// 時計はすべて小数 1 桁。`?12.9` の印や `102.751.7` のようにつながった値は、列に合う後ろ側を採る
+		private static float ToTime(string s) => Regex.Matches(s, @"\d+\.\d").LastOrDefault()?.Value is string v
+			? float.Parse(v, CultureInfo.InvariantCulture)
+			: float.NaN;
+
 		public float Rider { get; set; }
 		public float Time1 { get; set; }
 		public float Time2 { get; set; }
 		public float Time3 { get; set; }
 		public float Time4 { get; set; }
 		public float Time5 { get; set; }
-		public float AdjustedTime5 => Time5.Run(x => 0 < x && x < 20 ? x : 13.5F);
+		public float AdjustedTime5 => Time5.Run(x => 0 < x && x < 20 ? x : float.NaN);
 		public float TimeRating1 { get; set; }
 		public float TimeRating2 { get; set; }
 		public float TimeRating3 { get; set; }
@@ -141,9 +148,12 @@ namespace Netkeiba.Models
 				weight += 0.3F;
 				score += TimeRating * 0.3F;
 
-				// 時計
-				weight += 0.4F;
-				score += 5F / Math.Max(AdjustedTime5 - 5F, 5F) * 0.4F;
+				// 時計（欠損は Math.Max が NaN を返して全体を NaN にするので外す）
+				if (!float.IsNaN(AdjustedTime5))
+				{
+					weight += 0.4F;
+					score += 5F / Math.Max(AdjustedTime5 - 5F, 5F) * 0.4F;
+				}
 
 				// 重みで正規化して0-1スケールに
 				return score / weight;
