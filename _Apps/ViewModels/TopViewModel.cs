@@ -41,8 +41,10 @@ public class SourceItem
 
     public bool HasSubText => SubText.Length > 0;
 
+    private (string Name, string Author)? _title;
+
     // 名前がファイル・フォルダ名の行だけ分解する（ストレージ・SMB の名前は利用者が付けた表示名のため）
-    private (string Name, string Author) Title => Kind is SourceItemKind.Favorite or SourceItemKind.History ? TitleParser.Parse(Name) : (Name, "");
+    private (string Name, string Author) Title => _title ??= Kind is SourceItemKind.Favorite or SourceItemKind.History ? TitleParser.Parse(Name) : (Name, "");
 
     public string DisplayName => Title.Name;
 
