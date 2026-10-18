@@ -37,6 +37,13 @@
         <Setter Property="TextColor" Value="{StaticResource Gray500}" />
     </Style>
 
+    <Style x:Key="Badge" TargetType="Border">
+        <Setter Property="Stroke" Value="{StaticResource Gray500}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 3" />
+        <Setter Property="Padding" Value="4,0" />
+    </Style>
+
     <Style x:Key="GroupHeader" TargetType="Label">
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontAttributes" Value="Bold" />

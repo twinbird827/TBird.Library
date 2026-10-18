@@ -39,6 +39,10 @@ public class SourceItem
 
     public string StatusText { get; init; } = "";
 
+    public string KindBadge { get; init; } = "";
+
+    public bool HasStatus => StatusText.Length > 0;
+
     public bool HasSubText => SubText.Length > 0;
 
     private (string Name, string Author)? _title;

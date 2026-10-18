@@ -48,6 +48,7 @@ public partial class FlyoutViewModel
                 Path = x.Path,
                 Name = x.Path.EndsWith('*') ? $"{EntryRules.Name(EntryRules.Parent(x.Path))} {FolderItemViewModel.DirectImagesName}" : EntryRules.Name(x.Path),
                 StatusText = FolderItemViewModel.GetStatusText(x),
+                KindBadge = EntryRules.KindBadge(x.Path),
                 Icon = "comic.png",
             }).ToList();
             if (favorites.Count == 0) favorites.Add(new SourceItem { Kind = SourceItemKind.Placeholder, Name = "ありません", IsEnabled = false });

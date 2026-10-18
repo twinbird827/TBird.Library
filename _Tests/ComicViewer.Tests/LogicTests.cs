@@ -159,6 +159,12 @@ public class EntryRulesTests
     [TestCase("a.cbz", false)]
     public void Image(string name, bool expected) => Assert.That(EntryRules.IsImage(name), Is.EqualTo(expected));
 
+    [TestCase("dir/a.zip", "ZIP")]
+    [TestCase("dir/a.PDF", "PDF")]
+    [TestCase("dir/*", "PIC")]
+    [TestCase("dir/Vol.1", "PIC")]
+    public void KindBadge(string path, string expected) => Assert.That(EntryRules.KindBadge(path), Is.EqualTo(expected));
+
     [Test]
     public void PathHelpers()
     {
@@ -172,17 +178,22 @@ public class EntryRulesTests
 
 public class TitleParserTests
 {
-    [TestCase("タイトル.zip", "タイトル.zip", "")]
-    [TestCase("[作者] タイトル.zip", "タイトル.zip", "作者")]
-    [TestCase("(作者) タイトル.zip", "タイトル.zip", "作者")]
-    [TestCase("【作者】タイトル.zip", "タイトル.zip", "作者")]
-    [TestCase("タイトル (1).zip", "タイトル (1).zip", "")]
-    [TestCase("[作者] タイトル (1).zip", "タイトル (1).zip", "作者")]
-    [TestCase("(成年コミック) [作者] タイトル.zip", "タイトル.zip", "作者")]
-    [TestCase("(C99) [サークル (作者)] タイトル.zip", "タイトル.zip", "サークル (作者)")]
-    [TestCase("(作者) タイトル [おまけ].zip", "タイトル [おまけ].zip", "作者")]
+    [TestCase("タイトル.zip", "タイトル", "")]
+    [TestCase("[作者] タイトル.zip", "タイトル", "作者")]
+    [TestCase("(作者) タイトル.zip", "タイトル", "作者")]
+    [TestCase("【作者】タイトル.zip", "タイトル", "作者")]
+    [TestCase("タイトル (1).zip", "タイトル (1)", "")]
+    [TestCase("[作者] タイトル (1).zip", "タイトル (1)", "作者")]
+    [TestCase("(成年コミック) [作者] タイトル.zip", "タイトル", "成年コミック×作者")]
+    [TestCase("(C99) [サークル (作者)] タイトル.zip", "タイトル", "C99×サークル (作者)")]
+    [TestCase("(作者) タイトル [おまけ].zip", "タイトル [おまけ]", "作者")]
     [TestCase("[作者]", "[作者]", "")]
-    [TestCase("[作者 タイトル.zip", "[作者 タイトル.zip", "")]
+    [TestCase("[作者 タイトル.zip", "[作者 タイトル", "")]
+    [TestCase("[AAA] (BBB) CCC.zip", "CCC", "AAA×BBB")]
+    [TestCase("[作者].zip", "[作者]", "")]
+    [TestCase("タイトル.PDF", "タイトル", "")]
+    [TestCase("Vol.1", "Vol.1", "")]
+    [TestCase("[A] 中 [B] タイトル.zip", "中 [B] タイトル", "A")]
     public void Parse(string name, string expectedName, string expectedAuthor)
     {
         Assert.That(TitleParser.Parse(name), Is.EqualTo((expectedName, expectedAuthor)));

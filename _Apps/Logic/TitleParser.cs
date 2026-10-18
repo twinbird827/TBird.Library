@@ -7,19 +7,17 @@ public static class TitleParser
 
     public static (string Name, string Author) Parse(string name)
     {
-        if (Bracket(name, 0) is not (var author, var end)) return (name, "");
-        // (分類) [作者] タイトル の慣習では先頭の丸括弧は分類・イベント名なので、直後の角括弧を作者にする
-        if (name[0] is '(' or '（')
+        if (EntryRules.IsZip(name) || EntryRules.IsPdf(name)) name = name[..^Path.GetExtension(name).Length];
+        var authors = new List<string>();
+        var end = 0;
+        while (Bracket(name, end) is (var inner, var close))
         {
-            var next = end;
-            while (next < name.Length && char.IsWhiteSpace(name[next])) next++;
-            if (next < name.Length && name[next] is '[' or '［' or '【' && Bracket(name, next) is (var square, var squareEnd))
-            {
-                (author, end) = (square, squareEnd);
-            }
+            authors.Add(inner.Trim());
+            end = close;
+            while (end < name.Length && char.IsWhiteSpace(name[end])) end++;
         }
         var rest = name[end..].Trim();
-        return rest.Length == 0 ? (name, "") : (rest, author.Trim());
+        return authors.Count == 0 || rest.Length == 0 ? (name, "") : (rest, string.Join("×", authors));
     }
 
     private static (string Inner, int End)? Bracket(string name, int start)

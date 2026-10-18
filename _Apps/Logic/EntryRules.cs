@@ -20,6 +20,8 @@ public static class EntryRules
 
     public static bool IsPdf(string name) => Path.GetExtension(name).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
 
+    public static string KindBadge(string path) => IsZip(path) ? "ZIP" : IsPdf(path) ? "PDF" : "PIC";
+
     /// <summary>zip エントリのフルパスのどこかに無視対象（__MACOSX 等）が含まれるか。</summary>
     public static bool IsIgnoredPath(string path) => path.Split('/', '\\').Any(x => x.Length > 0 && IsIgnored(x));
 
