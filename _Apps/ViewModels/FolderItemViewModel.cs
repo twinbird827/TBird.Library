@@ -31,6 +31,8 @@ public partial class FolderItemViewModel : ObservableObject
 
     public string Author { get; }
 
+    public string KindBadge => EntryRules.KindBadge(Path);
+
     public string Path { get; }
 
     public ComicRef? Comic { get; }
