@@ -1,6 +1,5 @@
 using Android.Content;
 using Android.OS.Storage;
-using ComicViewer.Data;
 using TBird.Core;
 
 namespace ComicViewer.Sources;
@@ -11,23 +10,10 @@ public class FileSourceProvider
     public const string PrimaryKey = "local:primary";
 
     private readonly SmbConnectionPool _smb;
-    private readonly SmbSourceRepository _smbRepository;
 
-    public FileSourceProvider(SmbConnectionPool smb, SmbSourceRepository smbRepository)
+    public FileSourceProvider(SmbConnectionPool smb)
     {
         _smb = smb;
-        _smbRepository = smbRepository;
-    }
-
-    /// <summary>存在する全読み込み元の SourceKey → 表示名。</summary>
-    public async Task<Dictionary<string, string>> GetDisplayNamesAsync()
-    {
-        var names = GetLocalVolumes().ToDictionary(x => x.SourceKey, x => x.DisplayName);
-        foreach (var smb in await _smbRepository.GetAllAsync().ConfigureAwait(false))
-        {
-            names[smb.SourceKey] = smb.Name;
-        }
-        return names;
     }
 
     public static bool IsLocal(string sourceKey) => sourceKey.StartsWith("local:", StringComparison.Ordinal);

@@ -49,13 +49,11 @@
                             MinimumTrackColor="White" MaximumTrackColor="Gray" ThumbColor="White" />
                     <Label Grid.Column="1" Text="{Binding PageLabel}" TextColor="White" VerticalOptions="Center" />
                 </Grid>
-                <Grid ColumnDefinitions="*,*,*,*,*,*">
+                <Grid ColumnDefinitions="*,*,*,*">
                     <Button Grid.Column="0" Text="次の漫画" Command="{Binding NextComicCommand}" Style="{StaticResource OverlayButton}" />
                     <Button Grid.Column="1" Text="最後" Command="{Binding LastCommand}" Style="{StaticResource OverlayButton}" />
-                    <Button Grid.Column="2" Text="次ページ" Command="{Binding NextCommand}" Style="{StaticResource OverlayButton}" />
-                    <Button Grid.Column="3" Text="前ページ" Command="{Binding PrevCommand}" Style="{StaticResource OverlayButton}" />
-                    <Button Grid.Column="4" Text="最初" Command="{Binding FirstCommand}" Style="{StaticResource OverlayButton}" />
-                    <Button Grid.Column="5" Text="前の漫画" Command="{Binding PrevComicCommand}" Style="{StaticResource OverlayButton}" />
+                    <Button Grid.Column="2" Text="最初" Command="{Binding FirstCommand}" Style="{StaticResource OverlayButton}" />
+                    <Button Grid.Column="3" Text="前の漫画" Command="{Binding PrevComicCommand}" Style="{StaticResource OverlayButton}" />
                 </Grid>
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                     <Label Text="明るさ" TextColor="White" VerticalOptions="Center" />
@@ -63,7 +61,6 @@
                             MinimumTrackColor="White" MaximumTrackColor="Gray" ThumbColor="White" />
                 </Grid>
                 <HorizontalStackLayout Spacing="8">
-                    <Button Text="お気に入りに追加" Command="{Binding AddFavoriteCommand}" Style="{StaticResource OverlayButton}" />
                     <Button Text="再読み込み" Command="{Binding ReloadCommand}" IsVisible="{Binding HasPageError}"
                             Style="{StaticResource OverlayButton}" />
                 </HorizontalStackLayout>

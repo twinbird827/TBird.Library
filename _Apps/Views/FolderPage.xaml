@@ -15,7 +15,7 @@
             <CollectionView x:Name="List" ItemsSource="{Binding Items}" SelectionMode="None" Scrolled="OnScrolled">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:FolderItemViewModel">
-                        <Grid ColumnDefinitions="64,*" ColumnSpacing="12" Padding="12,4" HeightRequest="72">
+                        <Grid ColumnDefinitions="64,*" ColumnSpacing="12" Padding="12,4" MinimumHeightRequest="72">
                             <Grid.Behaviors>
                                 <controls:LongPressBehavior x:DataType="views:FolderPage"
                                                             TapCommand="{Binding ViewModel.OpenItemCommand, Source={x:Reference Page}}"
@@ -23,9 +23,12 @@
                             </Grid.Behaviors>
                             <Image Source="{Binding DisplayImage}" WidthRequest="64" HeightRequest="64" Aspect="AspectFit" />
                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                                <Label Text="{Binding Name}" Style="{StaticResource ItemName}" />
-                                <Label Text="{Binding StatusText}" Style="{StaticResource SubText}"
-                                       IsVisible="{Binding IsFolder, Converter={StaticResource InverseBool}}" />
+                                <Label Text="{Binding DisplayName}" Style="{StaticResource ItemName}" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasDetail}">
+                                    <Label Text="{Binding Author}" Style="{StaticResource SubText}" />
+                                    <Label Grid.Column="1" Text="{Binding StatusText}" Style="{StaticResource SubText}"
+                                           IsVisible="{Binding IsFolder, Converter={StaticResource InverseBool}}" />
+                                </Grid>
                             </VerticalStackLayout>
                         </Grid>
                     </DataTemplate>

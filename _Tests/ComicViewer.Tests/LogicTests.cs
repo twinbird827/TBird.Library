@@ -169,3 +169,22 @@ public class EntryRulesTests
         Assert.That(EntryRules.IsIgnoredPath("__MACOSX/a/b.jpg"), Is.True);
     }
 }
+
+public class TitleParserTests
+{
+    [TestCase("タイトル.zip", "タイトル.zip", "")]
+    [TestCase("[作者] タイトル.zip", "タイトル.zip", "作者")]
+    [TestCase("(作者) タイトル.zip", "タイトル.zip", "作者")]
+    [TestCase("【作者】タイトル.zip", "タイトル.zip", "作者")]
+    [TestCase("タイトル (1).zip", "タイトル (1).zip", "")]
+    [TestCase("[作者] タイトル (1).zip", "タイトル (1).zip", "作者")]
+    [TestCase("(成年コミック) [作者] タイトル.zip", "タイトル.zip", "作者")]
+    [TestCase("(C99) [サークル (作者)] タイトル.zip", "タイトル.zip", "サークル (作者)")]
+    [TestCase("(作者) タイトル [おまけ].zip", "タイトル [おまけ].zip", "作者")]
+    [TestCase("[作者]", "[作者]", "")]
+    [TestCase("[作者 タイトル.zip", "[作者 タイトル.zip", "")]
+    public void Parse(string name, string expectedName, string expectedAuthor)
+    {
+        Assert.That(TitleParser.Parse(name), Is.EqualTo((expectedName, expectedAuthor)));
+    }
+}
