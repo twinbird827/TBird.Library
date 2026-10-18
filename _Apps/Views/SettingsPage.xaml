@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ComicViewer.ViewModels"
+             x:Class="ComicViewer.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Shell.FlyoutBehavior="Disabled"
+             Title="設定">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="8">
+            <Label Text="キャッシュ" Style="{StaticResource GroupHeader}" Padding="0,8,0,0" />
+            <Label Text="PDF キャッシュの上限（MB）" />
+            <Entry Text="{Binding CacheLimitText}" Keyboard="Numeric"
+                   Completed="OnCacheLimitDone" Unfocused="OnCacheLimitDone" />
+            <Label Text="{Binding CacheLimitError}" Style="{StaticResource ErrorText}" />
+            <Label Text="{Binding CacheUsageText}" />
+            <Button Text="キャッシュを全削除" Command="{Binding ClearCacheCommand}" />
+
+            <Label Text="表示" Style="{StaticResource GroupHeader}" Padding="0,16,0,0" />
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="明るさをシステムに従う" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding BrightnessFollowSystem}" />
+            </Grid>
+
+            <Label Text="履歴" Style="{StaticResource GroupHeader}" Padding="0,16,0,0" />
+            <Button Text="履歴をすべて削除" Command="{Binding ClearHistoryCommand}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

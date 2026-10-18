@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:ComicViewer.Views"
+       xmlns:vm="clr-namespace:ComicViewer.ViewModels"
+       xmlns:controls="clr-namespace:ComicViewer.Views.Controls"
+       xmlns:local="clr-namespace:ComicViewer"
+       x:Class="ComicViewer.AppShell"
+       x:Name="Root"
+       x:DataType="vm:FlyoutViewModel"
+       FlyoutBehavior="Flyout"
+       Title="ComicViewer">
+
+    <Shell.FlyoutContent>
+        <CollectionView ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="vm:SourceGroup">
+                    <Label Text="{Binding Title}" Style="{StaticResource GroupHeader}" />
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:SourceItem">
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12" Padding="16,8" MinimumHeightRequest="56">
+                        <Grid.Behaviors>
+                            <controls:LongPressBehavior x:DataType="local:AppShell"
+                                                        TapCommand="{Binding ViewModel.OpenItemCommand, Source={x:Reference Root}}"
+                                                        Command="{Binding ViewModel.ItemMenuCommand, Source={x:Reference Root}}" />
+                        </Grid.Behaviors>
+                        <Image Source="{Binding Icon}" WidthRequest="32" HeightRequest="32" IsVisible="{Binding IsEnabled}" />
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                            <Label Text="{Binding Name}" Style="{StaticResource ItemName}" />
+                            <Label Text="{Binding SubText}" Style="{StaticResource SubText}" IsVisible="{Binding HasSubText}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Shell.FlyoutContent>
+
+    <ShellContent Route="top" Title="ComicViewer" ContentTemplate="{DataTemplate views:TopPage}" />
+
+</Shell>

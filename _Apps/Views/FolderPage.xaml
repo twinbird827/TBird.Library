@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ComicViewer.ViewModels"
+             xmlns:views="clr-namespace:ComicViewer.Views"
+             xmlns:controls="clr-namespace:ComicViewer.Views.Controls"
+             x:Class="ComicViewer.Views.FolderPage"
+             x:Name="Page"
+             x:DataType="vm:FolderViewModel"
+             Title="{Binding Title}">
+
+    <Grid>
+        <RefreshView IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshCommand}"
+                     IsVisible="{Binding HasError, Converter={StaticResource InverseBool}}">
+            <CollectionView x:Name="List" ItemsSource="{Binding Items}" SelectionMode="None" Scrolled="OnScrolled">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderItemViewModel">
+                        <Grid ColumnDefinitions="64,*" ColumnSpacing="12" Padding="12,4" HeightRequest="72">
+                            <Grid.Behaviors>
+                                <controls:LongPressBehavior x:DataType="views:FolderPage"
+                                                            TapCommand="{Binding ViewModel.OpenItemCommand, Source={x:Reference Page}}"
+                                                            Command="{Binding ViewModel.ItemMenuCommand, Source={x:Reference Page}}" />
+                            </Grid.Behaviors>
+                            <Image Source="{Binding DisplayImage}" WidthRequest="64" HeightRequest="64" Aspect="AspectFit" />
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" Style="{StaticResource ItemName}" />
+                                <Label Text="{Binding StatusText}" Style="{StaticResource SubText}"
+                                       IsVisible="{Binding IsFolder, Converter={StaticResource InverseBool}}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+        <Label Text="表示できるものがありません" IsVisible="{Binding IsEmpty}"
+               HorizontalOptions="Center" VerticalOptions="Center" Style="{StaticResource SubText}" />
+
+        <VerticalStackLayout IsVisible="{Binding HasError}" HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
+            <Label Text="{Binding ErrorMessage}" HorizontalOptions="Center" />
+            <Button Text="再試行" Command="{Binding RetryCommand}" HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+    </Grid>
+</ContentPage>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ComicViewer.ViewModels"
+             xmlns:views="clr-namespace:ComicViewer.Views"
+             xmlns:controls="clr-namespace:ComicViewer.Views.Controls"
+             x:Class="ComicViewer.Views.TopPage"
+             x:Name="Page"
+             x:DataType="vm:TopViewModel"
+             Title="ComicViewer">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="設定" IconImageSource="cog.png" Command="{Binding OpenSettingsCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,*">
+        <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Style="{StaticResource ErrorText}" Padding="16,8" />
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="vm:SourceGroup">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{Binding Title}" Style="{StaticResource GroupHeader}" />
+                        <ContentView Grid.Column="1" IsVisible="{Binding CanAdd}">
+                            <Button x:DataType="views:TopPage" Text="＋"
+                                    Command="{Binding ViewModel.AddSmbCommand, Source={x:Reference Page}}"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="20" />
+                        </ContentView>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:SourceItem">
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12" Padding="16,8" MinimumHeightRequest="56"
+                          Opacity="{Binding IsEnabled, Converter={StaticResource EnabledOpacity}}">
+                        <Grid.Behaviors>
+                            <controls:LongPressBehavior x:DataType="views:TopPage"
+                                                        TapCommand="{Binding ViewModel.OpenItemCommand, Source={x:Reference Page}}"
+                                                        Command="{Binding ViewModel.ItemMenuCommand, Source={x:Reference Page}}" />
+                        </Grid.Behaviors>
+                        <Image Source="{Binding Icon}" WidthRequest="40" HeightRequest="40" />
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                            <Label Text="{Binding Name}" Style="{StaticResource ItemName}" />
+                            <Label Text="{Binding SubText}" Style="{StaticResource SubText}" IsVisible="{Binding HasSubText}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

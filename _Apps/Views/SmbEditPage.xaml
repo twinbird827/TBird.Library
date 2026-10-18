@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ComicViewer.ViewModels"
+             x:Class="ComicViewer.Views.SmbEditPage"
+             x:DataType="vm:SmbEditViewModel"
+             Shell.FlyoutBehavior="Disabled"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="4">
+            <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Style="{StaticResource ErrorText}" />
+
+            <Label Text="表示名" />
+            <Entry Text="{Binding Name}" />
+            <Label Text="{Binding NameError}" Style="{StaticResource ErrorText}" />
+
+            <Label Text="ホスト（IP / ホスト名）" />
+            <Entry Text="{Binding Host}" Keyboard="Url" />
+            <Label Text="{Binding HostError}" Style="{StaticResource ErrorText}" />
+
+            <Label Text="ポート" />
+            <Entry Text="{Binding PortText}" Keyboard="Numeric" />
+            <Label Text="{Binding PortError}" Style="{StaticResource ErrorText}" />
+
+            <Label Text="ユーザー名" />
+            <Entry Text="{Binding UserName}" />
+            <Label Text="{Binding UserNameError}" Style="{StaticResource ErrorText}" />
+
+            <Label Text="パスワード" />
+            <Entry Text="{Binding Password}" IsPassword="True" />
+
+            <Label Text="共有名" />
+            <Entry Text="{Binding Share}" />
+            <Label Text="{Binding ShareError}" Style="{StaticResource ErrorText}" />
+
+            <Label Text="開始パス（任意）" />
+            <Entry Text="{Binding RootPath}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Margin="0,8" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8">
+                <Button Text="接続テスト" Command="{Binding TestCommand}" />
+                <Button Grid.Column="1" Text="保存" Command="{Binding SaveCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
