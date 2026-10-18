@@ -28,8 +28,12 @@
                         </Grid.Behaviors>
                         <Image Source="{Binding Icon}" WidthRequest="32" HeightRequest="32" IsVisible="{Binding IsEnabled}" />
                         <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                            <Label Text="{Binding Name}" Style="{StaticResource ItemName}" />
+                            <Label Text="{Binding DisplayName}" Style="{StaticResource ItemName}" />
                             <Label Text="{Binding SubText}" Style="{StaticResource SubText}" IsVisible="{Binding HasSubText}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasDetail}">
+                                <Label Text="{Binding Author}" Style="{StaticResource SubText}" />
+                                <Label Grid.Column="1" Text="{Binding StatusText}" Style="{StaticResource SubText}" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Grid>
                 </DataTemplate>

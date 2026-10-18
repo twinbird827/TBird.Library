@@ -32,7 +32,6 @@ public partial class FlyoutViewModel
     {
         try
         {
-            var names = await _sources.GetDisplayNamesAsync();
             var favorites = (await _favorites.GetAllAsync()).Select(x => new SourceItem
             {
                 Kind = SourceItemKind.Favorite,
@@ -40,7 +39,6 @@ public partial class FlyoutViewModel
                 SourceKey = x.SourceKey,
                 Path = x.Path,
                 Name = x.Name,
-                SubText = names.GetValueOrDefault(x.SourceKey) ?? "",
             }).ToList();
             var history = (await _readingStates.GetHistoryAsync(HistoryCount)).Select(x => new SourceItem
             {
@@ -49,7 +47,7 @@ public partial class FlyoutViewModel
                 SourceKey = x.SourceKey,
                 Path = x.Path,
                 Name = x.Path.EndsWith('*') ? $"{EntryRules.Name(EntryRules.Parent(x.Path))} {FolderItemViewModel.DirectImagesName}" : EntryRules.Name(x.Path),
-                SubText = $"{names.GetValueOrDefault(x.SourceKey) ?? ""} ・ {FolderItemViewModel.GetStatusText(x)}",
+                StatusText = FolderItemViewModel.GetStatusText(x),
                 Icon = "comic.png",
             }).ToList();
             if (favorites.Count == 0) favorites.Add(new SourceItem { Kind = SourceItemKind.Placeholder, Name = "ありません", IsEnabled = false });

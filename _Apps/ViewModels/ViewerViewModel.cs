@@ -29,7 +29,6 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
 
     private readonly FileSourceProvider _sources;
     private readonly ReadingStateRepository _readingStates;
-    private readonly FavoriteRepository _favorites;
     private readonly PdfCacheService _pdfCache;
     private readonly ComicSession _session;
     private readonly ToastService _toast;
@@ -52,12 +51,11 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
     private bool _closed;
     private bool _initializingBrightness;
 
-    public ViewerViewModel(FileSourceProvider sources, ReadingStateRepository readingStates, FavoriteRepository favorites,
+    public ViewerViewModel(FileSourceProvider sources, ReadingStateRepository readingStates,
         PdfCacheService pdfCache, ComicSession session, ToastService toast, BrightnessService brightness)
     {
         _sources = sources;
         _readingStates = readingStates;
-        _favorites = favorites;
         _pdfCache = pdfCache;
         _session = session;
         _toast = toast;
@@ -515,7 +513,6 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
     /// <summary>オーバーレイの表示切替（ページがシステムバーを出し入れする）。</summary>
     public event Action<bool>? OverlayChanged;
 
-    [RelayCommand]
     private async Task NextAsync()
     {
         if (!HasPages) return;
@@ -523,7 +520,6 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
         else await SlideToAsync(+1);
     }
 
-    [RelayCommand]
     private async Task PrevAsync()
     {
         if (!HasPages) return;
@@ -577,24 +573,6 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
         if (_units.Count == 0) return;
         _failed.Remove(_units[_index]);
         ShowCurrent();
-    }
-
-    [RelayCommand]
-    private async Task AddFavoriteAsync()
-    {
-        if (_comic is null) return;
-        try
-        {
-            var parent = _comic.ParentPath;
-            var name = parent.Length == 0
-                ? (await _sources.GetDisplayNamesAsync()).GetValueOrDefault(_comic.SourceKey) ?? ""
-                : EntryRules.Name(parent);
-            _toast.Show(await _favorites.AddAsync(_comic.SourceKey, parent, name) ? "お気に入りに追加しました" : "登録済みです");
-        }
-        catch (Exception ex)
-        {
-            MessageService.Exception(ex);
-        }
     }
 
     [RelayCommand(CanExecute = nameof(IsDownloading))]

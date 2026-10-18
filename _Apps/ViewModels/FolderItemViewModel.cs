@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using ComicViewer.Logic;
 using ComicViewer.Models;
 
 namespace ComicViewer.ViewModels;
@@ -17,6 +18,7 @@ public partial class FolderItemViewModel : ObservableObject
     {
         ItemKind = kind;
         Name = name;
+        (DisplayName, Author) = TitleParser.Parse(name);
         Path = path;
         Comic = comic;
     }
@@ -25,11 +27,17 @@ public partial class FolderItemViewModel : ObservableObject
 
     public string Name { get; }
 
+    public string DisplayName { get; }
+
+    public string Author { get; }
+
     public string Path { get; }
 
     public ComicRef? Comic { get; }
 
     public bool IsFolder => ItemKind == FolderItemKind.Folder;
+
+    public bool HasDetail => Author.Length > 0 || !IsFolder;
 
     [ObservableProperty]
     public partial string StatusText { get; set; } = "";

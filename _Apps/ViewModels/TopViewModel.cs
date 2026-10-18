@@ -1,4 +1,5 @@
 using ComicViewer.Data;
+using ComicViewer.Logic;
 using ComicViewer.Services;
 using ComicViewer.Sources;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -36,7 +37,18 @@ public class SourceItem
 
     public ImageSource Icon { get; init; } = "folder.png";
 
+    public string StatusText { get; init; } = "";
+
     public bool HasSubText => SubText.Length > 0;
+
+    // 名前がファイル・フォルダ名の行だけ分解する（ストレージ・SMB の名前は利用者が付けた表示名のため）
+    private (string Name, string Author) Title => Kind is SourceItemKind.Favorite or SourceItemKind.History ? TitleParser.Parse(Name) : (Name, "");
+
+    public string DisplayName => Title.Name;
+
+    public string Author => Title.Author;
+
+    public bool HasDetail => Author.Length > 0 || StatusText.Length > 0;
 }
 
 public class SourceGroup : List<SourceItem>
@@ -87,8 +99,6 @@ public partial class TopViewModel : ErrorAwareViewModel
         {
             ClearError();
             HasStoragePermission = _permission.IsGranted;
-            var names = await _sources.GetDisplayNamesAsync();
-
             var favorites = (await _favorites.GetAllAsync()).Select(x => new SourceItem
             {
                 Kind = SourceItemKind.Favorite,
@@ -96,7 +106,6 @@ public partial class TopViewModel : ErrorAwareViewModel
                 SourceKey = x.SourceKey,
                 Path = x.Path,
                 Name = x.Name,
-                SubText = names.GetValueOrDefault(x.SourceKey) ?? "読み込み元が見つかりません",
             }).ToList();
             if (favorites.Count == 0) favorites.Add(Placeholder("お気に入りはありません"));
 
