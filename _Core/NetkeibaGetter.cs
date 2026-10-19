@@ -20,7 +20,7 @@ namespace Netkeiba
 			var dic = new Dictionary<string, string>();
 			try
 			{
-				var str = await WebUtil.GetStringAsync($"https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={raceid}&type=1");
+				var str = await WebUtil.GetStringAsync($"https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={raceid}&type=1&action=update");
 				if (string.IsNullOrEmpty(str)) return dic;
 
 				using var doc = System.Text.Json.JsonDocument.Parse(str);
