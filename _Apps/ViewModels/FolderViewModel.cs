@@ -26,6 +26,8 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _thumbnailCts;
     private string? _openAfterLoad;
+    // 読込が遷移より先に終わっても S03 への遷移を入れ子にしないため、S02 の遷移完了を待つ。
+    private readonly TaskCompletionSource _navigated = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool _loaded;
 
     public FolderViewModel(FileSourceProvider sources, FolderKindRepository folderKinds, ReadingStateRepository readingStates,
@@ -113,6 +115,7 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
             if (_openAfterLoad is { } open)
             {
                 _openAfterLoad = null;
+                await _navigated.Task.WaitAsync(ct);
                 var target = items.FirstOrDefault(x => x.Comic?.Path == open);
                 if (target is null) await Dialogs.AlertAsync("開けませんでした");
                 else await OpenItemAsync(target);
@@ -259,6 +262,8 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
     }
 
     public void OnDisappearing() => StopThumbnails();
+
+    public void OnNavigatedTo() => _navigated.TrySetResult();
 
     [RelayCommand]
     private async Task OpenItemAsync(FolderItemViewModel item)

@@ -135,6 +135,8 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
             CloseComic();
             _comic = comic;
             _reader = reader;
+            AppSettings.ViewingSourceKey = comic.SourceKey;
+            AppSettings.ViewingPath = comic.Path;
             _comicCts = cts;
             ComicName = comic.Name;
             PageCount = reader.PageCount;
@@ -593,6 +595,8 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
     {
         if (_closed) return;
         await SaveNowAsync();
+        AppSettings.ViewingSourceKey = "";
+        AppSettings.ViewingPath = "";
         Close();
         await Navigator.BackAsync();
     }

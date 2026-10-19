@@ -1,3 +1,4 @@
+using ComicViewer.Logic;
 using ComicViewer.Models;
 
 namespace ComicViewer.Services;
@@ -23,6 +24,10 @@ public static class Navigator
         if (openPath is not null) parameters["open"] = openPath;
         return Shell.Current.GoToAsync(fromTop ? $"//top/{Folder}" : Folder, parameters);
     }
+
+    // 親フォルダを読み込んだ S02 を経由して開く（前後の漫画の決定と戻り先のため）。
+    public static Task OpenComicFromTopAsync(string sourceKey, string path)
+        => OpenFolderAsync(sourceKey, EntryRules.Parent(path), fromTop: true, openPath: path);
 
     /// <summary>start = -1 は最終単位から開く（前の漫画へ移動したとき）。</summary>
     public static Task OpenViewerAsync(ComicRef comic, int start)
