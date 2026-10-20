@@ -98,7 +98,6 @@ public partial class TopViewModel : ErrorAwareViewModel
     [ObservableProperty]
     public partial bool HasStoragePermission { get; set; }
 
-    /// <summary>S03 を表示したまま終わっていれば、その漫画を開き直す。</summary>
     public async Task RestoreAsync()
     {
         try
