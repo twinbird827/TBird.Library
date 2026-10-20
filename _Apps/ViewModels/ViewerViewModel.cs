@@ -132,6 +132,11 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
             }
 
             await SaveNowAsync();
+            if (_closed)
+            {
+                _ = Task.Run(reader.Dispose);
+                return;
+            }
             CloseComic();
             _comic = comic;
             _reader = reader;
@@ -144,7 +149,7 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
             _wide = new bool[reader.PageCount];
             var startPage = start < 0 ? reader.PageCount - 1 : start < reader.PageCount ? start : 0;
 
-            await TouchHistoryAsync(comic);
+            _ = TouchHistoryAsync(comic);
             if (source.IsRemote && comic.Kind != ComicKind.Pdf)
             {
                 await LoadSizesAsync(Enumerable.Range(startPage - SmbInitialSizeRange, SmbInitialSizeRange * 2 + 1), cts.Token);
@@ -594,6 +599,7 @@ public partial class ViewerViewModel : ErrorAwareViewModel, IQueryAttributable
     private async Task LeaveAsync()
     {
         if (_closed) return;
+        _closed = true;
         await SaveNowAsync();
         AppSettings.ViewingSourceKey = "";
         AppSettings.ViewingPath = "";

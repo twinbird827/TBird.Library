@@ -104,7 +104,7 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
             Title = Path.Length == 0 ? _source.DisplayName : EntryRules.Name(Path);
             if (refresh) await _folderKinds.DeleteUnderAsync(SourceKey, Path);
 
-            var items = await Task.Run(() => BuildItemsAsync(_source, ct), ct);
+            var (items, unclassified) = await Task.Run(() => BuildItemsAsync(_source, ct), ct);
             ct.ThrowIfCancellationRequested();
             Items.ReplaceAll(items);
             IsEmpty = items.Count == 0;
@@ -117,7 +117,11 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
                 _openAfterLoad = null;
                 await _navigated.Task.WaitAsync(ct);
                 var target = items.FirstOrDefault(x => x.Comic?.Path == open);
-                if (target is null) await Dialogs.AlertAsync("開けませんでした");
+                if (target is null)
+                {
+                    if (!unclassified.Contains(open)) ClearViewingIfMatch(open);
+                    await Dialogs.AlertAsync("開けませんでした");
+                }
                 else await OpenItemAsync(target);
             }
         }
@@ -140,16 +144,25 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
         }
     }
 
+    private void ClearViewingIfMatch(string path)
+    {
+        if (AppSettings.ViewingSourceKey != SourceKey || AppSettings.ViewingPath != path) return;
+        AppSettings.ViewingSourceKey = "";
+        AppSettings.ViewingPath = "";
+    }
+
     private async Task HandleLoadErrorAsync(Exception ex)
     {
         switch (ex)
         {
             case SmbException { Kind: SmbErrorKind.Auth }:
+                if (_openAfterLoad is not null) ClearViewingIfMatch(_openAfterLoad);
                 await Dialogs.AlertAsync("ユーザー名またはパスワードが違います");
                 if (int.TryParse(SourceKey.AsSpan("smb:".Length), out var id)) await Navigator.OpenSmbEditAsync(id);
                 break;
             case DirectoryNotFoundException:
             case SmbException { Kind: SmbErrorKind.ShareNotFound }:
+                if (_openAfterLoad is not null) ClearViewingIfMatch(_openAfterLoad);
                 SetError("フォルダが見つかりません");
                 break;
             case UnauthorizedAccessException:
@@ -161,8 +174,9 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
         }
     }
 
-    private async Task<List<FolderItemViewModel>> BuildItemsAsync(IFileSource source, CancellationToken ct)
+    private async Task<(List<FolderItemViewModel> Items, HashSet<string> Unclassified)> BuildItemsAsync(IFileSource source, CancellationToken ct)
     {
+        var unclassified = new HashSet<string>();
         var entries = (await source.ListAsync(Path, ct)).Where(x => !EntryRules.IsIgnored(x.Name)).ToList();
         var dirs = entries.Where(x => x.IsDirectory).ToList();
         var files = entries.Where(x => !x.IsDirectory).ToList();
@@ -185,6 +199,7 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     MessageService.Warn($"Classify failed: {path} {ex.Message}");
+                    unclassified.Add(path);
                     kind = FolderClassifier.Folder;
                 }
             }
@@ -220,7 +235,7 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
             var thumb = ThumbnailService.GetPath(item.Comic!);
             if (File.Exists(thumb)) item.ThumbnailSource = ImageSource.FromFile(thumb);
         }
-        return result;
+        return (result, unclassified);
     }
 
     private static FolderItemViewModel ComicItem(ComicRef comic) => new(FolderItemKind.Comic, comic.Name, comic.Path, comic);
@@ -319,6 +334,7 @@ public partial class FolderViewModel : ErrorAwareViewModel, IQueryAttributable
             await Navigator.BackAsync();
             return;
         }
+        _openAfterLoad = null;
         Path = EntryRules.Parent(Path);
         await LoadCoreAsync(refresh: false);
     }
