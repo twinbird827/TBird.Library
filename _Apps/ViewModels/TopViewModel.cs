@@ -98,6 +98,23 @@ public partial class TopViewModel : ErrorAwareViewModel
     [ObservableProperty]
     public partial bool HasStoragePermission { get; set; }
 
+    public async Task RestoreAsync()
+    {
+        try
+        {
+            var sourceKey = AppSettings.ViewingSourceKey;
+            var path = AppSettings.ViewingPath;
+            if (sourceKey.Length == 0 || path.Length == 0) return;
+            var source = await _sources.GetAsync(sourceKey);
+            if (source is null || (!source.IsRemote && !_permission.IsGranted)) return;
+            await Navigator.OpenComicFromTopAsync(sourceKey, path);
+        }
+        catch (Exception ex)
+        {
+            MessageService.Exception(ex);
+        }
+    }
+
     [RelayCommand]
     private async Task LoadAsync()
     {

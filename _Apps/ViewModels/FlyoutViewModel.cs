@@ -79,8 +79,7 @@ public partial class FlyoutViewModel
             }
             else
             {
-                // 親フォルダを読み込んだ S02 を経由して開く（前後の漫画の決定と戻り先のため）。
-                await Navigator.OpenFolderAsync(item.SourceKey, EntryRules.Parent(item.Path), fromTop: true, openPath: item.Path);
+                await Navigator.OpenComicFromTopAsync(item.SourceKey, item.Path);
             }
         }
         catch (Exception ex)

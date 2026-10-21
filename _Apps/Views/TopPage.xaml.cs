@@ -7,6 +7,7 @@ public partial class TopPage : ContentPage
 {
     private readonly StoragePermissionService _permission;
     private bool _hadPermission;
+    private bool _restored;
 
     public TopPage(TopViewModel viewModel, StoragePermissionService permission)
     {
@@ -24,6 +25,11 @@ public partial class TopPage : ContentPage
         _hadPermission = _permission.IsGranted;
         if (Window is not null) Window.Resumed += OnResumed;
         ViewModel.LoadCommand.Execute(null);
+        if (!_restored)
+        {
+            _restored = true;
+            _ = ViewModel.RestoreAsync();
+        }
     }
 
     protected override void OnDisappearing()

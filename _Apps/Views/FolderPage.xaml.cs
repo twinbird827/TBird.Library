@@ -29,6 +29,12 @@ public partial class FolderPage : ContentPage
         }
     }
 
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
+        ViewModel.OnNavigatedTo();
+    }
+
     protected override void OnDisappearing()
     {
         ViewModel.OnDisappearing();
