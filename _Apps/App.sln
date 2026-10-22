@@ -33,7 +33,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Netkeiba.Core", "..\_Core\N
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Netkeiba.Core.Tests", "..\_Tests\Netkeiba.Core.Tests\Netkeiba.Core.Tests.csproj", "{0F6DA064-2C62-4C6C-8B8E-892156D8039F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Browser", "..\_Browser\Browser.csproj", "{75C3D1BE-6682-4B17-A012-70194F40A2FA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Netkeiba.Scheduler", "..\_Scheduler\Netkeiba.Scheduler.csproj","{0CB9884D-B7BD-406E-BC64-244198F5DB0A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -97,10 +97,10 @@ Global
 		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0F6DA064-2C62-4C6C-8B8E-892156D8039F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{75C3D1BE-6682-4B17-A012-70194F40A2FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{75C3D1BE-6682-4B17-A012-70194F40A2FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{75C3D1BE-6682-4B17-A012-70194F40A2FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{75C3D1BE-6682-4B17-A012-70194F40A2FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0CB9884D-B7BD-406E-BC64-244198F5DB0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0CB9884D-B7BD-406E-BC64-244198F5DB0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0CB9884D-B7BD-406E-BC64-244198F5DB0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0CB9884D-B7BD-406E-BC64-244198F5DB0A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

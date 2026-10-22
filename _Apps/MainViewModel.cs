@@ -90,13 +90,16 @@ namespace Netkeiba
 
 		public static void AddLog(string message)
 		{
-			if (_this == null) return;
-
-			if (_logmax < _this.LogSource.Count)
+			WpfUtil.ExecuteOnUI(() =>
 			{
-				_this.LogSource.RemoveAt(_logmax);
-			}
-			_this.LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
+				if (_this == null) return;
+
+				if (_logmax < _this.LogSource.Count)
+				{
+					_this.LogSource.RemoveAt(_logmax);
+				}
+				_this.LogSource.Insert(0, new ComboboxItemModel(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), message));
+			});
 		}
 
 		private const int _logmax = 1024;

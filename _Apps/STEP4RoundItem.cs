@@ -37,8 +37,6 @@ namespace Netkeiba
 
 			var arr = predictions.Select(x => new STEP4ResultItem(x)).ToArray();
 
-			arr.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
-
 			SetResult(header, arr);
 		}
 

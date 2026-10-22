@@ -50,6 +50,8 @@ namespace Netkeiba.Models
 
 		public RaceScore Vars1 { get; } = new();
 
+		public RaceScore EV { get; } = new();
+
 		public int Result { get; set; }
 
 		public string Name { get; set; } = string.Empty;
@@ -72,6 +74,8 @@ namespace Netkeiba.Models
 
 		public static async Task<RacePrediction[]> PredictShutsubaAsync(string raceid)
 		{
+			// WPF と scheduler が同じレースを同時に予想すると、片方が挿入した出馬表をもう片方が削除してしまう
+			using (await LockPredictAsync())
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var getShutsuba = false;
@@ -151,6 +155,22 @@ namespace Netkeiba.Models
 			}
 		}
 
+		// 名前付き Mutex はスレッド所有で await を跨げず、ファイルロックはプロセスが落ちても OS が解放する
+		private static async Task<FileStream> LockPredictAsync()
+		{
+			while (true)
+			{
+				try
+				{
+					return new FileStream(AppUtil.Sqlitepath + ".predict.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+				}
+				catch (IOException)
+				{
+					await Task.Delay(1000);
+				}
+			}
+		}
+
 		public static IEnumerable<RacePrediction> CalculatePrediction(MLContext ml, RaceDetail[] details, OptimizedHorseFeatures[] features)
 		{
 			// ｽｺｱ計算
@@ -180,6 +200,15 @@ namespace Netkeiba.Models
 			results.CalculateWinProb(x => x.TotalSmall, _key[4].Temperature);
 			results.CalculateWinProb(x => x.Vars2, _key[0].Temperature); // アンサンブルはTotal基準
 			results.CalculateWinProb(x => x.Vars1, _key[0].Temperature); // アンサンブルはTotal基準
+
+			// EV = 全モデルWinProbの中央値 × Odds
+			results.ForEach(x =>
+			{
+				var probs = new[] { x.Vars1.WinProb, x.Vars2.WinProb, x.TotalMedium.WinProb, x.TotalSmall.WinProb, x.Total.WinProb, x.Horse.WinProb };
+				Array.Sort(probs);
+				x.EV.Score = (probs[2] + probs[3]) / 2f * x.Detail.Odds;
+			});
+			results.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
 
 			return results.OrderBy(x => x.Detail.Umaban);
 		}

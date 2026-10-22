@@ -672,6 +672,29 @@ namespace Netkeiba
 			}
 		}
 
+		public static async Task<(string RaceId, DateTime StartTime)[]> GetRaceSchedules(DateTime date)
+		{
+			var url = $"https://race.netkeiba.com/top/race_list_sub.html?kaisai_date={date.ToString("yyyyMMdd")}";
+
+			using (var ped = await AppUtil.GetDocument(false, url))
+			{
+				return ParseRaceSchedules(ped, date);
+			}
+		}
+
+		public static (string RaceId, DateTime StartTime)[] ParseRaceSchedules(IParentNode doc, DateTime date)
+		{
+			return doc
+				.QuerySelectorAll("li.RaceList_DataItem")
+				.Select(li => (
+					id: Regex.Match(li.QuerySelector("a[href*='race_id=']")?.GetAttribute("href") ?? string.Empty, @"race_id=(?<x>[\d]+)").Groups["x"].Value,
+					time: li.QuerySelector(".RaceList_Itemtime")?.TextContent.Trim() ?? string.Empty
+				))
+				.Where(x => x.id != string.Empty && TimeSpan.TryParseExact(x.time, @"hh\:mm", null, out _))
+				.Select(x => (x.id, date.Date + TimeSpan.ParseExact(x.time, @"hh\:mm", null)))
+				.ToArray();
+		}
+
 		public static async Task<IEnumerable<string>> GetKaisaiDate(int year, int month)
 		{
 			var url = $"https://race.netkeiba.com/top/calendar.html?year={year}&month={month}";
