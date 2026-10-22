@@ -31,7 +31,7 @@ namespace Netkeiba
 		}
 
 		/// <summary>
-		/// 指定期間のレースデータから訓練データを段階的に生成・保存
+		/// レースデータから訓練データを段階的に生成・保存
 		/// </summary>
 		private static async Task<int> GenerateAndSaveTrainingDataAsync(SQLiteControl conn)
 		{
