@@ -9,6 +9,18 @@ namespace Netkeiba.Scheduler
 		private const float FontSize = 18;
 		private const float Padding = 8;
 
+		// _Apps/App.xaml の S4CellItem / S4EVCellItem の DataTrigger と揃え、WPF と同じ見た目で上位馬を拾えるようにする
+		private static readonly Dictionary<int, (SKColor Back, SKColor Fore)> RankColors = new()
+		{
+			{ 1, (SKColors.Red, SKColors.White) },
+			{ 2, (SKColors.Blue, SKColors.White) },
+			{ 3, (SKColors.Green, SKColors.White) },
+			{ 4, (SKColors.MediumPurple, SKColors.White) },
+			{ 5, (SKColors.Aqua, SKColors.White) },
+			{ 6, (SKColors.Yellow, SKColors.Black) },
+			{ 7, (SKColors.LightYellow, SKColors.Black) },
+		};
+
 		public static (string Header, byte[] Png) Create(RacePrediction[] predictions, DateTime? start)
 		{
 			var race = predictions[0].Detail.Race;
@@ -16,15 +28,16 @@ namespace Netkeiba.Scheduler
 				+ (start != null ? $" 発走 {start:HH:mm}" : string.Empty)
 				+ $" 予想 {DateTime.Now:HH:mm}";
 
-			string Score(RaceScore x) => $"{x.WinProb * 100:F1}% ({x.Rank})";
-			string Num(float x, string format) => float.IsNaN(x) ? "-" : x.ToString(format);
+			(string, int) Text(string x) => (x, 0);
+			(string, int) Score(RaceScore x) => ($"{x.WinProb * 100:F1}%", x.Rank);
+			(string, int) Num(float x, string format) => (float.IsNaN(x) ? "-" : x.ToString(format), 0);
 
 			var rows = predictions
 				.Select(x => new[]
 				{
-					x.Detail.Wakuban.ToString(),
-					x.Detail.Umaban.ToString(),
-					x.Name,
+					Text(x.Detail.Wakuban.ToString()),
+					Text(x.Detail.Umaban.ToString()),
+					Text(x.Name),
 					Score(x.Total),
 					Score(x.Horse),
 					Score(x.TotalMedium),
@@ -32,17 +45,19 @@ namespace Netkeiba.Scheduler
 					Score(x.Vars2),
 					Score(x.Vars1),
 					Num(x.Detail.Odds, "F1"),
-					float.IsNaN(x.EV.Score) ? "-" : $"{x.EV.Score:F2} ({x.EV.Rank})",
+					float.IsNaN(x.EV.Score) ? Text("-") : ($"{x.EV.Score:F2}", x.EV.Rank),
 				})
-				.Prepend(new[] { "枠", "馬番", "馬名", "Total", "Horse", "Medium", "Small", "Vars2", "Vars1", "単勝", "EV" })
+				.Prepend(new[] { "枠", "馬番", "馬名", "Total", "Horse", "Medium", "Small", "Vars2", "Vars1", "単勝", "EV" }.Select(Text).ToArray())
 				.ToArray();
 
 			using var typeface = SKTypeface.FromFamilyName("Meiryo");
+			using var boldTypeface = SKTypeface.FromFamilyName("Meiryo", SKFontStyle.Bold);
 			using var font = new SKFont(typeface, FontSize);
+			using var boldFont = new SKFont(boldTypeface, FontSize);
 			using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
 			using var line = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 1 };
 
-			var widths = Enumerable.Range(0, rows[0].Length).Select(c => rows.Max(r => font.MeasureText(r[c])) + Padding * 2).ToArray();
+			var widths = Enumerable.Range(0, rows[0].Length).Select(c => rows.Max(r => boldFont.MeasureText(r[c].Item1)) + Padding * 2).ToArray();
 			var rowHeight = FontSize * 1.6f;
 			var width = Math.Max(widths.Sum(), font.MeasureText(header) + Padding * 2);
 			var height = rowHeight * (rows.Length + 1);
@@ -62,7 +77,19 @@ namespace Netkeiba.Scheduler
 				var x = 0f;
 				for (var c = 0; c < rows[r].Length; c++)
 				{
-					canvas.DrawText(rows[r][c], x + Padding, y + baseline, SKTextAlign.Left, font, paint);
+					var (text, rank) = rows[r][c];
+					if (RankColors.TryGetValue(rank, out var color))
+					{
+						using var fill = new SKPaint { Color = color.Back };
+						using var fore = new SKPaint { Color = color.Fore, IsAntialias = true };
+						// 行の上端に引いた罫線を塗り潰さないよう 1px 下げる
+					canvas.DrawRect(x, y + 1, widths[c], rowHeight - 1, fill);
+						canvas.DrawText(text, x + Padding, y + baseline, SKTextAlign.Left, boldFont, fore);
+					}
+					else
+					{
+						canvas.DrawText(text, x + Padding, y + baseline, SKTextAlign.Left, font, paint);
+					}
 					x += widths[c];
 				}
 			}

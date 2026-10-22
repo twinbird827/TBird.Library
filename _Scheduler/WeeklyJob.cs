@@ -8,6 +8,7 @@ namespace Netkeiba.Scheduler
 		{
 			var step = "STEP1";
 			Models.RankingTrain[] trains;
+			int failed;
 
 			try
 			{
@@ -17,7 +18,7 @@ namespace Netkeiba.Scheduler
 				await STEP1Updater.UpdateAsync(false, DateTime.Now.Year, new Progress<double>());
 
 				step = "STEP2";
-				await STEP2Generator.GenerateAsync(false);
+				failed = await STEP2Generator.GenerateAsync(false);
 
 				step = "STEP3";
 				trains = await STEP3Trainer.TrainAsync();
@@ -29,7 +30,9 @@ namespace Netkeiba.Scheduler
 				return 1;
 			}
 
-			await DiscordWebhook.SendAsync("weekly が完了しました\n" + string.Join("\n", trains.Select(x => $"{x.Grade} NDCG@1 {x.NDCG1:F4}")));
+			await DiscordWebhook.SendAsync("weekly が完了しました\n"
+				+ (failed > 0 ? $"STEP2 失敗 {failed} 件\n" : string.Empty)
+				+ string.Join("\n", trains.Select(x => $"{x.Grade} NDCG@1 {x.NDCG1:F4}")));
 			return 0;
 		}
 	}

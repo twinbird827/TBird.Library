@@ -15,22 +15,14 @@ namespace Netkeiba
 	public static class STEP3Trainer
 	{
 		// モデル別ハイパーパラメータ（iter=2000, lr=0.02, es=150 は全モデル共通）
-		// (leaves, depth, featFrac, subFrac, l2, minLeaf)
 		public static readonly Dictionary<FeaturesType, (int leaves, int depth, double featFrac, double subFrac, double l2, int minLeaf)> ModelParams = new()
 		{
-			// Total: 全398特徴量 (0.5002)
 			{ FeaturesType.Total, (20, 7, 0.25, 0.90, 7.0, 100) },
-			// Horse: 191特徴量 (0.5041)
 			{ FeaturesType.Horse, (15, 6, 0.30, 0.80, 12.0, 150) },
-			// Connection: 116特徴量 (0.4277)
 			{ FeaturesType.Connection, (20, 6, 0.35, 0.75, 15.0, 200) },
-			// TotalMedium: importance>=0.12 190特徴量 (0.5076)
 			{ FeaturesType.TotalMedium, (15, 6, 0.40, 0.85, 10.0, 120) },
-			// TotalSmall: importance>=0.15 110特徴量 (0.5079)
 			{ FeaturesType.TotalSmall, (15, 6, 0.55, 0.85, 10.0, 120) },
-			// TotalRaw: 生値のみ 171特徴量 (0.5037)
 			{ FeaturesType.TotalRaw, (15, 6, 0.40, 0.85, 10.0, 120) },
-			// TotalRank: Rankのみ 162特徴量 (0.4907)
 			{ FeaturesType.TotalRank, (15, 6, 0.40, 0.85, 10.0, 120) },
 		};
 
@@ -72,7 +64,6 @@ namespace Netkeiba
 			var preprocessModel = preprocessPipeline.Fit(viewdata);
 			var transformedTrain = preprocessModel.Transform(viewdata);
 
-			// LightGBMトレーナー
 			var trainer = _ml.Ranking.Trainers.LightGbm(new LightGbmRankingTrainer.Options
 			{
 				LabelColumnName = "LabelKey",
@@ -109,10 +100,8 @@ namespace Netkeiba
 
 			var model = preprocessModel.Append(trainedModel);
 
-			// バックグラウンドで評価・保存
 			return Task.Run(() =>
 			{
-				// 予測を実行
 				var predictions = model.Transform(testdata);
 				var allScores = predictions.GetColumn<float>("Score").ToArray();
 
@@ -135,7 +124,6 @@ namespace Netkeiba
 				);
 				AppSetting.Instance.UpdateRankingTrains(result);
 
-				// ML.NET 4.0.2でのモデル保存方法
 				DirectoryUtil.Create(Path.GetDirectoryName(result.Path));
 				using (var fileStream = new FileStream(result.Path, FileMode.Create, FileAccess.Write, FileShare.Write))
 				{

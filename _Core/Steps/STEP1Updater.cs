@@ -17,18 +17,15 @@ namespace Netkeiba
 			{
 				if (create)
 				{
-					// ﾃﾞｰﾀﾍﾞｰｽﾃﾞｨﾚｸﾄﾘ作成
 					DirectoryUtil.Create(Path.GetDirectoryName(AppUtil.Sqlitepath));
 
 					// 作成し直すために全ﾃｰﾌﾞﾙDROP
 					await conn.DropSTEP1();
 				}
 
-				// CREATE
 				await conn.CreateOrig();
 				await conn.CreateOikiri();
 
-				// 欠落ﾃﾞｰﾀを除外
 				await conn.RemoveShortageMissingDatasAsync();
 
 				await Task.Delay(1000);
@@ -80,7 +77,37 @@ namespace Netkeiba
 					}
 
 				}
+
+				await SupplementAsync(conn);
 			}
+		}
+
+		/// <summary>追切と血統（父・母父）の馬情報の欠けを、対象が尽きるまで取得して補う</summary>
+		public static async Task SupplementAsync(SQLiteControl conn)
+		{
+			await conn.CreateOikiri();
+
+			var retry = false;
+			do
+			{
+				retry = false;
+
+				foreach (var raceid in await conn.GetOikiriTargets().ToArrayAsync())
+				{
+					await conn.BeginTransaction();
+					await conn.InsertOikiriAsync(raceid);
+					conn.Commit();
+					retry = true;
+				}
+
+				foreach (var uma in await conn.GetUmaTargets().ToArrayAsync())
+				{
+					await conn.BeginTransaction();
+					await conn.InsertUmaInfoAsync(uma, string.Empty);
+					conn.Commit();
+					retry = true;
+				}
+			} while (retry);
 		}
 
 		private static async IAsyncEnumerable<List<Dictionary<string, string>>> GetSTEP1Racearrs(SQLiteControl conn, string raceid)

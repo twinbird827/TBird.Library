@@ -9,7 +9,8 @@ namespace Netkeiba
 {
 	public static class STEP2Generator
 	{
-		public static async Task GenerateAsync(bool overwrite)
+		/// <returns>例外で生成できなかったレースの件数</returns>
+		public static async Task<int> GenerateAsync(bool overwrite)
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
@@ -20,22 +21,19 @@ namespace Netkeiba
 					// 作成し直すために全ﾃｰﾌﾞﾙDROP
 					await conn.DropSTEP2();
 
-					// これまで作成した教育ﾃﾞｰﾀの削除
 					AppSetting.Instance.RemoveAllRankingTrain();
 				}
 
-				// ﾃｰﾌﾞﾙ作成
 				await conn.CreateModel();
 
-				// バッチ処理で訓練データを生成・保存
-				await GenerateAndSaveTrainingDataAsync(conn);
+				return await GenerateAndSaveTrainingDataAsync(conn);
 			}
 		}
 
 		/// <summary>
 		/// 指定期間のレースデータから訓練データを段階的に生成・保存
 		/// </summary>
-		private static async Task GenerateAndSaveTrainingDataAsync(SQLiteControl conn)
+		private static async Task<int> GenerateAndSaveTrainingDataAsync(SQLiteControl conn)
 		{
 			MessageService.Debug($"訓練データ生成開始");
 
@@ -43,6 +41,7 @@ namespace Netkeiba
 
 			var already = conn.GetAlreadyCreatedRacesAsync().ToBlockingEnumerable().ToArray();
 			var insertCount = 0;
+			var failedCount = 0;
 			var batchSize = 100;
 
 			await conn.BeginTransaction();
@@ -51,16 +50,13 @@ namespace Netkeiba
 			{
 				try
 				{
-					// 今ﾚｰｽの情報を取得する
 					var details = conn.GetRaceDetailsAsync(race).ToBlockingEnumerable().ToArray();
 					var tcd = PreviousDataSets.GetTrackConditionDistances(race);
 
-					// 過去ﾃﾞｰﾀ設定
 					details.ForEach(x => x.SetHistoricalData(PreviousDataSets.GetHorses(x), details, tcd));
 
 					if (!already.Contains(race.RaceId))
 					{
-						// 特徴量を生成
 						var results = details.Select(x =>
 						{
 							var features = x.ExtractFeatures(details);
@@ -73,7 +69,6 @@ namespace Netkeiba
 
 						var inraces = results.CalculateInRaces();
 
-						// ﾃﾞｰﾀﾍﾞｰｽに格納
 						await conn.InsertModelAsync(inraces);
 						insertCount++;
 
@@ -84,7 +79,6 @@ namespace Netkeiba
 						}
 					}
 
-					// 今ﾚｰｽの情報をﾒﾓﾘに格納
 					details.ForEach(PreviousDataSets.AddHistory);
 					PreviousDataSets.UpdateElo(details);
 
@@ -93,12 +87,14 @@ namespace Netkeiba
 				catch (Exception ex)
 				{
 					MessageService.Debug(ex.ToString());
+					failedCount++;
 				}
 			}
 
 			conn.Commit();
 
 			MessageService.Debug($"訓練データ生成完了");
+			return failedCount;
 		}
 	}
 }
