@@ -47,10 +47,19 @@ Set-Location $binDir
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# 1行ずつ console へ echo しつつ UTF-8 でログ追記する。function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
+# 1行ずつ console へ echo しつつ UTF-8 でログ追記する。
+function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
 
 Write-Log ("=== run-today START {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
-& (Join-Path $binDir "TradeAnalyzer.Worker.exe") run-today 2>&1 | ForEach-Object {
+# EAP=Continue 下の存在しない exe の & 呼出しは $LASTEXITCODE を設定せず exit 0 に化けるため、先に確かめる。
+$workerExe = Join-Path $binDir "TradeAnalyzer.Worker.exe"
+if (-not (Test-Path $workerExe)) {
+    Write-Log "=== run-today FAILED: TradeAnalyzer.Worker.exe not found (run _Apps\deploy.ps1) ==="
+    exit 1
+}
+# PS 5.1 は Stop のまま 2>&1 すると子の最初の stderr 行で終了エラーになるため下げる。
+$ErrorActionPreference = "Continue"
+& $workerExe run-today 2>&1 | ForEach-Object {
     $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }
     Write-Log $line
 }

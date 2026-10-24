@@ -50,6 +50,13 @@ $cmd = @("run", "python", "train.py", "--full", "--db", $dbPath, "--train-end", 
 if ($Retune) { $cmd += "--retune" }
 
 Write-Log ("=== retrain START {0} mode={1} train-end={2} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $mode, $trainEnd)
+# EAP=Continue 下の見つからない uv の & 呼出しは $LASTEXITCODE を設定せず exit 0 に化けるため、先に確かめる。
+try { Get-Command uv -ErrorAction Stop | Out-Null } catch {
+    Write-Log "=== retrain FAILED: uv not found on PATH ==="
+    exit 1
+}
+# PS 5.1 は Stop のまま 2>&1 すると子の最初の stderr 行（uv の同期進捗など）で終了エラーになるため下げる。
+$ErrorActionPreference = "Continue"
 & uv @cmd 2>&1 | ForEach-Object {
     $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }
     Write-Log $line
