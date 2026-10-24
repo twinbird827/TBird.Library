@@ -65,16 +65,11 @@ namespace Netkeiba.Scheduler
 			}
 		}
 
-		private static async Task<RacePrediction[]> PredictAsync(string raceid)
+		private static async Task SendRaceAsync(string raceid, DateTime? start)
 		{
 			var predictions = await RacePrediction.PredictShutsubaAsync(raceid);
 			if (!predictions.Any()) throw new InvalidOperationException("出馬表が取得できません。");
-			return predictions;
-		}
-
-		private static async Task SendRaceAsync(string raceid, DateTime? start)
-		{
-			var image = RaceTableImage.Create(await PredictAsync(raceid), start);
+			var image = RaceTableImage.Create(predictions, start);
 			await DiscordWebhook.SendAsync(image.Header, ($"{raceid}.png", image.Png));
 		}
 
