@@ -10,10 +10,10 @@ namespace TBird.Maui.ViewModels;
 public abstract partial class ErrorAwareViewModel : ObservableObject
 {
     [ObservableProperty]
-    private bool _hasError;
+    public partial bool HasError { get; set; }
 
     [ObservableProperty]
-    private string _errorMessage = string.Empty;
+    public partial string ErrorMessage { get; set; } = string.Empty;
 
     protected virtual void SetError(string message)
     {

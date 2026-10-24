@@ -8,7 +8,7 @@ TBird.Libraryは、WPFアプリケーション、Android MAUIアプリケーシ�
 
 ソリューションファイルは 2 つに分かれており、用途に応じて使い分ける：
 - `TBird.Library.sln` - WPF / Console / Service / DB / IO 等の WPF 系・サーバ系プロジェクト集合（MAUI workload 不要）
-- `TBird.Maui.sln` - TBird.Core + TBird.Maui.* 4 プロジェクト（MAUI workload 必要、Android MAUI アプリ開発時のみ開く）
+- `TBird.Maui.sln` - TBird.Core + TBird.Maui.* 4 プロジェクト + `TBird.Maui.Tests`（MAUI workload 必要、Android MAUI アプリ開発時のみ開く）
 
 ## ビルド
 
@@ -17,15 +17,14 @@ dotnet build TBird.Library.sln   # WPF/サーバ系（MAUI workload 不要）
 dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開発時のみ）
 ```
 
-- 一部プロジェクトは .NET Framework 4.8 のレガシー（非 SDK）形式（`TBird.Service` / `coretest` 等）。これらは Visual Studio もしくは `msbuild` でのビルドが確実
-- `_Core` / `_Browser` の CLAUDE.md はそれらのプロジェクトを持つ `app-*` ブランチでのみ存在（`master` には無い）
+- `TBird.Service` は .NET Framework 4.8 のレガシー（非 SDK）形式。Visual Studio もしくは `msbuild` でのビルドが確実
 
 ## ブランチとアプリケーションの構成
 
-`app-`プレフィックスのブランチ（例：`app-netkeiba`）ごとに、`_Apps`フォルダ内のアプリケーションプロジェクトが切り替わる。ライブラリ群（TBird.Core, TBird.Wpf等）は全ブランチで共有され、`_Apps`と`_Core`の内容のみがブランチ固有となる。
+`app-`プレフィックスのブランチ（例：`app-netkeiba`）ごとに、`_Tools` を除くリポジトリ直下の `_` フォルダ内のプロジェクトが切り替わる。ライブラリ群（TBird.Core, TBird.Wpf等）は全ブランチで共有され、`_Tools` を除くリポジトリ直下の `_` フォルダの内容のみがブランチ固有となる。
 
 - `master` - ライブラリのみ（アプリケーションなし）
-- `app-*` - 各ブランチで異なるアプリケーションが`_Apps`/`_Core`に配置される
+- `app-*` - 各ブランチで異なるアプリケーションが `_` フォルダに配置される
 
 ## プロジェクト別CLAUDE.md
 
@@ -52,18 +51,11 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 - [TBird.Maui.Web/CLAUDE.md](TBird.Maui.Web/CLAUDE.md) - AngleSharp / HTTP transient リトライ
 
 ### アプリケーション（ブランチ固有）
-- [_Apps/CLAUDE.md](_Apps/CLAUDE.md) - アプリケーション本体
-- [_Core/CLAUDE.md](_Core/CLAUDE.md) - アプリケーション共有ライブラリ（`_Core` プロジェクトを持つ app-* ブランチでのみ存在）
-- [_Browser/CLAUDE.md](_Browser/CLAUDE.md) - Webフロントエンド（`_Browser` プロジェクトを持つ app-* ブランチでのみ存在）
-
-### テスト
-- [coretest/CLAUDE.md](coretest/CLAUDE.md) - Core テスト
-- [wpftest/CLAUDE.md](wpftest/CLAUDE.md) - WPF テスト
-- [roslyntest/CLAUDE.md](roslyntest/CLAUDE.md) - Roslyn テスト
+- `_Tools` を除く各 `_` フォルダに `_<フォルダ>/CLAUDE.md`（`_Apps/CLAUDE.md`・`_Server/CLAUDE.md` 等）を置いてよい。そのフォルダを持つ app-* ブランチにだけ存在する（`master` には無い）
 
 ## テスト
 
-ユニットテストフレームワークではなく、実行可能なテストアプリケーションを使用している点に注意。
+テストは NUnit で、ライブラリごとの `<ライブラリ名>.Tests` プロジェクト（リポジトリ直下）に書き、`dotnet test <ライブラリ名>.Tests/<ライブラリ名>.Tests.csproj` で走らせる。アプリ用テストは app-* ブランチの `_Tests/<テスト対象プロジェクト名>.Tests/` に置き、`dotnet test _Tests/<テスト対象プロジェクト名>.Tests/<テスト対象プロジェクト名>.Tests.csproj` で走らせる。
 
 ## 全体共通ルール
 
@@ -75,9 +67,25 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ### アプリ新規開発時のルール
 
-- ソリューションファイルは `_Apps/App.sln` とする（アプリ名のslnにしない）
-- ソリューションフォルダは作成しない（`_Apps/` 直下に `.sln` を配置）
-- プロジェクトフォルダも作成しない（`_Apps/` 直下に `.csproj` とソースファイルを配置）
+- 主のソリューションファイルは `_Apps/App.sln` とし（アプリ名のslnにしない）、`_Tools` を除く全 `_` フォルダのプロジェクトを含める。`_Apps` 以外の `_` フォルダは、そのフォルダだけ開く・ビルドする事情（必要な workload・TFM の違い等）があれば直下に別 sln を 1 つ置いてよい（名前は問わない）
+- 仮想ソリューションフォルダは `App.sln` 内に置いてよい（例: 参照する TBird.* ライブラリをまとめる `Libraries`）
+- プロジェクトはリポジトリ直下の `_` フォルダに用途別に置く：
+  - `_Apps` - WPF / Android アプリ（csproj を `_Apps/` 直下に 1 つだけ置く）
+  - `_Browser` - ブラウザアプリ
+  - `_Server` - 常駐するバックグラウンドサーバ
+  - `_Scheduler` - タスクスケジューラから起動する定期実行バッチ（常駐しない）
+  - `_Core` - ブランチ固有の共有ライブラリ
+  - `_Tests` - テスト（`_Tests/<テスト対象プロジェクト名>.Tests/`）
+  - 上記以外も `_<名前>` で作ってよい。ただし `_Tools` は実行時データ置き場（.gitignore 済）の予約名で、ソースを置くフォルダに使わない
+- `_Apps`・`_Tests` 以外の `_` フォルダは、プロジェクトが 1 つなら `.csproj` とソースファイルを直下に置き、複数なら各プロジェクトを `_<フォルダ>/<プロジェクト名>/` に分ける（直下の csproj は既定の `**/*.cs` で他プロジェクトのソースまで取り込み、ビルドが壊れるため）
+
+### ブランチ切替と `_Tools`
+
+- **git 追跡外だが実行に必要なファイル（DB・シークレット・学習モデル・ログ・ビルド成果物）を `_Tools` 以外の `_` フォルダ内に置かない**。リポジトリルートの `_Tools/<アプリ名>/`（.gitignore 済）に集約する。`_Tools` 以外の `_` フォルダはブランチ切替で内容が入れ替わるため、置くと切替や `_` フォルダ内削除で失われる
+- post-checkout フック（正本は `.githooks/post-checkout`）と、それを呼ぶ post-merge フック（`.githooks/post-merge`）が、`_Tools` を除くリポジトリ直下の `_` フォルダの `.sln` / `.csproj` に差分があるブランチ切替（別 app への切替、csproj を変えた fix/* との往復、rebase）と pull / merge で、そこの gitignore 済みファイルを `git clean -fdX` で消す。clone ごとに 1 回 `cp .githooks/post-checkout .githooks/post-merge .git/hooks/` で導入する
+- 定期実行（タスクスケジューラ）・常駐サーバは `_Tools/<アプリ名>/` に配備した実行物から起動する。登録に `_Tools` 以外の `_` フォルダのパスを使わず、`dotnet run --project _Server/...` や `dotnet run --project _Scheduler/...` で起動しない
+- 配備は app-* ブランチで追跡する `_Apps/deploy.ps1` を明示的に実行して行い、ブランチ切替では配備しない。`_Tools/<アプリ名>/` 内の配備物（配備のたびに上書き）以外、すなわち実行時データ（DB・シークレット・設定・ログ・モデル）とコンパイル時の秘密ファイルは配備で消さない
+- コンパイル時に必要な秘密ファイルは `_Tools/<アプリ名>/` に置き、csproj から取り込む
 
 #### 規約の適用外（独立アプリ例外）
 
@@ -91,7 +99,6 @@ dotnet build TBird.Maui.sln      # MAUI（要 MAUI workload。Android MAUI 開�
 
 ### コード標準
 
-- C# 10言語機能が有効
 - null許容参照型が有効（`<Nullable>enable</Nullable>`）
 - 拡張メソッドは`{型名}Extension.cs`の命名規則に従う
 - 名前空間規則：TBird.{レイヤー}.{機能}

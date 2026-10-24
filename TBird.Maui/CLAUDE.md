@@ -7,9 +7,10 @@ Android MAUI アプリ共通基盤（ViewModel / Converter / 通知許可 / メ�
 - TFM は `net10.0-android`、`<UseMaui>true</UseMaui>` で MAUI コアを有効化
 - `Microsoft.Maui.Controls` は明示的に PackageReference する（純粋クラスライブラリでは auto FrameworkReference が不安定）
 - `Microsoft.Maui.Controls.Compatibility` は意図的に含めない（lib 依存膨張防止）
-- `ErrorAwareViewModel` は `[ObservableProperty]` で `HasError` / `ErrorMessage` を公開する基底 ViewModel（CommunityToolkit.Mvvm の partial class + source generator を使用）
+- `ErrorAwareViewModel` は `[ObservableProperty]` で `HasError` / `ErrorMessage` を公開する基底 ViewModel（CommunityToolkit.Mvvm の partial property 形式。MVVM Toolkit 8.4.2 は C# 13 以下では `CS9248` になるため `LangVersion` 14 を要する）
 - `NotificationPermissionService<TPermission>` は `Permissions.BasePlatformPermission` 派生型を型パラメータで受け取り、アプリ側で `PostNotificationsPermission` 等を渡す
 - `MauiMessageService` は `ConsoleMessageService` を継承し全 5 メソッド (Error/Exception/Info/Warn/Debug) を override（Android logcat は `Trace.WriteLine` を拾わないため `System.Diagnostics.Debug.WriteLine` 明示）
 - ファイル出力先は `FileSystem.AppDataDirectory/log/yyyy-MM-dd.log`（Error/Exception のみ）
 - 通知許可ダイアログは `Shell.Current.DisplayAlert` 直接呼出のため、消費アプリは Shell ナビゲーション構成前提
 - `Converters/` に 5 種の `IValueConverter`: `BoolToColorConverter` / `BoolToOpacityConverter` / `HasValueConverter` / `IntToBoolConverter` / `InverseBoolConverter`（XAML バインディング用、いずれも `IValueConverter` 実装）
+- `Collections/BulkObservableCollection<T>` は中身を Reset 1 回で入れ替える `ObservableCollection<T>` 派生。`ItemsSource` を差し替えずに一覧を作り直すときに使う（テストは `TBird.Maui.Tests` でソースをリンクして走らせる）

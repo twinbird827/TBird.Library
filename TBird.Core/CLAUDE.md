@@ -16,3 +16,4 @@
 - リソース解放は `TBirdObject` 継承先で `DisposeManagedResource()` / `DisposeUnmanagedResource()` を override（`Dispose` 自体は sealed）
 - 排他制御は `Locker` パターンを使用
 - ログ／メッセージ出力は `MessageService.Info/Warn/Error/Exception(...)` 経由。実行環境に応じ起動時に `MessageService.SetService(...)` で実装を差し替える（Console 版・Service 版・MAUI 版が各プロジェクトに存在）
+- `CoreUtil.ExecuteAsync` は exit code を返すだけで、非ゼロでも throw しない（検査は呼び出し元の義務）。`action` 内の例外は終了後に再スローされ、起動失敗は `Win32Exception` が伝播する

@@ -1,0 +1,3 @@
+#!/bin/sh
+# pull / merge で取り込んだ _ フォルダの .sln / .csproj 変更でも、post-checkout と同じ掃除をする（判定とループの正本を post-checkout に保つ）。
+exec "$(dirname "$0")/post-checkout" ORIG_HEAD HEAD 1
