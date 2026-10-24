@@ -22,29 +22,7 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				await conn.CreateOikiri();
-
-				var retry = false;
-				do
-				{
-					retry = false;
-
-					foreach (var raceid in await conn.GetOikiriTargets().ToArrayAsync())
-					{
-						await conn.BeginTransaction();
-						await conn.InsertOikiriAsync(raceid);
-						conn.Commit();
-						retry = true;
-					}
-
-					foreach (var uma in await conn.GetUmaTargets().ToArrayAsync())
-					{
-						await conn.BeginTransaction();
-						await conn.InsertUmaInfoAsync(uma, string.Empty);
-						conn.Commit();
-						retry = true;
-					}
-				} while (retry);
+				await STEP1Updater.SupplementAsync(conn);
 			}
 		}
 	}

@@ -44,6 +44,13 @@ namespace Netkeiba
 		}
 		private string _NetkeibaResult = string.Empty;
 
+		public string DiscordWebhookUrl
+		{
+			get => GetProperty(_DiscordWebhookUrl);
+			set => SetProperty(ref _DiscordWebhookUrl, value);
+		}
+		private string _DiscordWebhookUrl = string.Empty;
+
 		public RankingTrain[] RankingTrains
 		{
 			get => GetProperty(_RankingTrains);

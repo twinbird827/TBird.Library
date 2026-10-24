@@ -24,14 +24,7 @@ namespace Netkeiba
 			Vars2 = x.Vars2;
 			Vars1 = x.Vars1;
 			Odds = x.Detail.Odds;
-
-			// EV = 全モデルWinProbの中央値 × Odds
-			var probs = new[] { Vars1.WinProb, Vars2.WinProb, TotalMedium.WinProb, TotalSmall.WinProb, Total.WinProb, Horse.WinProb };
-			Array.Sort(probs);
-			var medianProb = probs.Length % 2 == 0
-				? (probs[probs.Length / 2 - 1] + probs[probs.Length / 2]) / 2f
-				: probs[probs.Length / 2];
-			EV = new RaceScore { Score = medianProb * Odds };
+			EV = x.EV;
 		}
 
 		public int Wakuban { get; set; }
