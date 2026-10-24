@@ -47,7 +47,7 @@ filter Write-LogRecord { Write-Log $(if ($_ -is [System.Management.Automation.Er
 
 Write-Log ("=== explain-today START {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 
-# 更新失敗は旧版 CLI のまま続行する（旧版でも解決済みの Opus で根拠文は作れ、止める方が損失が大きい）。
+# 旧版でも解決済みの Opus で根拠文は作れ、止める方が損失が大きい。
 try {
     & claude update 2>&1 | Write-LogRecord
     Write-Log ("claude update ExitCode={0}" -f $LASTEXITCODE)

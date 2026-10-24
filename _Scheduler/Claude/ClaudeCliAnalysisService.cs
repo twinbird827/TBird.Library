@@ -113,8 +113,7 @@ internal sealed class ClaudeCliAnalysisService
     /// <summary>stdout エンベロープ（--output-format json）を1回だけパースし、モデル JSON 候補・is_error・診断1行（is_error/subtype/result。result は先頭 <see cref="ErrorResultCap"/> 字で有界化）・実モデル ID をまとめて返す。
     /// 受理拒否ゲートは「is_error プロパティが存在し true」のときのみ＝is_error を返さない版 CLI の正常系は不変。
     /// エンベロープが JSON でない/オブジェクトでない版は stdout 全体を候補に降格し isError=false（防御）。
-    /// 実モデル ID は modelUsage のキーのうち outputTokens 最大のもの（エイリアス指定時も解決後の版が残る。
-    /// CLI が補助処理で別モデルを呼んでも根拠文を生成した主モデルを選ぶため）。
+    /// modelUsage のキーはエイリアス指定時も解決後の版が残り、outputTokens 最大を採るのは CLI が補助処理で別モデルを呼んでも根拠文を生成した主モデルを選ぶため。
     /// internal static は SelfTest が純関数として直接検証するため（<see cref="Commands.ResolveTodayJst"/> の
     /// 内部公開と同じ前例）。</summary>
     internal static (string Candidate, bool IsError, string? ErrorInfo, string? Model) ParseEnvelope(string stdout)
