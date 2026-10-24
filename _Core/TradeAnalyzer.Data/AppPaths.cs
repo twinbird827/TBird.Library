@@ -3,8 +3,8 @@ namespace TradeAnalyzer.Data;
 /// <summary>
 /// TradeAnalyzer の実行時状態（trade.db / Secrets.json / ML モデル / 実行ログ）の置き場を解決する。
 ///
-/// 方針: これらは「git 追跡外だが実行に必要」なファイルで、_Apps 内に置くとブランチ切替や _Apps 内
-/// TradeAnalyzer の一括削除で失われる。そこでリポジトリルート直下の <c>_Tools/TradeAnalyzer</c>
+/// 方針: これらは「git 追跡外だが実行に必要」なファイルで、_Tools 以外の _ フォルダ内に置くとブランチ切替や
+/// _ フォルダの削除で失われる。そこでリポジトリルート直下の <c>_Tools/TradeAnalyzer</c>
 /// （.gitignore 済＝ブランチ切替でも消えない・全ブランチ共有）へ集約する。
 ///
 /// ルートは実行ファイル位置（<see cref="AppContext.BaseDirectory"/>）から上位へたどり <c>_Apps</c> を持つ
@@ -37,10 +37,10 @@ public static class AppPaths
     public static string LogDir => Path.Combine(DataRoot, "logs");
 
     /// <summary>
-    /// ML スクリプト群（<c>_Apps/ml</c>）。追跡対象ソースのため _Apps 側に置く（成果物は DataRoot）。
+    /// ML スクリプト群（<c>_Scheduler/ml</c>）。追跡対象ソースのため _Scheduler 側に置く（成果物は DataRoot）。
     /// 配備先では <c>Python:MlDir</c>（タスク用スクリプトが環境変数 <c>Python__MlDir</c> で <c>app/ml</c> を設定）で上書きされる。
     /// </summary>
-    public static string MlScriptsDir => Path.Combine(RepoRoot, "_Apps", "ml");
+    public static string MlScriptsDir => Path.Combine(RepoRoot, "_Scheduler", "ml");
 
     /// <summary>SQLite 接続文字列（<c>Data Source=&lt;絶対パス&gt;</c>）。</summary>
     public static string TradeDbConnectionString => $"Data Source={TradeDbPath}";

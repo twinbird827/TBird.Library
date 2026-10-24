@@ -5,7 +5,7 @@
 #   logs/run-today-<date>.log に追記し、アプリの終了コードをそのまま exit する。
 #
 # 前提（重要）:
-#   - 本スクリプトは _Apps/deploy.ps1 が _Tools/TradeAnalyzer/app/ へ配備したものを実行する（_Apps/scripts からの
+#   - 本スクリプトは _Apps/deploy.ps1 が _Tools/TradeAnalyzer/app/ へ配備したものを実行する（_Scheduler/scripts からの
 #     直接実行は不可）。$PSScriptRoot=app、exe は app/bin、ML スクリプトは app/ml (_Apps の無いブランチでも動く)
 #   - migrate は _Apps/deploy.ps1 が配備時に実行する（コールドスタート＝段階1/2 で複数年 ingest 済みの trade.db が
 #     必要。run-today は当日 1 日分の bar しか足さない増分運用で、run-today 自身は migrate しない）。

@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-# 回帰テスト（test_ml.py）。`_Apps/ml` をカレントにして `uv run pytest` で実行する。
+# 回帰テスト（test_ml.py）。`_Scheduler/ml` をカレントにして `uv run pytest` で実行する。
 dev = [
     "pytest>=8.0.0",
 ]

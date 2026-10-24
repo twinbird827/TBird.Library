@@ -1,7 +1,7 @@
 ﻿# TradeAnalyzer のタスク用実行物を _Tools/TradeAnalyzer/app/ へ配備する (タスクスケジューラはここから起動する)
 #   app/bin   : dotnet publish -c Release の出力 (TradeAnalyzer.Worker.exe)
-#   app/ml    : _Apps/ml の Python スクリプト + uv sync --frozen で作った .venv
-#   app/*.ps1 : _Apps/scripts のタスク用スクリプト
+#   app/ml    : _Scheduler/ml の Python スクリプト + uv sync --frozen で作った .venv
+#   app/*.ps1 : _Scheduler/scripts のタスク用スクリプト
 # app/ は配備のたびに丸ごと入れ替える。_Tools/TradeAnalyzer 直下の実行時データ (trade.db / Secrets.json / logs / ml/models) には触れない
 # 配備後に配備した exe で migrate を実行する (適用済みの migration は再適用されない)
 # ブランチ切替では配備しない (app-trade-analyzer 系ブランチのメイン作業ツリーから明示的に実行する)
@@ -36,17 +36,17 @@ if (Test-Path $appDir) {
 }
 
 # -o は Directory.Build.props の ArtifactsPath より優先される (開発ビルドの _Tools/TradeAnalyzer/{bin,obj,publish} とは別パス)
-& dotnet publish (Join-Path $PSScriptRoot "TradeAnalyzer.Worker\TradeAnalyzer.Worker.csproj") -c Release -o $binDir
+& dotnet publish (Join-Path $repoRoot "_Scheduler\TradeAnalyzer.Worker.csproj") -c Release -o $binDir
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed: ExitCode=$LASTEXITCODE" }
 
 # 追跡ファイルだけを写す (.venv / __pycache__ / .pytest_cache は写さない)
 New-Item -ItemType Directory -Force -Path $mlDir | Out-Null
-Copy-Item -Path (Join-Path $PSScriptRoot "ml\*") -Include "*.py", "pyproject.toml", "uv.lock" -Destination $mlDir
+Copy-Item -Path (Join-Path $repoRoot "_Scheduler\ml\*") -Include "*.py", "pyproject.toml", "uv.lock" -Destination $mlDir
 # uv run と同じ既定 (dev グループ込み) で同期しておく (初回のタスク実行で再同期を走らせないため)
 & uv sync --frozen --directory $mlDir
 if ($LASTEXITCODE -ne 0) { throw "uv sync failed: ExitCode=$LASTEXITCODE" }
 
-Copy-Item -Path (Join-Path $PSScriptRoot "scripts\*.ps1") -Destination $appDir
+Copy-Item -Path (Join-Path $repoRoot "_Scheduler\scripts\*.ps1") -Destination $appDir
 
 # CWD を bin にする (appsettings.json は ContentRoot=CWD 基準で読まれるため)
 $env:TRADEANALYZER_DATA_DIR = $dataRoot

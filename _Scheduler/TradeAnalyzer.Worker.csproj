@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TradeAnalyzer.Data\TradeAnalyzer.Data.csproj" />
-    <ProjectReference Include="..\TradeAnalyzer.Core\TradeAnalyzer.Core.csproj" />
+    <ProjectReference Include="..\_Core\TradeAnalyzer.Data\TradeAnalyzer.Data.csproj" />
+    <ProjectReference Include="..\_Core\TradeAnalyzer.Core\TradeAnalyzer.Core.csproj" />
   </ItemGroup>
 
   <!-- Secrets.json は _Tools/TradeAnalyzer/Secrets.json（AppPaths.SecretsPath）から絶対パスで直接ロードするため

@@ -1,7 +1,7 @@
 """段階2 ML パイプラインの最小回帰（F1/F2/F7-F10 の検証手段）。
 
-実行（`_Apps/ml` をカレントにする。pyproject.toml/uv.lock が直下にあるため）:
-  cd _Apps/ml
+実行（`_Scheduler/ml` をカレントにする。pyproject.toml/uv.lock が直下にあるため）:
+  cd _Scheduler/ml
   uv run pytest
 
 最重要のリーク是正 F1（embargo）はモデル出力を変える安全性クリティカル変更だが、C# の F6 SelfTest では
