@@ -1276,7 +1276,6 @@ public static class SelfTest
         f += Assert("ParseEnvelope: 長大 result の診断1行は有界化される",
             longEnv.ErrorInfo != null && longEnv.ErrorInfo.Length < 400 && longEnv.ErrorInfo.EndsWith("…"));
 
-        // #205: エイリアス指定（opus）でも QualitativeJson へ解決後の実モデル ID を残す。
         f += Assert("ParseEnvelope: modelUsage 1キー→そのキー",
             ClaudeCliAnalysisService.ParseEnvelope(
                 "{\"result\":\"x\",\"modelUsage\":{\"claude-opus-5-5\":{\"inputTokens\":2,\"outputTokens\":4}}}").Model

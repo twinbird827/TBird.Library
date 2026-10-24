@@ -55,7 +55,7 @@ try {
     Write-Log ("claude update FAILED: {0}" -f $_)
 }
 
-# 未起動の判定は exe の存在で行う。存在しない exe の & 呼出しは $LASTEXITCODE を上書きせず、
+# 存在しない exe の & 呼出しは $LASTEXITCODE を上書きせず、
 # 直前の claude update の値が残るため $LASTEXITCODE では判定できない（exit 0 に化けタスクが緑のままになる）。
 $workerExe = Join-Path $binDir "TradeAnalyzer.Worker.exe"
 if (-not (Test-Path $workerExe)) {
