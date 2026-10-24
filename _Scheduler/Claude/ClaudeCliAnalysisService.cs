@@ -70,7 +70,7 @@ internal sealed class ClaudeCliAnalysisService
         }
 
         // エンベロープは1回だけパースし、候補・is_error・診断1行（result は有界化済み）をここから引き回す。
-        var (candidate, isError, errorInfo) = ParseEnvelope(result.Stdout);
+        var (candidate, isError, errorInfo, actualModel) = ParseEnvelope(result.Stdout);
 
         if (result.ExitCode != 0)
         {
@@ -103,25 +103,25 @@ internal sealed class ClaudeCliAnalysisService
             _logger.LogWarning("Claude 出力に注入外の数値が混入した疑い（{Code}）。numericUnverified を立てます。", facts.Code);
 
         return new ClaudeAnalysisResult(model.Summary, risks, model.UsedFacts ?? new List<string>(),
-            _opt.Model, unverified);
+            actualModel ?? _opt.Model, unverified);
     }
 
     // 診断ログへ載せる result の上限長。パース不能分岐では「機微含むから Debug 降格」したモデル全文（数 KB の
     // prose になりうる）が result に載るため、有界化しないと既定 Information ログへ全量流出し降格判断と矛盾する。
     private const int ErrorResultCap = 300;
 
-    /// <summary>stdout エンベロープ（--output-format json）を1回だけパースし、モデル JSON 候補・is_error・
-    /// 診断1行（is_error/subtype/result。result は先頭 <see cref="ErrorResultCap"/> 字で有界化）をまとめて返す。
+    /// <summary>stdout エンベロープ（--output-format json）を1回だけパースし、モデル JSON 候補・is_error・診断1行（is_error/subtype/result。result は先頭 <see cref="ErrorResultCap"/> 字で有界化）・実モデル ID をまとめて返す。
     /// 受理拒否ゲートは「is_error プロパティが存在し true」のときのみ＝is_error を返さない版 CLI の正常系は不変。
     /// エンベロープが JSON でない/オブジェクトでない版は stdout 全体を候補に降格し isError=false（防御）。
+    /// modelUsage のキーはエイリアス指定時も解決後の版が残り、outputTokens 最大を採るのは CLI が補助処理で別モデルを呼んでも根拠文を生成した主モデルを選ぶため。
     /// internal static は SelfTest が純関数として直接検証するため（<see cref="Commands.ResolveTodayJst"/> の
     /// 内部公開と同じ前例）。</summary>
-    internal static (string Candidate, bool IsError, string? ErrorInfo) ParseEnvelope(string stdout)
+    internal static (string Candidate, bool IsError, string? ErrorInfo, string? Model) ParseEnvelope(string stdout)
     {
         try
         {
             using var env = JsonDocument.Parse(stdout);
-            if (env.RootElement.ValueKind != JsonValueKind.Object) return (stdout, false, null);
+            if (env.RootElement.ValueKind != JsonValueKind.Object) return (stdout, false, null, null);
 
             string candidate = stdout;
             bool isError = false;
@@ -138,11 +138,18 @@ internal sealed class ClaudeCliAnalysisService
                 candidate = r.GetString() ?? stdout;
                 parts.Add("result=" + (candidate.Length > ErrorResultCap ? candidate[..ErrorResultCap] + "…" : candidate));
             }
-            return (candidate, isError, parts.Count > 0 ? string.Join(" ", parts) : null);
+            string? model = null;
+            if (env.RootElement.TryGetProperty("modelUsage", out var mu) && mu.ValueKind == JsonValueKind.Object)
+                model = mu.EnumerateObject()
+                    .OrderByDescending(p => p.Value.ValueKind == JsonValueKind.Object
+                        && p.Value.TryGetProperty("outputTokens", out var t) && t.TryGetInt64(out var n) ? n : -1)
+                    .Select(p => p.Name)
+                    .FirstOrDefault();
+            return (candidate, isError, parts.Count > 0 ? string.Join(" ", parts) : null, model);
         }
         catch (JsonException)
         {
-            return (stdout, false, null); // エンベロープが JSON でない版もありうる＝素の出力から抽出を試す。
+            return (stdout, false, null, null); // エンベロープが JSON でない版もありうる＝素の出力から抽出を試す。
         }
     }
 

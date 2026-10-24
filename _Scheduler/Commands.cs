@@ -606,7 +606,7 @@ public static class Commands
         if (string.IsNullOrWhiteSpace(cl.ExecutablePath))
             throw new InvalidOperationException("Claude:ExecutablePath が空です（Windows は claude.cmd を指定）。");
         if (string.IsNullOrWhiteSpace(cl.Model))
-            throw new InvalidOperationException("Claude:Model が空です（例: claude-opus-4-8）。");
+            throw new InvalidOperationException("Claude:Model が空です（例: opus）。");
     }
 
     // --- 引数パース ---

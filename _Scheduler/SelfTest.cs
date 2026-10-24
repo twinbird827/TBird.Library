@@ -1275,6 +1275,19 @@ public static class SelfTest
             "{\"is_error\":true,\"result\":\"" + new string('x', 2000) + "\"}");
         f += Assert("ParseEnvelope: 長大 result の診断1行は有界化される",
             longEnv.ErrorInfo != null && longEnv.ErrorInfo.Length < 400 && longEnv.ErrorInfo.EndsWith("…"));
+
+        f += Assert("ParseEnvelope: modelUsage 1キー→そのキー",
+            ClaudeCliAnalysisService.ParseEnvelope(
+                "{\"result\":\"x\",\"modelUsage\":{\"claude-opus-5-5\":{\"inputTokens\":2,\"outputTokens\":4}}}").Model
+            == "claude-opus-5-5");
+        f += Assert("ParseEnvelope: modelUsage 2キー→outputTokens 最大のキー",
+            ClaudeCliAnalysisService.ParseEnvelope(
+                "{\"result\":\"x\",\"modelUsage\":{\"claude-haiku-5-5\":{\"outputTokens\":30},\"claude-opus-5-5\":{\"outputTokens\":900}}}").Model
+            == "claude-opus-5-5");
+        f += Assert("ParseEnvelope: modelUsage 無し→Model=null",
+            ClaudeCliAnalysisService.ParseEnvelope("{\"result\":\"x\"}").Model == null);
+        f += Assert("ParseEnvelope: 非JSON→Model=null",
+            ClaudeCliAnalysisService.ParseEnvelope("claude: plain text").Model == null);
         return f;
     }
 
