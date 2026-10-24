@@ -19,6 +19,8 @@
 #     .cmd 拡張子必須）。実体名/パスが異なる場合は絶対パスを appsettings で設定。誤設定/未解決だと起動失敗で
 #     全銘柄スキップ（非致命・銘柄ごと LogWarning）＝Claude 層が無言に近い形で無効化される。初回導入時に
 #     explain-today を1回手動実行して QualitativeJson が埋まることを確認すること。
+#   - Claude:Model のエイリアス（既定 opus）は CLI の版が知る最新版に解決されるため、Worker 起動前に毎回
+#     `claude update` する（新モデルは CLI 更新が前提＝古い CLI に完全 ID を渡すと 400）。
 #
 # タスクスケジューラ登録例（run-today の数分後にトリガ。<repo> は実パスに置換）:
 #   schtasks /create /tn "TradeAnalyzer-ExplainToday" /sc daily /st 19:40 ^
@@ -41,20 +43,27 @@ Set-Location $binDir
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 function Write-Log([string]$msg) { Write-Host $msg; $msg | Out-File -FilePath $logFile -Append -Encoding utf8 }
+filter Write-LogRecord { Write-Log $(if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }) }
 
 Write-Log ("=== explain-today START {0} ===" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
-& (Join-Path $binDir "TradeAnalyzer.Worker.exe") explain-today 2>&1 | ForEach-Object {
-    $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }
-    Write-Log $line
+
+# 更新失敗は旧版 CLI のまま続行する（旧版でも解決済みの Opus で根拠文は作れ、止める方が損失が大きい）。
+try {
+    & claude update 2>&1 | Write-LogRecord
+    Write-Log ("claude update ExitCode={0}" -f $LASTEXITCODE)
+} catch {
+    Write-Log ("claude update FAILED: {0}" -f $_)
 }
-$code = $LASTEXITCODE
-# exe が起動しなかった場合（未配備・配備途中で bin が無い等）は $LASTEXITCODE が未設定（$null）のまま
-# 流れ、exit $null = exit 0 に化けてタスクが緑のまま QualitativeJson が永久に埋まらない。$null は 1 へ倒す
-# （ErrorActionPreference=Continue の本スクリプト固有の穴。run-today.ps1 は Stop のため -File が exit 1 を返す）。
-if ($null -eq $code) {
+
+# 未起動の判定は exe の存在で行う。存在しない exe の & 呼出しは $LASTEXITCODE を上書きせず、
+# 直前の claude update の値が残るため $LASTEXITCODE では判定できない（exit 0 に化けタスクが緑のままになる）。
+$workerExe = Join-Path $binDir "TradeAnalyzer.Worker.exe"
+if (-not (Test-Path $workerExe)) {
     Write-Log "=== explain-today FAILED: TradeAnalyzer.Worker.exe did not start (run _Apps\deploy.ps1) ==="
     exit 1
 }
+& $workerExe explain-today 2>&1 | Write-LogRecord
+$code = $LASTEXITCODE
 Write-Log ("=== explain-today END ExitCode={0} ({1}) ===" -f $code, (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 
 # ExitCode をそのまま返す（run-today.ps1 と同じ）: 非致命スキップは C# が既に 0 で表現済みのため丸め不要。

@@ -20,8 +20,8 @@ public class ClaudeOptions
     /// 非 Windows は <c>claude</c>、PATH 非依存なら絶対パス指定可。</summary>
     public string ExecutablePath { get; set; } = "claude.cmd";
 
-    /// <summary>モデル ID（既定 <c>claude-opus-4-8</c>）。Haiku/Sonnet へ差替可。</summary>
-    public string Model { get; set; } = "claude-opus-4-8";
+    /// <summary>モデル（既定はエイリアス <c>opus</c>＝CLI の版が知る最新 Opus に解決。完全 ID も指定可）。</summary>
+    public string Model { get; set; } = "opus";
 
     /// <summary>Claude 実行のタイムアウト（分）。0 以下・上限（<see cref="ProcessRunner.MaxTimeout"/>）超過は
     /// ProcessRunner.RunAsync が ArgumentOutOfRangeException（fail-fast）。起動直後に ValidateClaudeConfig が
