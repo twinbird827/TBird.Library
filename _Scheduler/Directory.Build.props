@@ -1,0 +1,6 @@
+<Project>
+
+  <!-- ArtifactsPath の正本は _Core/Directory.Build.props（上位へ最初に見つかった 1 つしか読まれないため Import する）。 -->
+  <Import Project="$(MSBuildThisFileDirectory)..\_Core\Directory.Build.props" />
+
+</Project>

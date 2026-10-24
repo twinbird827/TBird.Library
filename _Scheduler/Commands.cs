@@ -474,8 +474,7 @@ public static class Commands
         IReadOnlyList<(string key, string value)> options, CancellationToken ct = default)
     {
         string uvPath = string.IsNullOrWhiteSpace(opt.UvPath) ? "uv" : opt.UvPath; // PATH 非依存なら絶対パス指定可。
-        // MlDir 未指定時は AppPaths.MlScriptsDir（_Apps/ml の絶対パス・CWD 非依存）。相対指定時のみ
-        // リポジトリルート基準で絶対化する。ml スクリプトは追跡ソースのため成果物置き場（_Tools）とは別。
+        // ml スクリプトは追跡ソースのため成果物置き場（_Tools）とは別。
         string mlDir = string.IsNullOrWhiteSpace(opt.MlDir)
             ? AppPaths.MlScriptsDir
             : Path.GetFullPath(opt.MlDir, AppPaths.RepoRoot);

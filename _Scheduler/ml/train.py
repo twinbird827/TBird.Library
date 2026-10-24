@@ -43,9 +43,9 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 def _resolve_models_dir() -> str:
     """モデル/best_params の置き場を ``_Tools/TradeAnalyzer/ml/models`` に解決する。
 
-    これらは追跡外だが再学習コストの高い成果物。_Apps 内 TradeAnalyzer の一括削除やブランチ切替でも
+    これらは追跡外だが再学習コストの高い成果物。_ フォルダの削除やブランチ切替でも
     生存させるため _Tools（.gitignore 済）側に置く（C# の AppPaths.MlModelsDir と一致）。__file__
-    （``_Apps/ml``）から上位の ``_Apps`` を持つディレクトリ=リポジトリルートを探し
+    （``_Scheduler/ml``）から上位の ``_Apps`` を持つディレクトリ=リポジトリルートを探し
     ``<root>/_Tools/TradeAnalyzer/ml/models`` を返す。環境変数 ``TRADEANALYZER_DATA_DIR`` で上書き可。
     環境変数も ``_Apps`` も無ければ（配備先を環境変数なしで起動した等）SystemExit で止まる。
     """

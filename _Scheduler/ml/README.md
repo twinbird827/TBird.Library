@@ -5,12 +5,12 @@ Python が `Signal.MlScore` に out-of-sample スコアを書き戻し、C# は�
 
 ## 依存・セットアップ
 
-[`uv`](https://docs.astral.sh/uv/) 管理（`pyproject.toml`）。`.venv/` は `_Apps/ml/` 内（gitignore 済・`uv sync` で再生成可）。
+[`uv`](https://docs.astral.sh/uv/) 管理（`pyproject.toml`）。`.venv/` は `_Scheduler/ml/` 内（gitignore 済・`uv sync` で再生成可）。
 学習済みモデル実体は **`_Tools/TradeAnalyzer/ml/models/`**（`train.py` が `__file__` からリポジトリルートを求めて解決。
-`_Tools/` は gitignore 済＝`_Apps` 削除やブランチ切替でも生存する。C# の `AppPaths.MlModelsDir` と一致）。
+`_Tools/` は gitignore 済＝_ フォルダの削除やブランチ切替でも生存する。C# の `AppPaths.MlModelsDir` と一致）。
 
 ```bash
-cd _Apps/ml
+cd _Scheduler/ml
 uv sync              # .venv 作成＋依存解決（lightgbm/optuna/pandas/numpy/scikit-learn）
 ```
 
@@ -20,10 +20,10 @@ uv sync              # .venv 作成＋依存解決（lightgbm/optuna/pandas/nump
 
 ```bash
 # 0. (C#) 段階1で ingest 済みの trade.db を用意（要 APIキー。複数年の DailyBar が必要）
-#    dotnet run --project ../TradeAnalyzer.Worker -- ingest --from 2024-01-01 --to 2025-12-31
+#    dotnet run --project .. -- ingest --from 2024-01-01 --to 2025-12-31
 
 # 1. (C#) ルール母集団を生成（IS/OOS 各ウィンドウの全リバランス日。MlScore=null で挿入）
-dotnet run --project ../TradeAnalyzer.Worker -- signals --is 2024 --oos 2025
+dotnet run --project .. -- signals --is 2024 --oos 2025
 
 # 2. (Python) 特徴量→ラベル→ウォークフォワード学習→OOS スコアを Signal.MlScore に書き戻し
 uv run python train.py --db ../../_Tools/TradeAnalyzer/trade.db --is 2024 --oos 2025
@@ -32,13 +32,13 @@ uv run python train.py --db ../../_Tools/TradeAnalyzer/trade.db --is 2024 --oos 
 uv run python evaluate.py --db ../../_Tools/TradeAnalyzer/trade.db --is 2024 --oos 2025
 
 # 4. (C#) A/B バックテスト（MlScore 順 vs RuleScore 順）
-dotnet run --project ../TradeAnalyzer.Worker -- backtest --is 2024 --oos 2025 --use-ml false
-dotnet run --project ../TradeAnalyzer.Worker -- backtest --is 2024 --oos 2025 --use-ml true
+dotnet run --project .. -- backtest --is 2024 --oos 2025 --use-ml false
+dotnet run --project .. -- backtest --is 2024 --oos 2025 --use-ml true
 ```
 
 ### DB パスの注意
 
-`trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Apps/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
+`trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
 
 ## ⚠ 順序ガード（MlScore 全消去）
 
