@@ -31,25 +31,6 @@ namespace Netkeiba.Scheduler
 
 			await InitializeAsync(today);
 
-			await WaitUntilAsync(today.AddHours(9).AddMinutes(30));
-
-			var images = new List<(string Place, string RaceId, byte[] Png)>();
-			foreach (var s in schedules.Where(x => DateTime.Now < x.StartTime))
-			{
-				await TryAsync(s.RaceId, async () =>
-				{
-					var predictions = await PredictAsync(s.RaceId);
-					images.Add((predictions[0].Detail.Race.Place, s.RaceId, RaceTableImage.Create(predictions, s.StartTime).Png));
-				});
-			}
-			foreach (var place in images.GroupBy(x => x.Place))
-			{
-				foreach (var chunk in place.Chunk(10))
-				{
-					await TryAsync(place.Key, () => DiscordWebhook.SendAsync($"{place.Key} {DateTime.Now:HH:mm} 時点の予想", chunk.Select(x => ($"{x.RaceId}.png", x.Png)).ToArray()));
-				}
-			}
-
 			foreach (var s in schedules)
 			{
 				await WaitUntilAsync(s.StartTime.AddMinutes(-10));
