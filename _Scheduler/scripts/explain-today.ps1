@@ -13,8 +13,9 @@
 #   - run-today が当日 Top-K（MlScore）を確定した「後」に走らせる（explain-today は Top-K を読むだけ）。
 #   - migrate は _Apps/deploy.ps1 が配備時に実行する。スキーマ変更（migration 追加。QualitativeJson 列など）を
 #     含む更新の取込後は deploy.ps1 で配備し直すこと (未 migrate だと Signals 読取が no such column で ExitCode=1)
-#   - 認証: `claude login` した「同一ユーザアカウント」でタスクを走らせる（無人運用の最大の弱点＝設計）。
-#     別アカウント/SYSTEM だと認証が無く全銘柄スキップ（ML のみ・非致命）。
+#   - 認証: 既定は OAuth＝`claude login` した「同一ユーザアカウント」でタスクを走らせる（別アカウント/SYSTEM だと
+#     認証が無く全銘柄スキップ）。Secrets.json に Claude:ApiKey を設定すると API キー認証（--bare）でログイン不要。
+#     キーを消せば再配備なしで OAuth に戻る。
 #   - 実行ファイル解決（Windows）: Claude:ExecutablePath は既定 claude.cmd（npm シム。UseShellExecute=false 下で
 #     .cmd 拡張子必須）。実体名/パスが異なる場合は絶対パスを appsettings で設定。誤設定/未解決だと起動失敗で
 #     全銘柄スキップ（非致命・銘柄ごと LogWarning）＝Claude 層が無言に近い形で無効化される。初回導入時に

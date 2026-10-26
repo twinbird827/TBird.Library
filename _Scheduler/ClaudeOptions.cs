@@ -4,7 +4,7 @@ namespace TradeAnalyzer.Worker;
 /// 段階3b の Claude 定性層プロセス起動設定（既定 <c>claude -p --output-format json</c>）。
 /// <see cref="PythonOptions"/> と対の型付き設定で、Worker 固有（Core/Data は Claude を知らない）。
 /// <para>
-/// 経路は claude CLI（Max クレジット）直結の1実装のみ（公式 Anthropic SDK 経路が要件化した時点で
+/// 経路は claude CLI 直結の1実装のみ（公式 Anthropic SDK 経路が要件化した時点で
 /// 経路スイッチを再導入。旧 <c>Claude:Route</c> キーが設定に残っていても未知キーとして無視される）。
 /// <see cref="TimeoutMinutes"/> は非正値・上限（<see cref="ProcessRunner.MaxTimeout"/>）
 /// 超過だと ProcessRunner.RunAsync が ArgumentOutOfRangeException（fail-fast・黙示フォールバックはしない）。
@@ -27,4 +27,7 @@ public class ClaudeOptions
     /// ProcessRunner.RunAsync が ArgumentOutOfRangeException（fail-fast）。起動直後に ValidateClaudeConfig が
     /// config キー名つきで事前検証する。</summary>
     public int TimeoutMinutes { get; set; } = 5;
+
+    /// <summary>設定時は <c>--bare</c>＋<c>ANTHROPIC_API_KEY</c> で API 課金、未設定は OAuth（置き場は Secrets.json の <c>Claude:ApiKey</c>）。</summary>
+    public string? ApiKey { get; set; }
 }
