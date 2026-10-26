@@ -50,6 +50,13 @@ internal sealed class ClaudeCliAnalysisService
         psi.ArgumentList.Add("json");
         psi.ArgumentList.Add("--model");
         psi.ArgumentList.Add(_opt.Model);
+        if (!string.IsNullOrWhiteSpace(_opt.ApiKey))
+        {
+            // --bare は OAuth・keychain を読まず API キーだけで認証し、hooks・CLAUDE.md 自動読込も止める。
+            // キーを ArgumentList に入れないのは ProcessRunner の起動ログに引数が全文出るため。
+            psi.ArgumentList.Add("--bare");
+            psi.Environment["ANTHROPIC_API_KEY"] = _opt.ApiKey;
+        }
 
         ProcessResult result;
         try
