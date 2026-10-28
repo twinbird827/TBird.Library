@@ -10,7 +10,8 @@ namespace TradeAnalyzer.Core.Rules;
 /// <summary>
 /// 決定論的な足切り（ハードフィルタ）＋テクニカルゲートを評価する。
 /// 先読み防止のため、判断は「基準日 asOf 以前に利用可能なデータのみ」で行う
-/// （価格 Date≤asOf、財務 DiscloseDate≤asOf）。
+/// （価格 Date≤asOf、財務 DiscloseDate≤asOf）。ただし株数基準の係数（<see cref="ShareFactorAsync"/>）だけは
+/// AdjClose 側に掛かる係数と打ち消し合い先読みにならないので、asOf より後の bar も読む。
 /// Passed = 全ハードフィルタ通過 かつ トレンドゲート(SMA短>SMA長)通過。
 /// RuleScore = 通過したテクニカルゲート数（0..3。段階2で ML スコアに置換）。
 /// </summary>
@@ -77,7 +78,10 @@ public class RuleEngine
                 .OrderByDescending(f => f.DiscloseDate)
                 .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
-            var signal = EvaluateStock(code, asOf, bars, fin, effectiveMode);
+            double finShareFactor = effectiveMode == MarketCapMode.Approximate && fin != null
+                ? await ShareFactorAsync(_db, code, fin.DiscloseDate, ct).ConfigureAwait(false)
+                : 1.0;
+            var signal = EvaluateStock(code, asOf, bars, fin, finShareFactor, effectiveMode);
             if (signal != null) signals.Add(signal);
         }
 
@@ -92,7 +96,8 @@ public class RuleEngine
     /// （_opt.MarketCapMode を直読みせず引数で受けることで純粋性を保つ）。
     /// </summary>
     public Signal EvaluateStock(
-        string code, DateOnly asOf, IReadOnlyList<DailyBar> bars, FinSummary? latestFin, MarketCapMode effectiveMode)
+        string code, DateOnly asOf, IReadOnlyList<DailyBar> bars, FinSummary? latestFin, double finShareFactor,
+        MarketCapMode effectiveMode)
     {
         var reasons = new List<string>();
 
@@ -132,7 +137,7 @@ public class RuleEngine
         // --- ハードフィルタ3: 規模（時価総額近似）---
         if (effectiveMode == MarketCapMode.Approximate)
         {
-            double? cap = ApproxMarketCap(latestFin, adjCloses.Count > 0 ? adjCloses[adjCloses.Count - 1] : (double?)null);
+            double? cap = ApproxMarketCap(latestFin, adjCloses.Count > 0 ? adjCloses[adjCloses.Count - 1] : (double?)null, finShareFactor);
             if (cap == null)
             {
                 hardPass = false;
@@ -192,12 +197,30 @@ public class RuleEngine
         };
     }
 
-    /// <summary>時価総額近似 ≈ (Eq / BPS) × AdjC。BPS≤0 / 欠損時は近似不能で null。</summary>
-    public static double? ApproxMarketCap(FinSummary? fin, double? adjClose)
+    /// <summary>
+    /// 開示時点の EPS/BPS を AdjClose と同じ株数基準へ換算する係数（code の DiscloseDate より後の bar の
+    /// AdjustmentFactor の積。無ければ 1）。AdjClose は後続 bar の係数で DB 内の最新の株数基準に調整済みで、
+    /// 開示時点の EPS/BPS は開示時点の基準なので、この積を掛けて基準をそろえる。評価日より後の係数も掛けるのは、
+    /// AdjClose 側にも同じ係数が掛かっていて比では打ち消し合い、先読みにならないため。
+    /// C# の消費者（RuleEngine と ClaudeFactGatherer）が共用する。
+    /// </summary>
+    public static async Task<double> ShareFactorAsync(
+        AppDbContext db, string code, DateOnly discloseDate, CancellationToken ct)
+    {
+        var factors = await db.DailyBars.AsNoTracking()
+            .Where(b => b.Code == code && b.Date > discloseDate
+                && b.AdjustmentFactor != null && b.AdjustmentFactor != 1.0)
+            .Select(b => b.AdjustmentFactor!.Value)
+            .ToListAsync(ct).ConfigureAwait(false);
+        return factors.Aggregate(1.0, (acc, f) => acc * f);
+    }
+
+    /// <summary>時価総額近似 ≈ (Eq / (BPS × shareFactor)) × AdjC。BPS≤0 / 欠損時は近似不能で null。</summary>
+    public static double? ApproxMarketCap(FinSummary? fin, double? adjClose, double shareFactor)
     {
         if (fin?.Equity is not double eq || fin.Bps is not double bps || adjClose is not double px) return null;
         if (bps <= 0) return null;
-        double shares = eq / bps;
+        double shares = eq / (bps * shareFactor);
         return shares * px;
     }
 

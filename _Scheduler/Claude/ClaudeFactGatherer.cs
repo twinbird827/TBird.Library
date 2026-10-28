@@ -11,11 +11,10 @@ namespace TradeAnalyzer.Worker.Claude;
 /// 「Claude が新しい数値を作る」余地を構造的に排除する（数値は全て C#/DB 由来）。先読み防止は RuleEngine と同じ
 /// 開示日ガード（<c>DiscloseDate &lt;= t</c>）を踏襲する。読取は <c>AsNoTracking</c>。
 /// <para>
-/// <b>PER/PBR の分割方針（実装確定）</b>: この DB の AdjClose は ingest 時点で既知の分割しか反映せず遡及調整が
-/// 不整合（live 日次 bar は後発分割が過去へ伝播しない）。よって F_t/F_disc 係数補正は正しく行えないため採らない。
-/// 代わりに区間 (DiscloseDate, t] に分割（<c>AdjustmentFactor != 1</c>）が無いときのみ <c>AdjClose/EPS(BPS)</c> を
-/// 「近似」として算出し、分割があれば算出を見送る（歪んだ値を「事実」として出す害を回避）。時価総額は
-/// <see cref="RuleEngine.ApproxMarketCap"/> を再利用し「ルール判定に使った近似値」として注入する。
+/// <b>PER/PBR の分割方針</b>: AdjClose は DB 内の最新の株数基準に調整済みで、開示時点の EPS/BPS とは基準が
+/// 異なる。PER/PBR・時価総額近似とも EPS/BPS を <see cref="RuleEngine.ShareFactorAsync"/> の係数で AdjClose の
+/// 株数基準へ換算して算出する。時価総額は <see cref="RuleEngine.ApproxMarketCap"/> を再利用し
+/// 「ルール判定に使った近似値」として注入する。
 /// </para>
 /// </summary>
 internal static class ClaudeFactGatherer
@@ -46,17 +45,9 @@ internal static class ClaudeFactGatherer
         // 四本値（生・調整とも）同時に Null＝「AdjClose のみ null」の帯は仕様上存在せず、通常運用は挙動不変。
         double? adjClose = bar?.AdjClose;
 
-        // 開示日〜t の間に分割（AdjustmentFactor≠1）があったか。あれば EPS/BPS の株数基準が AdjClose と食い違うため
-        // PER/PBR の算出を見送る（この DB では係数補正が不整合で信頼できない）。
-        bool splitBetween = false;
-        if (fin != null)
-        {
-            var disc = fin.DiscloseDate;
-            splitBetween = await db.DailyBars.AsNoTracking()
-                .Where(b => b.Code == code && b.Date > disc && b.Date <= t
-                    && b.AdjustmentFactor != null && b.AdjustmentFactor != 1.0)
-                .AnyAsync(ct).ConfigureAwait(false);
-        }
+        double shareFactor = fin != null
+            ? await RuleEngine.ShareFactorAsync(db, code, fin.DiscloseDate, ct).ConfigureAwait(false)
+            : 1.0;
 
         var lines = new List<FactLine>
         {
@@ -80,9 +71,9 @@ internal static class ClaudeFactGatherer
             new("BPS（1株純資産）", FmtNum(fin?.Bps, "円", DecimalFmt)),
             new("純資産", FmtNum(fin?.Equity, "円")),
             new("総資産", FmtNum(fin?.TotalAssets, "円")),
-            new("PER（調整後終値÷EPS・C#計算・近似）", Ratio(adjClose, fin?.Eps, splitBetween)),
-            new("PBR（調整後終値÷BPS・C#計算・近似）", Ratio(adjClose, fin?.Bps, splitBetween)),
-            new("時価総額近似（ルール判定に使用・C#計算）", FmtNum(RuleEngine.ApproxMarketCap(fin, adjClose), "円")),
+            new("PER（調整後終値÷EPS・C#計算・近似）", Ratio(adjClose, fin?.Eps * shareFactor)),
+            new("PBR（調整後終値÷BPS・C#計算・近似）", Ratio(adjClose, fin?.Bps * shareFactor)),
+            new("時価総額近似（ルール判定に使用・C#計算）", FmtNum(RuleEngine.ApproxMarketCap(fin, adjClose, shareFactor), "円")),
             new("ルールスコア（通過ゲート数）", signal.RuleScore.ToString("0.##", CultureInfo.InvariantCulture)),
             new("MLスコア（LambdaRank順位付け）", signal.MlScore?.ToString("F4", CultureInfo.InvariantCulture)),
             new("ルール通過理由", signal.Rationale),
@@ -91,10 +82,9 @@ internal static class ClaudeFactGatherer
         return new ClaudeFacts(code, stock?.CompanyName, lines);
     }
 
-    /// <summary>PER/PBR の近似値文字列。EPS/BPS が null/非正なら算出不可、区間に分割があれば見送り。</summary>
-    private static string Ratio(double? price, double? denom, bool splitBetween)
+    /// <summary>PER/PBR の近似値文字列。EPS/BPS が null/非正なら算出不可。</summary>
+    private static string Ratio(double? price, double? denom)
     {
-        if (splitBetween) return "開示後に分割あり・算出見送り（株数基準が不一致）";
         if (price is not double p || denom is not double d) return "算出不可（データ欠損）";
         if (d <= 0) return "算出不可（分母が非正）";
         return (p / d).ToString("F1", CultureInfo.InvariantCulture) + " 倍";

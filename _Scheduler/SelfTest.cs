@@ -55,6 +55,8 @@ public static class SelfTest
         failed += await RunBuildDeliveryReportTestsAsync();
         failed += await RunAsNoTrackingReflectsUpdateTestAsync();
         failed += await RunEdinetMetaCollisionTestAsync();
+        failed += await RunRecomputeAdjustedTestAsync();
+        failed += await RunShareFactorTestAsync();
         failed += RunResolveTodayJstTests();
         failed += await RunProcessRunnerTestsAsync();
 
@@ -111,19 +113,19 @@ public static class SelfTest
             // 上昇トレンドのバー → トレンドゲート通過 (Passed=true)。
             var asOf = new DateOnly(2024, 12, 31);
             var bars = SyntheticBars("TEST", asOf, 200, trendUp: true);
-            var sig = engine.EvaluateStock("TEST", asOf, bars, null, MarketCapMode.Disabled);
+            var sig = engine.EvaluateStock("TEST", asOf, bars, null, 1.0, MarketCapMode.Disabled);
             f += Assert("Rule: 上昇トレンドで Passed", sig.Passed);
             f += Assert("Rule: RuleScore>=1", sig.RuleScore >= 1);
 
             // バー不足 → ハードフィルタ不通過。
             var few = SyntheticBars("TEST", asOf, 10, trendUp: true);
-            var sig2 = engine.EvaluateStock("TEST", asOf, few, null, MarketCapMode.Disabled);
+            var sig2 = engine.EvaluateStock("TEST", asOf, few, null, 1.0, MarketCapMode.Disabled);
             f += Assert("Rule: バー不足で not Passed", !sig2.Passed);
 
             // 時価総額近似: Eq/BPS×px。
-            var cap = RuleEngine.ApproxMarketCap(new FinSummary { Equity = 1000, Bps = 10 }, 50);
+            var cap = RuleEngine.ApproxMarketCap(new FinSummary { Equity = 1000, Bps = 10 }, 50, 1.0);
             f += Assert("MarketCap≈(1000/10)*50=5000", cap is double c && Math.Abs(c - 5000) < 1e-6);
-            var capBad = RuleEngine.ApproxMarketCap(new FinSummary { Equity = 1000, Bps = 0 }, 50);
+            var capBad = RuleEngine.ApproxMarketCap(new FinSummary { Equity = 1000, Bps = 0 }, 50, 1.0);
             f += Assert("MarketCap: BPS<=0 → null", capBad == null);
         }
         finally { conn.Dispose(); }
@@ -148,12 +150,12 @@ public static class SelfTest
             // 当日のみ出来高スパイク（baseline 1,000,000 → 当日 5,000,000）→ 出来高ゲート通過。
             var spike = SyntheticBars("VOL", asOf, 200, trendUp: true);
             spike[spike.Count - 1].AdjVolume = 5_000_000;
-            var sigSpike = engine.EvaluateStock("VOL", asOf, spike, null, MarketCapMode.Disabled);
+            var sigSpike = engine.EvaluateStock("VOL", asOf, spike, null, 1.0, MarketCapMode.Disabled);
             f += Assert("出来高: 当日スパイクで出来高OK", (sigSpike.Rationale ?? "").Contains("出来高OK"));
 
             // フラット出来高（当日もベースラインと同値）→ 閾値超えず NG。
             var flat = SyntheticBars("VOL", asOf, 200, trendUp: true);
-            var sigFlat = engine.EvaluateStock("VOL", asOf, flat, null, MarketCapMode.Disabled);
+            var sigFlat = engine.EvaluateStock("VOL", asOf, flat, null, 1.0, MarketCapMode.Disabled);
             f += Assert("出来高: フラットで出来高NG", (sigFlat.Rationale ?? "").Contains("出来高NG"));
         }
         finally { conn.Dispose(); }
@@ -691,6 +693,113 @@ public static class SelfTest
             finally { conn.Dispose(); }
         }
 
+        return f;
+    }
+
+    /// <summary>
+    /// #410 回帰: <see cref="IngestService.RecomputeAdjustedAsync"/> の累積の向き（自 bar を含まず前の bar に掛かる）・
+    /// 冪等性・生値 null の bar の係数も掛かること・対象外銘柄を変えないことを固定する。
+    /// revert 判定は累積積 p を掛ける行の除去（(a)(c) FAIL）。
+    /// </summary>
+    private static async Task<int> RunRecomputeAdjustedTestAsync()
+    {
+        int f = 0;
+        var d0 = new DateOnly(2026, 7, 1);
+        static DailyBar Raw(string code, DateOnly d, double? factor = null, bool nullPrice = false) => nullPrice
+            ? new() { Code = code, Date = d, AdjustmentFactor = factor }
+            : new()
+            {
+                Code = code, Date = d, AdjustmentFactor = factor,
+                Open = 100, High = 110, Low = 90, Close = 100, Volume = 1000,
+                AdjOpen = 100, AdjHigh = 110, AdjLow = 90, AdjClose = 100, AdjVolume = 1000,
+            };
+
+        var db = NewMemoryDb(out var conn);
+        try
+        {
+            db.DailyBars.AddRange(
+                Raw("A", d0), Raw("A", d0.AddDays(1)), Raw("A", d0.AddDays(2), 0.5), Raw("A", d0.AddDays(3), 1.0),
+                Raw("C", d0), Raw("C", d0.AddDays(1), 0.5, nullPrice: true), Raw("C", d0.AddDays(2), 0.5), Raw("C", d0.AddDays(3)));
+            var b = Raw("B", d0);
+            b.AdjClose = 999;
+            db.DailyBars.Add(b);
+            db.DailyBars.Add(Raw("B", d0.AddDays(1), 0.5));
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+
+            for (int run = 1; run <= 2; run++)
+            {
+                await IngestService.RecomputeAdjustedAsync(db, new[] { "A", "C" }, default);
+                var a = await db.DailyBars.AsNoTracking().Where(x => x.Code == "A").OrderBy(x => x.Date).ToListAsync();
+                f += Assert($"RecomputeAdjusted({run}回目) (a): 分割前の bar は生値×0.5・出来高×2",
+                    a.Take(2).All(x => x is { AdjOpen: 50, AdjHigh: 55, AdjLow: 45, AdjClose: 50, AdjVolume: 2000 }));
+                f += Assert($"RecomputeAdjusted({run}回目) (a): 権利落ち日以降は生値のまま",
+                    a.Skip(2).All(x => x is { AdjOpen: 100, AdjHigh: 110, AdjLow: 90, AdjClose: 100, AdjVolume: 1000 }));
+
+                var c = await db.DailyBars.AsNoTracking().Where(x => x.Code == "C").OrderBy(x => x.Date).ToListAsync();
+                f += Assert($"RecomputeAdjusted({run}回目) (c): 生値 null の bar の係数も掛かり最初の bar は×0.25",
+                    c[0] is { AdjClose: 25, AdjVolume: 4000 });
+                f += Assert($"RecomputeAdjusted({run}回目) (c): 生値 null の bar は Adj も null",
+                    c[1] is { AdjClose: null, AdjVolume: null });
+
+                var bRow = await db.DailyBars.AsNoTracking().SingleAsync(x => x.Code == "B" && x.Date == d0);
+                f += Assert($"RecomputeAdjusted({run}回目) (d): 対象外銘柄は不変", bRow.AdjClose == 999);
+            }
+        }
+        finally { conn.Dispose(); }
+        return f;
+    }
+
+    /// <summary>
+    /// #410 回帰: EPS/BPS を AdjClose の株数基準へ換算する係数（<see cref="RuleEngine.ShareFactorAsync"/>）が
+    /// ClaudeFactGatherer の PER/PBR/時価総額近似と RuleEngine の規模フィルタへ配線され、開示日以前の係数は掛けないことを固定する。
+    /// </summary>
+    private static async Task<int> RunShareFactorTestAsync()
+    {
+        int f = 0;
+        var disc = new DateOnly(2026, 7, 1);
+        var t = disc.AddDays(5);
+
+        async Task<(ClaudeFacts Facts, Signal Rule)> RunAsync(DateOnly factorDate)
+        {
+            var db = NewMemoryDb(out var conn);
+            try
+            {
+                db.Stocks.Add(new Stock { Code = "AAA", AsOfDate = disc.AddYears(-1) });
+                db.FinSummaries.Add(new FinSummary
+                {
+                    Code = "AAA", DiscloseDate = disc, DocType = "FY", Eps = 100, Bps = 1000, Equity = 1_000_000,
+                });
+                db.DailyBars.AddRange(
+                    new DailyBar { Code = "AAA", Date = factorDate, AdjustmentFactor = 0.5 },
+                    new DailyBar { Code = "AAA", Date = t, Close = 500, AdjClose = 500, Volume = 1, AdjVolume = 1 });
+                await db.SaveChangesAsync();
+
+                var facts = await ClaudeFactGatherer.GatherAsync(
+                    db, t, new Signal { Date = t, Code = "AAA", Passed = true, RuleScore = 1 });
+                var opt = Options.Create(new RuleOptions
+                {
+                    MinAvailableBars = 1, MinTurnoverYen = 0,
+                    MarketCapMode = MarketCapMode.Approximate,
+                    MinMarketCapYen = 750_000,   // 換算なし 500,000 と換算あり 1,000,000 の間
+                    RsiLow = 0, RsiHigh = 100, VolumeSpikeMultiplier = 0,
+                });
+                var rule = (await new RuleEngine(db, opt, NullLogger<RuleEngine>.Instance).EvaluateAsync(t)).Single();
+                return (facts, rule);
+            }
+            finally { conn.Dispose(); }
+        }
+
+        static string? Line(ClaudeFacts facts, string prefix) => facts.Lines.Single(l => l.Label.StartsWith(prefix)).Value;
+
+        var after = await RunAsync(disc.AddDays(1));
+        f += Assert("ShareFactor: 開示後の係数 0.5 で PER=10.0 倍", Line(after.Facts, "PER") == "10.0 倍");
+        f += Assert("ShareFactor: 開示後の係数 0.5 で PBR=1.0 倍", Line(after.Facts, "PBR") == "1.0 倍");
+        f += Assert("ShareFactor: 時価総額近似=1,000,000 円", Line(after.Facts, "時価総額近似") == "1,000,000 円");
+        f += Assert("ShareFactor: 規模フィルタに係数が配線され規模NGなし", !(after.Rule.Rationale ?? "").Contains("規模NG"));
+
+        var before = await RunAsync(disc);
+        f += Assert("ShareFactor: 開示日以前の係数は掛けず PER=5.0 倍", Line(before.Facts, "PER") == "5.0 倍");
         return f;
     }
 

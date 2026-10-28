@@ -58,7 +58,7 @@ public class DailyBar
     /// <summary>売買代金（`Va`）。</summary>
     public double? TurnoverValue { get; set; }
 
-    /// <summary>累積調整係数（`AdjFactor`）。</summary>
+    /// <summary>調整係数（`AdjFactor`）。権利落ち日の bar にだけ 1 以外が入り、それより前の bar の Adj* に掛かる（累積値ではない）。</summary>
     public double? AdjustmentFactor { get; set; }
 
     /// <summary>調整後始値（`AdjO`）。</summary>
