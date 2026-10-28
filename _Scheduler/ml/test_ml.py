@@ -178,7 +178,7 @@ def test_attach_financials_deterministic_with_duplicate_doctype():
     assert out_a["per_inv"].iloc[0] == pytest.approx(1.0 / (100.0 / 5.0))
 
 
-# ---------- #410: read_fin_summaries が Eps/Bps を開示日より後の分割係数で AdjClose の株数基準へ換算 ----------
+# ---------- read_fin_summaries が Eps/Bps を開示日より後の分割係数で AdjClose の株数基準へ換算 ----------
 def test_read_fin_summaries_applies_share_factor_after_disclose():
     conn = sqlite3.connect(":memory:")
     try:

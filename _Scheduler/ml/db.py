@@ -103,11 +103,9 @@ def read_daily_bars(
 
 
 def read_fin_summaries(conn: sqlite3.Connection) -> pd.DataFrame:
-    """FinSummaries 全件（DiscloseDate で as-of マージ）。
+    """FinSummaries 全件（DiscloseDate で as-of マージ。Eps / Bps は AdjClose の株数基準へ換算）。
 
-    Eps / Bps は同じ Code で DiscloseDate より後の bar の AdjustmentFactor の積を掛け、AdjClose と同じ
-    株数基準へ換算して返す（評価日より後の係数も掛けるが、AdjClose 側にも同じ係数が掛かっていて比では
-    打ち消し合うので先読みにならない）。
+    評価日より後の係数も掛けるが、AdjClose 側にも同じ係数が掛かっていて比では打ち消し合うので先読みにならない。
     """
     df = pd.read_sql(
         "SELECT Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets "

@@ -198,11 +198,10 @@ public class RuleEngine
     }
 
     /// <summary>
-    /// 開示時点の EPS/BPS を AdjClose と同じ株数基準へ換算する係数（code の DiscloseDate より後の bar の
-    /// AdjustmentFactor の積。無ければ 1）。AdjClose は後続 bar の係数で DB 内の最新の株数基準に調整済みで、
-    /// 開示時点の EPS/BPS は開示時点の基準なので、この積を掛けて基準をそろえる。評価日より後の係数も掛けるのは、
-    /// AdjClose 側にも同じ係数が掛かっていて比では打ち消し合い、先読みにならないため。
-    /// C# の消費者（RuleEngine と ClaudeFactGatherer）が共用する。
+    /// 開示時点の EPS/BPS を AdjClose と同じ株数基準へ換算する係数（code の DiscloseDate より後の bar の AdjustmentFactor の積。無ければ 1）。
+    /// AdjClose は後続 bar の係数で DB 内の最新の株数基準に調整済みで、開示時点の EPS/BPS は開示時点の基準なので、
+    /// この積を掛けて基準をそろえる。評価日より後の係数も掛けるのは、AdjClose 側にも同じ係数が掛かっていて比では
+    /// 打ち消し合い、先読みにならないため。
     /// </summary>
     public static async Task<double> ShareFactorAsync(
         AppDbContext db, string code, DateOnly discloseDate, CancellationToken ct)

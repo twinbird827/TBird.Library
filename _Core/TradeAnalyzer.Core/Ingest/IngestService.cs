@@ -231,9 +231,8 @@ public class IngestService
     }
 
     /// <summary>
-    /// 指定銘柄の全 bar の Adj* を「生値 × その bar より後の bar の <see cref="DailyBar.AdjustmentFactor"/> の累積積」
-    /// （出来高は割る）で計算し直す。J-Quants の Adj* は取得時点の調整済み値で、日付単位の取得では後から起きた
-    /// 分割が過去 bar に届かないため。AdjustmentFactor は権利落ち日の bar にだけ入り、自 bar でなくそれより前の
+    /// 指定銘柄の全 bar の Adj* を「生値 × その bar より後の bar の <see cref="DailyBar.AdjustmentFactor"/> の累積積」（出来高は割る）で計算し直す。
+    /// J-Quants の Adj* は取得時点の調整済み値で、日付単位の取得では後から起きた分割が過去 bar に届かないため。AdjustmentFactor は権利落ち日の bar にだけ入り、自 bar でなくそれより前の
     /// bar に掛かる。生値が null（売買なし）の bar にも係数が入りうるので、その係数も累積に掛ける。
     /// SelfTest（別アセンブリ TradeAnalyzer.Worker）から in-memory DB で検証するため public。
     /// </summary>

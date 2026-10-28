@@ -697,9 +697,7 @@ public static class SelfTest
     }
 
     /// <summary>
-    /// #410 回帰: <see cref="IngestService.RecomputeAdjustedAsync"/> の累積の向き（自 bar を含まず前の bar に掛かる）・
-    /// 冪等性・生値 null の bar の係数も掛かること・対象外銘柄を変えないことを固定する。
-    /// revert 判定は累積積 p を掛ける行の除去（(a)(c) FAIL）。
+    /// <see cref="IngestService.RecomputeAdjustedAsync"/> の累積の向き（自 bar を含まず前の bar に掛かる）・冪等性・生値 null の bar の係数も掛かること・対象外銘柄を変えないことを固定する。
     /// </summary>
     private static async Task<int> RunRecomputeAdjustedTestAsync()
     {
@@ -751,8 +749,7 @@ public static class SelfTest
     }
 
     /// <summary>
-    /// #410 回帰: EPS/BPS を AdjClose の株数基準へ換算する係数（<see cref="RuleEngine.ShareFactorAsync"/>）が
-    /// ClaudeFactGatherer の PER/PBR/時価総額近似と RuleEngine の規模フィルタへ配線され、開示日以前の係数は掛けないことを固定する。
+    /// EPS/BPS を AdjClose の株数基準へ換算する係数（<see cref="RuleEngine.ShareFactorAsync"/>）が ClaudeFactGatherer の PER/PBR/時価総額近似と RuleEngine の規模フィルタへ配線され、開示日以前の係数は掛けないことを固定する。
     /// </summary>
     private static async Task<int> RunShareFactorTestAsync()
     {

@@ -12,9 +12,7 @@ namespace TradeAnalyzer.Worker.Claude;
 /// 開示日ガード（<c>DiscloseDate &lt;= t</c>）を踏襲する。読取は <c>AsNoTracking</c>。
 /// <para>
 /// <b>PER/PBR の分割方針</b>: AdjClose は DB 内の最新の株数基準に調整済みで、開示時点の EPS/BPS とは基準が
-/// 異なる。PER/PBR・時価総額近似とも EPS/BPS を <see cref="RuleEngine.ShareFactorAsync"/> の係数で AdjClose の
-/// 株数基準へ換算して算出する。時価総額は <see cref="RuleEngine.ApproxMarketCap"/> を再利用し
-/// 「ルール判定に使った近似値」として注入する。
+/// 異なる。
 /// </para>
 /// </summary>
 internal static class ClaudeFactGatherer
