@@ -178,6 +178,43 @@ def test_attach_financials_deterministic_with_duplicate_doctype():
     assert out_a["per_inv"].iloc[0] == pytest.approx(1.0 / (100.0 / 5.0))
 
 
+# ---------- read_fin_summaries が Eps/Bps を開示日より後の分割係数で AdjClose の株数基準へ換算 ----------
+def test_read_fin_summaries_applies_share_factor_after_disclose():
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute("CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjustmentFactor REAL)")
+        conn.execute(
+            "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
+            "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL)"
+        )
+        conn.executemany(
+            "INSERT INTO DailyBars VALUES (?,?,?)",
+            [
+                ("A", "2024-03-31", 1.0),
+                ("A", "2024-05-01", 0.5),   # 開示日より後 → 掛かる
+                ("B", "2024-03-31", 0.5),   # 開示日当日 → 掛からない
+                ("B", "2024-01-15", 0.5),   # 開示日より前 → 掛からない
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)",
+            [
+                ("A", "2024-03-31", "FY", 10.0, 100.0, 1000.0, 2000.0),
+                ("B", "2024-03-31", "FY", 10.0, 100.0, 1000.0, 2000.0),
+            ],
+        )
+        fin = dbmod.read_fin_summaries(conn).set_index("Code")
+    finally:
+        conn.close()
+
+    assert fin.loc["A", "Eps"] == pytest.approx(5.0)
+    assert fin.loc["A", "Bps"] == pytest.approx(50.0)
+    assert fin.loc["B", "Eps"] == pytest.approx(10.0)
+    assert fin.loc["B", "Bps"] == pytest.approx(100.0)
+    assert (fin["Equity"] == 1000.0).all()
+    assert list(fin.columns) == ["DiscloseDate", "DocType", "Eps", "Bps", "Equity", "TotalAssets"]
+
+
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------
 # DB に触れず argparse のディスパッチだけを固定する（_run_full/_run_walkforward を monkeypatch で no-op 化）。
 def test_full_requires_train_end(monkeypatch):
@@ -407,7 +444,7 @@ def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
     )
     conn.execute(
         "CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjOpen REAL, AdjHigh REAL, "
-        "AdjLow REAL, AdjClose REAL, AdjVolume REAL)"
+        "AdjLow REAL, AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL)"
     )
     conn.execute(
         "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
@@ -422,7 +459,10 @@ def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
             px = base + i * slope
             bar_rows.append((code, cal[i].strftime("%Y-%m-%d"), px, px + 1.0, px - 1.0, px, 1_000_000.0))
         fin_rows.append((code, cal[100].strftime("%Y-%m-%d"), "FY", 10.0, 50.0, 1000.0, 2000.0))
-    conn.executemany("INSERT INTO DailyBars VALUES (?,?,?,?,?,?,?)", bar_rows)
+    conn.executemany(
+        "INSERT INTO DailyBars (Code, Date, AdjOpen, AdjHigh, AdjLow, AdjClose, AdjVolume) VALUES (?,?,?,?,?,?,?)",
+        bar_rows,
+    )
     conn.executemany("INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)", fin_rows)
 
     sig_rows = [(t0.strftime("%Y-%m-%d"), c, 1, 3.0, None) for c in ("A", "B", "C")]

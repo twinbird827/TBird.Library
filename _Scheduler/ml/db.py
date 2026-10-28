@@ -103,13 +103,29 @@ def read_daily_bars(
 
 
 def read_fin_summaries(conn: sqlite3.Connection) -> pd.DataFrame:
-    """FinSummaries 全件（DiscloseDate で as-of マージ）。"""
+    """FinSummaries 全件（DiscloseDate で as-of マージ。Eps / Bps は AdjClose の株数基準へ換算）。
+
+    評価日より後の係数も掛けるが、AdjClose 側にも同じ係数が掛かっていて比では打ち消し合うので先読みにならない。
+    """
     df = pd.read_sql(
         "SELECT Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets "
         "FROM FinSummaries",
         conn,
     )
     df = _parse_dates(df, ["DiscloseDate"])
+    splits = pd.read_sql(
+        "SELECT Code, Date, AdjustmentFactor FROM DailyBars "
+        "WHERE AdjustmentFactor IS NOT NULL AND AdjustmentFactor <> 1",
+        conn,
+    )
+    splits = _parse_dates(splits, ["Date"])
+    m = df[["Code", "DiscloseDate"]].drop_duplicates().merge(splits, on="Code")
+    m = m[m["Date"] > m["DiscloseDate"]]
+    factor = m.groupby(["Code", "DiscloseDate"], as_index=False)["AdjustmentFactor"].prod()
+    df = df.merge(factor, on=["Code", "DiscloseDate"], how="left")
+    share_factor = df.pop("AdjustmentFactor").fillna(1.0)
+    df["Eps"] = df["Eps"] * share_factor
+    df["Bps"] = df["Bps"] * share_factor
     return df.sort_values(["Code", "DiscloseDate"]).reset_index(drop=True)
 
 

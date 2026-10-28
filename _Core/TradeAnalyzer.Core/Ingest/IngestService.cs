@@ -107,6 +107,16 @@ public class IngestService
             _db.DailyBars.AddRange(deduped);
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             _logger.LogDebug("DailyBar {Date}: {Count} 行", d, deduped.Count);
+
+            // 日をまたいで集めない: 後続日の例外・キャンセルで止まっても、保存済みの分割日の再計算を抜かさないため。
+            var splitCodes = deduped
+                .Where(b => b.AdjustmentFactor is double f && f != 1.0)
+                .Select(b => b.Code).Distinct().ToList();
+            if (splitCodes.Count > 0)
+            {
+                await RecomputeAdjustedAsync(_db, splitCodes, ct).ConfigureAwait(false);
+                _logger.LogInformation("DailyBar {Date}: 分割・併合 {Count} 銘柄の Adj* を再計算", d, splitCodes.Count);
+            }
         }
     }
 
@@ -218,6 +228,36 @@ public class IngestService
         db.EdinetDocuments.AddRange(toInsert);
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
         return toInsert;
+    }
+
+    /// <summary>
+    /// 指定銘柄の全 bar の Adj* を「生値 × その bar より後の bar の <see cref="DailyBar.AdjustmentFactor"/> の累積積」（出来高は割る）で計算し直す。
+    /// J-Quants の Adj* は取得時点の調整済み値で、日付単位の取得では後から起きた分割が過去 bar に届かないため。AdjustmentFactor は権利落ち日の bar にだけ入り、自 bar でなくそれより前の
+    /// bar に掛かる。生値が null（売買なし）の bar にも係数が入りうるので、その係数も累積に掛ける。
+    /// SelfTest（別アセンブリ TradeAnalyzer.Worker）から in-memory DB で検証するため public。
+    /// </summary>
+    public static async Task RecomputeAdjustedAsync(
+        AppDbContext db, IReadOnlyCollection<string> codes, CancellationToken ct)
+    {
+        foreach (var code in codes)
+        {
+            ct.ThrowIfCancellationRequested();
+            var bars = await db.DailyBars.Where(b => b.Code == code)
+                .OrderByDescending(b => b.Date)
+                .ToListAsync(ct).ConfigureAwait(false);
+            double p = 1.0;
+            foreach (var b in bars)
+            {
+                b.AdjOpen = b.Open * p;
+                b.AdjHigh = b.High * p;
+                b.AdjLow = b.Low * p;
+                b.AdjClose = b.Close * p;
+                b.AdjVolume = b.Volume / p;
+                p *= b.AdjustmentFactor ?? 1.0;
+            }
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            db.ChangeTracker.Clear();
+        }
     }
 
     /// <summary>EDINET 正規化コード（4桁）が J-Quants Code 集合（4桁/5桁）に一致するか。</summary>
