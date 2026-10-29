@@ -30,6 +30,8 @@ public static class Commands
   ingest  --from YYYY-MM-DD --to YYYY-MM-DD  J-Quants/EDINET 取得→保存（要 APIキー）
           [--skip-jquants]                   J-Quants をスキップし EDINET のみ取得（既存 Stocks で突合）
           [--edinet-limit N]                 EDINET の日あたり解析件数を N に制限
+          [--skip-edinet]                    EDINET を取得しない
+          [--standard]                       信用取引残高・業種別空売り比率も取得（要 Standard 以上）
   analyze --date YYYY-MM-DD                  指定日でルール評価し Signal 保存
   signals --is <期間> --oos <期間>           IS/OOS 各ウィンドウの全リバランス日でルール評価→Signal 保存（Python 母集団入力。要 ingest 済み DB）
   backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD。両モードとも要 signals 済み）
@@ -68,6 +70,8 @@ public static class Commands
         if (from > to) throw new ArgumentException("--from は --to 以前である必要があります。");
 
         bool skipJQuants = opts.ContainsKey("skip-jquants");
+        bool skipEdinet = opts.ContainsKey("skip-edinet");
+        bool withStandard = opts.ContainsKey("standard");
         int? edinetLimit = opts.TryGetValue("edinet-limit", out var lv) && int.TryParse(lv, out var l) ? l : null;
 
         ValidateIngestConfig(sp, skipJQuants);
@@ -76,7 +80,7 @@ public static class Commands
         await db.Database.MigrateAsync(); // 取得前に DB を用意
 
         var ingest = sp.GetRequiredService<IngestService>();
-        await ingest.IngestAsync(from, to, skipJQuants, edinetLimit);
+        await ingest.IngestAsync(from, to, skipJQuants, edinetLimit, skipEdinet, withStandard);
     }
 
     public static async Task AnalyzeAsync(IServiceProvider sp, string[] args)

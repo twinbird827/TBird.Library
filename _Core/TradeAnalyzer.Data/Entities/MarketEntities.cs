@@ -119,6 +119,47 @@ public class EarningsCalendar
     public string? FiscalQuarter { get; set; }
 }
 
+/// <summary>
+/// 信用取引残高（J-Quants V2 /v2/markets/margin-interest。Standard 以上）。複合キー (Code, Date)。
+/// 株数は分割・併合で遡及調整されない。公表日は 2026-09-25 より前が null のため、基準日の 7 暦日後から使える情報として扱う（先読み防止）。
+/// </summary>
+public class MarginInterest
+{
+    /// <summary>基準日（`Date`。複合キーの一部）。</summary>
+    public DateOnly Date { get; set; }
+    /// <summary>銘柄コード（`Code`。複合キーの一部）。</summary>
+    public string Code { get; set; } = string.Empty;
+    /// <summary>銘柄区分（`IssType`。1=信用銘柄, 2=貸借銘柄, 3=その他）。</summary>
+    public string? IssueType { get; set; }
+    /// <summary>売残高（`ShrtVol`）。</summary>
+    public double? ShortVolume { get; set; }
+    /// <summary>買残高（`LongVol`）。</summary>
+    public double? LongVolume { get; set; }
+    /// <summary>一般信用売残高（`ShrtNegVol`）。</summary>
+    public double? ShortNegotiableVolume { get; set; }
+    /// <summary>一般信用買残高（`LongNegVol`）。</summary>
+    public double? LongNegotiableVolume { get; set; }
+    /// <summary>制度信用売残高（`ShrtStdVol`）。</summary>
+    public double? ShortStandardizedVolume { get; set; }
+    /// <summary>制度信用買残高（`LongStdVol`）。</summary>
+    public double? LongStandardizedVolume { get; set; }
+}
+
+/// <summary>業種別空売り比率（J-Quants V2 /v2/markets/short-ratio。Standard 以上）。複合キー (Sector33, Date)。</summary>
+public class SectorShortRatio
+{
+    /// <summary>日付（`Date`。複合キーの一部）。</summary>
+    public DateOnly Date { get; set; }
+    /// <summary>33業種コード（`S33`。複合キーの一部）。</summary>
+    public string Sector33 { get; set; } = string.Empty;
+    /// <summary>実注文の売買代金（円。`SellExShortVa`）。</summary>
+    public double? SellExShortValue { get; set; }
+    /// <summary>価格規制有りの空売り売買代金（円。`ShrtWithResVa`）。</summary>
+    public double? ShortWithRestrictionValue { get; set; }
+    /// <summary>価格規制無しの空売り売買代金（円。`ShrtNoResVa`）。</summary>
+    public double? ShortNoRestrictionValue { get; set; }
+}
+
 /// <summary>取引カレンダー（J-Quants V2 /v2/markets/calendar）。営業日判定に使用。</summary>
 public class TradingCalendar
 {

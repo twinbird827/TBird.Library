@@ -96,6 +96,44 @@ public class EarningsCalendarItem
     [JsonPropertyName("FQ")] public string? FQ { get; set; }
 }
 
+// --- 信用取引残高 /v2/markets/margin-interest ---
+public class MarginInterestPage : JQuantsPage<MarginInterestItem>
+{
+    [JsonPropertyName("data")]
+    public List<MarginInterestItem> Data { get; set; } = new();
+}
+
+public class MarginInterestItem
+{
+    [JsonPropertyName("Date")] public string? Date { get; set; }
+    [JsonPropertyName("Code")] public string? Code { get; set; }
+    [JsonPropertyName("IssType")] public string? IssType { get; set; }
+
+    [JsonPropertyName("ShrtVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtVol { get; set; }
+    [JsonPropertyName("LongVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? LongVol { get; set; }
+    [JsonPropertyName("ShrtNegVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtNegVol { get; set; }
+    [JsonPropertyName("LongNegVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? LongNegVol { get; set; }
+    [JsonPropertyName("ShrtStdVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtStdVol { get; set; }
+    [JsonPropertyName("LongStdVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? LongStdVol { get; set; }
+}
+
+// --- 業種別空売り比率 /v2/markets/short-ratio ---
+public class SectorShortRatioPage : JQuantsPage<SectorShortRatioItem>
+{
+    [JsonPropertyName("data")]
+    public List<SectorShortRatioItem> Data { get; set; } = new();
+}
+
+public class SectorShortRatioItem
+{
+    [JsonPropertyName("Date")] public string? Date { get; set; }
+    [JsonPropertyName("S33")] public string? S33 { get; set; }
+
+    [JsonPropertyName("SellExShortVa")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? SellExShortVa { get; set; }
+    [JsonPropertyName("ShrtWithResVa")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtWithResVa { get; set; }
+    [JsonPropertyName("ShrtNoResVa")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtNoResVa { get; set; }
+}
+
 // --- 取引カレンダー /v2/markets/calendar ---
 public class CalendarPage : JQuantsPage<CalendarItem>
 {

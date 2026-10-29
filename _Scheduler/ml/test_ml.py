@@ -21,6 +21,7 @@ import db as dbmod
 import features
 import ml_common
 import predict
+import rules
 import train
 
 
@@ -185,7 +186,8 @@ def test_read_fin_summaries_applies_share_factor_after_disclose():
         conn.execute("CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjustmentFactor REAL)")
         conn.execute(
             "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
-            "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL)"
+            "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL, "
+            "Sales REAL, OperatingProfit REAL, NetProfit REAL)"
         )
         conn.executemany(
             "INSERT INTO DailyBars VALUES (?,?,?)",
@@ -197,7 +199,8 @@ def test_read_fin_summaries_applies_share_factor_after_disclose():
             ],
         )
         conn.executemany(
-            "INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO FinSummaries (Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets) "
+            "VALUES (?,?,?,?,?,?,?)",
             [
                 ("A", "2024-03-31", "FY", 10.0, 100.0, 1000.0, 2000.0),
                 ("B", "2024-03-31", "FY", 10.0, 100.0, 1000.0, 2000.0),
@@ -212,7 +215,34 @@ def test_read_fin_summaries_applies_share_factor_after_disclose():
     assert fin.loc["B", "Eps"] == pytest.approx(10.0)
     assert fin.loc["B", "Bps"] == pytest.approx(100.0)
     assert (fin["Equity"] == 1000.0).all()
-    assert list(fin.columns) == ["DiscloseDate", "DocType", "Eps", "Bps", "Equity", "TotalAssets"]
+    assert list(fin.columns) == [
+        "DiscloseDate", "DocType", "Eps", "Bps", "Equity", "TotalAssets", "Sales", "OperatingProfit", "NetProfit"
+    ]
+
+
+# ---------- rules.py: 形成日当日以降の開示・基準日 + 7 暦日前の信用残を使わない ----------
+def test_fin_asof_excludes_disclosure_on_formation_day():
+    d = pd.Timestamp("2024-06-28")
+    fin = pd.DataFrame({
+        "Code": ["A", "A", "B"],
+        "DiscloseDate": [d - pd.Timedelta(days=1), d, d],
+        "v": [1.0, 2.0, 3.0],
+    })
+    out = rules.fin_asof(fin, "v", pd.DatetimeIndex([d]), pd.Index(["A", "B"]))
+    assert out.loc[d, "A"] == 1.0
+    assert np.isnan(out.loc[d, "B"])
+
+
+def test_margin_asof_waits_seven_days_after_record_date():
+    d = pd.Timestamp("2024-06-28")
+    mi = pd.DataFrame({
+        "Code": ["A", "A", "B"],
+        "Date": [d - pd.Timedelta(days=7), d - pd.Timedelta(days=6), d - pd.Timedelta(days=6)],
+        "v": [1.0, 2.0, 3.0],
+    })
+    out = rules.margin_asof(mi, "v", pd.DatetimeIndex([d]), pd.Index(["A", "B"]))
+    assert out.loc[d, "A"] == 1.0
+    assert np.isnan(out.loc[d, "B"])
 
 
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------
@@ -444,11 +474,13 @@ def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
     )
     conn.execute(
         "CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjOpen REAL, AdjHigh REAL, "
-        "AdjLow REAL, AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL)"
+        "AdjLow REAL, AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL, "
+        "Close REAL, Volume REAL, TurnoverValue REAL)"
     )
     conn.execute(
         "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
-        "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL)"
+        "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL, "
+        "Sales REAL, OperatingProfit REAL, NetProfit REAL)"
     )
 
     # (bar 本数, 価格 base, slope)。D は 136 本＝cal[0..135]（=t-5 まで）で t に bar 無し。
@@ -463,7 +495,11 @@ def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
         "INSERT INTO DailyBars (Code, Date, AdjOpen, AdjHigh, AdjLow, AdjClose, AdjVolume) VALUES (?,?,?,?,?,?,?)",
         bar_rows,
     )
-    conn.executemany("INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)", fin_rows)
+    conn.executemany(
+        "INSERT INTO FinSummaries (Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets) "
+        "VALUES (?,?,?,?,?,?,?)",
+        fin_rows,
+    )
 
     sig_rows = [(t0.strftime("%Y-%m-%d"), c, 1, 3.0, None) for c in ("A", "B", "C")]
     sig_rows += [(t.strftime("%Y-%m-%d"), c, 1, float(j + 1), None) for j, c in enumerate(("A", "B", "C", "D"))]

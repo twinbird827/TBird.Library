@@ -36,6 +36,16 @@ dotnet run --project .. -- backtest --is 2024 --oos 2025 --use-ml false
 dotnet run --project .. -- backtest --is 2024 --oos 2025 --use-ml true
 ```
 
+### 買い方の探索（#414）
+
+`rules.py` の全ルールを月末形成・翌月末保有で評価し、事前に固定した選抜基準で候補を選ぶ（基準は `explore.py` の docstring）。DB は読み取り専用で開く。
+
+```bash
+uv run python explore.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+要約表・期間の境界・候補を標準出力に出し、`_Tools/TradeAnalyzer/explore/` に `summary.csv`（ルール×版ごとの要約と選抜基準の合否）と `monthly.csv`（形成月ごとの TX・LS・銘柄数・上位 5 分位の最大業種比率）を書く。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -63,6 +73,8 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `labels.py` | N日後フォワード相対リターン → gain ラベル（先読み防止・未確定除外） |
 | `train.py` | ウォークフォワード学習＋optuna（Purged K-Fold + embargo）＋OOS 書戻し |
 | `evaluate.py` | Rank-IC / NDCG@K 検証レポート（t統計量・p値・ICIR・符号検定＋ML−Rule 対日差検定） |
+| `rules.py` | 月末パネルと買い方ルールのスコア関数（探索とフォワードテストで共有）。`CANDIDATES` がフォワードテストの対象 |
+| `explore.py` | 全ルールを P1・P2・P3 の 3 期間で評価し、事前固定の選抜基準で候補を選ぶ |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約
