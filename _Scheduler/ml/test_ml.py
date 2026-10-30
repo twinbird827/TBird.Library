@@ -473,6 +473,39 @@ def test_c11_sees_revision_from_t60_to_t1(monkeypatch, e1, expect):
     assert hit.tolist() == [i == t and expect for i in range(n)]
 
 
+def test_f1_progress_gap_vs_previous_year_only_2q_3q():
+    p = _panel({c: [1.0] * 3 for c in "ABCD"})
+    # A は 0.70 − 0.40、B は通期予想が 0、C は 1Q、D は 0.50 − 0.40。
+    p.fin = pd.DataFrame({"Code": list("ABCD"), "DiscloseDate": p.dates[1], "q": [2, 3, 1, 3],
+                          "OP": [70.0, 70.0, 70.0, 50.0], triggers.OP_COLS[0]: [100.0, 0.0, 100.0, 100.0],
+                          "OP_py": 40.0, "OP_fy": 100.0})
+    hit = triggers.COMBO_TRIGGERS["F1 進捗率の上振れ"](p)
+    assert hit["A"].tolist() == [False, True, False]
+    assert not hit[list("BCD")].to_numpy().any()
+
+
+def test_f2_landing_vs_latest_forecast_before_fy_statement():
+    rows = [
+        _fin("A", "2023-05-10", "FYFinancialStatements_Consolidated_JP", "2023-03-31", "2024-03-31", nxfop=100.0),
+        _fin("A", "2024-02-01", "EarnForecastRevision", "2024-03-31", fop=110.0),
+        # 会計年度の違う予想と、本決算と同じ日の修正は使わない。
+        _fin("A", "2024-04-01", "EarnForecastRevision", "2025-03-31", fop=50.0),
+        _fin("A", "2024-05-10", "EarnForecastRevision", "2024-03-31", fop=200.0),
+        _fin("B", "2024-02-01", "EarnForecastRevision", "2024-03-31", fop=100.0),
+    ]
+    allfin = pd.DataFrame(rows)
+    allfin.loc[4, triggers.NP_COLS[0]] = 100.0
+    p = _panel({"A": [1.0] * 100, "B": [1.0] * 100}, allfin=allfin)
+    # A は 130 ÷ 110（+18%）。B は営業利益が無いので純利益 120 ÷ 100。
+    p.fin = pd.DataFrame({"Code": ["A", "B"], "DiscloseDate": pd.Timestamp("2024-05-10"), "q": 4,
+                          "CurrentFiscalYearEnd": "2024-03-31", "OP": [130.0, np.nan], "NP": [np.nan, 120.0]})
+    assert triggers._landing(p.fin, p).tolist() == pytest.approx([130 / 110 - 1, 0.2])
+    hit = triggers.COMBO_TRIGGERS["F2 着地の上振れ"](p)
+    t = p.dates.searchsorted(pd.Timestamp("2024-05-10"))
+    assert hit["A"].tolist() == [i == t for i in range(100)]
+    assert hit["B"].tolist() == [i == t for i in range(100)]
+
+
 def test_mcap_tiers_rank_within_eligible():
     codes = list("ABCDEFG")
     p = _panel({c: [v] * 2 for c, v in zip(codes, [1, 2, 3, 4, 5, 6, 100])}, fin=_fyfin(codes, sh=1.0))

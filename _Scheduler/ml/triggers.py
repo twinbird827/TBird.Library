@@ -78,12 +78,11 @@ OP_COLS = ("ForecastOperatingProfit", "NextForecastOperatingProfit", "ForecastNo
 NP_COLS = ("ForecastNetProfit", "NextForecastNetProfit", "ForecastNonConsolidatedNetProfit")
 
 
-def revisions(p: DailyPanel) -> pd.DataFrame:
-    """業績予想の修正ごとの、会計年度末 fye・予想純利益 np・同じ会計年度の直前の予想からの変化率 chg（直前の予想が正の行だけ）。
+FC_KEY = ["Code", "DiscloseDate", "fye", "op", "np"]
 
-    直前の予想は、開示日が修正より前の行のうち、会計年度末が同じ行の通期予想か、来期の会計年度末が同じ本決算の来期予想。
-    営業利益で比べ、修正か直前のどちらかに無ければ純利益で比べる。
-    """
+
+def _forecasts(p: DailyPanel) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """業績予想の修正の行 rv（列 FC_KEY）と、直前の予想の候補 cand（開示日は pd。修正・決算短信の通期予想・本決算の来期予想）。"""
     a = p.allfin
     st = a[a["DocType"].str.contains("FinancialStatements")]
     rv = a[a["DocType"] == "EarnForecastRevision"].sort_values("DiscloseDate")
@@ -95,22 +94,40 @@ def revisions(p: DailyPanel) -> pd.DataFrame:
     for m, (cur, _, ncc) in {"op": OP_COLS, "np": NP_COLS}.items():
         rv[m] = rv[cur].where(~(is_nc & rv[cur].isna()), rv[ncc])
 
-    key = ["Code", "DiscloseDate", "fye", "op", "np"]
+    rv = rv.rename(columns={"CurrentFiscalYearEnd": "fye"})[FC_KEY]
     fy = st[st["DocType"].str.startswith("FY")]
     cand = pd.concat([
-        rv.rename(columns={"CurrentFiscalYearEnd": "fye"})[key],
-        st[["Code", "DiscloseDate", "CurrentFiscalYearEnd", OP_COLS[0], NP_COLS[0]]].set_axis(key, axis=1),
-        fy[["Code", "DiscloseDate", "NextFiscalYearEnd", OP_COLS[1], NP_COLS[1]]].set_axis(key, axis=1),
+        rv,
+        st[["Code", "DiscloseDate", "CurrentFiscalYearEnd", OP_COLS[0], NP_COLS[0]]].set_axis(FC_KEY, axis=1),
+        fy[["Code", "DiscloseDate", "NextFiscalYearEnd", OP_COLS[1], NP_COLS[1]]].set_axis(FC_KEY, axis=1),
     ]).rename(columns={"DiscloseDate": "pd"}).dropna(subset=["fye"])
-    out = rv.rename(columns={"CurrentFiscalYearEnd": "fye"})[key].dropna(subset=["fye"])
+    return rv, cand
+
+
+def _vs_prev_forecast(cand: pd.DataFrame, rows: pd.DataFrame) -> pd.Series:
+    """rows（列 FC_KEY）の各行の、開示日がその行より前で会計年度末が同じ最新の予想からの変化率（直前の予想が正の行だけ）。
+
+    営業利益で比べ、rows か直前の予想のどちらかに無ければ純利益で比べる。
+    """
+    prev = {}
     for m in ("op", "np"):
-        x = (out[["Code", "DiscloseDate", "fye"]].reset_index()
+        x = (rows[["Code", "DiscloseDate", "fye"]].reset_index()
              .merge(cand[["Code", "pd", "fye", m]].dropna(subset=[m]), on=["Code", "fye"]))
         x = x[x["pd"] < x["DiscloseDate"]].sort_values("pd", kind="stable")
-        out["prev_" + m] = x.groupby("index")[m].last()
-    use_op = out["op"].notna() & out["prev_op"].notna()
-    new, prev = out["op"].where(use_op, out["np"]), out["prev_op"].where(use_op, out["prev_np"])
-    out["chg"] = (new / prev - 1).where(prev > 0)
+        prev[m] = x.groupby("index")[m].last().reindex(rows.index)
+    use_op = rows["op"].notna() & prev["op"].notna()
+    new, old = rows["op"].where(use_op, rows["np"]), prev["op"].where(use_op, prev["np"])
+    return (new / old - 1).where(old > 0)
+
+
+def revisions(p: DailyPanel) -> pd.DataFrame:
+    """業績予想の修正ごとの、会計年度末 fye・予想純利益 np・同じ会計年度の直前の予想からの変化率 chg（直前の予想が正の行だけ）。
+
+    直前の予想は、開示日が修正より前の行のうち、会計年度末が同じ行の通期予想か、来期の会計年度末が同じ本決算の来期予想。
+    """
+    rv, cand = _forecasts(p)
+    out = rv.dropna(subset=["fye"])
+    out = out.assign(chg=_vs_prev_forecast(cand, out))
     return out.dropna(subset=["chg"])[["Code", "DiscloseDate", "fye", "np", "chg"]]
 
 
@@ -184,6 +201,26 @@ def _ear(p: DailyPanel, up: bool) -> pd.DataFrame:
 def _e4(p: DailyPanel) -> pd.DataFrame:
     fy = _fy(p)
     return _events(p, fy[(fy["OP"] > 0) & (fy[OP_COLS[1]] >= 1.2 * fy["OP"])])
+
+
+def _pos(s: pd.Series) -> pd.Series:
+    return s.where(s > 0)
+
+
+def _fin_event(p: DailyPanel, metric: Callable[[pd.DataFrame], pd.Series], th: float) -> pd.DataFrame:
+    """決算短信の行のうち metric が th 以上の行を、開示日以後で最初の営業日に立てた真偽表。"""
+    return _events(p, p.fin[metric(p.fin) >= th])
+
+
+def _progress_gap(f: pd.DataFrame) -> pd.Series:
+    """2Q・3Q の、累計営業利益 ÷ 通期予想から前年同期の進捗率（÷ 直近の本決算）を引いた差。"""
+    return (f["OP"] / _pos(f[OP_COLS[0]]) - f["OP_py"] / _pos(f["OP_fy"])).where(f["q"].isin([2, 3]))
+
+
+def _landing(f: pd.DataFrame, p: DailyPanel) -> pd.Series:
+    """本決算の、実績 ÷ 直前の会社予想 − 1（revisions と同じ直前の予想）。"""
+    fy = f[f["q"] == 4].rename(columns={"CurrentFiscalYearEnd": "fye", "OP": "op", "NP": "np"})[FC_KEY]
+    return _vs_prev_forecast(_forecasts(p)[1], fy.dropna(subset=["fye"])).reindex(f.index)
 
 
 def _first_extreme(p: DailyPanel, high: bool) -> pd.DataFrame:
@@ -280,7 +317,16 @@ TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
     "X7 急騰": lambda p: p.excess(5) >= 0.20,
     "X8 信用買い残の急増": _x8,
 }
-# 単独で傾向のあった指標の組み合わせ（explore_triggers.py --combo だけが評価する）。
+# まだトリガーにしていない財務の指標。閾値は、2017-12 以降の決算短信のうち値の出る行の上位 1〜2 割に当たる値で、結果を見て変えない。
+_FIN: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
+    "F1 進捗率の上振れ": lambda p: _fin_event(p, _progress_gap, 0.20),
+    "F2 着地の上振れ": lambda p: _fin_event(p, lambda f: _landing(f, p), 0.15),
+    "F3 営業利益率の改善": lambda p: _fin_event(
+        p, lambda f: f["OP"] / _pos(f["Sales"]) - f["OP_py"] / _pos(f["Sales_py"]), 0.05),
+    "F4 大幅増収": lambda p: _fin_event(p, lambda f: f["Sales"] / _pos(f["Sales_py"]) - 1, 0.30),
+    "F5 高自己資本比率": lambda p: _fin_event(p, lambda f: f["Equity"] / _pos(f["TA"]), 0.80),
+}
+# 単独で傾向のあった指標の組み合わせと、財務の指標とその割安版（explore_triggers.py --combo だけが評価する）。
 COMBO_TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
     # 急落は t の大陽線で縮まないよう t−1 までで見る。
     "C5 急落後の出来高急増の大陽線": lambda p: _volume_spike(p, True) & (p.excess(5).shift(1) <= -0.20),
@@ -292,6 +338,8 @@ COMBO_TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
     "C9 予想割安×上方修正": _c9,
     "C10 割安×2回目以降の上方修正": _c10,
     "C11 割安×上方修正後の増益サプライズ": _c11,
+    **_FIN,
+    **{f"C{12 + i} 割安×{n.split(' ', 1)[1]}": (lambda p, f=f: f(p) & _cheap(p)) for i, (n, f) in enumerate(_FIN.items())},
 }
 # C3 の頑健性グリッド（割安の定義 × 修正の幅）と層別。選抜には使わず、周りの設定でも効くかを見るだけ。
 _CHEAP: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
