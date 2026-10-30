@@ -20,6 +20,7 @@ import pytest
 
 import db as dbmod
 import explore
+import explore_events as ev
 import explore_triggers as et
 import features
 import ml_common
@@ -355,6 +356,50 @@ def test_early_sell_exits_at_next_open():
 def test_nw_t_lag0_matches_explore_t_stat():
     x = pd.Series([0.01, -0.02, 0.03, 0.005, 0.012, -0.004])
     assert et.nw_t(x, 0) == pytest.approx(explore.t_stat(x))
+
+
+# ---------- explore_events.py: 取れない部分と取れる部分の境目・押し目の約定 ----------
+def test_segments_split_at_trigger_close_and_next_open():
+    n, t = 300, 5
+    c = 100 * 1.01 ** np.arange(n)
+    o = c * 0.98
+    flat = np.full(n, 100.0)
+    dates = pd.bdate_range("2024-01-01", periods=n)
+
+    def f(a):
+        return pd.DataFrame({"A": a, "B": flat}, index=dates)
+
+    # B は始値・終値が 100 で動かないので、比べる相手は A のリターンの半分。
+    m = et.Market(SimpleNamespace(
+        dates=dates, px=f(c), open=f(o), high=f(np.fmax(o, c)), low=f(np.fmin(o, c)),
+        eligible=f(np.ones(n, bool)), marginable=f(np.ones(n, bool)), sec=f(np.full(n, "x", dtype=object))))
+    bp, bgap = ev.bench_paths(m)
+    seg, path = ev.segments(m, bp, bgap, np.array([t]), np.array([0]))
+    assert seg["当日"][0] == pytest.approx((c[t] / c[t - 1] - 1) / 2)
+    assert seg["窓開け"][0] == pytest.approx((o[t + 1] / c[t] - 1) / 2)
+    assert seg[5][0] == pytest.approx((c[t + 5] / o[t + 1] - 1) / 2)
+    assert path[0, 1] == pytest.approx((o[t + 1] / c[t - 1] - 1) / 2)
+    assert path[0, 1 + 60] == pytest.approx((c[t + 60] / c[t - 1] - 1) / 2)
+
+
+def test_dip_fill_same_day_low_gap_down_open_and_k_days():
+    o = np.full((10, 1), 100.0)
+    l = o.copy()
+    t, j = np.array([0]), np.array([0])
+    # t+1 の当日の安値で指値の価格に約定する。
+    l[1] = 96.0
+    day, px = ev.dip_fill(o, l, t, j, 0.03)
+    assert day[0] == 0 and px[0] == pytest.approx(97.0)
+    # 始値がすでに指値以下の日は始値で約定する。
+    l[1] = 100.0
+    o[3], l[3] = 95.0, 94.0
+    day, px = ev.dip_fill(o, l, t, j, 0.03)
+    assert day[0] == 2 and px[0] == 95.0
+    # k 日（t+1〜t+5）を過ぎた下げでは約定しない。
+    o[3], l[3] = 100.0, 100.0
+    l[6] = 90.0
+    day, px = ev.dip_fill(o, l, t, j, 0.03)
+    assert day[0] == -1 and np.isnan(px[0])
 
 
 def _fin(code, date, doctype, fye, nfye=None, fop=None, nxfop=None, fncop=None):

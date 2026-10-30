@@ -60,6 +60,14 @@ uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db
 uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db --combo
 ```
 
+`explore_events.py` は、イベント（開示・修正）で立つ買いのトリガー（E1〜E4・C2・C3・C6・C9〜C16・F1〜F5）について、イベントの後の値動きを記述する（トリガーの選抜には使わない。定義は docstring）。取れない部分（トリガー日の値動きと翌日の窓開け）と取れる部分（翌日始値から 5〜240 営業日）の超過リターン、イベントの後 60 営業日の累積の超過リターン、翌日始値から 3%・5%・10% 下の指値が 5 営業日以内に約定したもの・しなかったものの値動き、窓開けの 5 分位ごとの値動きを、P1〜P3 とともに出す。DB は読み取り専用で開く。
+
+```bash
+uv run python explore_events.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+トリガーごとの要約（寄らなかったイベントの件数を含む）・期間の境界・試行数を標準出力に出し、`_Tools/TradeAnalyzer/explore/events/` に `decompose.csv`（トリガー×区間）・`path.csv`（トリガー×イベントの後の日数）・`dip.csv`（トリガー×押し目の幅×保有期間×約定したか）・`gap.csv`（トリガー×窓開けの分位×保有期間）を書く。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -91,6 +99,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `explore.py` | 全ルールを P1・P2・P3 の 3 期間で評価し、事前固定の選抜基準で候補を選ぶ |
 | `triggers.py` | 日次パネルと買い・売りのトリガー（探索とフォワードテストで共有） |
 | `explore_triggers.py` | 全トリガー×保有期間を P1・P2・P3 の 3 期間で評価し、通過したトリガーの OR 戦略を要約する |
+| `explore_events.py` | イベントで立つ買いのトリガーの、取れない部分と取れる部分・イベントスタディ・押し目・窓開けの大きさ別の値動きを記述する |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約
