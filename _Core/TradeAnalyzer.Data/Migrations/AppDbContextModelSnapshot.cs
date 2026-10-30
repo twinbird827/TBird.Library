@@ -276,13 +276,37 @@ namespace TradeAnalyzer.Data.Migrations
                     b.Property<double?>("Bps")
                         .HasColumnType("REAL");
 
+                    b.Property<DateOnly?>("CurrentFiscalYearEnd")
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("Eps")
                         .HasColumnType("REAL");
 
                     b.Property<double?>("Equity")
                         .HasColumnType("REAL");
 
+                    b.Property<double?>("ForecastNetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ForecastNonConsolidatedNetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ForecastNonConsolidatedOperatingProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ForecastOperatingProfit")
+                        .HasColumnType("REAL");
+
                     b.Property<double?>("NetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateOnly?>("NextFiscalYearEnd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("NextForecastNetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("NextForecastOperatingProfit")
                         .HasColumnType("REAL");
 
                     b.Property<double?>("OperatingProfit")

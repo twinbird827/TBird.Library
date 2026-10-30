@@ -79,6 +79,14 @@ public class FinSummaryItem
     [JsonPropertyName("BPS")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? BPS { get; set; }
     [JsonPropertyName("TA")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? TA { get; set; }
     [JsonPropertyName("Eq")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? Eq { get; set; }
+    [JsonPropertyName("CurFYEn")] public string? CurFYEn { get; set; }
+    [JsonPropertyName("NxtFYEn")] public string? NxtFYEn { get; set; }
+    [JsonPropertyName("FOP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FOP { get; set; }
+    [JsonPropertyName("FNP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FNP { get; set; }
+    [JsonPropertyName("NxFOP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? NxFOP { get; set; }
+    [JsonPropertyName("NxFNp")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? NxFNp { get; set; }
+    [JsonPropertyName("FNCOP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FNCOP { get; set; }
+    [JsonPropertyName("FNCNP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FNCNP { get; set; }
 }
 
 // --- 決算予定日 /v2/equities/earnings-calendar ---

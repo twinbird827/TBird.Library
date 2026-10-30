@@ -112,6 +112,10 @@ public class JQuantsClient
                 DocType = i.DocType ?? string.Empty,
                 Sales = i.Sales, OperatingProfit = i.OP, NetProfit = i.NP,
                 Eps = i.EPS, Bps = i.BPS, TotalAssets = i.TA, Equity = i.Eq,
+                CurrentFiscalYearEnd = ParseDate(i.CurFYEn), NextFiscalYearEnd = ParseDate(i.NxtFYEn),
+                ForecastOperatingProfit = i.FOP, ForecastNetProfit = i.FNP,
+                NextForecastOperatingProfit = i.NxFOP, NextForecastNetProfit = i.NxFNp,
+                ForecastNonConsolidatedOperatingProfit = i.FNCOP, ForecastNonConsolidatedNetProfit = i.FNCNP,
             });
         }
         return result;

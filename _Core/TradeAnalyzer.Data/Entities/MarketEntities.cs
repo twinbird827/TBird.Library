@@ -104,6 +104,22 @@ public class FinSummary
     public double? TotalAssets { get; set; }
     /// <summary>純資産（`Eq`）。時価総額近似（発行済株数 ≈ Eq/BPS）に使用。</summary>
     public double? Equity { get; set; }
+    /// <summary>今期の会計年度末（`CurFYEn`）。</summary>
+    public DateOnly? CurrentFiscalYearEnd { get; set; }
+    /// <summary>来期の会計年度末（`NxtFYEn`）。</summary>
+    public DateOnly? NextFiscalYearEnd { get; set; }
+    /// <summary>通期の営業利益予想（`FOP`）。本決算の行では空。</summary>
+    public double? ForecastOperatingProfit { get; set; }
+    /// <summary>通期の純利益予想（`FNP`）。本決算の行では空。</summary>
+    public double? ForecastNetProfit { get; set; }
+    /// <summary>来期の営業利益予想（`NxFOP`）。</summary>
+    public double? NextForecastOperatingProfit { get; set; }
+    /// <summary>来期の純利益予想（`NxFNp`）。</summary>
+    public double? NextForecastNetProfit { get; set; }
+    /// <summary>通期の単体営業利益予想（`FNCOP`）。</summary>
+    public double? ForecastNonConsolidatedOperatingProfit { get; set; }
+    /// <summary>通期の単体純利益予想（`FNCNP`）。</summary>
+    public double? ForecastNonConsolidatedNetProfit { get; set; }
 }
 
 /// <summary>決算予定日（J-Quants V2 /v2/equities/earnings-calendar）。</summary>
