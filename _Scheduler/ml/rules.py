@@ -61,6 +61,61 @@ def _read_optional(conn: sqlite3.Connection, table: str, sql: str) -> pd.DataFra
     return None if df.empty else df
 
 
+def build_fin(conn: sqlite3.Connection, codes) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """codes の FinSummaries 全行（allfin）と、決算短信の行に SUE・ROE 等の派生指標を足したもの（fin）。"""
+    allfin = dbmod.read_fin_summaries(conn).rename(
+        columns={"OperatingProfit": "OP", "NetProfit": "NP", "TotalAssets": "TA"})
+    allfin = allfin[allfin["Code"].isin(codes)]
+    fin = allfin[allfin["DocType"].str.contains("FinancialStatements")].copy()
+    fin["q"] = fin["DocType"].str[:2].map({"1Q": 1, "2Q": 2, "3Q": 3, "FY": 4})
+    fin["cons"] = ~fin["DocType"].str.contains("NonConsolidated")
+    fin = (fin.dropna(subset=["q"]).sort_values(["Code", "DiscloseDate", "cons"])
+           .drop_duplicates(["Code", "DiscloseDate"], keep="last"))
+    g = fin.groupby("Code")
+    pq, pdt, pnp = g["q"].shift(), g["DiscloseDate"].shift(), g["NP"].shift()
+    # 四半期単独の純利益: 1Q はそのまま、それ以外は直前四半期（150 日以内）の累計との差。
+    fin["sNP"] = np.where(fin["q"] == 1, fin["NP"],
+                          np.where((pq == fin["q"] - 1) & ((fin["DiscloseDate"] - pdt).dt.days < 150),
+                                   fin["NP"] - pnp, np.nan))
+    fin["key"] = fin["DiscloseDate"] - pd.Timedelta(days=365)
+    py = fin[["Code", "q", "DiscloseDate", "NP", "sNP", "Sales", "OP", "TA"]].rename(
+        columns=lambda x: x if x in ("Code", "q") else x + "_py")
+    fin = pd.merge_asof(fin.sort_values("key"), py.sort_values("DiscloseDate_py"),
+                        left_on="key", right_on="DiscloseDate_py", by=["Code", "q"],
+                        direction="nearest", tolerance=pd.Timedelta(days=45))
+    fy = fin[fin["q"] == 4][["Code", "DiscloseDate", "Sales", "OP", "NP"]].rename(
+        columns={"DiscloseDate": "fyd", "Sales": "Sales_fy", "OP": "OP_fy", "NP": "NP_fy"})
+    fin = pd.merge_asof(fin.sort_values("DiscloseDate"), fy.sort_values("fyd"),
+                        left_on="DiscloseDate", right_on="fyd", by="Code", direction="backward",
+                        allow_exact_matches=False, tolerance=pd.Timedelta(days=400))
+    for x in ["Sales", "OP", "NP"]:
+        fin[x + "_ttm"] = np.where(fin["q"] == 4, fin[x], fin[x] + fin[x + "_fy"] - fin[x + "_py"])
+    fin = fin.sort_values(["Code", "DiscloseDate"])
+    fin["dNP"] = fin["sNP"] - fin["sNP_py"]
+    fin["sue"] = fin["dNP"] / fin.groupby("Code")["dNP"].transform(
+        lambda s: s.shift().rolling(8, min_periods=4).std())
+    fin["roa_op"] = fin["OP_ttm"] / fin["TA"]
+    fin["roe"] = fin["NP_ttm"] / fin["Equity"].where(fin["Equity"] > 0)
+    fin["agr"] = fin["TA"] / fin["TA_py"] - 1
+    fin["bk"] = fin["Bps"].where(fin["Bps"] > 0)
+    fin["sh"] = fin["Equity"] / fin["bk"]
+    return allfin, fin
+
+
+def ear(ev: pd.DataFrame, dates: pd.DatetimeIndex, px: pd.DataFrame, ewi: np.ndarray,
+        cidx: dict[str, int]) -> pd.DataFrame:
+    """発表前営業日終値→発表翌営業日終値の対全銘柄超過リターンと、それが判明する日。"""
+    t0 = dates.searchsorted(ev["DiscloseDate"].values, "left") - 1
+    t1 = dates.searchsorted(ev["DiscloseDate"].values, "right")
+    okr = (t0 >= 0) & (t1 < len(dates))
+    ev = ev[okr].copy()
+    t0, t1 = t0[okr], t1[okr]
+    j = ev["Code"].map(cidx).values
+    ev["v"] = px.values[t1, j] / px.values[t0, j] - 1 - (ewi[t1] / ewi[t0] - 1)
+    ev["avail"] = dates[t1]
+    return ev
+
+
 class Panel:
     """月末パネル。行は形成日 me、列は銘柄コード。"""
 
@@ -90,57 +145,10 @@ class Panel:
         self.sec = _asof(stocks, "Sector33", "AsOfDate", me, codes, strict=False)
 
         # ---- 財務（Eps/Bps は read_fin_summaries が AdjClose の株数基準へ換算済み）----
-        allfin = dbmod.read_fin_summaries(conn).rename(
-            columns={"OperatingProfit": "OP", "NetProfit": "NP", "TotalAssets": "TA"})
-        allfin = allfin[allfin["Code"].isin(cidx)]
-        fin = allfin[allfin["DocType"].str.contains("FinancialStatements")].copy()
-        fin["q"] = fin["DocType"].str[:2].map({"1Q": 1, "2Q": 2, "3Q": 3, "FY": 4})
-        fin["cons"] = ~fin["DocType"].str.contains("NonConsolidated")
-        fin = (fin.dropna(subset=["q"]).sort_values(["Code", "DiscloseDate", "cons"])
-               .drop_duplicates(["Code", "DiscloseDate"], keep="last"))
-        g = fin.groupby("Code")
-        pq, pdt, pnp = g["q"].shift(), g["DiscloseDate"].shift(), g["NP"].shift()
-        # 四半期単独の純利益: 1Q はそのまま、それ以外は直前四半期（150 日以内）の累計との差。
-        fin["sNP"] = np.where(fin["q"] == 1, fin["NP"],
-                              np.where((pq == fin["q"] - 1) & ((fin["DiscloseDate"] - pdt).dt.days < 150),
-                                       fin["NP"] - pnp, np.nan))
-        fin["key"] = fin["DiscloseDate"] - pd.Timedelta(days=365)
-        py = fin[["Code", "q", "DiscloseDate", "NP", "sNP", "Sales", "OP", "TA"]].rename(
-            columns=lambda x: x if x in ("Code", "q") else x + "_py")
-        fin = pd.merge_asof(fin.sort_values("key"), py.sort_values("DiscloseDate_py"),
-                            left_on="key", right_on="DiscloseDate_py", by=["Code", "q"],
-                            direction="nearest", tolerance=pd.Timedelta(days=45))
-        fy = fin[fin["q"] == 4][["Code", "DiscloseDate", "Sales", "OP", "NP"]].rename(
-            columns={"DiscloseDate": "fyd", "Sales": "Sales_fy", "OP": "OP_fy", "NP": "NP_fy"})
-        fin = pd.merge_asof(fin.sort_values("DiscloseDate"), fy.sort_values("fyd"),
-                            left_on="DiscloseDate", right_on="fyd", by="Code", direction="backward",
-                            allow_exact_matches=False, tolerance=pd.Timedelta(days=400))
-        for x in ["Sales", "OP", "NP"]:
-            fin[x + "_ttm"] = np.where(fin["q"] == 4, fin[x], fin[x] + fin[x + "_fy"] - fin[x + "_py"])
-        fin = fin.sort_values(["Code", "DiscloseDate"])
-        fin["dNP"] = fin["sNP"] - fin["sNP_py"]
-        fin["sue"] = fin["dNP"] / fin.groupby("Code")["dNP"].transform(
-            lambda s: s.shift().rolling(8, min_periods=4).std())
-        fin["roa_op"] = fin["OP_ttm"] / fin["TA"]
-        fin["roe"] = fin["NP_ttm"] / fin["Equity"].where(fin["Equity"] > 0)
-        fin["agr"] = fin["TA"] / fin["TA_py"] - 1
-        fin["bk"] = fin["Bps"].where(fin["Bps"] > 0)
-        fin["sh"] = fin["Equity"] / fin["bk"]
-
-        def ear(ev: pd.DataFrame) -> pd.DataFrame:
-            """発表前営業日終値→発表翌営業日終値の対全銘柄超過リターンと、それが判明する日。"""
-            t0 = dates.searchsorted(ev["DiscloseDate"].values, "left") - 1
-            t1 = dates.searchsorted(ev["DiscloseDate"].values, "right")
-            okr = (t0 >= 0) & (t1 < len(dates))
-            ev = ev[okr].copy()
-            t0, t1 = t0[okr], t1[okr]
-            j = ev["Code"].map(cidx).values
-            ev["v"] = px.values[t1, j] / px.values[t0, j] - 1 - (ewi[t1] / ewi[t0] - 1)
-            ev["avail"] = dates[t1]
-            return ev
-
-        rev = ear(allfin.loc[allfin["DocType"] == "EarnForecastRevision", ["Code", "DiscloseDate"]].copy())
-        fe = ear(fin[["Code", "DiscloseDate"]].copy())
+        allfin, fin = build_fin(conn, codes)
+        rev = ear(allfin.loc[allfin["DocType"] == "EarnForecastRevision", ["Code", "DiscloseDate"]].copy(),
+                  dates, px, ewi, cidx)
+        fe = ear(fin[["Code", "DiscloseDate"]].copy(), dates, px, ewi, cidx)
         self.F = F = {n: fin_asof(fin, n, me, codes) for n in ["sue", "roa_op", "roe", "agr", "Sales_ttm"]}
         # 株価反応は発表翌営業日の引けで判明するので、その日を含めて使う。
         F["ear"] = _asof(fe, "v", "avail", me, codes, strict=False, maxage=92)

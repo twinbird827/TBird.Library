@@ -109,7 +109,9 @@ def read_fin_summaries(conn: sqlite3.Connection) -> pd.DataFrame:
     """
     df = pd.read_sql(
         "SELECT Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets, "
-        "Sales, OperatingProfit, NetProfit FROM FinSummaries",
+        "Sales, OperatingProfit, NetProfit, CurrentFiscalYearEnd, NextFiscalYearEnd, "
+        "ForecastOperatingProfit, ForecastNetProfit, NextForecastOperatingProfit, NextForecastNetProfit, "
+        "ForecastNonConsolidatedOperatingProfit, ForecastNonConsolidatedNetProfit FROM FinSummaries",
         conn,
     )
     df = _parse_dates(df, ["DiscloseDate"])
