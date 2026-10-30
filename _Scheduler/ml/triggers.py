@@ -15,7 +15,7 @@ import pandas as pd
 import db as dbmod
 import rules
 
-HOLDING_DAYS = [5, 20, 60, 120]
+HOLDING_DAYS = [5, 60, 120, 240]
 MARGINABLE = "2"
 
 
@@ -79,7 +79,7 @@ NP_COLS = ("ForecastNetProfit", "NextForecastNetProfit", "ForecastNonConsolidate
 
 
 def revisions(p: DailyPanel) -> pd.DataFrame:
-    """業績予想の修正ごとの、同じ会計年度の直前の予想からの変化率 chg（直前の予想が正の行だけ）。
+    """業績予想の修正ごとの、会計年度末 fye・予想純利益 np・同じ会計年度の直前の予想からの変化率 chg（直前の予想が正の行だけ）。
 
     直前の予想は、開示日が修正より前の行のうち、会計年度末が同じ行の通期予想か、来期の会計年度末が同じ本決算の来期予想。
     営業利益で比べ、修正か直前のどちらかに無ければ純利益で比べる。
@@ -111,7 +111,7 @@ def revisions(p: DailyPanel) -> pd.DataFrame:
     use_op = out["op"].notna() & out["prev_op"].notna()
     new, prev = out["op"].where(use_op, out["np"]), out["prev_op"].where(use_op, out["prev_np"])
     out["chg"] = (new / prev - 1).where(prev > 0)
-    return out.dropna(subset=["chg"])[["Code", "DiscloseDate", "chg"]]
+    return out.dropna(subset=["chg"])[["Code", "DiscloseDate", "fye", "np", "chg"]]
 
 
 def _revision(p: DailyPanel, up: bool, th: float = 0.10) -> pd.DataFrame:
@@ -121,6 +121,48 @@ def _revision(p: DailyPanel, up: bool, th: float = 0.10) -> pd.DataFrame:
 
 def _fy(p: DailyPanel) -> pd.DataFrame:
     return p.fin[p.fin["q"] == 4]
+
+
+def _mcap(p: DailyPanel) -> pd.DataFrame:
+    """時価総額（調整後終値 × 直近の本決算の株数）。"""
+    return p.px * _daily_asof(p, _fy(p), "sh")
+
+
+def _cheap(p: DailyPanel) -> pd.DataFrame:
+    """PBR 1 倍未満（直近の本決算の BPS）。"""
+    return p.px / _daily_asof(p, _fy(p), "bk") < 1
+
+
+def _c9(p: DailyPanel) -> pd.DataFrame:
+    r = revisions(p)
+    r = r[(r["chg"] >= 0.10) & r["np"].notna()]
+    return _events(p, r) & (_daily_asof(p, r, "np") / _mcap(p) >= 0.10)
+
+
+def _c10(p: DailyPanel) -> pd.DataFrame:
+    r = revisions(p)
+    first_up = r[r["chg"] > 0].groupby(["Code", "fye"])["DiscloseDate"].min().rename("first_up")
+    r = r.join(first_up, on=["Code", "fye"])
+    return _events(p, r[(r["chg"] >= 0.10) & (r["DiscloseDate"] > r["first_up"])]) & _cheap(p)
+
+
+def _c11(p: DailyPanel) -> pd.DataFrame:
+    # 同じ日の修正は「後の実績」で裏付けられたことにならないので、窓は t−60〜t−1。
+    e1 = _revision(p, True).astype(float).shift(1).rolling(60, min_periods=1).max() > 0
+    return _sue(p, True) & e1 & _cheap(p)
+
+
+def _mcap_tier(p: DailyPanel, lo: float, hi: float) -> pd.DataFrame:
+    """母集団の中の時価総額の順位が lo 超・hi 以下。"""
+    r = _mcap(p).where(p.eligible).rank(axis=1, pct=True)
+    return (r > lo) & (r <= hi)
+
+
+def _market_up(p: DailyPanel, up: bool) -> np.ndarray:
+    """全銘柄等金額指数が 200 営業日平均より上（up=False なら以下）。平均が出ない日はどちらも偽。"""
+    e = pd.Series(p.ewi, index=p.dates)
+    ma = e.rolling(200, min_periods=200).mean()
+    return ((e > ma) if up else (e <= ma)).to_numpy()[:, None]
 
 
 def _sector_pbr_rank(p: DailyPanel) -> pd.DataFrame:
@@ -226,7 +268,7 @@ TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
     "P4 急落": lambda p: p.excess(5) <= -0.20,
     "C1 財務良×急落": _c1,
     "C2 赤字×上方修正": lambda p: _revision(p, True) & (_daily_asof(p, p.fin, "NP_ttm") < 0),
-    "C3 割安×上方修正": lambda p: _revision(p, True) & (p.px / _daily_asof(p, _fy(p), "bk") < 1),
+    "C3 割安×上方修正": lambda p: _revision(p, True) & _cheap(p),
     "C4 増益サプライズ×52週高値近接": lambda p: _sue(p, True) & (p.px >= 0.95 * p.px.rolling(250, min_periods=200).max()),
     "S1 信用倍率の売り長転換": _s1,
     "X1 下方修正": lambda p: _revision(p, False),
@@ -247,15 +289,26 @@ COMBO_TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
     "C8 業種内割安×信用倍率の売り長転換": lambda p: _s1(p) & (_sector_pbr_rank(p) <= 0.2),
     "X9 赤字×急落": lambda p: (_daily_asof(p, p.fin, "NP_ttm") < 0) & (p.excess(5) <= -0.20),
     "X10 業種内割高×急落": lambda p: (_sector_pbr_rank(p) > 0.8) & (p.excess(5) <= -0.20),
+    "C9 予想割安×上方修正": _c9,
+    "C10 割安×2回目以降の上方修正": _c10,
+    "C11 割安×上方修正後の増益サプライズ": _c11,
 }
-# C3 の頑健性グリッド（割安の定義 × 修正の幅）。選抜には使わず、周りの設定でも効くかを見るだけ。
+# C3 の頑健性グリッド（割安の定義 × 修正の幅）と層別。選抜には使わず、周りの設定でも効くかを見るだけ。
 _CHEAP: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
-    "PBR1倍未満": lambda p: p.px / _daily_asof(p, _fy(p), "bk") < 1,
+    "PBR1倍未満": _cheap,
     **{f"業種内下位{q:.0%}": (lambda p, q=q: _sector_pbr_rank(p) <= q) for q in (0.1, 0.2, 0.3)},
 }
+_STRATA: dict[str, Callable[[DailyPanel], pd.DataFrame | np.ndarray]] = {
+    "大型": lambda p: _mcap_tier(p, 2 / 3, 1),
+    "中型": lambda p: _mcap_tier(p, 1 / 3, 2 / 3),
+    "小型": lambda p: _mcap_tier(p, -np.inf, 1 / 3),
+    "地合い上": lambda p: _market_up(p, True),
+    "地合い下": lambda p: _market_up(p, False),
+}
 ROBUSTNESS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
-    f"G {c}×修正{w:.0%}": (lambda p, f=f, w=w: _revision(p, True, w) & f(p))
-    for c, f in _CHEAP.items() for w in (0.05, 0.10, 0.20)
+    **{f"G {c}×修正{w:.0%}": (lambda p, f=f, w=w: _revision(p, True, w) & f(p))
+       for c, f in _CHEAP.items() for w in (0.05, 0.10, 0.20)},
+    **{f"G C3×{s}": (lambda p, f=f: TRIGGERS["C3 割安×上方修正"](p) & f(p)) for s, f in _STRATA.items()},
 }
 SELL_TRIGGERS = {n for n in [*TRIGGERS, *COMBO_TRIGGERS] if n.startswith("X")}
 # 【反発】のトリガー。行き過ぎの戻りを狙うので損切りを掛けない（それ以外は【トレンド】で損切りを掛ける）。

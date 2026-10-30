@@ -431,6 +431,74 @@ def test_revision_threshold(monkeypatch):
     assert triggers._revision(p, True, 0.05)["A"].tolist() == [False, True, False]
 
 
+def _rev(p, *rows):
+    """(Code, 営業日の位置, fye, np, chg) の行から作る revisions の戻り値。"""
+    return pd.DataFrame([(c, p.dates[i], fye, np_, chg) for c, i, fye, np_, chg in rows],
+                        columns=["Code", "DiscloseDate", "fye", "np", "chg"])
+
+
+def _fyfin(codes, sh=100.0, bk=20.0):
+    return pd.DataFrame({"Code": codes, "DiscloseDate": pd.Timestamp("2023-05-01"), "q": 4, "sh": sh, "bk": bk,
+                         "sue": np.nan})
+
+
+def test_c9_judges_forecast_net_profit_over_mcap(monkeypatch):
+    p = _panel({"A": [10.0] * 3, "B": [10.0] * 3}, fin=_fyfin(["A", "B"]))
+    # 時価総額 1000。A は 150/1000、B は 50/1000、A の 2 日目は予想純利益が無い。
+    monkeypatch.setattr(triggers, "revisions", lambda _: _rev(
+        p, ("A", 1, "2025-03-31", 150.0, 0.2), ("B", 1, "2025-03-31", 50.0, 0.2), ("A", 2, "2025-03-31", np.nan, 0.2)))
+    hit = triggers.COMBO_TRIGGERS["C9 予想割安×上方修正"](p)
+    assert hit["A"].tolist() == [False, True, False]
+    assert not hit["B"].any()
+
+
+def test_c10_needs_earlier_upward_revision_in_same_fiscal_year(monkeypatch):
+    p = _panel({c: [10.0] * 3 for c in "ABC"}, fin=_fyfin(list("ABC")))
+    monkeypatch.setattr(triggers, "revisions", lambda _: _rev(
+        p, ("A", 0, "2025-03-31", np.nan, 0.05), ("A", 2, "2025-03-31", np.nan, 0.15),
+        ("B", 1, "2025-03-31", np.nan, -0.1), ("B", 2, "2025-03-31", np.nan, 0.15),
+        ("C", 0, "2024-03-31", np.nan, 0.2), ("C", 2, "2025-03-31", np.nan, 0.2)))
+    hit = triggers.COMBO_TRIGGERS["C10 割安×2回目以降の上方修正"](p)
+    assert hit["A"].tolist() == [False, False, True]
+    assert not hit["B"].any() and not hit["C"].any()
+
+
+@pytest.mark.parametrize("e1, expect", [(5, True), (4, False), (65, False)])
+def test_c11_sees_revision_from_t60_to_t1(monkeypatch, e1, expect):
+    n, t = 70, 65
+    p = _panel({"A": [10.0] * n})
+    p.fin = pd.concat([_fyfin(["A"]), pd.DataFrame({"Code": ["A"], "DiscloseDate": [p.dates[t]], "q": [1], "sue": [3.0]})])
+    monkeypatch.setattr(triggers, "revisions", lambda _: _rev(p, ("A", e1, "2025-03-31", np.nan, 0.2)))
+    hit = triggers.COMBO_TRIGGERS["C11 割安×上方修正後の増益サプライズ"](p)["A"]
+    assert hit.tolist() == [i == t and expect for i in range(n)]
+
+
+def test_mcap_tiers_rank_within_eligible():
+    codes = list("ABCDEFG")
+    p = _panel({c: [v] * 2 for c, v in zip(codes, [1, 2, 3, 4, 5, 6, 100])}, fin=_fyfin(codes, sh=1.0))
+    p.eligible = pd.DataFrame(True, index=p.dates, columns=codes).assign(G=False)
+    tier = {s: triggers._STRATA[s](p).iloc[0] for s in ("大型", "中型", "小型")}
+    assert tier["小型"][tier["小型"]].index.tolist() == ["A", "B"]
+    assert tier["中型"][tier["中型"]].index.tolist() == ["C", "D"]
+    assert tier["大型"][tier["大型"]].index.tolist() == ["E", "F"]
+
+
+def test_market_regime_against_200_day_average():
+    p = _panel({"A": [1.0] * 202})
+    p.ewi = np.r_[np.ones(200), 2.0, 0.5]
+    up, down = triggers._STRATA["地合い上"](p)[:, 0], triggers._STRATA["地合い下"](p)[:, 0]
+    assert not up[:199].any() and not down[:199].any()
+    assert down[199] and not up[199]
+    assert up[200] and not down[200]
+    assert down[201] and not up[201]
+
+
+def test_merge_adopted_ors_two_skips():
+    a, b, s = _sig(5, 1), _sig(5, 3), _sig(5, 2)
+    kw = et.merge_adopted([{"skip": a}, {"sell": s}, {"skip": b}])
+    assert (kw["skip"] == (a | b)).all() and kw["sell"] is s
+
+
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------
 # DB に触れず argparse のディスパッチだけを固定する（_run_full/_run_walkforward を monkeypatch で no-op 化）。
 def test_full_requires_train_end(monkeypatch):

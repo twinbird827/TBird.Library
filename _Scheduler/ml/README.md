@@ -46,7 +46,7 @@ uv run python explore.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 要約表・期間の境界・候補を標準出力に出し、`_Tools/TradeAnalyzer/explore/` に `summary.csv`（ルール×版ごとの要約と選抜基準の合否）と `monthly.csv`（形成月ごとの TX・LS・銘柄数・上位 5 分位の最大業種比率）を書く。
 
-`triggers.py` の全トリガーを「トリガー日の翌営業日の始値で建て、5・20・60・120 営業日持つ」前提で評価し、通過したトリガー・売りのトリガーを使った見送り/早めの売り・通過したトリガーの OR 戦略を要約する（基準は `explore_triggers.py` の docstring）。DB は読み取り専用で開く。
+`triggers.py` の全トリガーを「トリガー日の翌営業日の始値で建て、5・60・120・240 営業日持つ」前提で評価し、通過したトリガー・売りのトリガーを使った見送り/早めの売り・通過したトリガーの OR 戦略を要約する（基準は `explore_triggers.py` の docstring）。DB は読み取り専用で開く。
 
 ```bash
 uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db
@@ -54,7 +54,7 @@ uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 要約表・期間の境界・通過したトリガーと採った保有期間・OR 戦略の同時保有数を標準出力に出し、`_Tools/TradeAnalyzer/explore/triggers/` に `summary.csv`（トリガー×版×保有期間ごとの要約と合否）と `monthly.csv`（月ごとの平均超過リターン）を書く。
 
-`--combo` を付けると、組み合わせのトリガー（`triggers.COMBO_TRIGGERS`）を足して同じ基準で選び、C3 の頑健性グリッド（`triggers.ROBUSTNESS`、版は「頑健性」で選抜に使わない）も並べて、末尾に試行数を出す。出力先は `_Tools/TradeAnalyzer/explore/triggers-combo/`。
+`--combo` を付けると、組み合わせのトリガー（`triggers.COMBO_TRIGGERS`）を足して同じ基準で選び、通過した買いのトリガーごとに負けた買い（P2 出来高急増の大陽線・P4 急落）が直前 20 営業日に出ていたら建てない見送り（版は「(b) 負けた買いの見送り」）を (b) と同じ基準で評価し、C3 の頑健性グリッドと時価総額・地合いの層別（`triggers.ROBUSTNESS`、版は「頑健性」で選抜に使わない）も並べて、末尾に試行数を出す。出力先は `_Tools/TradeAnalyzer/explore/triggers-combo/`。
 
 ```bash
 uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db --combo

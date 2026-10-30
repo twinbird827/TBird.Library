@@ -8,7 +8,8 @@
 （空売りは超過リターンの符号を反転して当てる）。各トリガーは、通過した保有期間のうち P1〜P3 の最小値が最大のものを採る。
 通過した売りのトリガーを、通過した買いのトリガーの (b) 見送り条件と (c) 保有中の早めの売り条件として評価し、元との差の
 月次系列の t 値 2.5 以上・P1〜P3 のすべてで正なら採用する。最後に、通過した買いのトリガーの OR 戦略を日次で組んで要約する。
---combo は組み合わせのトリガーを足して同じ基準で選び、C3 の頑健性グリッドを選抜に使わず並べる（出力は explore/triggers-combo/）。
+--combo は組み合わせのトリガーを足して同じ基準で選び、通過した買いのトリガーごとに「P2・P4 が直前 20 営業日に出ていたら建てない」
+見送りを (b) と同じ基準で評価し、C3 の頑健性グリッドと層別を選抜に使わず並べる（出力は explore/triggers-combo/）。
 """
 from __future__ import annotations
 
@@ -147,6 +148,15 @@ def lookback(sell: np.ndarray) -> np.ndarray:
     return pd.DataFrame(sell, dtype=float).rolling(SELL_LOOKBACK, min_periods=1).max().to_numpy() > 0
 
 
+def merge_adopted(kws) -> dict:
+    """採用した (b)(c) の Leg の引数を 1 つにまとめる。見送りが 2 つ採用されたら skip を論理和にする。"""
+    out = {}
+    for kw in kws:
+        for k, v in kw.items():
+            out[k] = out[k] | v if k in out else v
+    return out
+
+
 def periods(dates: pd.DatetimeIndex) -> pd.Series:
     """トリガー日の月 → P1/P2/P3（端数は P3）。"""
     last = pd.Series(np.arange(len(dates)), index=dates.to_period("M")).groupby(level=0).max()
@@ -246,27 +256,31 @@ def main() -> None:
     buys = [n for n in chosen if n not in triggers.SELL_TRIGGERS]
     sells = [n for n in chosen if n in triggers.SELL_TRIGGERS]
 
-    adopted: dict[str, dict] = {}
+    variants = []
     if sells:
         sell_any = np.logical_or.reduce([raw[n] for n in sells])
-        recent = lookback(sell_any)
-        for name in buys:
-            hold, stop, s0 = chosen[name], name not in triggers.REVERSAL, base[name, chosen[name]][1]
-            for variant, kw in [("(b) 見送り", {"skip": recent}), ("(c) 早めの売り", {"sell": sell_any})]:
-                row, s = summarize(simulate(m, [Leg(sig[name], hold, stop, **kw)]), m, per, nw_lag(hold))
-                d = (s - s0).dropna()
-                diff = by_period(d, per)
-                row.update({"差": d.mean(), "差t": nw_t(d, nw_lag(hold)), **{f"差_{k}": v for k, v in diff.items()}})
-                row["採用"] = row["差t"] >= MIN_T and all(v > 0 for v in diff.values())
-                record(name, variant, hold, row, s)
-                if row["採用"]:
-                    adopted.setdefault(name, {}).update(kw)
+        variants += [("(b) 見送り", {"skip": lookback(sell_any)}), ("(c) 早めの売り", {"sell": sell_any})]
+    if args.combo:
+        variants.append(("(b) 負けた買いの見送り", {"skip": lookback(raw["P2 出来高急増の大陽線"] | raw["P4 急落"])}))
+    adopted: dict[str, dict[str, dict]] = {}
+    for name in buys:
+        hold, stop, s0 = chosen[name], name not in triggers.REVERSAL, base[name, chosen[name]][1]
+        for variant, kw in variants:
+            row, s = summarize(simulate(m, [Leg(sig[name], hold, stop, **kw)]), m, per, nw_lag(hold))
+            d = (s - s0).dropna()
+            diff = by_period(d, per)
+            row.update({"差": d.mean(), "差t": nw_t(d, nw_lag(hold)), **{f"差_{k}": v for k, v in diff.items()}})
+            row["採用"] = row["差t"] >= MIN_T and all(v > 0 for v in diff.values())
+            record(name, variant, hold, row, s)
+            if row["採用"]:
+                adopted.setdefault(name, {})[variant] = kw
 
     holding = {}
     if buys:
         lag = nw_lag(max(chosen[n] for n in buys))
         for variant, ad in [("元", {})] + ([("(b)(c) 採用込み", adopted)] if adopted else []):
-            legs = [Leg(sig[n], chosen[n], n not in triggers.REVERSAL, **ad.get(n, {})) for n in buys]
+            legs = [Leg(sig[n], chosen[n], n not in triggers.REVERSAL, **merge_adopted(ad.get(n, {}).values()))
+                    for n in buys]
             tr = simulate(m, legs).dropna(subset=["ex"])
             d, cnt = daily_excess(m, tr)
             s = (1 + d).groupby(d.index.to_period("M")).prod() - 1
@@ -291,14 +305,14 @@ def main() -> None:
         print(f"{k}: {mk.min()}〜{mk.max()}（{len(mk)} か月）" if len(mk) else f"{k}: なし")
     print("通過:", ", ".join(f"{n}({h}日)" for n, h in chosen.items()) if chosen else "なし")
     print("採用した (b)(c):", ", ".join(
-        f"{n}({'+'.join('(b)' if k == 'skip' else '(c)' for k in kw)})" for n, kw in adopted.items()) if adopted else "なし")
+        f"{n}({'+'.join(v)})" for n, v in adopted.items()) if adopted else "なし")
     for variant, h in holding.items():
         print(f"OR {variant} の同時保有数: 平均 {h['mean']:.1f}・中央値 {h['50%']:.0f}・90% {h['90%']:.0f}・最大 {h['max']:.0f}")
     print("出力:", out_dir)
     if args.combo:
         nh = len(triggers.HOLDING_DAYS)
         print(f"試行数: 選抜の対象 {len(sig)} 本 × {nh} 保有期間 = {len(sig) * nh}、"
-              f"頑健性グリッド {len(grid)} 通り × {nh} = {len(grid) * nh}（選抜に使わない）")
+              f"見送りの評価 {len(buys)} 本、頑健性グリッド {len(grid)} 通り × {nh} = {len(grid) * nh}（選抜に使わない）")
 
 
 if __name__ == "__main__":
