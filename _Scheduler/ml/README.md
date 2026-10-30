@@ -54,6 +54,12 @@ uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 要約表・期間の境界・通過したトリガーと採った保有期間・OR 戦略の同時保有数を標準出力に出し、`_Tools/TradeAnalyzer/explore/triggers/` に `summary.csv`（トリガー×版×保有期間ごとの要約と合否）と `monthly.csv`（月ごとの平均超過リターン）を書く。
 
+`--combo` を付けると、組み合わせのトリガー（`triggers.COMBO_TRIGGERS`）を足して同じ基準で選び、C3 の頑健性グリッド（`triggers.ROBUSTNESS`、版は「頑健性」で選抜に使わない）も並べて、末尾に試行数を出す。出力先は `_Tools/TradeAnalyzer/explore/triggers-combo/`。
+
+```bash
+uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db --combo
+```
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。

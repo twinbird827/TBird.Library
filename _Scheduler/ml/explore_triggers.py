@@ -8,6 +8,7 @@
 （空売りは超過リターンの符号を反転して当てる）。各トリガーは、通過した保有期間のうち P1〜P3 の最小値が最大のものを採る。
 通過した売りのトリガーを、通過した買いのトリガーの (b) 見送り条件と (c) 保有中の早めの売り条件として評価し、元との差の
 月次系列の t 値 2.5 以上・P1〜P3 のすべてで正なら採用する。最後に、通過した買いのトリガーの OR 戦略を日次で組んで要約する。
+--combo は組み合わせのトリガーを足して同じ基準で選び、C3 の頑健性グリッドを選抜に使わず並べる（出力は explore/triggers-combo/）。
 """
 from __future__ import annotations
 
@@ -195,17 +196,21 @@ def daily_excess(m: Market, tr: pd.DataFrame) -> tuple[pd.Series, np.ndarray]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--db", required=True)
+    ap.add_argument("--combo", action="store_true", help="組み合わせのトリガーと C3 の頑健性グリッドを足す")
     args = ap.parse_args()
 
     db_path = Path(args.db).resolve()
-    out_dir = db_path.parent / "explore" / "triggers"
+    out_dir = db_path.parent / "explore" / ("triggers-combo" if args.combo else "triggers")
     out_dir.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
     try:
         p = triggers.DailyPanel(conn)
     finally:
         conn.close()
-    raw = {n: f(p).to_numpy(bool) for n, f in triggers.TRIGGERS.items()}
+    trig = triggers.TRIGGERS | triggers.COMBO_TRIGGERS if args.combo else triggers.TRIGGERS
+    grid = triggers.ROBUSTNESS if args.combo else {}
+    raw = {n: f(p).to_numpy(bool) for n, f in trig.items()}
+    graw = {n: f(p).to_numpy(bool) for n, f in grid.items()}
     m = Market(p)
     del p
     per = periods(m.dates)
@@ -227,6 +232,11 @@ def main() -> None:
             row["通過"] = passes(row)
             record(name, "元", hold, row, s)
             base[name, hold] = (row, s)
+
+    for name, r in graw.items():
+        for hold in triggers.HOLDING_DAYS:
+            row, s = summarize(simulate(m, [Leg(r & inper[:, None], hold, True)]), m, per, nw_lag(hold))
+            record(name, "頑健性", hold, row, s)
 
     chosen = {}
     for name in sig:
@@ -285,6 +295,10 @@ def main() -> None:
     for variant, h in holding.items():
         print(f"OR {variant} の同時保有数: 平均 {h['mean']:.1f}・中央値 {h['50%']:.0f}・90% {h['90%']:.0f}・最大 {h['max']:.0f}")
     print("出力:", out_dir)
+    if args.combo:
+        nh = len(triggers.HOLDING_DAYS)
+        print(f"試行数: 選抜の対象 {len(sig)} 本 × {nh} 保有期間 = {len(sig) * nh}、"
+              f"頑健性グリッド {len(grid)} 通り × {nh} = {len(grid) * nh}（選抜に使わない）")
 
 
 if __name__ == "__main__":

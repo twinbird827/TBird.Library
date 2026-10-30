@@ -382,6 +382,55 @@ def test_revisions_compare_same_fiscal_year_and_use_nonconsolidated():
     assert out["B", pd.Timestamp("2024-03-01")] == pytest.approx(0.15)
 
 
+def _panel(px: dict, **kw) -> triggers.DailyPanel:
+    """px（銘柄 → 終値の列）から作る、メソッドの使える DailyPanel。"""
+    px = pd.DataFrame(px, index=pd.bdate_range("2024-01-01", periods=len(next(iter(px.values())))), dtype=float)
+    p = object.__new__(triggers.DailyPanel)
+    p.__dict__.update(px=px, dates=px.index, codes=px.columns, cidx={c: j for j, c in enumerate(px.columns)},
+                      ewi=np.ones(len(px)), **kw)
+    return p
+
+
+def test_sector_pbr_rank_within_eligible_and_sector():
+    codes = list("ABCDEFGHI")
+    px = {c: [v] * 3 for c, v in zip(codes, [10, 20, 30, 40, 70, 50, 60, 10, 20])}
+    elig = pd.DataFrame(True, index=pd.bdate_range("2024-01-01", periods=3), columns=codes)
+    elig.loc[elig.index[1], ["F", "G"]] = False
+    elig.loc[elig.index[2], "G"] = False
+    fin = pd.DataFrame({"Code": codes + ["E"], "DiscloseDate": pd.Timestamp("2023-05-01"), "Bps": 100.0, "q": 4})
+    # E は前の期の BPS が正で、直近の本決算の BPS が 0 以下。
+    fin.loc[len(codes), ["DiscloseDate", "Bps"]] = [pd.Timestamp("2023-12-01"), -5.0]
+    sec = pd.DataFrame([["s1"] * 7 + ["s2"] * 2] * 3, index=elig.index, columns=codes)
+    r = triggers._sector_pbr_rank(_panel(px, eligible=elig, sec=sec, fin=fin))
+    assert r.iloc[0, :7].tolist() == pytest.approx([1 / 6, 2 / 6, 3 / 6, 4 / 6, np.nan, 5 / 6, 1.0], nan_ok=True)
+    assert r.iloc[1].isna().all()  # s1 の母集団が 4、s2 は 2。
+    assert r.iloc[2, :6].tolist() == pytest.approx([0.2, 0.4, 0.6, 0.8, np.nan, 1.0], nan_ok=True)
+    assert r.iloc[2, 6:].isna().all()
+
+
+def test_c5_judges_drop_until_previous_day():
+    n = 70
+    a = np.full(n, 100.0)
+    a[61:66] = [95.0, 90.0, 85.0, 80.0, 75.0]
+    a[66:] = 79.5
+    vol = np.full((n, 1), 1000.0)
+    vol[66] = 6000.0
+    p = _panel({"A": a})
+    p.vol = pd.DataFrame(vol, index=p.dates, columns=p.codes)
+    hit = triggers.COMBO_TRIGGERS["C5 急落後の出来高急増の大陽線"](p)["A"]
+    assert hit.tolist() == [i == 66 for i in range(n)]
+    # t で見ると当日の戻りで −20% を割らない。
+    assert p.excess(5)["A"].iloc[66] > -0.20
+
+
+def test_revision_threshold(monkeypatch):
+    p = _panel({"A": [1.0] * 3})
+    monkeypatch.setattr(triggers, "revisions", lambda _: pd.DataFrame(
+        {"Code": ["A"], "DiscloseDate": [p.dates[1]], "chg": [0.07]}))
+    assert not triggers._revision(p, True).to_numpy().any()
+    assert triggers._revision(p, True, 0.05)["A"].tolist() == [False, True, False]
+
+
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------
 # DB に触れず argparse のディスパッチだけを固定する（_run_full/_run_walkforward を monkeypatch で no-op 化）。
 def test_full_requires_train_end(monkeypatch):

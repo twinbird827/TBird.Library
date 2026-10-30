@@ -114,13 +114,24 @@ def revisions(p: DailyPanel) -> pd.DataFrame:
     return out.dropna(subset=["chg"])[["Code", "DiscloseDate", "chg"]]
 
 
-def _revision(p: DailyPanel, up: bool) -> pd.DataFrame:
+def _revision(p: DailyPanel, up: bool, th: float = 0.10) -> pd.DataFrame:
     r = revisions(p)
-    return _events(p, r[r["chg"] >= 0.10] if up else r[r["chg"] <= -0.10])
+    return _events(p, r[r["chg"] >= th] if up else r[r["chg"] <= -th])
 
 
 def _fy(p: DailyPanel) -> pd.DataFrame:
     return p.fin[p.fin["q"] == 4]
+
+
+def _sector_pbr_rank(p: DailyPanel) -> pd.DataFrame:
+    """母集団の銘柄の PBR の業種内パーセンタイル順位。業種内の銘柄が 5 未満なら NaN。
+
+    BPS は直近の本決算の値で、0 以下なら NaN（"bk" は 0 以下の期を落として前の期の正の値を持ち越すので使わない）。
+    """
+    bps = _daily_asof(p, _fy(p), "Bps")
+    s = (p.px / bps.where(bps > 0)).where(p.eligible).stack().dropna()
+    g = s.groupby([s.index.get_level_values(0), p.sec.stack().reindex(s.index)])
+    return g.rank(pct=True).where(g.transform("size") >= 5).unstack().reindex(index=p.dates, columns=p.codes)
 
 
 def _ear(p: DailyPanel, up: bool) -> pd.DataFrame:
@@ -227,6 +238,25 @@ TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
     "X7 急騰": lambda p: p.excess(5) >= 0.20,
     "X8 信用買い残の急増": _x8,
 }
-SELL_TRIGGERS = {n for n in TRIGGERS if n.startswith("X")}
+# 単独で傾向のあった指標の組み合わせ（explore_triggers.py --combo だけが評価する）。
+COMBO_TRIGGERS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
+    # 急落は t の大陽線で縮まないよう t−1 までで見る。
+    "C5 急落後の出来高急増の大陽線": lambda p: _volume_spike(p, True) & (p.excess(5).shift(1) <= -0.20),
+    "C6 業種内割安×上方修正": lambda p: _revision(p, True) & (_sector_pbr_rank(p) <= 0.2),
+    "C7 業種内割安×ゴールデンクロス": lambda p: _cross(p, True) & (_sector_pbr_rank(p) <= 0.2),
+    "C8 業種内割安×信用倍率の売り長転換": lambda p: _s1(p) & (_sector_pbr_rank(p) <= 0.2),
+    "X9 赤字×急落": lambda p: (_daily_asof(p, p.fin, "NP_ttm") < 0) & (p.excess(5) <= -0.20),
+    "X10 業種内割高×急落": lambda p: (_sector_pbr_rank(p) > 0.8) & (p.excess(5) <= -0.20),
+}
+# C3 の頑健性グリッド（割安の定義 × 修正の幅）。選抜には使わず、周りの設定でも効くかを見るだけ。
+_CHEAP: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
+    "PBR1倍未満": lambda p: p.px / _daily_asof(p, _fy(p), "bk") < 1,
+    **{f"業種内下位{q:.0%}": (lambda p, q=q: _sector_pbr_rank(p) <= q) for q in (0.1, 0.2, 0.3)},
+}
+ROBUSTNESS: dict[str, Callable[[DailyPanel], pd.DataFrame]] = {
+    f"G {c}×修正{w:.0%}": (lambda p, f=f, w=w: _revision(p, True, w) & f(p))
+    for c, f in _CHEAP.items() for w in (0.05, 0.10, 0.20)
+}
+SELL_TRIGGERS = {n for n in [*TRIGGERS, *COMBO_TRIGGERS] if n.startswith("X")}
 # 【反発】のトリガー。行き過ぎの戻りを狙うので損切りを掛けない（それ以外は【トレンド】で損切りを掛ける）。
-REVERSAL = {"P4 急落", "C1 財務良×急落", "X7 急騰"}
+REVERSAL = {"P4 急落", "C1 財務良×急落", "X7 急騰", "C5 急落後の出来高急増の大陽線"}
