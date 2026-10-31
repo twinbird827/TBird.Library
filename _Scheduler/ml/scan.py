@@ -3,9 +3,11 @@
 分位は形成日ごとの母集団の中の順位（同じ値は平均順位）を 0.2 刻みで切り、欠損の銘柄はその指標の条件に入れない。
 条件の値は、形成日ごとの「条件を満たす銘柄の ex_<h> の平均」を形成日の月で平均した系列の、月をまたいだ平均と Newey-West の t 値。
 足切り: 件数 1,000 以上・30 か月以上。帰無分布: 形成日ごとに ex の行（3 つの h をまとめて）を銘柄の間で並べ替えて総当たりをやり直し、
-足切りを通った全条件・全 h の最大の t 値を 200 回記録する。候補: t 値が帰無分布の 95% 点以上で D1・D2 の月平均がどちらも正。
-D1・D2 の小さいほうの降順に、採った候補と行の重なり（積集合 ÷ 小さいほうの件数）が 0.8 以上のものを飛ばして 5 本まで採る。
-t 値が 95% 点の負側以下のものは「避ける条件」として出すが候補にしない。DB は読み取り専用で開き、封印期間の価格は読まない。
+足切りを通った全条件・全 h の最大の t 値と、コストを引く前（月の値 + COST）の最小の t 値を 200 回記録する。
+候補: t 値が最大の t 値の 95% 点以上で D1・D2 の月平均がどちらも正。t 値の降順に、採った候補と行の重なり
+（積集合 ÷ 小さいほうの件数）が 0.8 以上のものを飛ばして 5 本まで採る。
+避ける条件: コストを引く前の t 値が最小の t 値の 5% 点以下（見送りは売買しないのでコストを引かない）。候補にはしない。
+DB は読み取り専用で開き、封印期間の価格は読まない。
 """
 from __future__ import annotations
 
@@ -100,7 +102,7 @@ def conditions(n_feat: int) -> tuple[np.ndarray, np.ndarray]:
 
 
 def stats(M: np.ndarray, N: np.ndarray, per: pd.Series) -> pd.DataFrame:
-    """sweep の結果を、条件 × h ごとの件数・月数・月平均・t 値・D1/D2 の月平均・足切りの可否にする。"""
+    """sweep の結果を、条件 × h ごとの件数・月数・月平均・t 値・コスト前の t 値・D1/D2 の月平均・足切りの可否にする。"""
     a, b = conditions(M.shape[-1] // N_Q)
     d1 = (per == "D1").to_numpy()
     out = []
@@ -111,6 +113,7 @@ def stats(M: np.ndarray, N: np.ndarray, per: pd.Series) -> pd.DataFrame:
             out.append(pd.DataFrame({
                 "a": a, "b": b, "h": h, "件数": N[k, a, b].astype(int), "月数": (~np.isnan(X)).sum(1),
                 "超過": np.nanmean(X, 1), "t": nw_t_rows(X, et.nw_lag(h)),
+                "tコスト前": nw_t_rows(X + dataset.COST, et.nw_lag(h)),
                 "D1": np.nanmean(X[:, d1], 1), "D2": np.nanmean(X[:, ~d1], 1)}))
     r = pd.concat(out, ignore_index=True)
     r["通過"] = (r["件数"] >= MIN_ROWS) & (r["月数"] >= MIN_MONTHS)
@@ -136,11 +139,11 @@ def rows_of(q: np.ndarray, ex: np.ndarray, a: int, b: int, h: int) -> np.ndarray
             & ~np.isnan(ex[:, dataset.HOLDS.index(h)]))
 
 
-def select(res: pd.DataFrame, thr: float, q: np.ndarray, ex: np.ndarray) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """候補（最大 5 本）と避ける条件。"""
+def select(res: pd.DataFrame, thr: float, thr_lo: float, q: np.ndarray, ex: np.ndarray
+           ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """候補（最大 5 本）と避ける条件。thr は最大の t 値の 95% 点、thr_lo はコスト前の最小の t 値の 5% 点。"""
     ok = res["通過"]
-    c = res[ok & (res["t"] >= thr) & (res["D1"] > 0) & (res["D2"] > 0)]
-    c = c.assign(minD=c[["D1", "D2"]].min(axis=1)).sort_values("minD", ascending=False, kind="stable")
+    c = res[ok & (res["t"] >= thr) & (res["D1"] > 0) & (res["D2"] > 0)].sort_values("t", ascending=False, kind="stable")
     chosen, masks = [], []
     for i, r in c.iterrows():
         m = rows_of(q, ex, int(r["a"]), int(r["b"]), int(r["h"]))
@@ -150,7 +153,7 @@ def select(res: pd.DataFrame, thr: float, q: np.ndarray, ex: np.ndarray) -> tupl
         masks.append(m)
         if len(chosen) == MAX_CANDIDATES:
             break
-    return c.loc[chosen].drop(columns="minD"), res[ok & (res["t"] <= -thr)].sort_values("t")
+    return c.loc[chosen], res[ok & (res["tコスト前"] <= thr_lo)].sort_values("tコスト前")
 
 
 def named(r: pd.DataFrame) -> pd.DataFrame:
@@ -179,20 +182,22 @@ def main() -> None:
     month = per.index.get_indexer(df["date"].dt.to_period("M"))
     res = stats(*sweep(q, ex, day, month, len(per)), per)
     rng = np.random.default_rng(SEED)
-    null = []
+    null, null_lo = [], []
     for _ in range(N_SHUFFLE):
         perm = np.lexsort((rng.random(len(day)), day))
         r = stats(*sweep(q, ex[perm], day, month, len(per)), per)
         null.append(r.loc[r["通過"], "t"].max())
+        null_lo.append(r.loc[r["通過"], "tコスト前"].min())
     t2 = time.perf_counter()
     thr = float(np.quantile(null, NULL_PCT))
-    cand, avoid = select(res, thr, q, ex)
+    thr_lo = float(np.quantile(null_lo, 1 - NULL_PCT))
+    cand, avoid = select(res, thr, thr_lo, q, ex)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     single = res["a"] == res["b"]
     named(res[single]).to_csv(out_dir / "singles.csv", index=False, encoding="utf-8-sig")
     named(res[~single & res["通過"]]).to_csv(out_dir / "pairs.csv", index=False, encoding="utf-8-sig")
-    pd.DataFrame({"回": np.arange(1, N_SHUFFLE + 1), "最大t": null}).to_csv(
+    pd.DataFrame({"回": np.arange(1, N_SHUFFLE + 1), "最大t": null, "コスト前の最小t": null_lo}).to_csv(
         out_dir / "null.csv", index=False, encoding="utf-8-sig")
     both = pd.concat([cand.assign(区分="候補"), avoid.assign(区分="避ける")])
     named(both).to_csv(out_dir / "candidates.csv", index=False, encoding="utf-8-sig")
@@ -202,7 +207,7 @@ def main() -> None:
             - s[s["分位1"] == 1].set_index(["指標1", "h"])["超過"]).rename("上位−下位").reset_index()
     tilt = tilt.reindex(tilt["上位−下位"].abs().sort_values(ascending=False).index)
 
-    fmt = {c: "{:+.2%}".format for c in ["超過", "D1", "D2", "上位−下位"]} | {"t": "{:.2f}".format}
+    fmt = {c: "{:+.2%}".format for c in ["超過", "D1", "D2", "上位−下位"]} | {"t": "{:.2f}".format, "tコスト前": "{:.2f}".format}
     pd.set_option("display.width", 300)
     pd.set_option("display.max_columns", 50)
     pd.set_option("display.unicode.east_asian_width", True)
@@ -213,9 +218,10 @@ def main() -> None:
           ", ".join(f"{h}日 単独 {int((g['通過'] & (g['a'] == g['b'])).sum())}・組み合わせ "
                     f"{int((g['通過'] & (g['a'] != g['b'])).sum())}" for h, g in res.groupby("h")) + "）")
     print(f"帰無分布の最大 t 値の 95% 点: {thr:.2f}（中央値 {np.median(null):.2f}・最大 {np.max(null):.2f}）")
+    print(f"帰無分布のコスト前の最小 t 値の 5% 点: {thr_lo:.2f}（中央値 {np.median(null_lo):.2f}・最小 {np.min(null_lo):.2f}）")
     print("候補:")
     print(named(cand).to_string(index=False, formatters=fmt) if len(cand) else "なし")
-    print(f"避ける条件（{len(avoid)} 件、t の小さい順に上位 20）:")
+    print(f"避ける条件（{len(avoid)} 件、コスト前の t の小さい順に上位 20）:")
     print(named(avoid.head(20)).to_string(index=False, formatters=fmt) if len(avoid) else "なし")
     print("単独の分位の傾き（Q5 − Q1 の月平均、絶対値の大きい順に上位 20）:")
     print(tilt.head(20).to_string(index=False, formatters=fmt))

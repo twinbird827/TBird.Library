@@ -656,7 +656,7 @@ def test_dataset_reads_no_price_after_end(tmp_path):
 
 
 def _scan_frame(signal: float) -> pd.DataFrame:
-    """指標がすべて乱数の合成データセット。ret1 の上位 5 分位だけ ex_20 が signal 高い。"""
+    """指標がすべて乱数の合成データセット。ret1 の上位 5 分位だけ ex_20 が signal 高く、ret5 の下位 5 分位だけ ex_5 が signal 低い。"""
     dates = pd.bdate_range("2019-01-01", periods=21 * 60)
     fd = dataset.formation_dates(dates)
     fd = fd[fd.to_period("M").isin(dataset.months(dates).index)]
@@ -667,8 +667,10 @@ def _scan_frame(signal: float) -> pd.DataFrame:
     for h in dataset.HOLDS:
         df[f"ex_{h}"] = rng.normal(0, 0.05, len(df))
     df.loc[df.groupby("date")["ret1"].rank(pct=True) > 0.8, "ex_20"] += signal
+    df.loc[df.groupby("date")["ret5"].rank(pct=True) <= 0.2, "ex_5"] -= signal
     # 実データと同じく、形成日の母集団の平均に対する超過にする。
-    df["ex_20"] -= df.groupby("date")["ex_20"].transform("mean")
+    for h in (5, 20):
+        df[f"ex_{h}"] -= df.groupby("date")[f"ex_{h}"].transform("mean")
     df.attrs["dates"] = dates
     return df
 
@@ -697,9 +699,13 @@ def test_scan_finds_planted_quintile_and_matches_summarize():
         s = scan.summarize(df, (q[:, a // 5] == a % 5) & (q[:, b // 5] == b % 5), h)
         assert s["件数"] == row["件数"] and s["月数"] == row["月数"]
         assert [s[k] for k in ["超過", "t", "D1", "D2"]] == pytest.approx([row[k] for k in ["超過", "t", "D1", "D2"]])
-    cand, _ = scan.select(res, 3.0, q, ex)
-    # 先頭は ret1 Q5 か、その部分集合の組み合わせ。採った候補どうしの行の重なりは 0.8 未満。
-    assert cand.iloc[0]["a"] == target and cand.iloc[0]["h"] == 20
+    cand, avoid = scan.select(res, 3.0, -3.0, q, ex)
+    # t 値の降順なので先頭は ret1 Q5 で、その部分集合の組み合わせは重なりで飛ばす。採った候補どうしの行の重なりは 0.8 未満。
+    assert (cand.iloc[0]["a"], cand.iloc[0]["b"], cand.iloc[0]["h"]) == (target, target, 20)
+    assert not ((cand["a"] == target) & (cand["b"] != target)).any()
+    low = dataset.FEATURES.index("ret5") * scan.N_Q
+    assert (avoid.iloc[0]["a"], avoid.iloc[0]["b"], avoid.iloc[0]["h"]) == (low, low, 5)
+    assert (avoid["tコスト前"] <= -3.0).all()
     ms = [scan.rows_of(q, ex, int(r["a"]), int(r["b"]), int(r["h"])) for _, r in cand.iterrows()]
     assert all((x & y).sum() / min(x.sum(), y.sum()) < scan.MAX_OVERLAP for i, x in enumerate(ms) for y in ms[:i])
 
