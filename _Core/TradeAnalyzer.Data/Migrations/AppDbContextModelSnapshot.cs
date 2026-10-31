@@ -276,13 +276,37 @@ namespace TradeAnalyzer.Data.Migrations
                     b.Property<double?>("Bps")
                         .HasColumnType("REAL");
 
+                    b.Property<DateOnly?>("CurrentFiscalYearEnd")
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("Eps")
                         .HasColumnType("REAL");
 
                     b.Property<double?>("Equity")
                         .HasColumnType("REAL");
 
+                    b.Property<double?>("ForecastNetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ForecastNonConsolidatedNetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ForecastNonConsolidatedOperatingProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ForecastOperatingProfit")
+                        .HasColumnType("REAL");
+
                     b.Property<double?>("NetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateOnly?>("NextFiscalYearEnd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("NextForecastNetProfit")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("NextForecastOperatingProfit")
                         .HasColumnType("REAL");
 
                     b.Property<double?>("OperatingProfit")
@@ -299,6 +323,68 @@ namespace TradeAnalyzer.Data.Migrations
                     b.HasIndex("Code", "DiscloseDate");
 
                     b.ToTable("FinSummaries");
+                });
+
+            modelBuilder.Entity("TradeAnalyzer.Data.Entities.MarginInterest", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IssueType")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("LongNegotiableVolume")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LongStandardizedVolume")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LongVolume")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ShortNegotiableVolume")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ShortStandardizedVolume")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ShortVolume")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Code", "Date");
+
+                    b.HasIndex("Date");
+
+                    b.ToTable("MarginInterests");
+                });
+
+            modelBuilder.Entity("TradeAnalyzer.Data.Entities.SectorShortRatio", b =>
+                {
+                    b.Property<string>("Sector33")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("SellExShortValue")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ShortNoRestrictionValue")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ShortWithRestrictionValue")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Sector33", "Date");
+
+                    b.HasIndex("Date");
+
+                    b.ToTable("SectorShortRatios");
                 });
 
             modelBuilder.Entity("TradeAnalyzer.Data.Entities.Signal", b =>

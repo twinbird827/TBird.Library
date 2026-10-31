@@ -93,7 +93,7 @@ def read_daily_bars(
         params.append(pd.Timestamp(end).strftime("%Y-%m-%d"))
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     df = pd.read_sql(
-        "SELECT Code, Date, AdjOpen, AdjHigh, AdjLow, AdjClose, AdjVolume "
+        "SELECT Code, Date, AdjOpen, AdjHigh, AdjLow, AdjClose, AdjVolume, Close, Volume, TurnoverValue "
         f"FROM DailyBars {where}",
         conn,
         params=params,
@@ -108,8 +108,10 @@ def read_fin_summaries(conn: sqlite3.Connection) -> pd.DataFrame:
     評価日より後の係数も掛けるが、AdjClose 側にも同じ係数が掛かっていて比では打ち消し合うので先読みにならない。
     """
     df = pd.read_sql(
-        "SELECT Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets "
-        "FROM FinSummaries",
+        "SELECT Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets, "
+        "Sales, OperatingProfit, NetProfit, CurrentFiscalYearEnd, NextFiscalYearEnd, "
+        "ForecastOperatingProfit, ForecastNetProfit, NextForecastOperatingProfit, NextForecastNetProfit, "
+        "ForecastNonConsolidatedOperatingProfit, ForecastNonConsolidatedNetProfit FROM FinSummaries",
         conn,
     )
     df = _parse_dates(df, ["DiscloseDate"])

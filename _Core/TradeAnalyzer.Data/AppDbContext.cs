@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
     public DbSet<Signal> Signals => Set<Signal>();
     public DbSet<BacktestRun> BacktestRuns => Set<BacktestRun>();
     public DbSet<BacktestResult> BacktestResults => Set<BacktestResult>();
+    public DbSet<MarginInterest> MarginInterests => Set<MarginInterest>();
+    public DbSet<SectorShortRatio> SectorShortRatios => Set<SectorShortRatio>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -89,6 +91,20 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.RunId);
             e.HasOne(x => x.Run).WithMany(r => r.Results).HasForeignKey(x => x.RunId);
             e.Property(x => x.Code).HasMaxLength(10);
+        });
+
+        b.Entity<MarginInterest>(e =>
+        {
+            e.HasKey(x => new { x.Code, x.Date });
+            e.HasIndex(x => x.Date);
+            e.Property(x => x.Code).HasMaxLength(10);
+        });
+
+        b.Entity<SectorShortRatio>(e =>
+        {
+            e.HasKey(x => new { x.Sector33, x.Date });
+            e.HasIndex(x => x.Date);
+            e.Property(x => x.Sector33).HasMaxLength(10);
         });
     }
 }

@@ -4,7 +4,7 @@ using TradeAnalyzer.Data.Options;
 namespace TradeAnalyzer.Data.External.JQuants;
 
 /// <summary>
-/// J-Quants Free のレート上限（5 req/分＝プラン全体）を守るためのプロセス内ゲート。
+/// J-Quants のレート上限を守るためのプロセス内ゲート。
 /// 全要求を SemaphoreSlim(1) で直列化し、直近送信からの最低間隔を強制する。
 /// リトライも実 HTTP 要求として上限に算入されるため、このゲートは「実際の送信ごと」に
 /// 通す必要がある（<see cref="JQuantsRateLimitHandler"/> を最内ハンドラに置く）。

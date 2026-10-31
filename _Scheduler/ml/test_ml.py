@@ -11,17 +11,26 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 import optuna
 import pandas as pd
 import pytest
 
+import dataset
 import db as dbmod
+import explore
+import explore_events as ev
+import explore_triggers as et
 import features
+import learn
 import ml_common
 import predict
+import rules
+import scan
 import train
+import triggers
 
 
 def _calendar(n: int, start: str = "2024-01-01") -> np.ndarray:
@@ -185,7 +194,11 @@ def test_read_fin_summaries_applies_share_factor_after_disclose():
         conn.execute("CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjustmentFactor REAL)")
         conn.execute(
             "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
-            "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL)"
+            "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL, "
+            "Sales REAL, OperatingProfit REAL, NetProfit REAL, CurrentFiscalYearEnd TEXT, NextFiscalYearEnd TEXT, "
+            "ForecastOperatingProfit REAL, ForecastNetProfit REAL, NextForecastOperatingProfit REAL, "
+            "NextForecastNetProfit REAL, ForecastNonConsolidatedOperatingProfit REAL, "
+            "ForecastNonConsolidatedNetProfit REAL)"
         )
         conn.executemany(
             "INSERT INTO DailyBars VALUES (?,?,?)",
@@ -197,7 +210,8 @@ def test_read_fin_summaries_applies_share_factor_after_disclose():
             ],
         )
         conn.executemany(
-            "INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO FinSummaries (Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets) "
+            "VALUES (?,?,?,?,?,?,?)",
             [
                 ("A", "2024-03-31", "FY", 10.0, 100.0, 1000.0, 2000.0),
                 ("B", "2024-03-31", "FY", 10.0, 100.0, 1000.0, 2000.0),
@@ -212,7 +226,542 @@ def test_read_fin_summaries_applies_share_factor_after_disclose():
     assert fin.loc["B", "Eps"] == pytest.approx(10.0)
     assert fin.loc["B", "Bps"] == pytest.approx(100.0)
     assert (fin["Equity"] == 1000.0).all()
-    assert list(fin.columns) == ["DiscloseDate", "DocType", "Eps", "Bps", "Equity", "TotalAssets"]
+    assert list(fin.columns) == [
+        "DiscloseDate", "DocType", "Eps", "Bps", "Equity", "TotalAssets", "Sales", "OperatingProfit", "NetProfit",
+        "CurrentFiscalYearEnd", "NextFiscalYearEnd", "ForecastOperatingProfit", "ForecastNetProfit",
+        "NextForecastOperatingProfit", "NextForecastNetProfit",
+        "ForecastNonConsolidatedOperatingProfit", "ForecastNonConsolidatedNetProfit",
+    ]
+
+
+# ---------- rules.py: 形成日当日以降の開示・基準日 + 7 暦日前の信用残を使わない ----------
+def test_fin_asof_excludes_disclosure_on_formation_day():
+    d = pd.Timestamp("2024-06-28")
+    fin = pd.DataFrame({
+        "Code": ["A", "A", "B"],
+        "DiscloseDate": [d - pd.Timedelta(days=1), d, d],
+        "v": [1.0, 2.0, 3.0],
+    })
+    out = rules.fin_asof(fin, "v", pd.DatetimeIndex([d]), pd.Index(["A", "B"]))
+    assert out.loc[d, "A"] == 1.0
+    assert np.isnan(out.loc[d, "B"])
+
+
+def test_margin_asof_waits_seven_days_after_record_date():
+    d = pd.Timestamp("2024-06-28")
+    mi = pd.DataFrame({
+        "Code": ["A", "A", "B"],
+        "Date": [d - pd.Timedelta(days=7), d - pd.Timedelta(days=6), d - pd.Timedelta(days=6)],
+        "v": [1.0, 2.0, 3.0],
+    })
+    out = rules.margin_asof(mi, "v", pd.DatetimeIndex([d]), pd.Index(["A", "B"]))
+    assert out.loc[d, "A"] == 1.0
+    assert np.isnan(out.loc[d, "B"])
+
+
+# ---------- triggers.py / explore_triggers.py: 約定・清算・再トリガー・予想修正・t 値・空売り・(b)(c)・損切り ----------
+def _market(c, o=None, h=None, l=None, marg=True) -> et.Market:
+    """銘柄 A だけの Market。o は省略時 c、h/l は省略時 o と c の高い方/低い方。"""
+    c = np.asarray(c, float)
+    o = c if o is None else np.asarray(o, float)
+    h = np.fmax(o, c) if h is None else np.asarray(h, float)
+    l = np.fmin(o, c) if l is None else np.asarray(l, float)
+    dates = pd.bdate_range("2024-01-01", periods=len(c))
+
+    def f(v):
+        return pd.DataFrame({"A": v}, index=dates)
+
+    return et.Market(SimpleNamespace(
+        dates=dates, px=f(c), open=f(o), high=f(h), low=f(l), eligible=f(~np.isnan(c)),
+        marginable=f(np.full(len(c), marg)), sec=f(np.full(len(c), "x", dtype=object))))
+
+
+def _sig(n: int, *ts: int) -> np.ndarray:
+    s = np.zeros((n, 1), bool)
+    s[list(ts), 0] = True
+    return s
+
+
+def test_simulate_enters_next_open_and_skips_retrigger_while_held():
+    c = np.arange(100.0, 112.0)
+    o = c - 0.5
+    m = _market(c, o)
+    tr = et.simulate(m, [et.Leg(_sig(12, 0, 2, 6), 5, False)])
+    # t=2 は t=0 の保有中（1〜5）なので数えない。
+    assert tr["t"].tolist() == [0, 6]
+    assert tr["exit"].tolist() == [5, 11]
+    assert tr["px"].tolist() == [c[5], c[11]]
+    assert m.bench[0, 5] == pytest.approx(c[5] / o[1] - 1)
+    assert tr["ex"].iloc[0] == pytest.approx(c[5] / o[1] - 1 - m.bench[0, 5] - et.COST)
+
+
+def test_simulate_liquidates_delisted_at_last_close():
+    c = np.r_[100.0, 101.0, 102.0, 103.0, 104.0, 105.0, [np.nan] * 6]
+    tr = et.simulate(_market(c), [et.Leg(_sig(12, 2), 5, False)])
+    assert tr["exit"].tolist() == [7]
+    assert tr["px"].tolist() == [105.0]
+
+
+def test_stop_fills_at_stop_price_intraday_open_on_gap_and_not_for_reversal():
+    n = 10
+    c = np.full(n, 100.0)
+    l = c.copy()
+    l[3] = 89.0
+    tr = et.simulate(_market(c, l=l), [et.Leg(_sig(n, 0), 5, True)])
+    assert tr["exit"].iloc[0] == 3 and tr["px"].iloc[0] == pytest.approx(90.0)
+
+    o = c.copy()
+    o[3], l[3] = 85.0, 84.0
+    tr = et.simulate(_market(c, o, l=l), [et.Leg(_sig(n, 0), 5, True)])
+    assert tr["exit"].iloc[0] == 3 and tr["px"].iloc[0] == 85.0
+
+    # 保有期間の最終日（t+5）の接触も、終値でなく逆指値の価格。
+    l = c.copy()
+    l[5] = 89.0
+    tr = et.simulate(_market(c, l=l), [et.Leg(_sig(n, 0), 5, True)])
+    assert tr["exit"].iloc[0] == 5 and tr["px"].iloc[0] == pytest.approx(90.0)
+
+    # 【反発】（stop=False）には損切りが掛からない。
+    l[3] = 80.0
+    tr = et.simulate(_market(c, l=l), [et.Leg(_sig(n, 0), 5, False)])
+    assert tr["exit"].iloc[0] == 5 and tr["px"].iloc[0] == 100.0
+
+
+def test_short_only_marginable_and_pays_lending_fee():
+    n = 10
+    c = np.linspace(100.0, 91.0, n)
+    empty = et.simulate(_market(c, marg=False), [et.Leg(_sig(n, 0), 5, False)], short=True)
+    assert empty.empty
+    assert et.summarize(empty, _market(c), et.periods(_market(c).dates), 0)[0]["件数"] == 0
+    m = _market(c)
+    tr = et.simulate(m, [et.Leg(_sig(n, 0), 5, False)], short=True)
+    r = c[5] / c[1] - 1 - m.bench[0, 5]
+    assert tr["ex"].iloc[0] == pytest.approx(-r - et.COST - et.LENDING_FEE * 5 / et.DAYS_PER_YEAR)
+
+
+def test_lookback_ignores_sells_after_trigger_day():
+    n, t = 40, 25
+    for day, expect in [(t + 1, False), (t, True), (t - 19, True), (t - 20, False)]:
+        assert et.lookback(_sig(n, day))[t, 0] == expect
+
+
+def test_early_sell_exits_at_next_open():
+    n = 10
+    c = np.arange(100.0, 110.0)
+    o = c - 0.5
+    tr = et.simulate(_market(c, o), [et.Leg(_sig(n, 0), 5, False, sell=_sig(n, 3))])
+    assert tr["exit"].iloc[0] == 4 and tr["px"].iloc[0] == o[4]
+    # 買いのトリガー日 t の売りのトリガーは保有中ではない。
+    tr = et.simulate(_market(c, o), [et.Leg(_sig(n, 0), 5, False, sell=_sig(n, 0))])
+    assert tr["exit"].iloc[0] == 5
+
+
+def test_nw_t_lag0_matches_explore_t_stat():
+    x = pd.Series([0.01, -0.02, 0.03, 0.005, 0.012, -0.004])
+    assert et.nw_t(x, 0) == pytest.approx(explore.t_stat(x))
+
+
+# ---------- explore_events.py: 取れない部分と取れる部分の境目・押し目の約定 ----------
+def test_segments_split_at_trigger_close_and_next_open():
+    n, t = 300, 5
+    c = 100 * 1.01 ** np.arange(n)
+    o = c * 0.98
+    flat = np.full(n, 100.0)
+    dates = pd.bdate_range("2024-01-01", periods=n)
+
+    def f(a):
+        return pd.DataFrame({"A": a, "B": flat}, index=dates)
+
+    # B は始値・終値が 100 で動かないので、比べる相手は A のリターンの半分。
+    m = et.Market(SimpleNamespace(
+        dates=dates, px=f(c), open=f(o), high=f(np.fmax(o, c)), low=f(np.fmin(o, c)),
+        eligible=f(np.ones(n, bool)), marginable=f(np.ones(n, bool)), sec=f(np.full(n, "x", dtype=object))))
+    bp, bgap = ev.bench_paths(m)
+    seg, path = ev.segments(m, bp, bgap, np.array([t]), np.array([0]))
+    assert seg["当日"][0] == pytest.approx((c[t] / c[t - 1] - 1) / 2)
+    assert seg["窓開け"][0] == pytest.approx((o[t + 1] / c[t] - 1) / 2)
+    assert seg[5][0] == pytest.approx((c[t + 5] / o[t + 1] - 1) / 2)
+    assert path[0, 1] == pytest.approx((o[t + 1] / c[t - 1] - 1) / 2)
+    assert path[0, 1 + 60] == pytest.approx((c[t + 60] / c[t - 1] - 1) / 2)
+
+
+def test_dip_fill_same_day_low_gap_down_open_and_k_days():
+    o = np.full((10, 1), 100.0)
+    l = o.copy()
+    t, j = np.array([0]), np.array([0])
+    # t+1 の当日の安値で指値の価格に約定する。
+    l[1] = 96.0
+    day, px = ev.dip_fill(o, l, t, j, 0.03)
+    assert day[0] == 0 and px[0] == pytest.approx(97.0)
+    # 始値がすでに指値以下の日は始値で約定する。
+    l[1] = 100.0
+    o[3], l[3] = 95.0, 94.0
+    day, px = ev.dip_fill(o, l, t, j, 0.03)
+    assert day[0] == 2 and px[0] == 95.0
+    # k 日（t+1〜t+5）を過ぎた下げでは約定しない。
+    o[3], l[3] = 100.0, 100.0
+    l[6] = 90.0
+    day, px = ev.dip_fill(o, l, t, j, 0.03)
+    assert day[0] == -1 and np.isnan(px[0])
+
+
+def _fin(code, date, doctype, fye, nfye=None, fop=None, nxfop=None, fncop=None):
+    return {"Code": code, "DiscloseDate": pd.Timestamp(date), "DocType": doctype, "CurrentFiscalYearEnd": fye,
+            "NextFiscalYearEnd": nfye, triggers.OP_COLS[0]: fop, triggers.OP_COLS[1]: nxfop,
+            triggers.OP_COLS[2]: fncop, **{c: np.nan for c in triggers.NP_COLS}}
+
+
+def test_revisions_compare_same_fiscal_year_and_use_nonconsolidated():
+    allfin = pd.DataFrame([
+        _fin("A", "2024-02-01", "EarnForecastRevision", "2024-03-31", fop=500.0),
+        _fin("A", "2024-05-10", "FYFinancialStatements_Consolidated_JP", "2024-03-31", "2025-03-31", nxfop=100.0),
+        # 年度最初の修正は、本決算の来期予想（100）と比べる。前年度の修正（500）とは比べない。
+        _fin("A", "2024-08-01", "EarnForecastRevision", "2025-03-31", fop=115.0),
+        _fin("A", "2024-08-05", "1QFinancialStatements_Consolidated_JP", "2025-03-31", fop=115.0),
+        _fin("A", "2024-11-01", "EarnForecastRevision", "2025-03-31", fop=138.0),
+        # 単体決算の会社: 決算短信は連結の列に単体の値、修正は単体の列。
+        _fin("B", "2024-02-10", "3QFinancialStatements_NonConsolidated_JP", "2024-03-31", fop=200.0),
+        _fin("B", "2024-03-01", "EarnForecastRevision", "2024-03-31", fncop=230.0),
+    ])
+    out = triggers.revisions(SimpleNamespace(allfin=allfin)).set_index(["Code", "DiscloseDate"])["chg"]
+    assert len(out) == 3
+    assert out["A", pd.Timestamp("2024-08-01")] == pytest.approx(0.15)
+    assert out["A", pd.Timestamp("2024-11-01")] == pytest.approx(0.2)
+    assert out["B", pd.Timestamp("2024-03-01")] == pytest.approx(0.15)
+
+
+def _panel(px: dict, **kw) -> triggers.DailyPanel:
+    """px（銘柄 → 終値の列）から作る、メソッドの使える DailyPanel。"""
+    px = pd.DataFrame(px, index=pd.bdate_range("2024-01-01", periods=len(next(iter(px.values())))), dtype=float)
+    p = object.__new__(triggers.DailyPanel)
+    p.__dict__.update(px=px, dates=px.index, codes=px.columns, cidx={c: j for j, c in enumerate(px.columns)},
+                      ewi=np.ones(len(px)), **kw)
+    return p
+
+
+def test_sector_pbr_rank_within_eligible_and_sector():
+    codes = list("ABCDEFGHI")
+    px = {c: [v] * 3 for c, v in zip(codes, [10, 20, 30, 40, 70, 50, 60, 10, 20])}
+    elig = pd.DataFrame(True, index=pd.bdate_range("2024-01-01", periods=3), columns=codes)
+    elig.loc[elig.index[1], ["F", "G"]] = False
+    elig.loc[elig.index[2], "G"] = False
+    fin = pd.DataFrame({"Code": codes + ["E"], "DiscloseDate": pd.Timestamp("2023-05-01"), "Bps": 100.0, "q": 4})
+    # E は前の期の BPS が正で、直近の本決算の BPS が 0 以下。
+    fin.loc[len(codes), ["DiscloseDate", "Bps"]] = [pd.Timestamp("2023-12-01"), -5.0]
+    sec = pd.DataFrame([["s1"] * 7 + ["s2"] * 2] * 3, index=elig.index, columns=codes)
+    r = triggers._sector_pbr_rank(_panel(px, eligible=elig, sec=sec, fin=fin))
+    assert r.iloc[0, :7].tolist() == pytest.approx([1 / 6, 2 / 6, 3 / 6, 4 / 6, np.nan, 5 / 6, 1.0], nan_ok=True)
+    assert r.iloc[1].isna().all()  # s1 の母集団が 4、s2 は 2。
+    assert r.iloc[2, :6].tolist() == pytest.approx([0.2, 0.4, 0.6, 0.8, np.nan, 1.0], nan_ok=True)
+    assert r.iloc[2, 6:].isna().all()
+
+
+def test_c5_judges_drop_until_previous_day():
+    n = 70
+    a = np.full(n, 100.0)
+    a[61:66] = [95.0, 90.0, 85.0, 80.0, 75.0]
+    a[66:] = 79.5
+    vol = np.full((n, 1), 1000.0)
+    vol[66] = 6000.0
+    p = _panel({"A": a})
+    p.vol = pd.DataFrame(vol, index=p.dates, columns=p.codes)
+    hit = triggers.COMBO_TRIGGERS["C5 急落後の出来高急増の大陽線"](p)["A"]
+    assert hit.tolist() == [i == 66 for i in range(n)]
+    # t で見ると当日の戻りで −20% を割らない。
+    assert p.excess(5)["A"].iloc[66] > -0.20
+
+
+def test_revision_threshold(monkeypatch):
+    p = _panel({"A": [1.0] * 3})
+    monkeypatch.setattr(triggers, "revisions", lambda _: pd.DataFrame(
+        {"Code": ["A"], "DiscloseDate": [p.dates[1]], "chg": [0.07]}))
+    assert not triggers._revision(p, True).to_numpy().any()
+    assert triggers._revision(p, True, 0.05)["A"].tolist() == [False, True, False]
+
+
+def _rev(p, *rows):
+    """(Code, 営業日の位置, fye, np, chg) の行から作る revisions の戻り値。"""
+    return pd.DataFrame([(c, p.dates[i], fye, np_, chg) for c, i, fye, np_, chg in rows],
+                        columns=["Code", "DiscloseDate", "fye", "np", "chg"])
+
+
+def _fyfin(codes, sh=100.0, bk=20.0):
+    return pd.DataFrame({"Code": codes, "DiscloseDate": pd.Timestamp("2023-05-01"), "q": 4, "sh": sh, "bk": bk,
+                         "sue": np.nan})
+
+
+def test_c9_judges_forecast_net_profit_over_mcap(monkeypatch):
+    p = _panel({"A": [10.0] * 3, "B": [10.0] * 3}, fin=_fyfin(["A", "B"]))
+    # 時価総額 1000。A は 150/1000、B は 50/1000、A の 2 日目は予想純利益が無い。
+    monkeypatch.setattr(triggers, "revisions", lambda _: _rev(
+        p, ("A", 1, "2025-03-31", 150.0, 0.2), ("B", 1, "2025-03-31", 50.0, 0.2), ("A", 2, "2025-03-31", np.nan, 0.2)))
+    hit = triggers.COMBO_TRIGGERS["C9 予想割安×上方修正"](p)
+    assert hit["A"].tolist() == [False, True, False]
+    assert not hit["B"].any()
+
+
+def test_c10_needs_earlier_upward_revision_in_same_fiscal_year(monkeypatch):
+    p = _panel({c: [10.0] * 3 for c in "ABC"}, fin=_fyfin(list("ABC")))
+    monkeypatch.setattr(triggers, "revisions", lambda _: _rev(
+        p, ("A", 0, "2025-03-31", np.nan, 0.05), ("A", 2, "2025-03-31", np.nan, 0.15),
+        ("B", 1, "2025-03-31", np.nan, -0.1), ("B", 2, "2025-03-31", np.nan, 0.15),
+        ("C", 0, "2024-03-31", np.nan, 0.2), ("C", 2, "2025-03-31", np.nan, 0.2)))
+    hit = triggers.COMBO_TRIGGERS["C10 割安×2回目以降の上方修正"](p)
+    assert hit["A"].tolist() == [False, False, True]
+    assert not hit["B"].any() and not hit["C"].any()
+
+
+@pytest.mark.parametrize("e1, expect", [(5, True), (4, False), (65, False)])
+def test_c11_sees_revision_from_t60_to_t1(monkeypatch, e1, expect):
+    n, t = 70, 65
+    p = _panel({"A": [10.0] * n})
+    p.fin = pd.concat([_fyfin(["A"]), pd.DataFrame({"Code": ["A"], "DiscloseDate": [p.dates[t]], "q": [1], "sue": [3.0]})])
+    monkeypatch.setattr(triggers, "revisions", lambda _: _rev(p, ("A", e1, "2025-03-31", np.nan, 0.2)))
+    hit = triggers.COMBO_TRIGGERS["C11 割安×上方修正後の増益サプライズ"](p)["A"]
+    assert hit.tolist() == [i == t and expect for i in range(n)]
+
+
+def test_f1_progress_gap_vs_previous_year_only_2q_3q():
+    p = _panel({c: [1.0] * 3 for c in "ABCD"})
+    # A は 0.70 − 0.40、B は通期予想が 0、C は 1Q、D は 0.50 − 0.40。
+    p.fin = pd.DataFrame({"Code": list("ABCD"), "DiscloseDate": p.dates[1], "q": [2, 3, 1, 3],
+                          "OP": [70.0, 70.0, 70.0, 50.0], triggers.OP_COLS[0]: [100.0, 0.0, 100.0, 100.0],
+                          "OP_py": 40.0, "OP_fy": 100.0})
+    hit = triggers.COMBO_TRIGGERS["F1 進捗率の上振れ"](p)
+    assert hit["A"].tolist() == [False, True, False]
+    assert not hit[list("BCD")].to_numpy().any()
+
+
+def test_f2_landing_vs_latest_forecast_before_fy_statement():
+    rows = [
+        _fin("A", "2023-05-10", "FYFinancialStatements_Consolidated_JP", "2023-03-31", "2024-03-31", nxfop=100.0),
+        _fin("A", "2024-02-01", "EarnForecastRevision", "2024-03-31", fop=110.0),
+        # 会計年度の違う予想と、本決算と同じ日の修正は使わない。
+        _fin("A", "2024-04-01", "EarnForecastRevision", "2025-03-31", fop=50.0),
+        _fin("A", "2024-05-10", "EarnForecastRevision", "2024-03-31", fop=200.0),
+        _fin("B", "2024-02-01", "EarnForecastRevision", "2024-03-31", fop=100.0),
+    ]
+    allfin = pd.DataFrame(rows)
+    allfin.loc[4, triggers.NP_COLS[0]] = 100.0
+    p = _panel({"A": [1.0] * 100, "B": [1.0] * 100}, allfin=allfin)
+    # A は 130 ÷ 110（+18%）。B は営業利益が無いので純利益 120 ÷ 100。
+    p.fin = pd.DataFrame({"Code": ["A", "B"], "DiscloseDate": pd.Timestamp("2024-05-10"), "q": 4,
+                          "CurrentFiscalYearEnd": "2024-03-31", "OP": [130.0, np.nan], "NP": [np.nan, 120.0]})
+    assert triggers._landing(p.fin, p).tolist() == pytest.approx([130 / 110 - 1, 0.2])
+    hit = triggers.COMBO_TRIGGERS["F2 着地の上振れ"](p)
+    t = p.dates.searchsorted(pd.Timestamp("2024-05-10"))
+    assert hit["A"].tolist() == [i == t for i in range(100)]
+    assert hit["B"].tolist() == [i == t for i in range(100)]
+
+
+def test_mcap_tiers_rank_within_eligible():
+    codes = list("ABCDEFG")
+    p = _panel({c: [v] * 2 for c, v in zip(codes, [1, 2, 3, 4, 5, 6, 100])}, fin=_fyfin(codes, sh=1.0))
+    p.eligible = pd.DataFrame(True, index=p.dates, columns=codes).assign(G=False)
+    tier = {s: triggers._STRATA[s](p).iloc[0] for s in ("大型", "中型", "小型")}
+    assert tier["小型"][tier["小型"]].index.tolist() == ["A", "B"]
+    assert tier["中型"][tier["中型"]].index.tolist() == ["C", "D"]
+    assert tier["大型"][tier["大型"]].index.tolist() == ["E", "F"]
+
+
+def test_market_regime_against_200_day_average():
+    p = _panel({"A": [1.0] * 202})
+    p.ewi = np.r_[np.ones(200), 2.0, 0.5]
+    up, down = triggers._STRATA["地合い上"](p)[:, 0], triggers._STRATA["地合い下"](p)[:, 0]
+    assert not up[:199].any() and not down[:199].any()
+    assert down[199] and not up[199]
+    assert up[200] and not down[200]
+    assert down[201] and not up[201]
+
+
+def test_merge_adopted_ors_two_skips():
+    a, b, s = _sig(5, 1), _sig(5, 3), _sig(5, 2)
+    kw = et.merge_adopted([{"skip": a}, {"sell": s}, {"skip": b}])
+    assert (kw["skip"] == (a | b)).all() and kw["sell"] is s
+
+
+# ---------- dataset.py / scan.py: 先の超過リターン・封印・形成日・総当たり・シャッフル ----------
+def test_forward_excess_next_open_to_close_minus_bench_and_cost():
+    n = 70
+    dates = pd.bdate_range("2024-01-01", periods=n)
+    c = 100 * 1.01 ** np.arange(n)
+    o = c * 0.99
+    flat = np.full(n, 100.0)
+
+    def f(a, b=flat):
+        return pd.DataFrame({"A": a, "B": b}, index=dates)
+
+    # B は始値・終値が 100 で動かないので、母集団の平均は A のリターンの半分。
+    m = et.Market(SimpleNamespace(
+        dates=dates, px=f(c), open=f(o), high=f(np.fmax(o, c)), low=f(np.fmin(o, c)),
+        eligible=f(np.ones(n, bool), np.ones(n, bool)), marginable=f(np.ones(n, bool), np.ones(n, bool)),
+        sec=f(np.full(n, "x", dtype=object), np.full(n, "x", dtype=object))))
+    ex = dataset.forward_excess(m, np.array([0, n - 10]), np.array([0, 0]))
+    assert ex[5][0] == pytest.approx((c[5] / o[1] - 1) / 2 - dataset.COST)
+    assert ex[60][0] == pytest.approx((c[60] / o[1] - 1) / 2 - dataset.COST)
+    # t+h が最終日を越える h は欠損。
+    assert not np.isnan(ex[5][1]) and np.isnan(ex[20][1]) and np.isnan(ex[60][1])
+
+
+def test_formation_dates_last_business_day_of_week_with_holiday():
+    dates = pd.bdate_range("2024-01-01", periods=15).drop(pd.Timestamp("2024-01-12"))
+    assert dataset.formation_dates(dates).tolist() == [
+        pd.Timestamp("2024-01-05"), pd.Timestamp("2024-01-11"), pd.Timestamp("2024-01-19")]
+
+
+_SCAN_CAL = pd.bdate_range("2021-01-04", periods=300)
+
+
+def _scan_db(tmp_path, bump: float) -> sqlite3.Connection:
+    """dataset.build 用の 3 銘柄・300 営業日の trade.db。bump は _SCAN_CAL[250] 以後の価格に掛ける倍率。"""
+    conn = sqlite3.connect(str(tmp_path / f"scan-{bump}.db"))
+    conn.execute("CREATE TABLE Stocks (AsOfDate TEXT, Code TEXT, Sector33 TEXT, MarginCode TEXT)")
+    conn.execute("CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjOpen REAL, AdjHigh REAL, AdjLow REAL, "
+                 "AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL, Close REAL, Volume REAL, TurnoverValue REAL)")
+    conn.execute(
+        "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, Eps REAL, Bps REAL, Equity REAL, "
+        "TotalAssets REAL, Sales REAL, OperatingProfit REAL, NetProfit REAL, CurrentFiscalYearEnd TEXT, "
+        "NextFiscalYearEnd TEXT, ForecastOperatingProfit REAL, ForecastNetProfit REAL, "
+        "NextForecastOperatingProfit REAL, NextForecastNetProfit REAL, ForecastNonConsolidatedOperatingProfit REAL, "
+        "ForecastNonConsolidatedNetProfit REAL)")
+    rng = np.random.default_rng(0)
+    rows = []
+    for code in "ABC":
+        px = 200 * np.cumprod(1 + rng.normal(0, 0.02, len(_SCAN_CAL)))
+        px[250:] *= bump
+        rows += [(code, d.strftime("%Y-%m-%d"), v * 0.99, v * 1.01, v * 0.98, v, 1e6, 1.0, v, 1e6, 3e8)
+                 for d, v in zip(_SCAN_CAL, px)]
+    conn.executemany("INSERT INTO DailyBars VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
+    conn.executemany("INSERT INTO Stocks VALUES (?,?,?,?)", [("2021-01-04", c, "3050", "2") for c in "ABC"])
+    conn.executemany(
+        "INSERT INTO FinSummaries (Code, DiscloseDate, DocType, Bps, Equity, TotalAssets, Sales, OperatingProfit, "
+        "NetProfit, CurrentFiscalYearEnd) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [(c, "2021-05-10", "FYFinancialStatements_Consolidated_JP", 100.0, 1e9, 2e9, 5e9, 5e8, 3e8, "2021-03-31")
+         for c in "ABC"])
+    conn.commit()
+    return conn
+
+
+def test_dataset_reads_no_price_after_end(tmp_path):
+    end = _SCAN_CAL[249]  # 金曜日
+    a = dataset.build(_scan_db(tmp_path, 1.0), end)
+    b = dataset.build(_scan_db(tmp_path, 2.0), end)
+    pd.testing.assert_frame_equal(a, b)
+    assert list(a.columns) == ["date", "code", "sector", *dataset.FEATURES, *[f"ex_{h}" for h in dataset.HOLDS]]
+    assert a["date"].max() == end and a["pbr"].notna().any()
+    exs = [f"ex_{h}" for h in dataset.HOLDS]
+    assert a.loc[a["date"] == end, exs].isna().all().all()
+    # 1 週前の形成日は t+5 が end に収まり、t+20 は越える。
+    prev = a[a["date"] == _SCAN_CAL[244]]
+    assert prev["ex_5"].notna().all() and prev["ex_20"].isna().all() and prev["ex_60"].isna().all()
+
+
+def _scan_frame(signal: float) -> pd.DataFrame:
+    """指標がすべて乱数の合成データセット。ret1 の上位 5 分位だけ ex_20 が signal 高く、ret5 の下位 5 分位だけ ex_5 が signal 低い。"""
+    dates = pd.bdate_range("2019-01-01", periods=21 * 60)
+    fd = dataset.formation_dates(dates)
+    fd = fd[fd.to_period("M").isin(dataset.months(dates).index)]
+    rng = np.random.default_rng(0)
+    n = 200
+    df = pd.DataFrame({"date": np.repeat(fd, n), "code": np.tile(np.arange(n), len(fd))})
+    df = pd.concat([df, pd.DataFrame(rng.random((len(df), len(dataset.FEATURES))), columns=dataset.FEATURES)], axis=1)
+    for h in dataset.HOLDS:
+        df[f"ex_{h}"] = rng.normal(0, 0.05, len(df))
+    df.loc[df.groupby("date")["ret1"].rank(pct=True) > 0.8, "ex_20"] += signal
+    df.loc[df.groupby("date")["ret5"].rank(pct=True) <= 0.2, "ex_5"] -= signal
+    # 実データと同じく、形成日の母集団の平均に対する超過にする。
+    for h in (5, 20):
+        df[f"ex_{h}"] -= df.groupby("date")[f"ex_{h}"].transform("mean")
+    df.attrs["dates"] = dates
+    return df
+
+
+def _run_scan(df: pd.DataFrame, shuffle: bool = False):
+    df, per = scan.prepare(df)
+    q = scan.quintiles(df)
+    ex = df[[f"ex_{h}" for h in dataset.HOLDS]].to_numpy()
+    day = pd.factorize(df["date"])[0]
+    if shuffle:
+        ex = ex[np.lexsort((np.random.default_rng(1).random(len(day)), day))]
+    month = per.index.get_indexer(df["date"].dt.to_period("M"))
+    return scan.stats(*scan.sweep(q, ex, day, month, len(per)), per), df, q, ex
+
+
+def test_scan_finds_planted_quintile_and_matches_summarize():
+    res, df, q, ex = _run_scan(_scan_frame(0.02))
+    target = dataset.FEATURES.index("ret1") * scan.N_Q + 4
+    assert len(res) == (34 * 5 + 561 * 25) * 3
+    best = res.loc[res["t"].idxmax()]
+    assert (best["a"], best["b"], best["h"]) == (target, target, 20) and best["通過"]
+    # 総当たりの配列演算と、マスクを受ける公開の集計が同じ値を出す（1 指標と 2 指標の条件）。
+    pair = dataset.FEATURES.index("ret5") * scan.N_Q
+    for a, b, h in [(target, target, 20), (target, pair, 20), (pair, pair, 5)]:
+        row = res[(res["a"] == a) & (res["b"] == b) & (res["h"] == h)].iloc[0]
+        s = scan.summarize(df, (q[:, a // 5] == a % 5) & (q[:, b // 5] == b % 5), h)
+        assert s["件数"] == row["件数"] and s["月数"] == row["月数"]
+        assert [s[k] for k in ["超過", "t", "D1", "D2"]] == pytest.approx([row[k] for k in ["超過", "t", "D1", "D2"]])
+    cand, avoid = scan.select(res, 3.0, -3.0, q, ex)
+    # t 値の降順なので先頭は ret1 Q5 で、その部分集合の組み合わせは重なりで飛ばす。採った候補どうしの行の重なりは 0.8 未満。
+    assert (cand.iloc[0]["a"], cand.iloc[0]["b"], cand.iloc[0]["h"]) == (target, target, 20)
+    assert not ((cand["a"] == target) & (cand["b"] != target)).any()
+    low = dataset.FEATURES.index("ret5") * scan.N_Q
+    assert (avoid.iloc[0]["a"], avoid.iloc[0]["b"], avoid.iloc[0]["h"]) == (low, low, 5)
+    assert (avoid["tコスト前"] <= -3.0).all()
+    ms = [scan.rows_of(q, ex, int(r["a"]), int(r["b"]), int(r["h"])) for _, r in cand.iterrows()]
+    assert all((x & y).sum() / min(x.sum(), y.sum()) < scan.MAX_OVERLAP for i, x in enumerate(ms) for y in ms[:i])
+
+
+def test_scan_shuffle_removes_planted_quintile():
+    res, *_ = _run_scan(_scan_frame(0.02), shuffle=True)
+    target = dataset.FEATURES.index("ret1") * scan.N_Q + 4
+    row = res[(res["a"] == target) & (res["b"] == target) & (res["h"] == 20)].iloc[0]
+    assert abs(row["t"]) < 4
+
+
+def test_nw_t_rows_skips_missing_months_like_nw_t():
+    rng = np.random.default_rng(0)
+    X = rng.normal(0, 1, (4, 12))
+    X[1, [0, 5, 6]] = np.nan
+    X[2, :10] = np.nan
+    t = scan.nw_t_rows(X, 2)
+    for i in range(4):
+        s = pd.Series(X[i]).dropna()
+        assert t[i] == pytest.approx(et.nw_t(s, 2), nan_ok=True)
+
+
+# ---------- learn.py: ウォークフォワードのエンバーゴ・掛け合わせの学習 ----------
+def _learn_frame() -> pd.DataFrame:
+    """2015 年からの合成データセット。ret1 が上位 2 割かつ ret5 が下位 2 割の銘柄だけ ex_<h> が高い。"""
+    dates = pd.bdate_range("2015-01-01", "2023-06-30")
+    fd = dataset.formation_dates(dates)
+    rng = np.random.default_rng(0)
+    n = 100
+    df = pd.DataFrame({"date": np.repeat(fd, n), "code": np.tile(np.arange(n), len(fd))})
+    df = pd.concat([df, pd.DataFrame(rng.random((len(df), len(dataset.FEATURES))), columns=dataset.FEATURES)], axis=1)
+    hit = (df["ret1"] > 0.8) & (df["ret5"] < 0.2)
+    for h in dataset.HOLDS:
+        df[f"ex_{h}"] = rng.normal(0, 0.05, len(df)) + 0.1 * hit
+    df.attrs["dates"] = dates
+    return scan.prepare(df)[0]
+
+
+def test_learn_train_ends_h_business_days_before_test():
+    df = _learn_frame()
+    pos = df.attrs["dates"].get_indexer(df["date"])
+    for h in dataset.HOLDS:
+        for y, train, test in learn.splits(df, h):
+            assert (df.loc[test, "date"].dt.year == y).all() and train.any()
+            assert pos[test].min() - pos[train].max() >= h
+
+
+def test_learn_top_quintile_beats_bottom_on_interaction():
+    df = _learn_frame()
+    ex = df["ex_20"].to_numpy()
+    q, info = learn.walkforward(df, learn.ranks(df), ex, 20)
+    assert [i["テストの年"] for i in info] == learn.TEST_YEARS
+    year = df["date"].dt.year.to_numpy()
+    for y in learn.TEST_YEARS:
+        assert ex[(q == 4) & (year == y)].mean() > ex[(q == 0) & (year == y)].mean()
 
 
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------
@@ -444,11 +993,16 @@ def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
     )
     conn.execute(
         "CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjOpen REAL, AdjHigh REAL, "
-        "AdjLow REAL, AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL)"
+        "AdjLow REAL, AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL, "
+        "Close REAL, Volume REAL, TurnoverValue REAL)"
     )
     conn.execute(
         "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, "
-        "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL)"
+        "Eps REAL, Bps REAL, Equity REAL, TotalAssets REAL, "
+        "Sales REAL, OperatingProfit REAL, NetProfit REAL, CurrentFiscalYearEnd TEXT, NextFiscalYearEnd TEXT, "
+        "ForecastOperatingProfit REAL, ForecastNetProfit REAL, NextForecastOperatingProfit REAL, "
+        "NextForecastNetProfit REAL, ForecastNonConsolidatedOperatingProfit REAL, "
+        "ForecastNonConsolidatedNetProfit REAL)"
     )
 
     # (bar 本数, 価格 base, slope)。D は 136 本＝cal[0..135]（=t-5 まで）で t に bar 無し。
@@ -463,7 +1017,11 @@ def _build_trade_db(tmp_path) -> tuple[str, pd.Timestamp, pd.Timestamp]:
         "INSERT INTO DailyBars (Code, Date, AdjOpen, AdjHigh, AdjLow, AdjClose, AdjVolume) VALUES (?,?,?,?,?,?,?)",
         bar_rows,
     )
-    conn.executemany("INSERT INTO FinSummaries VALUES (?,?,?,?,?,?,?)", fin_rows)
+    conn.executemany(
+        "INSERT INTO FinSummaries (Code, DiscloseDate, DocType, Eps, Bps, Equity, TotalAssets) "
+        "VALUES (?,?,?,?,?,?,?)",
+        fin_rows,
+    )
 
     sig_rows = [(t0.strftime("%Y-%m-%d"), c, 1, 3.0, None) for c in ("A", "B", "C")]
     sig_rows += [(t.strftime("%Y-%m-%d"), c, 1, float(j + 1), None) for j, c in enumerate(("A", "B", "C", "D"))]

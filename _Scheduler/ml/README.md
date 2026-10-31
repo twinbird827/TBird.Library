@@ -36,6 +36,56 @@ dotnet run --project .. -- backtest --is 2024 --oos 2025 --use-ml false
 dotnet run --project .. -- backtest --is 2024 --oos 2025 --use-ml true
 ```
 
+### 買い方の探索（#414）
+
+`rules.py` の全ルールを月末形成・翌月末保有で評価し、事前に固定した選抜基準で候補を選ぶ（基準は `explore.py` の docstring）。DB は読み取り専用で開く。
+
+```bash
+uv run python explore.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+要約表・期間の境界・候補を標準出力に出し、`_Tools/TradeAnalyzer/explore/` に `summary.csv`（ルール×版ごとの要約と選抜基準の合否）と `monthly.csv`（形成月ごとの TX・LS・銘柄数・上位 5 分位の最大業種比率）を書く。
+
+`triggers.py` の全トリガーを「トリガー日の翌営業日の始値で建て、5・60・120・240 営業日持つ」前提で評価し、通過したトリガー・売りのトリガーを使った見送り/早めの売り・通過したトリガーの OR 戦略を要約する（基準は `explore_triggers.py` の docstring）。DB は読み取り専用で開く。
+
+```bash
+uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+要約表・期間の境界・通過したトリガーと採った保有期間・OR 戦略の同時保有数を標準出力に出し、`_Tools/TradeAnalyzer/explore/triggers/` に `summary.csv`（トリガー×版×保有期間ごとの要約と合否）と `monthly.csv`（月ごとの平均超過リターン）を書く。
+
+`--combo` を付けると、組み合わせのトリガーと財務の指標のトリガー（F1〜F5 と、それに PBR 1 倍未満を掛けた C12〜C16。`triggers.COMBO_TRIGGERS`）を足して同じ基準で選び、通過した買いのトリガーごとに負けた買い（P2 出来高急増の大陽線・P4 急落）が直前 20 営業日に出ていたら建てない見送り（版は「(b) 負けた買いの見送り」）を (b) と同じ基準で評価し、C3 の頑健性グリッドと時価総額・地合いの層別（`triggers.ROBUSTNESS`、版は「頑健性」で選抜に使わない）も並べて、末尾に試行数を出す。出力先は `_Tools/TradeAnalyzer/explore/triggers-combo/`。
+
+```bash
+uv run python explore_triggers.py --db ../../_Tools/TradeAnalyzer/trade.db --combo
+```
+
+`explore_events.py` は、イベント（開示・修正）で立つ買いのトリガー（E1〜E4・C2・C3・C6・C9〜C16・F1〜F5）について、イベントの後の値動きを記述する（トリガーの選抜には使わない。定義は docstring）。取れない部分（トリガー日の値動きと翌日の窓開け）と取れる部分（翌日始値から 5〜240 営業日）の超過リターン、イベントの後 60 営業日の累積の超過リターン、翌日始値から 3%・5%・10% 下の指値が 5 営業日以内に約定したもの・しなかったものの値動き、窓開けの 5 分位ごとの値動きを、P1〜P3 とともに出す。DB は読み取り専用で開く。
+
+```bash
+uv run python explore_events.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+トリガーごとの要約（寄らなかったイベントの件数を含む）・期間の境界・試行数を標準出力に出し、`_Tools/TradeAnalyzer/explore/events/` に `decompose.csv`（トリガー×区間）・`path.csv`（トリガー×イベントの後の日数）・`dip.csv`（トリガー×押し目の幅×保有期間×約定したか）・`gap.csv`（トリガー×窓開けの分位×保有期間）を書く。
+
+`dataset.py` は、総当たりと LightGBM が共有する、銘柄 × 毎週の最終営業日ごとの指標 34 本（`dataset.FEATURES`）と、翌営業日の始値 → 5・20・60 営業日後の終値の超過リターン（母集団の等金額平均とコスト 0.3% を引いた値）の表を作る。封印期間（2023-01-01 以降）の価格は読まない。境界 `dataset.SEAL_END` は引数で変えられない定数。作った表は `_Tools/TradeAnalyzer/explore/scan/dataset.pkl` に保存し、DB・境界・計算に使うモジュールが同じなら次から読み込む。
+
+`scan.py` は、その表で「1 指標の 5 分位」と「2 指標の分位の組み合わせ」を総当たりする。形成日ごとに超過リターンを銘柄の間で並べ替えて総当たりを 200 回やり直し、偶然でも出る最大の t 値（避ける条件にはコスト前の最小の t 値）の分布を作る。最大の t 値の 95% 点で候補（最大 5 本）を、コスト前の最小の t 値の 5% 点で避ける条件を選ぶ（基準は `scan.py` の docstring）。DB は読み取り専用で開く。
+
+```bash
+uv run python scan.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+D1・D2 の境界・試行数・帰無分布の 95% 点・候補・避ける条件・単独の分位の傾き・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/scan/` には次を書く: `singles.csv`（指標×分位×保有期間）、`pairs.csv`（2 指標×分位×保有期間。足切りを通ったものだけ）、`null.csv`（シャッフルの回ごとの最大の t 値）、`candidates.csv`（候補と避ける条件）。
+
+`learn.py` は、同じ表の指標を形成日ごとの順位にして、保有期間ごとに LightGBM の回帰を 2019〜2022 年の年ごとのウォークフォワード（その年より前の、h 営業日のエンバーゴを空けた形成日で学習）で学習し、予測の 5 分位を測る。4 年分の上位 5 分位を 1 本の買い方として総当たりと同じ集計（D1/D2 はテストの年の形成月を半分に分け直す）にかけ、超過リターンを形成日ごとに並べ替えて手順全体を 50 回やり直した帰無分布の 95% 点で候補を選ぶ（基準は `learn.py` の docstring）。先に `scan.py` を実行しておくこと（総当たりの候補との重なりを測る）。DB は読み取り専用で開く。
+
+```bash
+uv run python learn.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+試行数・帰無分布の 95% 点・上位 5 分位の成績と候補・重要度の上位・総当たりの候補との重なり・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/learn/` には次を書く: `lgbm.csv`（保有期間×テストの年×予測の分位）、`importance.csv`（保有期間×テストの年×指標の gain）、`null.csv`（シャッフルの回ごとの最大の t 値）、`candidates.csv`（保有期間ごとの上位 5 分位の成績・候補か・総当たりの候補との重なり）。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -63,6 +113,14 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `labels.py` | N日後フォワード相対リターン → gain ラベル（先読み防止・未確定除外） |
 | `train.py` | ウォークフォワード学習＋optuna（Purged K-Fold + embargo）＋OOS 書戻し |
 | `evaluate.py` | Rank-IC / NDCG@K 検証レポート（t統計量・p値・ICIR・符号検定＋ML−Rule 対日差検定） |
+| `rules.py` | 月末パネルと買い方ルールのスコア関数（探索とフォワードテストで共有）。`CANDIDATES` がフォワードテストの対象 |
+| `explore.py` | 全ルールを P1・P2・P3 の 3 期間で評価し、事前固定の選抜基準で候補を選ぶ |
+| `triggers.py` | 日次パネルと買い・売りのトリガー（探索とフォワードテストで共有） |
+| `explore_triggers.py` | 全トリガー×保有期間を P1・P2・P3 の 3 期間で評価し、通過したトリガーの OR 戦略を要約する |
+| `explore_events.py` | イベントで立つ買いのトリガーの、取れない部分と取れる部分・イベントスタディ・押し目・窓開けの大きさ別の値動きを記述する |
+| `dataset.py` | 封印期間を除いた、銘柄 × 毎週の形成日ごとの指標 34 本と先の超過リターンの表（総当たりと LightGBM で共有） |
+| `scan.py` | 1 指標・2 指標の分位の条件を総当たりし、シャッフルの帰無分布の 95% 点で候補を選ぶ |
+| `learn.py` | 指標の順位で LightGBM を年ごとのウォークフォワードで学習し、予測の上位 5 分位をシャッフルの帰無分布の 95% 点で候補にする |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約
