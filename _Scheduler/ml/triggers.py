@@ -53,6 +53,7 @@ class DailyPanel:
         self.px = px = P["AdjClose"]
         self.open, self.high, self.low = P["AdjOpen"], P["AdjHigh"], P["AdjLow"]
         self.vol, self.rawvol = P["AdjVolume"], P["Volume"]
+        self.turnover = P["TurnoverValue"]
         self.dates = px.index
         self.codes = px.columns
         self.cidx = {c: j for j, c in enumerate(self.codes)}

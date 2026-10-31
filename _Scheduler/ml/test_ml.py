@@ -18,6 +18,7 @@ import optuna
 import pandas as pd
 import pytest
 
+import dataset
 import db as dbmod
 import explore
 import explore_events as ev
@@ -26,6 +27,7 @@ import features
 import ml_common
 import predict
 import rules
+import scan
 import train
 import triggers
 
@@ -575,6 +577,149 @@ def test_merge_adopted_ors_two_skips():
     a, b, s = _sig(5, 1), _sig(5, 3), _sig(5, 2)
     kw = et.merge_adopted([{"skip": a}, {"sell": s}, {"skip": b}])
     assert (kw["skip"] == (a | b)).all() and kw["sell"] is s
+
+
+# ---------- dataset.py / scan.py: 先の超過リターン・封印・形成日・総当たり・シャッフル ----------
+def test_forward_excess_next_open_to_close_minus_bench_and_cost():
+    n = 70
+    dates = pd.bdate_range("2024-01-01", periods=n)
+    c = 100 * 1.01 ** np.arange(n)
+    o = c * 0.99
+    flat = np.full(n, 100.0)
+
+    def f(a, b=flat):
+        return pd.DataFrame({"A": a, "B": b}, index=dates)
+
+    # B は始値・終値が 100 で動かないので、母集団の平均は A のリターンの半分。
+    m = et.Market(SimpleNamespace(
+        dates=dates, px=f(c), open=f(o), high=f(np.fmax(o, c)), low=f(np.fmin(o, c)),
+        eligible=f(np.ones(n, bool), np.ones(n, bool)), marginable=f(np.ones(n, bool), np.ones(n, bool)),
+        sec=f(np.full(n, "x", dtype=object), np.full(n, "x", dtype=object))))
+    ex = dataset.forward_excess(m, np.array([0, n - 10]), np.array([0, 0]))
+    assert ex[5][0] == pytest.approx((c[5] / o[1] - 1) / 2 - dataset.COST)
+    assert ex[60][0] == pytest.approx((c[60] / o[1] - 1) / 2 - dataset.COST)
+    # t+h が最終日を越える h は欠損。
+    assert not np.isnan(ex[5][1]) and np.isnan(ex[20][1]) and np.isnan(ex[60][1])
+
+
+def test_formation_dates_last_business_day_of_week_with_holiday():
+    dates = pd.bdate_range("2024-01-01", periods=15).drop(pd.Timestamp("2024-01-12"))
+    assert dataset.formation_dates(dates).tolist() == [
+        pd.Timestamp("2024-01-05"), pd.Timestamp("2024-01-11"), pd.Timestamp("2024-01-19")]
+
+
+_SCAN_CAL = pd.bdate_range("2021-01-04", periods=300)
+
+
+def _scan_db(tmp_path, bump: float) -> sqlite3.Connection:
+    """dataset.build 用の 3 銘柄・300 営業日の trade.db。bump は _SCAN_CAL[250] 以後の価格に掛ける倍率。"""
+    conn = sqlite3.connect(str(tmp_path / f"scan-{bump}.db"))
+    conn.execute("CREATE TABLE Stocks (AsOfDate TEXT, Code TEXT, Sector33 TEXT, MarginCode TEXT)")
+    conn.execute("CREATE TABLE DailyBars (Code TEXT, Date TEXT, AdjOpen REAL, AdjHigh REAL, AdjLow REAL, "
+                 "AdjClose REAL, AdjVolume REAL, AdjustmentFactor REAL, Close REAL, Volume REAL, TurnoverValue REAL)")
+    conn.execute(
+        "CREATE TABLE FinSummaries (Code TEXT, DiscloseDate TEXT, DocType TEXT, Eps REAL, Bps REAL, Equity REAL, "
+        "TotalAssets REAL, Sales REAL, OperatingProfit REAL, NetProfit REAL, CurrentFiscalYearEnd TEXT, "
+        "NextFiscalYearEnd TEXT, ForecastOperatingProfit REAL, ForecastNetProfit REAL, "
+        "NextForecastOperatingProfit REAL, NextForecastNetProfit REAL, ForecastNonConsolidatedOperatingProfit REAL, "
+        "ForecastNonConsolidatedNetProfit REAL)")
+    rng = np.random.default_rng(0)
+    rows = []
+    for code in "ABC":
+        px = 200 * np.cumprod(1 + rng.normal(0, 0.02, len(_SCAN_CAL)))
+        px[250:] *= bump
+        rows += [(code, d.strftime("%Y-%m-%d"), v * 0.99, v * 1.01, v * 0.98, v, 1e6, 1.0, v, 1e6, 3e8)
+                 for d, v in zip(_SCAN_CAL, px)]
+    conn.executemany("INSERT INTO DailyBars VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
+    conn.executemany("INSERT INTO Stocks VALUES (?,?,?,?)", [("2021-01-04", c, "3050", "2") for c in "ABC"])
+    conn.executemany(
+        "INSERT INTO FinSummaries (Code, DiscloseDate, DocType, Bps, Equity, TotalAssets, Sales, OperatingProfit, "
+        "NetProfit, CurrentFiscalYearEnd) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [(c, "2021-05-10", "FYFinancialStatements_Consolidated_JP", 100.0, 1e9, 2e9, 5e9, 5e8, 3e8, "2021-03-31")
+         for c in "ABC"])
+    conn.commit()
+    return conn
+
+
+def test_dataset_reads_no_price_after_end(tmp_path):
+    end = _SCAN_CAL[249]  # 金曜日
+    a = dataset.build(_scan_db(tmp_path, 1.0), end)
+    b = dataset.build(_scan_db(tmp_path, 2.0), end)
+    pd.testing.assert_frame_equal(a, b)
+    assert list(a.columns) == ["date", "code", "sector", *dataset.FEATURES, *[f"ex_{h}" for h in dataset.HOLDS]]
+    assert a["date"].max() == end and a["pbr"].notna().any()
+    exs = [f"ex_{h}" for h in dataset.HOLDS]
+    assert a.loc[a["date"] == end, exs].isna().all().all()
+    # 1 週前の形成日は t+5 が end に収まり、t+20 は越える。
+    prev = a[a["date"] == _SCAN_CAL[244]]
+    assert prev["ex_5"].notna().all() and prev["ex_20"].isna().all() and prev["ex_60"].isna().all()
+
+
+def _scan_frame(signal: float) -> pd.DataFrame:
+    """指標がすべて乱数の合成データセット。ret1 の上位 5 分位だけ ex_20 が signal 高い。"""
+    dates = pd.bdate_range("2019-01-01", periods=21 * 60)
+    fd = dataset.formation_dates(dates)
+    fd = fd[fd.to_period("M").isin(dataset.months(dates).index)]
+    rng = np.random.default_rng(0)
+    n = 200
+    df = pd.DataFrame({"date": np.repeat(fd, n), "code": np.tile(np.arange(n), len(fd))})
+    df = pd.concat([df, pd.DataFrame(rng.random((len(df), len(dataset.FEATURES))), columns=dataset.FEATURES)], axis=1)
+    for h in dataset.HOLDS:
+        df[f"ex_{h}"] = rng.normal(0, 0.05, len(df))
+    df.loc[df.groupby("date")["ret1"].rank(pct=True) > 0.8, "ex_20"] += signal
+    # 実データと同じく、形成日の母集団の平均に対する超過にする。
+    df["ex_20"] -= df.groupby("date")["ex_20"].transform("mean")
+    df.attrs["dates"] = dates
+    return df
+
+
+def _run_scan(df: pd.DataFrame, shuffle: bool = False):
+    df, per = scan.prepare(df)
+    q = scan.quintiles(df)
+    ex = df[[f"ex_{h}" for h in dataset.HOLDS]].to_numpy()
+    day = pd.factorize(df["date"])[0]
+    if shuffle:
+        ex = ex[np.lexsort((np.random.default_rng(1).random(len(day)), day))]
+    month = per.index.get_indexer(df["date"].dt.to_period("M"))
+    return scan.stats(*scan.sweep(q, ex, day, month, len(per)), per), df, q, ex
+
+
+def test_scan_finds_planted_quintile_and_matches_summarize():
+    res, df, q, ex = _run_scan(_scan_frame(0.02))
+    target = dataset.FEATURES.index("ret1") * scan.N_Q + 4
+    assert len(res) == (34 * 5 + 561 * 25) * 3
+    best = res.loc[res["t"].idxmax()]
+    assert (best["a"], best["b"], best["h"]) == (target, target, 20) and best["通過"]
+    # 総当たりの配列演算と、マスクを受ける公開の集計が同じ値を出す（1 指標と 2 指標の条件）。
+    pair = dataset.FEATURES.index("ret5") * scan.N_Q
+    for a, b, h in [(target, target, 20), (target, pair, 20), (pair, pair, 5)]:
+        row = res[(res["a"] == a) & (res["b"] == b) & (res["h"] == h)].iloc[0]
+        s = scan.summarize(df, (q[:, a // 5] == a % 5) & (q[:, b // 5] == b % 5), h)
+        assert s["件数"] == row["件数"] and s["月数"] == row["月数"]
+        assert [s[k] for k in ["超過", "t", "D1", "D2"]] == pytest.approx([row[k] for k in ["超過", "t", "D1", "D2"]])
+    cand, _ = scan.select(res, 3.0, q, ex)
+    # 先頭は ret1 Q5 か、その部分集合の組み合わせ。採った候補どうしの行の重なりは 0.8 未満。
+    assert cand.iloc[0]["a"] == target and cand.iloc[0]["h"] == 20
+    ms = [scan.rows_of(q, ex, int(r["a"]), int(r["b"]), int(r["h"])) for _, r in cand.iterrows()]
+    assert all((x & y).sum() / min(x.sum(), y.sum()) < scan.MAX_OVERLAP for i, x in enumerate(ms) for y in ms[:i])
+
+
+def test_scan_shuffle_removes_planted_quintile():
+    res, *_ = _run_scan(_scan_frame(0.02), shuffle=True)
+    target = dataset.FEATURES.index("ret1") * scan.N_Q + 4
+    row = res[(res["a"] == target) & (res["b"] == target) & (res["h"] == 20)].iloc[0]
+    assert abs(row["t"]) < 4
+
+
+def test_nw_t_rows_skips_missing_months_like_nw_t():
+    rng = np.random.default_rng(0)
+    X = rng.normal(0, 1, (4, 12))
+    X[1, [0, 5, 6]] = np.nan
+    X[2, :10] = np.nan
+    t = scan.nw_t_rows(X, 2)
+    for i in range(4):
+        s = pd.Series(X[i]).dropna()
+        assert t[i] == pytest.approx(et.nw_t(s, 2), nan_ok=True)
 
 
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------
