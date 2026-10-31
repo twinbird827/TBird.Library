@@ -24,6 +24,7 @@ import explore
 import explore_events as ev
 import explore_triggers as et
 import features
+import learn
 import ml_common
 import predict
 import rules
@@ -726,6 +727,41 @@ def test_nw_t_rows_skips_missing_months_like_nw_t():
     for i in range(4):
         s = pd.Series(X[i]).dropna()
         assert t[i] == pytest.approx(et.nw_t(s, 2), nan_ok=True)
+
+
+# ---------- learn.py: ウォークフォワードのエンバーゴ・掛け合わせの学習 ----------
+def _learn_frame() -> pd.DataFrame:
+    """2015 年からの合成データセット。ret1 が上位 2 割かつ ret5 が下位 2 割の銘柄だけ ex_<h> が高い。"""
+    dates = pd.bdate_range("2015-01-01", "2023-06-30")
+    fd = dataset.formation_dates(dates)
+    rng = np.random.default_rng(0)
+    n = 100
+    df = pd.DataFrame({"date": np.repeat(fd, n), "code": np.tile(np.arange(n), len(fd))})
+    df = pd.concat([df, pd.DataFrame(rng.random((len(df), len(dataset.FEATURES))), columns=dataset.FEATURES)], axis=1)
+    hit = (df["ret1"] > 0.8) & (df["ret5"] < 0.2)
+    for h in dataset.HOLDS:
+        df[f"ex_{h}"] = rng.normal(0, 0.05, len(df)) + 0.1 * hit
+    df.attrs["dates"] = dates
+    return scan.prepare(df)[0]
+
+
+def test_learn_train_ends_h_business_days_before_test():
+    df = _learn_frame()
+    pos = df.attrs["dates"].get_indexer(df["date"])
+    for h in dataset.HOLDS:
+        for y, train, test in learn.splits(df, h):
+            assert (df.loc[test, "date"].dt.year == y).all() and train.any()
+            assert pos[test].min() - pos[train].max() >= h
+
+
+def test_learn_top_quintile_beats_bottom_on_interaction():
+    df = _learn_frame()
+    ex = df["ex_20"].to_numpy()
+    q, info = learn.walkforward(df, learn.ranks(df), ex, 20)
+    assert [i["テストの年"] for i in info] == learn.TEST_YEARS
+    year = df["date"].dt.year.to_numpy()
+    for y in learn.TEST_YEARS:
+        assert ex[(q == 4) & (year == y)].mean() > ex[(q == 0) & (year == y)].mean()
 
 
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------

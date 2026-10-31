@@ -120,9 +120,13 @@ def stats(M: np.ndarray, N: np.ndarray, per: pd.Series) -> pd.DataFrame:
     return r
 
 
-def summarize(df: pd.DataFrame, mask: np.ndarray, h: int) -> dict:
-    """(形成日, 銘柄) の行のマスクを、保有期間 h の総当たりと同じ集計で要約する（総当たりに使う形成月の行だけを数える）。"""
-    per = dataset.months(df.attrs["dates"])
+def summarize(df: pd.DataFrame, mask: np.ndarray, h: int, per: pd.Series | None = None) -> dict:
+    """(形成日, 銘柄) の行のマスクを、保有期間 h の総当たりと同じ集計で要約する（per の形成月の行だけを数える）。
+
+    per は形成月 → D1/D2。省略時は総当たりと同じ dataset.months。
+    """
+    if per is None:
+        per = dataset.months(df.attrs["dates"])
     x = df.loc[np.asarray(mask, bool) & df["date"].dt.to_period("M").isin(per.index) & df[f"ex_{h}"].notna()]
     s = x.groupby("date")[f"ex_{h}"].mean()
     s = s.groupby(s.index.to_period("M")).mean()
@@ -139,6 +143,11 @@ def rows_of(q: np.ndarray, ex: np.ndarray, a: int, b: int, h: int) -> np.ndarray
             & ~np.isnan(ex[:, dataset.HOLDS.index(h)]))
 
 
+def overlap(m: np.ndarray, x: np.ndarray) -> float:
+    """行のマスクどうしの重なり（積集合 ÷ 小さいほうの件数）。"""
+    return (m & x).sum() / min(m.sum(), x.sum())
+
+
 def select(res: pd.DataFrame, thr: float, thr_lo: float, q: np.ndarray, ex: np.ndarray
            ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """候補（最大 5 本）と避ける条件。thr は最大の t 値の 95% 点、thr_lo はコスト前の最小の t 値の 5% 点。"""
@@ -147,7 +156,7 @@ def select(res: pd.DataFrame, thr: float, thr_lo: float, q: np.ndarray, ex: np.n
     chosen, masks = [], []
     for i, r in c.iterrows():
         m = rows_of(q, ex, int(r["a"]), int(r["b"]), int(r["h"]))
-        if any((m & x).sum() / min(m.sum(), x.sum()) >= MAX_OVERLAP for x in masks):
+        if any(overlap(m, x) >= MAX_OVERLAP for x in masks):
             continue
         chosen.append(i)
         masks.append(m)
