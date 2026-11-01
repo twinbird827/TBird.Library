@@ -94,6 +94,14 @@ uv run python hold.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 期間・D1・D2 の境界・要約・(4) の 95% 点・合否・保有期間の分布・売る理由を 1 つずつ外した版・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/hold/` には次を書く: `nav.csv`（形成日×戦略×種の資産・現金の比率・銘柄数）、`trades.csv`（本体の買う順の種ごとの売買と売る理由）、`summary.csv`（戦略ごとの要約）、`null.csv`（(4) の回ごとの月平均の超過）、`ablation.csv`（売る理由を 1 つずつ外した版の要約）。
 
+`port.py` は、`scan.py` の候補のうち ret250 Q1 を軸にした 3 本（× roa_op Q4・× psr Q2・× per Q3）を、資産を 12 本の持ち分に分けて毎週 1 本ずつその週の条件を満たす銘柄の等金額に組み替える（保有 12 週）ポートフォリオにしてシミュレーションする。引き続き条件を満たす銘柄は差額だけを売買し、約定・評価・コスト・(1)・月ごとの超過・D1/D2 は `hold.py` と同じ。比べる相手は (1) 全銘柄の等金額・(5) 毎週の候補と同じ件数の無作為な選択（候補ごとに 50 回）で、要約と合否は全持ち分が埋まった週 12 以降で出す。合否は候補ごとに (1) に対する月平均の超過が D1・D2 ともに正かつ (5) の 95% 点以上（基準・候補は `port.py` の docstring と `CANDIDATES`）。DB は読み取り専用で開き、封印期間の価格は読まない。
+
+```bash
+uv run python port.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+シミュレーションと評価期間・D1・D2 の境界・要約・候補ごとの (5) の 95% 点と合否・候補の数の分布・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/port/` には次を書く: `nav.csv`（形成日×候補・(5) の回の資産・現金の比率・銘柄数・候補の数）、`trades.csv`（候補ごとの売買。持ち分・理由（新規・調整・満期・母集団外）・全部売った行の保有期間）、`summary.csv`（候補と (5) の要約・合否）、`null.csv`（候補×(5) の回ごとの月平均の超過）。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -130,6 +138,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `scan.py` | 1 指標・2 指標の分位の条件を総当たりし、シャッフルの帰無分布の 95% 点で候補を選ぶ |
 | `learn.py` | 指標の順位で LightGBM を年ごとのウォークフォワードで学習し、予測の上位 5 分位をシャッフルの帰無分布の 95% 点で候補にする |
 | `hold.py` | ベースの買いルールで買い、売る理由が出るまで持ち続ける戦略を週ごとにシミュレーションし、比べる相手と事前固定の基準で比べる |
+| `port.py` | 総当たりの ret250 Q1 系の候補 3 本を、12 本の持ち分を毎週 1 本ずつ入れ替えるポートフォリオにしてシミュレーションし、無作為な選択と事前固定の基準で比べる |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約

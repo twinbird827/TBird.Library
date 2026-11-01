@@ -27,6 +27,7 @@ import features
 import hold
 import learn
 import ml_common
+import port
 import predict
 import rules
 import scan
@@ -805,6 +806,57 @@ def test_hold_never_holds_more_than_slots():
                      ("random", {"n_sell": np.full(K, 3), "sell_rng": np.random.default_rng(2)})]:
         r = hold.simulate(pn, sell, mode, np.random.default_rng(1), **kw)
         assert r.held.max() == hold.SLOTS, mode
+
+
+# ---------- port.py: 持ち分の番まで持つ・差額の調整・母集団外・分位 ----------
+def test_port_holds_until_turn_adjusts_difference_and_keeps_delisted_cash_in_tranche():
+    K, J, c = 16, 4, hold.COST
+    O = np.full((K, J), 100.0)
+    O[12:, 0] = 50.0
+    univ = np.ones((K, J), bool)
+    univ[3:, 1] = False
+    buy = np.zeros((K, J), bool)
+    buy[0, [0, 1, 3]] = True
+    buy[12, [0, 2]] = True
+    pn = _hold_panel(O, univ, buy, np.zeros((len(hold.REASONS), K, J), bool))
+    r, hold_k = port.simulate(pn, buy, record=True)
+    t0 = 1 / port.TRANCHES / 3 / (1 + c)
+    # C1 は週 3 に母集団外で売り、その現金は持ち分 0 に残って週 12 まで使わない。C3 は条件から外れても週 12 まで売らない。
+    assert r.traded[1:3].tolist() == [0, 0] and r.traded[4:12].tolist() == [0] * 8
+    assert [(t["約定日"], t["銘柄"], t["売買"], t["理由"]) for t in r.trades] == [
+        (pn.dates[0], "C0", "買い", "新規"), (pn.dates[0], "C1", "買い", "新規"), (pn.dates[0], "C3", "買い", "新規"),
+        (pn.dates[3], "C1", "売り", "母集団外"), (pn.dates[12], "C3", "売り", "満期"),
+        (pn.dates[12], "C0", "買い", "調整"), (pn.dates[12], "C2", "買い", "新規")]
+    assert r.holds == [15, 60] and hold_k.tolist() == [3, 12]
+    # 週 12 の組み替えの後は C0・C2 の等金額で、持ち分の現金が 0 になる（コストは C0 の差額と C2 の買いにだけかかる）。
+    v0, w = t0 / 2, 2 * t0 * (1 - c)
+    t = (w / (1 + c) + v0) / 2
+    assert [x["金額"] for x in r.trades[5:]] == pytest.approx([t - v0, t])
+    assert r.traded[12] == pytest.approx(t0 + t - v0 + t)
+    assert r.held[12] == 2 and r.nav[13] == pytest.approx(11 / port.TRANCHES + 2 * t)
+
+
+def test_port_target_spends_exactly_the_cash():
+    c = hold.COST
+    assert port.target(np.array([0.0, 10.0]), 0.0) == pytest.approx(10 * (1 - c) / 2)
+    rng = np.random.default_rng(0)
+    for _ in range(20):
+        v, w = rng.choice([0.0, 1.0], 8) * rng.random(8), rng.random()
+        d = port.target(v, w) - v
+        assert np.where(d > 0, d * (1 + c), d * (1 - c)).sum() == pytest.approx(w)
+
+
+def test_port_quintile_matches_scan_quintiles():
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({"date": np.repeat(pd.date_range("2024-01-05", periods=4, freq="W-FRI"), 50)})
+    df = pd.concat([df, pd.DataFrame(rng.integers(0, 7, (len(df), len(dataset.FEATURES))).astype(float),
+                                     columns=dataset.FEATURES)], axis=1)
+    df.loc[rng.random(len(df)) < 0.1, "psr"] = np.nan
+    q = scan.quintiles(df)
+    r = pd.DataFrame(learn.ranks(df), columns=dataset.FEATURES)
+    for f in ["ret250", "roa_op", "psr", "per"]:
+        for n in range(1, 6):
+            assert (port.quintile(r, f, n).to_numpy() == (q[:, dataset.FEATURES.index(f)] == n - 1)).all(), (f, n)
 
 
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------

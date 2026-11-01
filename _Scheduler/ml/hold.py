@@ -17,7 +17,7 @@ import sqlite3
 import time
 import warnings
 from pathlib import Path
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -79,8 +79,23 @@ class Run(NamedTuple):
     trades: list[dict]
 
 
-def build(df: pd.DataFrame, m: et.Market, codes: pd.Index) -> Panel:
-    """dataset.months の最初の月の最初の形成日から、翌営業日がパネルにある最後の形成日まで。"""
+def load(db_path: Path) -> tuple[pd.DataFrame, et.Market, pd.Index]:
+    """判定に使う dataset の表と、約定の価格の Market と、銘柄。"""
+    df = dataset.load(db_path, dataset.SEAL_END)
+    conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
+    try:
+        p = triggers.DailyPanel(conn, dataset.SEAL_END)
+    finally:
+        conn.close()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        m = et.Market(p)
+    return df, m, p.codes
+
+
+def build(df: pd.DataFrame, m: et.Market, codes: pd.Index,
+          cond: Callable[[pd.DataFrame], pd.Series] = base) -> Panel:
+    """dataset.months の最初の月の最初の形成日から、翌営業日がパネルにある最後の形成日まで。Panel.base は cond(順位)。"""
     fd = dataset.formation_dates(m.dates)
     t = m.dates.get_indexer(fd)
     keep = (fd.to_period("M") >= dataset.months(m.dates).index[0]) & (t + 1 < m.n)
@@ -96,7 +111,7 @@ def build(df: pd.DataFrame, m: et.Market, codes: pd.Index) -> Panel:
         return g
 
     O = m.O[a]
-    return Panel(fd, m.dates[a], a, codes, grid(True), grid(base(r).to_numpy()),
+    return Panel(fd, m.dates[a], a, codes, grid(True), grid(cond(r).to_numpy()),
                  np.stack([grid(f(r, x).to_numpy()) for f in REASONS.values()]), O, np.where(np.isnan(O), m.C[a], O))
 
 
@@ -208,17 +223,9 @@ def main() -> None:
     db_path = Path(args.db).resolve()
     out_dir = db_path.parent / "explore" / "hold"
     t0 = time.perf_counter()
-    df = dataset.load(db_path, dataset.SEAL_END)
-    conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
-    try:
-        p = triggers.DailyPanel(conn, dataset.SEAL_END)
-    finally:
-        conn.close()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        m = et.Market(p)
-    pn = build(df, m, p.codes)
-    del df, p, m
+    df, m, codes = load(db_path)
+    pn = build(df, m, codes)
+    del df, m
     b, per = bench(pn), halves(pn)
     t1 = time.perf_counter()
 
