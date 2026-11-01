@@ -24,6 +24,7 @@ import explore
 import explore_events as ev
 import explore_triggers as et
 import features
+import hold
 import learn
 import ml_common
 import predict
@@ -762,6 +763,48 @@ def test_learn_top_quintile_beats_bottom_on_interaction():
     year = df["date"].dt.year.to_numpy()
     for y in learn.TEST_YEARS:
         assert ex[(q == 4) & (year == y)].mean() > ex[(q == 0) & (year == y)].mean()
+
+
+# ---------- hold.py: 売る理由での売り・コスト・枠 ----------
+def _hold_panel(O: np.ndarray, univ: np.ndarray, base: np.ndarray, reasons: np.ndarray) -> hold.Panel:
+    """形成日が毎週金曜、約定日がその翌営業日の Panel。評価の価格は始値。"""
+    K, J = O.shape
+    fd = pd.date_range("2024-01-05", periods=K, freq="W-FRI")
+    return hold.Panel(fd, fd + pd.offsets.BDay(1), np.arange(K) * 5 + 1, pd.Index([f"C{j}" for j in range(J)]),
+                      univ, base, reasons, O, O)
+
+
+def test_hold_sells_on_reason_at_next_open_and_charges_cost_on_traded_amount():
+    K = 6
+    O = np.array([[100.0], [110.0], [120.0], [90.0], [95.0], [97.0]])
+    base = np.zeros((K, 1), bool)
+    base[0] = True
+    reasons = np.zeros((len(hold.REASONS), K, 1), bool)
+    reasons[2, 3, 0] = True
+    pn = _hold_panel(O, np.ones((K, 1), bool), base, reasons)
+    r = hold.simulate(pn, reasons.any(0), "hold", np.random.default_rng(0), record=True)
+    q = 1 / (1 + hold.COST) / 100
+    # k=1,2 はベースから外れても売る理由が無いので持ち続け、売買の無い週はコストを引かない。
+    assert r.held.tolist() == [1, 1, 1, 0, 0, 0]
+    assert r.nav[1:4] == pytest.approx(q * O[1:4, 0])
+    assert r.traded == pytest.approx([q * 100, 0, 0, q * 90, 0, 0])
+    assert r.nav[4:] == pytest.approx([q * 90 * (1 - hold.COST)] * 2)
+    assert [(t["約定日"], t["売買"], t["売る理由"]) for t in r.trades] == [
+        (pn.dates[0], "買い", ""), (pn.dates[3], "売り", "決算が予想を下回った")]
+    assert r.holds == [15] and r.open_holds == []
+
+
+def test_hold_never_holds_more_than_slots():
+    rng = np.random.default_rng(0)
+    K, J = 30, 200
+    O = 100 * np.exp(rng.normal(0, 0.05, (K, J)).cumsum(0))
+    reasons = rng.random((len(hold.REASONS), K, J)) < 0.03
+    pn = _hold_panel(O, rng.random((K, J)) < 0.95, np.ones((K, J), bool), reasons)
+    sell = reasons.any(0)
+    for mode, kw in [("hold", {}), ("keep", {}), ("rotate", {}),
+                     ("random", {"n_sell": np.full(K, 3), "sell_rng": np.random.default_rng(2)})]:
+        r = hold.simulate(pn, sell, mode, np.random.default_rng(1), **kw)
+        assert r.held.max() == hold.SLOTS, mode
 
 
 # ---------- 段階3a: train.py の argparse 契約変更（--full の条件付き必須・既存 --is/--oos 経路の不変）----------

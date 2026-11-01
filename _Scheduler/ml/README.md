@@ -86,6 +86,14 @@ uv run python learn.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 試行数・帰無分布の 95% 点・上位 5 分位の成績と候補・重要度の上位・総当たりの候補との重なり・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/learn/` には次を書く: `lgbm.csv`（保有期間×テストの年×予測の分位）、`importance.csv`（保有期間×テストの年×指標の gain）、`null.csv`（シャッフルの回ごとの最大の t 値）、`candidates.csv`（保有期間ごとの上位 5 分位の成績・候補か・総当たりの候補との重なり）。
 
+`hold.py` は、同じ表で「ベースの買いルール（roa_op の順位 0.5 以上かつ pbr の順位 0.5 以下）で買ってよい銘柄を決め、その中で売る理由の無い銘柄を買い、売る理由が出るまで持ち続ける」戦略を、毎週の形成日の翌営業日の始値で売買するシミュレーションで測る（枠 50 銘柄・片道コスト 0.15%）。比べる相手は (1) 全銘柄の等金額・(2) 売る理由では売らない・(3) 13 週ごとの全体の入れ替え・(4) 本体と同じ件数の無作為な売り（50 回）で、合否は本体の (1) に対する月平均の超過が D1・D2 ともに正かつ (4) の 95% 点以上（基準・売る理由は `hold.py` の docstring と `REASONS`）。DB は読み取り専用で開き、封印期間の価格は読まない。
+
+```bash
+uv run python hold.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+期間・D1・D2 の境界・要約・(4) の 95% 点・合否・保有期間の分布・売る理由を 1 つずつ外した版・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/hold/` には次を書く: `nav.csv`（形成日×戦略×種の資産・現金の比率・銘柄数）、`trades.csv`（本体の買う順の種ごとの売買と売る理由）、`summary.csv`（戦略ごとの要約）、`null.csv`（(4) の回ごとの月平均の超過）、`ablation.csv`（売る理由を 1 つずつ外した版の要約）。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -121,6 +129,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `dataset.py` | 封印期間を除いた、銘柄 × 毎週の形成日ごとの指標 34 本と先の超過リターンの表（総当たりと LightGBM で共有） |
 | `scan.py` | 1 指標・2 指標の分位の条件を総当たりし、シャッフルの帰無分布の 95% 点で候補を選ぶ |
 | `learn.py` | 指標の順位で LightGBM を年ごとのウォークフォワードで学習し、予測の上位 5 分位をシャッフルの帰無分布の 95% 点で候補にする |
+| `hold.py` | ベースの買いルールで買い、売る理由が出るまで持ち続ける戦略を週ごとにシミュレーションし、比べる相手と事前固定の基準で比べる |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約
