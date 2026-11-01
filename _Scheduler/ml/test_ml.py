@@ -29,6 +29,7 @@ import learn
 import ml_common
 import port
 import predict
+import preseal
 import rules
 import scan
 import train
@@ -836,14 +837,32 @@ def test_port_holds_until_turn_adjusts_difference_and_keeps_delisted_cash_in_tra
     assert r.held[12] == 2 and r.nav[13] == pytest.approx(11 / port.TRANCHES + 2 * t)
 
 
-def test_port_target_spends_exactly_the_cash():
-    c = hold.COST
-    assert port.target(np.array([0.0, 10.0]), 0.0) == pytest.approx(10 * (1 - c) / 2)
+@pytest.mark.parametrize("c", [hold.COST, 0.003, 0.005])
+def test_port_target_spends_exactly_the_cash(c):
+    assert port.target(np.array([0.0, 10.0]), 0.0, c) == pytest.approx(10 * (1 - c) / 2)
     rng = np.random.default_rng(0)
     for _ in range(20):
         v, w = rng.choice([0.0, 1.0], 8) * rng.random(8), rng.random()
-        d = port.target(v, w) - v
+        d = port.target(v, w, c) - v
         assert np.where(d > 0, d * (1 + c), d * (1 - c)).sum() == pytest.approx(w)
+
+
+# ---------- preseal.py: 時価総額の分位を揃えた無作為な選択 ----------
+def test_preseal_size_buy_matches_candidate_counts_per_week_and_size():
+    rng = np.random.default_rng(0)
+    K, J = 8, 300
+    O = np.where(rng.random((K, J)) < 0.1, np.nan, 100.0)
+    univ = rng.random((K, J)) < 0.9
+    q = rng.integers(0, 3, (K, J))
+    size = [univ & (q == 0), univ & (q == 1)]
+    size.append(univ & ~np.any(size, axis=0))
+    buy = univ & ~np.isnan(O) & (rng.random((K, J)) < 0.1)
+    pn = _hold_panel(O, univ, buy, np.zeros((len(hold.REASONS), K, J), bool))
+    m = preseal.size_buy(pn, buy, size, np.random.default_rng(1))
+    assert not (m & ~(univ & ~np.isnan(O))).any()
+    for s in size:
+        assert ((m & s).sum(1) == (buy & s).sum(1)).all()
+    assert (m != buy).any()
 
 
 def test_port_quintile_matches_scan_quintiles():

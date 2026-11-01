@@ -38,23 +38,24 @@ CANDIDATES = {
 }
 
 
-def target(v: np.ndarray, w: float) -> float:
-    """Σ spend(T − v) = w となる等金額 T（v は組み替えの前の各銘柄の金額、w は持ち分の現金。spend は買いに 1 + COST、売りに 1 − COST を掛けた現金の出）。
+def target(v: np.ndarray, w: float, cost: float = hold.COST) -> float:
+    """Σ spend(T − v) = w となる等金額 T（v は組み替えの前の各銘柄の金額、w は持ち分の現金。spend は買いに 1 + cost、売りに 1 − cost を掛けた現金の出）。
 
     spend は T について単調な区分線形で、折れ点は v なので、w を挟む折れ点の区間で直線を解く。
     """
     def spend(t):
         d = t - v
-        return np.where(d > 0, d * (1 + hold.COST), d * (1 - hold.COST)).sum(-1)
+        return np.where(d > 0, d * (1 + cost), d * (1 - cost)).sum(-1)
 
     b = np.sort(v)
     i = int(np.searchsorted(spend(b[:, None]), w))
     x0 = b[max(i - 1, 0)]
-    return x0 + (w - spend(x0)) / ((1 + hold.COST) * i + (1 - hold.COST) * (len(b) - i))
+    return x0 + (w - spend(x0)) / ((1 + cost) * i + (1 - cost) * (len(b) - i))
 
 
-def simulate(pn: hold.Panel, buy: np.ndarray, record: bool = False) -> tuple[hold.Run, np.ndarray]:
-    """buy[k] の銘柄で週 k に持ち分 k mod 12 を組み替える。2 つ目は Run.holds の各件を売った週 k。"""
+def simulate(pn: hold.Panel, buy: np.ndarray, record: bool = False,
+             cost: float = hold.COST) -> tuple[hold.Run, np.ndarray]:
+    """buy[k] の銘柄で週 k に持ち分 k mod 12 を組み替える（片道のコストは cost）。2 つ目は Run.holds の各件を売った週 k。"""
     K, J = pn.univ.shape
     q, bought = np.zeros((TRANCHES, J)), np.zeros((TRANCHES, J), int)
     cash = np.full(TRANCHES, 1 / TRANCHES)
@@ -64,7 +65,7 @@ def simulate(pn: hold.Panel, buy: np.ndarray, record: bool = False) -> tuple[hol
     def sell(k: int, i: int, s: np.ndarray, why: str) -> None:
         v = q[i, s] * pn.P[k, s]
         days = pn.a[k] - bought[i, s]
-        cash[i] += v.sum() * (1 - hold.COST)
+        cash[i] += v.sum() * (1 - cost)
         traded[k] += v.sum()
         holds.extend(days.tolist())
         hold_k.extend([k] * len(days))
@@ -85,7 +86,7 @@ def simulate(pn: hold.Panel, buy: np.ndarray, record: bool = False) -> tuple[hol
         if s.any():
             js = np.flatnonzero(s)
             v = q[i, js] * pn.O[k, js]
-            t = target(v, cash[i])
+            t = target(v, cash[i], cost)
             new = v == 0
             traded[k] += np.abs(t - v).sum()
             bought[i, js[new]] = pn.a[k]

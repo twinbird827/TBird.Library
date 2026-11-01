@@ -102,6 +102,14 @@ uv run python port.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 シミュレーションと評価期間・D1・D2 の境界・要約・候補ごとの (5) の 95% 点と合否・候補の数の分布・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/port/` には次を書く: `nav.csv`（形成日×候補・(5) の回の資産・現金の比率・銘柄数・候補の数）、`trades.csv`（候補ごとの売買。持ち分・理由（新規・調整・満期・母集団外）・全部売った行の保有期間）、`summary.csv`（候補と (5) の要約・合否）、`null.csv`（候補×(5) の回ごとの月平均の超過）。
 
+`preseal.py` は、封印期間を開ける前に、`port.py` の候補 3 本とその条件の和集合（ret250 Q1 かつ、roa_op Q4・psr Q2・per Q3 のどれか）の合格が、時期の偏り・コスト・小型株の効果で説明できないかを探索期間で確かめる。約定・持ち分・評価期間・要約・合否・(5) は `port.py` と同じで、和集合にも同じ要約と合否を出す。時期の偏りは (1) に対する月ごとの超過の暦年ごとの平均と 2020-03〜2020-12 を除いた平均、コストは片道 0.15%・0.3%・0.5% での回し直しと合否、小型株の効果は (6) 毎週の候補を時価総額の 5 分位ごとに数えて同じ分位から同じ件数を選ぶ無作為な選択（候補ごとに 50 回。合否に使わない）との比較で見る。DB は読み取り専用で開き、封印期間の価格は読まない。
+
+```bash
+uv run python preseal.py --db ../../_Tools/TradeAnalyzer/trade.db
+```
+
+評価期間・D1・D2 の境界・各表・コストごとの合否・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/preseal/` には次を書く: `yearly.csv`（候補・(5) × 暦年の月平均の超過と月数、2020-03〜2020-12 を除いた月平均の超過）、`cost.csv`（片道のコスト × 候補・(5) の要約、候補の行は (5) の 95% 点と合否）、`size.csv`（候補の要約・(6) の 95% 点・候補の銘柄の時価総額の分位の割合と、(6) の 50 回の平均の要約）。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -139,6 +147,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `learn.py` | 指標の順位で LightGBM を年ごとのウォークフォワードで学習し、予測の上位 5 分位をシャッフルの帰無分布の 95% 点で候補にする |
 | `hold.py` | ベースの買いルールで買い、売る理由が出るまで持ち続ける戦略を週ごとにシミュレーションし、比べる相手と事前固定の基準で比べる |
 | `port.py` | 総当たりの ret250 Q1 系の候補 3 本を、12 本の持ち分を毎週 1 本ずつ入れ替えるポートフォリオにしてシミュレーションし、無作為な選択と事前固定の基準で比べる |
+| `preseal.py` | 封印期間を開ける前に、`port.py` の候補 3 本と和集合の合格が時期の偏り・コスト・小型株の効果で説明できないかを確かめる |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約
