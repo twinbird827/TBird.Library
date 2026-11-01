@@ -837,6 +837,21 @@ def test_port_holds_until_turn_adjusts_difference_and_keeps_delisted_cash_in_tra
     assert r.held[12] == 2 and r.nav[13] == pytest.approx(11 / port.TRANCHES + 2 * t)
 
 
+def test_port_trimmed_rebases_on_week_w_and_keeps_sells_in_range():
+    K = 8
+    run = hold.Run(np.arange(1.0, K + 1), np.zeros(K), np.zeros(K, int), np.full(K, 2.0), np.zeros(K, int),
+                   [10, 20, 30, 40], [], [])
+    hold_k = np.array([1, 3, 5, 7])
+    r = port.trimmed(run, hold_k, 3, 6)
+    assert r.nav.tolist() == pytest.approx([1, 5 / 4, 6 / 4]) and r.traded.tolist() == pytest.approx([0.5] * 3)
+    assert r.holds == [20, 30]
+    # 既定の引数は週 TRANCHES 以降の今までの切り方。
+    run = run._replace(nav=np.arange(1.0, 17), cash=np.zeros(16), held=np.zeros(16, int), traded=np.ones(16),
+                       n_reason=np.zeros(16, int))
+    r = port.trimmed(run, np.array([11, 12, 13, 15]))
+    assert r.nav.tolist() == pytest.approx(np.arange(13.0, 17) / 13) and r.holds == [20, 30, 40]
+
+
 @pytest.mark.parametrize("c", [hold.COST, 0.003, 0.005])
 def test_port_target_spends_exactly_the_cash(c):
     assert port.target(np.array([0.0, 10.0]), 0.0, c) == pytest.approx(10 * (1 - c) / 2)

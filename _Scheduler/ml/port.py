@@ -112,18 +112,17 @@ def random_buy(pn: hold.Panel, n: np.ndarray, rng: np.random.Generator) -> np.nd
     return m
 
 
-def evaluated(pn: hold.Panel) -> hold.Panel:
-    """週 TRANCHES 以降の Panel。"""
-    w = TRANCHES
-    return pn._replace(fd=pn.fd[w:], dates=pn.dates[w:], a=pn.a[w:], univ=pn.univ[w:], base=pn.base[w:],
-                       reasons=pn.reasons[:, w:], O=pn.O[w:], P=pn.P[w:])
+def evaluated(pn: hold.Panel, w: int = TRANCHES, e: int | None = None) -> hold.Panel:
+    """週 w 以上 e 未満の Panel。"""
+    return pn._replace(fd=pn.fd[w:e], dates=pn.dates[w:e], a=pn.a[w:e], univ=pn.univ[w:e], base=pn.base[w:e],
+                       reasons=pn.reasons[:, w:e], O=pn.O[w:e], P=pn.P[w:e])
 
 
-def trimmed(run: hold.Run, hold_k: np.ndarray) -> hold.Run:
-    """週 TRANCHES 以降に切り詰め、資産と売買の金額を週 TRANCHES の資産で割る（hold.summarize は nav[0] == 1 を前提にする）。"""
-    w, n0 = TRANCHES, run.nav[TRANCHES]
-    return run._replace(nav=run.nav[w:] / n0, cash=run.cash[w:], held=run.held[w:], traded=run.traded[w:] / n0,
-                        n_reason=run.n_reason[w:], holds=[h for h, k in zip(run.holds, hold_k) if k >= w])
+def trimmed(run: hold.Run, hold_k: np.ndarray, w: int = TRANCHES, e: int | None = None) -> hold.Run:
+    """週 w 以上 e 未満に切り詰め、資産と売買の金額を週 w の資産で割る（hold.summarize は nav[0] == 1 を前提にする）。"""
+    n0, e_ = run.nav[w], len(run.nav) if e is None else e
+    return run._replace(nav=run.nav[w:e] / n0, cash=run.cash[w:e], held=run.held[w:e], traded=run.traded[w:e] / n0,
+                        n_reason=run.n_reason[w:e], holds=[h for h, k in zip(run.holds, hold_k) if w <= k < e_])
 
 
 def main() -> None:

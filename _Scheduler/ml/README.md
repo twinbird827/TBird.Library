@@ -110,6 +110,14 @@ uv run python preseal.py --db ../../_Tools/TradeAnalyzer/trade.db
 
 評価期間・D1・D2 の境界・各表・コストごとの合否・実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/preseal/` には次を書く: `yearly.csv`（候補・(5) × 暦年の月平均の超過と月数、2020-03〜2020-12 を除いた月平均の超過）、`cost.csv`（片道のコスト × 候補・(5) の要約、候補の行は (5) の 95% 点と合否）、`size.csv`（候補の要約・(6) の 95% 点・候補の銘柄の時価総額の分位の割合と、(6) の 50 回の平均の要約）。
 
+`seal.py` は、封印期間（約定日が `dataset.SEAL_END` より後）を読む唯一のスクリプトで、#414 で固定した判定方法どおりに `preseal.py` の和集合を封印期間で 1 回だけ確かめる。シミュレーションは探索期間から DB の最後の日まで続けて回し（約定・持ち分・要約・(5) は `port.py` と同じ、(5) の種は `preseal.py` の和集合と同じ）、約定日が封印期間の最初の週以降を評価する。合否は片道 0.15% で、(1) に対する月平均の超過が正かつ (5) の 95% 点以上（D1・D2 に分けない）。片道 0.3% の要約、暦年ごとの超過、候補 3 本それぞれの要約は合否に使わない記述。同じ実行の探索期間の部分の和集合の要約も出し、`preseal.py` の値と一致するかを確かめる。探索の表のキャッシュ（`explore/scan/dataset.pkl`）は読み書きしない。
+
+```bash
+uv run python seal.py --db ../../_Tools/TradeAnalyzer/trade.db.bak-issue414-combo
+```
+
+シミュレーション・封印期間の評価・探索期間の部分の約定日の範囲、要約・95% 点・合否、合否に使わない内訳、実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/seal/` には次を書く: `summary.csv`（探索期間の部分の和集合の片道 0.15% の 1 行と、封印期間のコスト × 和集合・(5) の要約。封印期間の和集合の行は (5) の 95% 点、片道 0.15% の行だけ合否）、`yearly.csv`（和集合・(5) × 暦年の封印期間の月平均の超過と月数）、`candidates.csv`（候補 3 本それぞれの封印期間の要約）。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -148,6 +156,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `hold.py` | ベースの買いルールで買い、売る理由が出るまで持ち続ける戦略を週ごとにシミュレーションし、比べる相手と事前固定の基準で比べる |
 | `port.py` | 総当たりの ret250 Q1 系の候補 3 本を、12 本の持ち分を毎週 1 本ずつ入れ替えるポートフォリオにしてシミュレーションし、無作為な選択と事前固定の基準で比べる |
 | `preseal.py` | 封印期間を開ける前に、`port.py` の候補 3 本と和集合の合格が時期の偏り・コスト・小型株の効果で説明できないかを確かめる |
+| `seal.py` | 封印期間を読む唯一のスクリプト。#414 で固定した判定方法どおりに和集合を封印期間で 1 回だけ確かめる |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約
