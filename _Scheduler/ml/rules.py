@@ -63,6 +63,16 @@ def margin_asof(mi: pd.DataFrame, col: str, when: pd.DatetimeIndex, codes: pd.In
     return _asof(m, col, "Avail", when, codes, strict=False, maxage=MARGIN_MAX_AGE_DAYS)
 
 
+def margin_features(mi: pd.DataFrame, rawvol: pd.DataFrame, when: pd.DatetimeIndex,
+                    codes: pd.Index) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """形成日 when の信用倍率 credit（空売り 0 は欠損）・long_turn・その 28 日前からの変化 long_turn_chg。"""
+    mi = mi.assign(lt=margin_turnover(mi, rawvol),
+                   credit=mi["LongVolume"] / mi["ShortVolume"].where(mi["ShortVolume"] > 0))
+    lt = margin_asof(mi, "lt", when, codes)
+    prev = margin_asof(mi, "lt", when - pd.Timedelta(days=28), codes)
+    return margin_asof(mi, "credit", when, codes), lt, lt - prev.to_numpy()
+
+
 def _read_optional(conn: sqlite3.Connection, table: str, sql: str) -> pd.DataFrame | None:
     """Standard 専用テーブルを読む。未マイグレーションの DB（バックフィル前の複製など）では None。"""
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone() is None:
@@ -211,12 +221,7 @@ class Panel:
         mi = _read_optional(conn, "MarginInterests",
                             "SELECT Date, Code, LongVolume, ShortVolume FROM MarginInterests")
         if mi is not None:
-            mi["lt"] = margin_turnover(mi, P["Volume"])
-            mi["credit"] = mi["LongVolume"] / mi["ShortVolume"].where(mi["ShortVolume"] > 0)
-            self.credit = margin_asof(mi, "credit", me, codes)
-            self.long_turn = margin_asof(mi, "lt", me, codes)
-            prev = margin_asof(mi, "lt", me - pd.Timedelta(days=28), codes)
-            self.long_turn_chg = self.long_turn - prev.values
+            self.credit, self.long_turn, self.long_turn_chg = margin_features(mi, P["Volume"], me, codes)
         ss = _read_optional(conn, "SectorShortRatios",
                             "SELECT Date, Sector33, SellExShortValue, ShortWithRestrictionValue, "
                             "ShortNoRestrictionValue FROM SectorShortRatios")

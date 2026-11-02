@@ -233,9 +233,8 @@ public static class Commands
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("run-today");
 
         // 1. 当日 ingest（型付き IngestService を直接呼ぶ＝CLI ラッパの MigrateAsync は同梱しない）。
-        //    Migrate を呼ばないのはコールドスタート前提（段階1/2 で migrate/ingest 済みの trade.db）＋
-        //    3a は新規マイグレーションを導入しないため。空/未マイグレーション DB だと ingest 内の
-        //    ExecuteDeleteAsync が no such table で停止する（run-today.ps1 冒頭に「要 migrate 済み DB」明記）。
+        //    Migrate を呼ばないのは _Apps/deploy.ps1 が配備のたびに migrate を実行するため。空/未マイグレーション DB だと ingest 内の
+        //    ExecuteDeleteAsync が no such table で停止する。
         ValidateIngestConfig(sp, skipJQuants);
         // Python 設定は数分の ingest/analyze が完走した後の Python 段で汎用 AOORE として死ぬ前に、
         // 起動直後に config キー名つきで fail-fast する（run-today 専用＝Python を使わない ingest 単体には課さない）。

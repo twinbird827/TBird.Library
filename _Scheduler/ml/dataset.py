@@ -125,11 +125,7 @@ def _margin(p: triggers.DailyPanel, fd: pd.DatetimeIndex) -> dict[str, pd.DataFr
     names = ["credit", "long_turn", "long_turn_chg"]
     if p.margin is None:
         return {k: pd.DataFrame(np.nan, index=fd, columns=p.codes) for k in names}
-    mi = triggers._margin(p)
-    mi["credit"] = mi["LongVolume"] / mi["ShortVolume"].where(mi["ShortVolume"] > 0)
-    lt = rules.margin_asof(mi, "lt", fd, p.codes)
-    prev = rules.margin_asof(mi, "lt", fd - pd.Timedelta(days=28), p.codes)
-    return dict(zip(names, [rules.margin_asof(mi, "credit", fd, p.codes), lt, lt - prev.to_numpy()]))
+    return dict(zip(names, rules.margin_features(p.margin, p.rawvol, fd, p.codes)))
 
 
 def build(conn: sqlite3.Connection, end: pd.Timestamp) -> pd.DataFrame:
