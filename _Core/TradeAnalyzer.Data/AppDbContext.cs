@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<EdinetDocument> EdinetDocuments => Set<EdinetDocument>();
     public DbSet<EdinetFinFact> EdinetFinFacts => Set<EdinetFinFact>();
     public DbSet<Signal> Signals => Set<Signal>();
+    public DbSet<ForwardSignal> ForwardSignals => Set<ForwardSignal>();
     public DbSet<BacktestRun> BacktestRuns => Set<BacktestRun>();
     public DbSet<BacktestResult> BacktestResults => Set<BacktestResult>();
     public DbSet<MarginInterest> MarginInterests => Set<MarginInterest>();
@@ -78,6 +79,11 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => new { x.Date, x.Code });
             e.HasIndex(x => x.Date);
+        });
+
+        b.Entity<ForwardSignal>(e =>
+        {
+            e.HasKey(x => new { x.Date, x.Code, x.Trigger });
         });
 
         b.Entity<BacktestRun>(e =>

@@ -1,4 +1,4 @@
-"""探索（explore.py）とフォワードテストが共有する月末パネルと、ルールのスコア関数。
+"""探索（explore.py）が使う月末パネルと、ルールのスコア関数。
 
 形成日は各月の DailyBars 上の最終取引日。スコアは形成日の終値時点で分かる情報だけで作る:
 財務は開示日が形成日より前、信用取引残高は基準日 + 7 暦日が形成日以前、業種は形成日以前で最新の Stocks スナップショット。
@@ -23,9 +23,6 @@ MARGIN_MAX_AGE_DAYS = 31
 
 # 業種単位でスコアが決まるルール。業種内順位にすると全銘柄が同順位になるので業種内順位版を評価しない。
 SECTOR_LEVEL = {"14 業種6か月上昇率", "S4 業種空売り比率(低)"}
-
-# フォワードテストで記録するルール名（#414 の探索結果を見て確定する）。
-CANDIDATES: list[str] = []
 
 
 def _asof(frame: pd.DataFrame, col: str, datecol: str, when: pd.DatetimeIndex, codes: pd.Index,

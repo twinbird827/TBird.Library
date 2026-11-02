@@ -118,6 +118,18 @@ uv run python seal.py --db ../../_Tools/TradeAnalyzer/trade.db.bak-issue414-comb
 
 シミュレーション・封印期間の評価・探索期間の部分の約定日の範囲、要約・95% 点・合否、合否に使わない内訳、実行時間を標準出力に出す。`_Tools/TradeAnalyzer/explore/seal/` には次を書く: `summary.csv`（探索期間の部分の和集合の片道 0.15% の 1 行と、封印期間のコスト × 和集合・(5) の要約。封印期間の和集合の行は (5) の 95% 点、片道 0.15% の行だけ合否）、`yearly.csv`（和集合・(5) × 暦年の封印期間の月平均の超過と月数）、`candidates.csv`（候補 3 本それぞれの封印期間の要約）。
 
+### フォワードテスト（#414）
+
+`forward.py` は、10 年分の探索で事前の基準を通過した C3 割安×上方修正・C6 業種内割安×上方修正（保有 5 営業日）を、今日以降のデータで確かめる。記録は run-today が Python 採点の後に `forward.py --db <trade.db> --date <採点対象日>` を起動して行い、採点対象日に立ち母集団の条件を満たす (日, 銘柄, トリガー) を記録時刻（UTC）つきで `ForwardSignals` に書く。同じ行は最初の記録時刻を残す。
+
+評価は手動で起動する（配信には載せない）。記録時刻がトリガー日の翌営業日の 9:00 JST より前の行だけを、`explore_triggers.py` と同じ建て方で測り、トリガーごとと OR の件数・月数・月平均の超過・Newey-West の t 値と、1321・1306 を同じ期間で持った場合に対する超過の月平均と t 値（記述）を出す。結果がまだ出ていない取引は数えない。DB には書かない。
+
+```bash
+uv run python forward.py --db ../../_Tools/TradeAnalyzer/trade.db --evaluate
+```
+
+打ち切りの基準: 記録を始めてから 12 か月の時点で、月平均の超過（母集団の等金額平均に対する）が 0 以下のトリガーは効かないと判断する。効くという判断は 2〜3 年分で行う。
+
 ### DB パスの注意
 
 `trade.db` は C# 側 `AppPaths` が **`_Tools/TradeAnalyzer/trade.db`** に絶対解決する（CWD 非依存。タスクスケジューラは `_Apps/deploy.ps1` が `_Tools/TradeAnalyzer/app/` へ配備した exe・スクリプトを `TRADEANALYZER_DATA_DIR` 付きで起動し、同じファイルを使う）。Python から実行するときは `_Scheduler/ml` を cwd に `--db ../../_Tools/TradeAnalyzer/trade.db` を渡す。環境変数 `TRADEANALYZER_DATA_DIR` を設定すると C#/Python ともその配下（`<dir>/trade.db`・`<dir>/ml/models`）を使う（別配置・テスト向けの上書き）。
@@ -145,7 +157,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `labels.py` | N日後フォワード相対リターン → gain ラベル（先読み防止・未確定除外） |
 | `train.py` | ウォークフォワード学習＋optuna（Purged K-Fold + embargo）＋OOS 書戻し |
 | `evaluate.py` | Rank-IC / NDCG@K 検証レポート（t統計量・p値・ICIR・符号検定＋ML−Rule 対日差検定） |
-| `rules.py` | 月末パネルと買い方ルールのスコア関数（探索とフォワードテストで共有）。`CANDIDATES` がフォワードテストの対象 |
+| `rules.py` | 月末パネルと買い方ルールのスコア関数 |
 | `explore.py` | 全ルールを P1・P2・P3 の 3 期間で評価し、事前固定の選抜基準で候補を選ぶ |
 | `triggers.py` | 日次パネルと買い・売りのトリガー（探索とフォワードテストで共有） |
 | `explore_triggers.py` | 全トリガー×保有期間を P1・P2・P3 の 3 期間で評価し、通過したトリガーの OR 戦略を要約する |
@@ -157,6 +169,7 @@ signals 無しでも RuleEngine 再評価で完結」する挙動は廃止）。
 | `port.py` | 総当たりの ret250 Q1 系の候補 3 本を、12 本の持ち分を毎週 1 本ずつ入れ替えるポートフォリオにしてシミュレーションし、無作為な選択と事前固定の基準で比べる |
 | `preseal.py` | 封印期間を開ける前に、`port.py` の候補 3 本と和集合の合格が時期の偏り・コスト・小型株の効果で説明できないかを確かめる |
 | `seal.py` | 封印期間を読む唯一のスクリプト。#414 で固定した判定方法どおりに和集合を封印期間で 1 回だけ確かめる |
+| `forward.py` | フォワードテスト。run-today から起動されて採点対象日に立った C3・C6 を `ForwardSignals` に記録し、`--evaluate` で実績を測る |
 | `_Tools/TradeAnalyzer/ml/models/` | 学習済みモデル（`*.txt` LightGBM native）＋`best_params.json`（gitignore 済） |
 
 ## 既知の制約

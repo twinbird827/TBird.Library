@@ -325,6 +325,25 @@ namespace TradeAnalyzer.Data.Migrations
                     b.ToTable("FinSummaries");
                 });
 
+            modelBuilder.Entity("TradeAnalyzer.Data.Entities.ForwardSignal", b =>
+                {
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Trigger")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Date", "Code", "Trigger");
+
+                    b.ToTable("ForwardSignals");
+                });
+
             modelBuilder.Entity("TradeAnalyzer.Data.Entities.MarginInterest", b =>
                 {
                     b.Property<string>("Code")

@@ -218,7 +218,7 @@ public static class Commands
 
     /// <summary>
     /// 段階3a 当日 EOD 推論オーケストレータ。当日 ingest→最新営業日 t の解決→t の analyze→Python 採点
-    /// （predict.py）→ MlScore null 検査→ Top-K 標準出力 を単一プロセスで逐次実行する。各段は失敗で即 throw
+    /// （predict.py）→ MlScore null 検査→ Top-K 標準出力→フォワードテストの記録（forward.py）を単一プロセスで逐次実行する。各段は失敗で即 throw
     /// （silent fallback 禁止）。Process 分離で Python を起動し ExitCode で成否を判定する（pythonnet 不採用）。
     /// </summary>
     public static async Task RunTodayAsync(IServiceProvider sp, string[] args)
@@ -294,6 +294,13 @@ public static class Commands
         Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
+
+        // 7. フォワードテスト（#414）の記録。建てる前（t の翌営業日の寄付き前）の時刻で残すため毎晩ここで書く。
+        await RunPythonAsync(pythonOptions.Value, logger, "forward.py", new[]
+        {
+            ("--db", dbPath),
+            ("--date", t.ToIso()),
+        });
     }
 
     /// <summary>

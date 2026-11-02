@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import numpy as np
@@ -24,6 +25,7 @@ import explore
 import explore_events as ev
 import explore_triggers as et
 import features
+import forward
 import hold
 import learn
 import ml_common
@@ -581,6 +583,40 @@ def test_merge_adopted_ors_two_skips():
     a, b, s = _sig(5, 1), _sig(5, 3), _sig(5, 2)
     kw = et.merge_adopted([{"skip": a}, {"sell": s}, {"skip": b}])
     assert (kw["skip"] == (a | b)).all() and kw["sell"] is s
+
+
+# ---------- forward.py: 記録時刻の保持・建てる前の記録だけの評価・指数に対する超過 ----------
+def test_forward_record_keeps_first_recorded_at():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE ForwardSignals (Date TEXT, Code TEXT, Trigger TEXT, RecordedAt TEXT, "
+                 "PRIMARY KEY (Date, Code, Trigger))")
+    t = pd.Timestamp("2026-11-02")
+    first = datetime(2026, 11, 2, 13, 30, tzinfo=timezone.utc)
+    assert forward.record(conn, t, {"C3": ["1111", "2222"]}, first) == 2
+    assert forward.record(conn, t, {"C3": ["1111"], "C6": ["1111"]}, first + timedelta(hours=1)) == 1
+    rows = dict(conn.execute("SELECT Trigger || ':' || Code, RecordedAt FROM ForwardSignals").fetchall())
+    assert rows == {"C3:1111": "2026-11-02 13:30:00.000000", "C3:2222": "2026-11-02 13:30:00.000000",
+                    "C6:1111": "2026-11-02 14:30:00.000000"}
+
+
+def test_forward_usable_drops_records_from_next_day_9am_jst():
+    dates = pd.bdate_range("2026-11-02", periods=3)
+    rows = pd.DataFrame({
+        "Date": pd.to_datetime(["2026-11-02", "2026-11-02", "2026-11-04"]),
+        # t の翌営業日 2026-11-03 の 9:00 JST は 2026-11-03 00:00 UTC。最後の行は翌営業日が DB に無い。
+        "RecordedAt": pd.to_datetime(["2026-11-02 23:59:59", "2026-11-03 00:00:00", "2026-11-04 13:30:00"]),
+    })
+    assert forward.usable(rows, dates).index.tolist() == [0]
+
+
+def test_forward_index_excess_subtracts_index_return_from_next_open_to_exit_close():
+    c = np.arange(100.0, 112.0)
+    o = c - 0.5
+    m = _market(c, o)
+    tr = et.simulate(m, [et.Leg(_sig(12, 0), 5, False)])
+    io, ic = np.linspace(50.0, 61.0, 12), np.linspace(50.5, 61.5, 12)
+    ex = forward.index_excess(tr, m, io, ic)["ex"].iloc[0]
+    assert ex == pytest.approx(c[5] / o[1] - 1 - et.COST - (ic[5] / io[1] - 1))
 
 
 # ---------- dataset.py / scan.py: 先の超過リターン・封印・形成日・総当たり・シャッフル ----------
