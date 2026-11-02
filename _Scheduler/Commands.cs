@@ -36,7 +36,7 @@ public static class Commands
   signals --is <期間> --oos <期間>           IS/OOS 各ウィンドウの全リバランス日でルール評価→Signal 保存（Python 母集団入力。要 ingest 済み DB）
   backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD。両モードとも要 signals 済み）
           [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替（母集団は両モードとも保存 Signal）
-  run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力（要 migrate 済み DB）
+  run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力→フォワードテストの記録（forward.py）（要 migrate 済み DB）
           [--skip-jquants]                   当日 ingest 済みの再実行時のみ（当日 bar を足さず既存 DB 最新営業日を採点）
   explain-today                              段階3b 当日定性層: run-today 後の Top-K に実データ注入→Claude 根拠文生成→QualitativeJson 書戻し
           [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
@@ -217,9 +217,8 @@ public static class Commands
     }
 
     /// <summary>
-    /// 段階3a 当日 EOD 推論オーケストレータ。当日 ingest→最新営業日 t の解決→t の analyze→Python 採点
-    /// （predict.py）→ MlScore null 検査→ Top-K 標準出力→フォワードテストの記録（forward.py）を単一プロセスで逐次実行する。各段は失敗で即 throw
-    /// （silent fallback 禁止）。Process 分離で Python を起動し ExitCode で成否を判定する（pythonnet 不採用）。
+    /// 段階3a 当日 EOD 推論の各段を単一プロセスで逐次実行する。
+    /// 各段は失敗で即 throw（silent fallback 禁止）。Process 分離で Python を起動し ExitCode で成否を判定する（pythonnet 不採用）。
     /// </summary>
     public static async Task RunTodayAsync(IServiceProvider sp, string[] args)
     {
@@ -295,7 +294,7 @@ public static class Commands
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
 
-        // 7. フォワードテスト（#414）の記録。建てる前（t の翌営業日の寄付き前）の時刻で残すため毎晩ここで書く。
+        // 7. フォワードテスト（#414）の記録は、建てる前（t の翌営業日の寄付き前）の時刻で残すため毎晩ここで書く。
         await RunPythonAsync(pythonOptions.Value, logger, "forward.py", new[]
         {
             ("--db", dbPath),

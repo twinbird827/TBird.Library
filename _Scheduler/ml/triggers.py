@@ -12,7 +12,6 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-import db as dbmod
 import rules
 
 HOLDING_DAYS = [5, 60, 120, 240]
@@ -42,14 +41,8 @@ class DailyPanel:
     """日次パネル。行は営業日、列は銘柄コード。"""
 
     def __init__(self, conn: sqlite3.Connection, end: pd.Timestamp | None = None):
-        stocks = pd.read_sql("SELECT AsOfDate, Code, Sector33, MarginCode FROM Stocks", conn,
-                             parse_dates={"AsOfDate": "%Y-%m-%d"})
-        etf = set(stocks.loc[stocks["Sector33"] == rules.ETF_SECTOR, "Code"])
-        bars = dbmod.read_daily_bars(conn, end=end)
-        bars = bars[bars["AdjClose"].notna() & bars["Code"].isin(set(stocks["Code"]) - etf)]
-        P = {x: bars.pivot(index="Date", columns="Code", values=x)
-             for x in ["AdjOpen", "AdjHigh", "AdjLow", "AdjClose", "AdjVolume", "Close", "Volume", "TurnoverValue"]}
-        del bars
+        stocks, P, _, ewr, liq, rawp = rules.read_prices(
+            conn, end, ["AdjOpen", "AdjHigh", "AdjLow", "AdjClose", "AdjVolume", "Close", "Volume", "TurnoverValue"])
         self.px = px = P["AdjClose"]
         self.open, self.high, self.low = P["AdjOpen"], P["AdjHigh"], P["AdjLow"]
         self.vol, self.rawvol = P["AdjVolume"], P["Volume"]
@@ -57,13 +50,11 @@ class DailyPanel:
         self.dates = px.index
         self.codes = px.columns
         self.cidx = {c: j for j, c in enumerate(self.codes)}
-        ret = px.pct_change(fill_method=None).clip(-0.5, 1)
-        self.ewi = np.cumprod(1 + np.nan_to_num(np.nanmean(ret.values, axis=1)))
+        self.ewi = np.cumprod(1 + ewr)
         self.sec = _daily_asof(self, stocks, "Sector33", "AsOfDate")
         self.marginable = _daily_asof(self, stocks, "MarginCode", "AsOfDate") == MARGINABLE
-        liq = P["TurnoverValue"].rolling(20, min_periods=15).mean()
         self.eligible = (px.notna() & (liq >= rules.MIN_TURNOVER_YEN)
-                         & (P["Close"].ffill(limit=5) >= rules.MIN_PRICE_YEN) & self.sec.notna())
+                         & (rawp >= rules.MIN_PRICE_YEN) & self.sec.notna())
         self.allfin, self.fin = rules.build_fin(conn, self.codes)
         self.margin = rules._read_optional(conn, "MarginInterests",
                                            "SELECT Date, Code, LongVolume, ShortVolume FROM MarginInterests")
@@ -256,13 +247,7 @@ def _sue(p: DailyPanel, up: bool) -> pd.DataFrame:
 def _margin(p: DailyPanel) -> pd.DataFrame:
     """信用取引残高に、使える日 Avail・信用倍率 credit・買い残÷20 日平均出来高 lt を足したもの。"""
     mi = p.margin.copy()
-    # 信用残の株数は遡及調整されないので、分母も生の Volume にする。
-    vol20 = p.rawvol.rolling(20, min_periods=15).mean()
-    ri, ci = p.dates.get_indexer(mi["Date"]), p.codes.get_indexer(mi["Code"])
-    hit = (ri >= 0) & (ci >= 0)
-    v = np.full(len(mi), np.nan)
-    v[hit] = vol20.values[ri[hit], ci[hit]]
-    mi["lt"] = mi["LongVolume"] / np.where(v > 0, v, np.nan)
+    mi["lt"] = rules.margin_turnover(mi, p.rawvol)
     long, short = mi["LongVolume"], mi["ShortVolume"]
     mi["credit"] = np.where(short > 0, long / short.where(short > 0), np.where(long > 0, np.inf, np.nan))
     mi["Avail"] = mi["Date"] + rules.MARGIN_LAG

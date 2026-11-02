@@ -44,6 +44,19 @@ def fin_asof(fin: pd.DataFrame, col: str, when: pd.DatetimeIndex, codes: pd.Inde
     return _asof(fin, col, datecol, when, codes, strict=True, maxage=maxage)
 
 
+def margin_turnover(mi: pd.DataFrame, rawvol: pd.DataFrame) -> pd.Series:
+    """信用取引残高の各行の買い残 ÷ 基準日の 20 日平均出来高（平均が 0 以下・基準日が rawvol に無い行は欠損）。
+
+    信用残の株数は遡及調整されないので、分母も生の Volume にする（AdjVolume だと将来の分割が比率に混ざる）。
+    """
+    vol20 = rawvol.rolling(20, min_periods=15).mean()
+    ri, ci = vol20.index.get_indexer(mi["Date"]), vol20.columns.get_indexer(mi["Code"])
+    hit = (ri >= 0) & (ci >= 0)
+    v = np.full(len(mi), np.nan)
+    v[hit] = vol20.values[ri[hit], ci[hit]]
+    return mi["LongVolume"] / np.where(v > 0, v, np.nan)
+
+
 def margin_asof(mi: pd.DataFrame, col: str, when: pd.DatetimeIndex, codes: pd.Index) -> pd.DataFrame:
     """基準日 + MARGIN_LAG が形成日以前の信用取引残高の最新値。"""
     m = mi.assign(Avail=mi["Date"] + MARGIN_LAG)
@@ -70,7 +83,6 @@ def build_fin(conn: sqlite3.Connection, codes) -> tuple[pd.DataFrame, pd.DataFra
            .drop_duplicates(["Code", "DiscloseDate"], keep="last"))
     g = fin.groupby("Code")
     pq, pdt, pnp = g["q"].shift(), g["DiscloseDate"].shift(), g["NP"].shift()
-    # 四半期単独の純利益: 1Q はそのまま、それ以外は直前四半期（150 日以内）の累計との差。
     fin["sNP"] = np.where(fin["q"] == 1, fin["NP"],
                           np.where((pq == fin["q"] - 1) & ((fin["DiscloseDate"] - pdt).dt.days < 150),
                                    fin["NP"] - pnp, np.nan))
@@ -113,32 +125,43 @@ def ear(ev: pd.DataFrame, dates: pd.DatetimeIndex, px: pd.DataFrame, ewi: np.nda
     return ev
 
 
+def read_prices(conn: sqlite3.Connection, end: pd.Timestamp | None, cols: list[str]):
+    """Stocks、ETF を除いた株価の cols ごとの pivot、日次リターン、等金額の日次リターン、20 日平均売買代金、生の終値（5 日まで持ち越し）。
+
+    月末パネルと日次パネルが共有する前段。母集団の条件（ETF の除外・売買代金・株価）を両者で揃えるため 1 か所に置く。
+    cols は AdjClose・Close・TurnoverValue を含める。
+    """
+    stocks = pd.read_sql("SELECT AsOfDate, Code, Sector33, MarginCode FROM Stocks", conn,
+                         parse_dates={"AsOfDate": "%Y-%m-%d"})
+    etf = set(stocks.loc[stocks["Sector33"] == ETF_SECTOR, "Code"])
+    bars = dbmod.read_daily_bars(conn, end=end)
+    bars = bars[bars["AdjClose"].notna() & bars["Code"].isin(set(stocks["Code"]) - etf)]
+    P = {x: bars.pivot(index="Date", columns="Code", values=x) for x in cols}
+    del bars
+    ret = P["AdjClose"].pct_change(fill_method=None).clip(-0.5, 1)
+    ewr = np.nan_to_num(np.nanmean(ret.values, axis=1))
+    liq = P["TurnoverValue"].rolling(20, min_periods=15).mean()
+    return stocks, P, ret, ewr, liq, P["Close"].ffill(limit=5)
+
+
 class Panel:
     """月末パネル。行は形成日 me、列は銘柄コード。"""
 
     def __init__(self, conn: sqlite3.Connection, end: pd.Timestamp | None = None):
-        stocks = pd.read_sql("SELECT AsOfDate, Code, Sector33 FROM Stocks", conn,
-                             parse_dates={"AsOfDate": "%Y-%m-%d"})
-        etf = set(stocks.loc[stocks["Sector33"] == ETF_SECTOR, "Code"])
-        bars = dbmod.read_daily_bars(conn, end=end)
-        bars = bars[bars["AdjClose"].notna() & bars["Code"].isin(set(stocks["Code"]) - etf)]
-        P = {x: bars.pivot(index="Date", columns="Code", values=x)
-             for x in ["AdjClose", "Close", "AdjVolume", "Volume", "TurnoverValue"]}
-        del bars
+        stocks, P, ret, ewr, liq, rawp = read_prices(
+            conn, end, ["AdjClose", "Close", "AdjVolume", "Volume", "TurnoverValue"])
         px = P["AdjClose"]
         self.dates = dates = px.index
         self.codes = codes = px.columns
         cidx = {c: j for j, c in enumerate(codes)}
-        ret = px.pct_change(fill_method=None).clip(-0.5, 1)
-        ewr = np.nan_to_num(np.nanmean(ret.values, axis=1))
         ewi = np.cumprod(1 + ewr)
         self.me = me = pd.DatetimeIndex(dates.to_series().groupby(dates.to_period("M")).max().values)
         mpos = dates.get_indexer(me)
         # 上場廃止は最終値で清算する（翌月末に値が無くても 25 営業日まで最終値を持ち越す）。
         self.pm = pm = px.ffill(limit=25).loc[me]
         self.alive = px.loc[me].notna()
-        self.liq = P["TurnoverValue"].rolling(20, min_periods=15).mean().loc[me]
-        self.rawm = P["Close"].ffill(limit=5).loc[me]
+        self.liq = liq.loc[me]
+        self.rawm = rawp.loc[me]
         self.sec = _asof(stocks, "Sector33", "AsOfDate", me, codes, strict=False)
 
         # ---- 財務（Eps/Bps は read_fin_summaries が AdjClose の株数基準へ換算済み）----
@@ -188,13 +211,7 @@ class Panel:
         mi = _read_optional(conn, "MarginInterests",
                             "SELECT Date, Code, LongVolume, ShortVolume FROM MarginInterests")
         if mi is not None:
-            # 信用残の株数は遡及調整されないので、分母も生の Volume にする（AdjVolume だと将来の分割が比率に混ざる）。
-            vol20 = P["Volume"].rolling(20, min_periods=15).mean()
-            ri, ci = dates.get_indexer(mi["Date"]), codes.get_indexer(mi["Code"])
-            hit = (ri >= 0) & (ci >= 0)
-            v = np.full(len(mi), np.nan)
-            v[hit] = vol20.values[ri[hit], ci[hit]]
-            mi["lt"] = mi["LongVolume"] / np.where(v > 0, v, np.nan)
+            mi["lt"] = margin_turnover(mi, P["Volume"])
             mi["credit"] = mi["LongVolume"] / mi["ShortVolume"].where(mi["ShortVolume"] > 0)
             self.credit = margin_asof(mi, "credit", me, codes)
             self.long_turn = margin_asof(mi, "lt", me, codes)

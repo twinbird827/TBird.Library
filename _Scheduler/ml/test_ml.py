@@ -264,6 +264,21 @@ def test_margin_asof_waits_seven_days_after_record_date():
     assert np.isnan(out.loc[d, "B"])
 
 
+def test_margin_turnover_divides_by_raw_volume_20d_mean():
+    dates = pd.bdate_range("2024-01-01", periods=20)
+    rawvol = pd.DataFrame({"A": 100.0, "B": 0.0}, index=dates)
+    rawvol.iloc[:10, 0] = 300.0
+    mi = pd.DataFrame({
+        "Code": ["A", "A", "B"],
+        "Date": [dates[-1], dates[-1] + pd.Timedelta(days=1), dates[-1]],
+        "LongVolume": [400.0, 400.0, 400.0],
+    })
+    out = rules.margin_turnover(mi, rawvol)
+    assert out.iloc[0] == 2.0
+    assert np.isnan(out.iloc[1])
+    assert np.isnan(out.iloc[2])
+
+
 # ---------- triggers.py / explore_triggers.py: 約定・清算・再トリガー・予想修正・t 値・空売り・(b)(c)・損切り ----------
 def _market(c, o=None, h=None, l=None, marg=True) -> et.Market:
     """銘柄 A だけの Market。o は省略時 c、h/l は省略時 o と c の高い方/低い方。"""

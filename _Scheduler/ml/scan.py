@@ -65,7 +65,6 @@ def sweep(q: np.ndarray, ex: np.ndarray, day: np.ndarray, month: np.ndarray, n_m
         has = q[s:e] >= 0
         A = np.zeros((e - s, K), np.float32)
         A[np.nonzero(has)[0], col[s:e][has]] = 1
-        # 1 回の行列積で、全条件の (a, b) ごとの ex の和と件数を h ごとに出す。
         R = np.concatenate([A * e0[s:e, k:k + 1] for k in range(H)] + [A * valid[s:e, k:k + 1] for k in range(H)], 1)
         G = (A.T @ R).astype(float).reshape(K, 2, H, K).transpose(1, 2, 0, 3)
         S, C = G[0], np.rint(G[1])
