@@ -294,7 +294,7 @@ public static class Commands
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
 
-        // 7. フォワードテスト（#414）の記録は、建てる前（t の翌営業日の寄付き前）の時刻で残すため毎晩ここで書く。
+        // 7. フォワードテストの記録は、建てる前（t の翌営業日の寄付き前）の時刻で残すため毎晩ここで書く。
         await RunPythonAsync(pythonOptions.Value, logger, "forward.py", new[]
         {
             ("--db", dbPath),

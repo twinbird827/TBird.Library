@@ -33,8 +33,8 @@ public class Signal
 }
 
 /// <summary>
-/// フォワードテスト（#414）で、トリガー日 t の引け後に立ったトリガーの記録。複合キー (Date, Code, Trigger)。
-/// Python（forward.py）が既存の行を上書きせずに挿入し、評価は建てる前（t の翌営業日 9:00 JST より前）の記録だけを数える。
+/// フォワードテストで、トリガー日 t の引け後に立ったトリガーの記録。複合キー (Date, Code, Trigger)。
+/// 行を最初の記録時刻のまま上書きしないのは、建てる前に記録した行だけを評価に数えて先読みを防ぐため。
 /// </summary>
 public class ForwardSignal
 {
