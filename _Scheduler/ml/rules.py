@@ -189,7 +189,6 @@ class Panel:
         self.ep = fin_asof(fyb, "Eps", me, codes) / pm
         self.mcap = pm * sh
 
-        # ---- 価格系 ----
         self.vol60 = px.pct_change(fill_method=None).rolling(60, min_periods=50).std().loc[me]
         self.hi52 = px.rolling(250, min_periods=200).max().loc[me]
         self.mx = ret.rolling(21, min_periods=18).max().loc[me]
@@ -215,7 +214,6 @@ class Panel:
                 iv[d] = np.where(n >= 50, np.sqrt((res ** 2).sum(0) / n), np.nan)
         self.ivol = pd.DataFrame(iv, index=codes).T.reindex(me)
 
-        # ---- Standard 専用 ----
         nan = pd.DataFrame(np.nan, index=me, columns=codes)
         self.credit = self.long_turn = self.long_turn_chg = self.ssr = nan
         mi = _read_optional(conn, "MarginInterests",

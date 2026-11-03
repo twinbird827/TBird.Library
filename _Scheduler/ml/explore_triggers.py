@@ -24,18 +24,7 @@ MIN_MONTHS = 30
 MIN_T = 2.5
 SELL_LOOKBACK = 20
 PERIODS = explore.PERIODS
-
-
-def nw_t(x: pd.Series, lag: int) -> float:
-    """Newey-West の t 値（自己共分散は n−1 で割る。lag=0 で explore.t_stat と一致する）。"""
-    n = len(x)
-    if n <= 2:
-        return np.nan
-    d = x.to_numpy(float) - x.mean()
-    var = d @ d / (n - 1)
-    for k in range(1, min(lag, n - 1) + 1):
-        var += 2 * (1 - k / (lag + 1)) * (d[k:] @ d[:-k]) / (n - 1)
-    return x.mean() / np.sqrt(var / n) if var > 0 else np.nan
+nw_t = explore.nw_t
 
 
 def nw_lag(hold: int) -> int:

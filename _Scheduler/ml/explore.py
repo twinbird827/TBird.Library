@@ -19,8 +19,16 @@ MAX_CANDIDATES = 5
 PERIODS = ["P1", "P2", "P3"]
 
 
-def t_stat(x: pd.Series) -> float:
-    return x.mean() / x.std() * np.sqrt(len(x)) if len(x) > 2 else np.nan
+def nw_t(x: pd.Series, lag: int) -> float:
+    """Newey-West の t 値（自己共分散は n−1 で割る）。"""
+    n = len(x)
+    if n <= 2:
+        return np.nan
+    d = x.to_numpy(float) - x.mean()
+    var = d @ d / (n - 1)
+    for k in range(1, min(lag, n - 1) + 1):
+        var += 2 * (1 - k / (lag + 1)) * (d[k:] @ d[:-k]) / (n - 1)
+    return x.mean() / np.sqrt(var / n) if var > 0 else np.nan
 
 
 def periods(me: pd.DatetimeIndex) -> pd.Series:
@@ -51,7 +59,7 @@ def monthly(p: rules.Panel, name: str, sector_ranked: bool) -> pd.DataFrame:
 
 def summarize(r: pd.DataFrame, per: pd.Series) -> dict:
     row = {"月数": len(r), "銘柄数": r["n"].median() if len(r) else np.nan,
-           "TX": r["tx"].mean(), "tTX": t_stat(r["tx"]), "LS": r["ls"].mean(),
+           "TX": r["tx"].mean(), "tTX": nw_t(r["tx"], 0), "LS": r["ls"].mean(),
            "上位業種比率": r["max_sec"].mean()}
     g = r.groupby(per.reindex(r.index))
     for k in PERIODS:

@@ -21,7 +21,6 @@ import pytest
 
 import dataset
 import db as dbmod
-import explore
 import explore_events as ev
 import explore_triggers as et
 import features
@@ -374,11 +373,6 @@ def test_early_sell_exits_at_next_open():
     # 買いのトリガー日 t の売りのトリガーは保有中ではない。
     tr = et.simulate(_market(c, o), [et.Leg(_sig(n, 0), 5, False, sell=_sig(n, 0))])
     assert tr["exit"].iloc[0] == 5
-
-
-def test_nw_t_lag0_matches_explore_t_stat():
-    x = pd.Series([0.01, -0.02, 0.03, 0.005, 0.012, -0.004])
-    assert et.nw_t(x, 0) == pytest.approx(explore.t_stat(x))
 
 
 # ---------- explore_events.py: 取れない部分と取れる部分の境目・押し目の約定 ----------
