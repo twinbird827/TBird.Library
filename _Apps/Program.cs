@@ -83,9 +83,10 @@ async Task SaveAsync(IResponse res)
         var hash = Convert.ToHexString(SHA256.HashData(body));
         if (!seenHash.TryAdd(hash, 0)) { Interlocked.Increment(ref stats.Duplicate); return; }
 
-        var no = Interlocked.Increment(ref stats.Saved);
+        var no = Interlocked.Increment(ref stats.Numbered);
         var name = $"{no:D4}_{SafeBaseName(res.Url)}{Extension(ct, res.Url)}";
         await File.WriteAllBytesAsync(Path.Combine(outDir, name), body);
+        Interlocked.Increment(ref stats.Saved);
         log.Enqueue($"{name}\t{body.Length}\t{ct}\t{res.Url}");
         Console.WriteLine($"[{no,4}] {body.Length,9:N0} B  {Truncate(res.Url, 100)}");
     }
@@ -159,7 +160,7 @@ for (int i = 0; i < maxScrolls && !cts.IsCancellationRequested; i++)
         bool atBottom = m[1] >= m[0] - 2;
         stableAtBottom = (atBottom && m[0] == lastHeight) ? stableAtBottom + 1 : 0;
         lastHeight = m[0];
-        if (stableAtBottom >= 3) break;   // 最下部で3回連続して高さが変わらなければ終了
+        if (stableAtBottom >= 3) break;
     }
     catch (PlaywrightException ex)
     {
@@ -274,5 +275,5 @@ static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)
 
 sealed class Stats
 {
-    public int Saved, Duplicate, Small, Failed;
+    public int Numbered, Saved, Duplicate, Small, Failed;
 }

@@ -15,9 +15,8 @@ if ($gitDirs[0] -ne $gitDirs[1]) {
 }
 
 # 配備先に実行時データは無い (Chromium は %LOCALAPPDATA%\ms-playwright に入る) ため全て消す
-$keep = @()
 if (Test-Path $appDir) {
-    Get-ChildItem $appDir -Force | Where-Object { $keep -notcontains $_.Name } | Remove-Item -Recurse -Force
+    Get-ChildItem $appDir -Force | Remove-Item -Recurse -Force
 }
 
 & dotnet publish (Join-Path $PSScriptRoot "ImageGrabber.csproj") -c Release -o $appDir
