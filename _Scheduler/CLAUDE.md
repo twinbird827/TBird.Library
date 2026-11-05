@@ -25,7 +25,7 @@ dotnet run --project _Scheduler -- <command>
 コマンド一覧と引数は `Commands.PrintUsage`（引数なし実行で表示）が正。概要:
 
 - `migrate` / `ingest` / `analyze` / `signals` / `backtest` — 段階1〜2（履歴データ・検証）
-- `run-today` — 段階3a: 当日 EOD 推論（ingest → analyze → Python 採点 → Top-K）
+- `run-today` — 段階3a: 当日 EOD 推論（ingest → analyze → Python 採点 → Top-K → フォワードテストの記録（forward.py））
 - `explain-today` — 段階3b: Claude 根拠文生成 → `QualitativeJson` 書戻し
 - `notify-today` — 段階3c: 配信ペイロード組み立て
 - `selftest` — APIキー不要の単体検証（指標 / ルール / 先読み防止 / パーサ回帰）

@@ -9,7 +9,6 @@ namespace TradeAnalyzer.Core.Ingest;
 
 /// <summary>
 /// 外部API取得 → 正規化保存のオーケストレーション。各 upsert は日付単位の delete-insert で冪等。
-/// 注: J-Quants Free は 5req/分のため、広い期間の取得は数時間規模になりうる（土台用途として許容）。
 /// </summary>
 public class IngestService
 {
@@ -35,10 +34,12 @@ public class IngestService
 
     public async Task IngestAsync(
         DateOnly from, DateOnly to,
-        bool skipJQuants = false, int? edinetLimitPerDay = null, CancellationToken ct = default)
+        bool skipJQuants = false, int? edinetLimitPerDay = null,
+        bool skipEdinet = false, bool withStandard = false, CancellationToken ct = default)
     {
-        _logger.LogInformation("Ingest 開始 {From}..{To} (skipJQuants={Skip}, edinetLimit={Limit})",
-            from, to, skipJQuants, edinetLimitPerDay);
+        _logger.LogInformation(
+            "Ingest 開始 {From}..{To} (skipJQuants={Skip}, edinetLimit={Limit}, skipEdinet={SkipEdinet}, standard={Standard})",
+            from, to, skipJQuants, edinetLimitPerDay, skipEdinet, withStandard);
 
         if (!skipJQuants)
         {
@@ -50,13 +51,20 @@ public class IngestService
 
         if (!skipJQuants)
         {
-            await IngestEquityMasterAsync(from, ct).ConfigureAwait(false);
+            var masterDays = tradingDays.Count == 0
+                ? new List<DateOnly> { from }
+                : tradingDays.GroupBy(d => (d.Year, d.Month)).Select(g => g.First()).ToList();
+            foreach (var d in masterDays)
+                await IngestEquityMasterAsync(d, ct).ConfigureAwait(false);
             await IngestEarningsCalendarAsync(ct).ConfigureAwait(false);
             await IngestDailyBarsAsync(tradingDays, ct).ConfigureAwait(false);
             await IngestFinSummaryAsync(tradingDays, ct).ConfigureAwait(false);
+            if (withStandard)
+                await IngestStandardAsync(from, to, tradingDays, ct).ConfigureAwait(false);
         }
 
-        await IngestEdinetAsync(tradingDays, edinetLimitPerDay, ct).ConfigureAwait(false);
+        if (!skipEdinet)
+            await IngestEdinetAsync(tradingDays, edinetLimitPerDay, ct).ConfigureAwait(false);
 
         _logger.LogInformation("Ingest 完了");
     }
@@ -73,7 +81,6 @@ public class IngestService
 
     private async Task IngestEquityMasterAsync(DateOnly asOf, CancellationToken ct)
     {
-        // 段階1: 期間先頭の単一スナップショットで母集団を近似（点-in-time の厳密化は段階2）。
         var stocks = await _jq.GetEquityMasterAsync(date: asOf, ct: ct).ConfigureAwait(false);
         foreach (var s in stocks) s.AsOfDate = asOf; // 期間中ずっと利用可能にする
         var codes = stocks.Select(s => s.Code).ToHashSet(StringComparer.Ordinal);
@@ -132,6 +139,40 @@ public class IngestService
             _db.FinSummaries.AddRange(deduped);
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             _logger.LogDebug("FinSummary {Date}: {Count} 行", d, deduped.Count);
+        }
+    }
+
+    /// <summary>
+    /// Standard 専用の信用取引残高と業種別空売り比率を取引日ごとに delete-insert する。
+    /// 信用取引残高は基準日の翌営業日に配信されるため、<paramref name="from"/> の 14 暦日前から取り直して前回取得時の未配信日を埋める。
+    /// 2026-09-25 より前の信用取引残高は週末基準日にしか行がなく、空の日は何もしない。
+    /// </summary>
+    private async Task IngestStandardAsync(
+        DateOnly from, DateOnly to, IReadOnlyList<DateOnly> tradingDays, CancellationToken ct)
+    {
+        var marginDays = await TradingDaysAsync(from.AddDays(-14), to, ct).ConfigureAwait(false);
+        foreach (var d in marginDays)
+        {
+            ct.ThrowIfCancellationRequested();
+            var rows = await _jq.GetMarginInterestAsync(d, ct).ConfigureAwait(false);
+            if (rows.Count == 0) continue;
+            await _db.MarginInterests.Where(m => m.Date == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
+            var deduped = rows.DistinctBy(x => (x.Code, x.Date)).ToList();
+            _db.MarginInterests.AddRange(deduped);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogDebug("MarginInterest {Date}: {Count} 行", d, deduped.Count);
+        }
+
+        foreach (var d in tradingDays)
+        {
+            ct.ThrowIfCancellationRequested();
+            var rows = await _jq.GetSectorShortRatioAsync(d, ct).ConfigureAwait(false);
+            if (rows.Count == 0) continue;
+            await _db.SectorShortRatios.Where(s => s.Date == d).ExecuteDeleteAsync(ct).ConfigureAwait(false);
+            var deduped = rows.DistinctBy(x => (x.Sector33, x.Date)).ToList();
+            _db.SectorShortRatios.AddRange(deduped);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogDebug("SectorShortRatio {Date}: {Count} 行", d, deduped.Count);
         }
     }
 

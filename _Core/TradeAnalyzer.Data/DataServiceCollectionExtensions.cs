@@ -49,8 +49,7 @@ public static class DataServiceCollectionExtensions
             // タイムアウトしない。レートゲート（JQuantsRateLimiter）は Retry-After を扱わず MinInterval
             // ゲートに専念する。
             b.AddStandardHttpRetry(5);
-            // per-attempt timeout（retry の内側＝AddRetry の後に追加）。レートゲート待機
-            // （最大 MinIntervalSeconds≈13秒）を内包する必要があるため既定10秒では短すぎる→75秒。
+            // per-attempt timeout（retry の内側＝AddRetry の後に追加）。
             // タイムアウト時は TimeoutRejectedException を投げ、上の retry が transient として再試行する。
             b.AddTimeout(TimeSpan.FromSeconds(75));
         });

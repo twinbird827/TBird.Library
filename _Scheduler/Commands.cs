@@ -30,11 +30,13 @@ public static class Commands
   ingest  --from YYYY-MM-DD --to YYYY-MM-DD  J-Quants/EDINET 取得→保存（要 APIキー）
           [--skip-jquants]                   J-Quants をスキップし EDINET のみ取得（既存 Stocks で突合）
           [--edinet-limit N]                 EDINET の日あたり解析件数を N に制限
+          [--skip-edinet]                    EDINET を取得しない
+          [--standard]                       信用取引残高・業種別空売り比率も取得（要 Standard 以上）
   analyze --date YYYY-MM-DD                  指定日でルール評価し Signal 保存
   signals --is <期間> --oos <期間>           IS/OOS 各ウィンドウの全リバランス日でルール評価→Signal 保存（Python 母集団入力。要 ingest 済み DB）
   backtest --is <期間> --oos <期間>          バックテスト実行（期間=YYYY または YYYY-MM-DD:YYYY-MM-DD。両モードとも要 signals 済み）
           [--use-ml true|false]              picks を MlScore 順（true）/RuleScore 順（false 既定）で選ぶ A/B 切替（母集団は両モードとも保存 Signal）
-  run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力（要 migrate 済み DB）
+  run-today                                  段階3a 当日 EOD 推論: 当日 ingest→最新営業日 analyze→Python 採点→Top-K 出力→フォワードテストの記録（forward.py）（要 migrate 済み DB）
           [--skip-jquants]                   当日 ingest 済みの再実行時のみ（当日 bar を足さず既存 DB 最新営業日を採点）
   explain-today                              段階3b 当日定性層: run-today 後の Top-K に実データ注入→Claude 根拠文生成→QualitativeJson 書戻し
           [--date YYYY-MM-DD]                対象日を明示（既定は直近営業日）。要 run-today 済み（MlScore 充足）
@@ -68,6 +70,8 @@ public static class Commands
         if (from > to) throw new ArgumentException("--from は --to 以前である必要があります。");
 
         bool skipJQuants = opts.ContainsKey("skip-jquants");
+        bool skipEdinet = opts.ContainsKey("skip-edinet");
+        bool withStandard = opts.ContainsKey("standard");
         int? edinetLimit = opts.TryGetValue("edinet-limit", out var lv) && int.TryParse(lv, out var l) ? l : null;
 
         ValidateIngestConfig(sp, skipJQuants);
@@ -76,7 +80,7 @@ public static class Commands
         await db.Database.MigrateAsync(); // 取得前に DB を用意
 
         var ingest = sp.GetRequiredService<IngestService>();
-        await ingest.IngestAsync(from, to, skipJQuants, edinetLimit);
+        await ingest.IngestAsync(from, to, skipJQuants, edinetLimit, skipEdinet, withStandard);
     }
 
     public static async Task AnalyzeAsync(IServiceProvider sp, string[] args)
@@ -213,9 +217,8 @@ public static class Commands
     }
 
     /// <summary>
-    /// 段階3a 当日 EOD 推論オーケストレータ。当日 ingest→最新営業日 t の解決→t の analyze→Python 採点
-    /// （predict.py）→ MlScore null 検査→ Top-K 標準出力 を単一プロセスで逐次実行する。各段は失敗で即 throw
-    /// （silent fallback 禁止）。Process 分離で Python を起動し ExitCode で成否を判定する（pythonnet 不採用）。
+    /// 段階3a 当日 EOD 推論の各段を単一プロセスで逐次実行する。
+    /// 各段は失敗で即 throw（silent fallback 禁止）。Process 分離で Python を起動し ExitCode で成否を判定する（pythonnet 不採用）。
     /// </summary>
     public static async Task RunTodayAsync(IServiceProvider sp, string[] args)
     {
@@ -230,9 +233,8 @@ public static class Commands
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("run-today");
 
         // 1. 当日 ingest（型付き IngestService を直接呼ぶ＝CLI ラッパの MigrateAsync は同梱しない）。
-        //    Migrate を呼ばないのはコールドスタート前提（段階1/2 で migrate/ingest 済みの trade.db）＋
-        //    3a は新規マイグレーションを導入しないため。空/未マイグレーション DB だと ingest 内の
-        //    ExecuteDeleteAsync が no such table で停止する（run-today.ps1 冒頭に「要 migrate 済み DB」明記）。
+        //    Migrate を呼ばないのは _Apps/deploy.ps1 が配備のたびに migrate を実行するため。空/未マイグレーション DB だと ingest 内の
+        //    ExecuteDeleteAsync が no such table で停止する。
         ValidateIngestConfig(sp, skipJQuants);
         // Python 設定は数分の ingest/analyze が完走した後の Python 段で汎用 AOORE として死ぬ前に、
         // 起動直後に config キー名つきで fail-fast する（run-today 専用＝Python を使わない ingest 単体には課さない）。
@@ -290,6 +292,13 @@ public static class Commands
         Console.WriteLine($"{"Code",-8} {"MlScore",10} {"RuleScore",9}  Rationale");
         foreach (var s in top)
             Console.WriteLine($"{s.Code,-8} {s.MlScore!.Value,10:F4} {s.RuleScore,9}  {s.Rationale}");
+
+        // 7. フォワードテストの記録は、建てる前（t の翌営業日の寄付き前）の時刻で残すため毎晩ここで書く。
+        await RunPythonAsync(pythonOptions.Value, logger, "forward.py", new[]
+        {
+            ("--db", dbPath),
+            ("--date", t.ToIso()),
+        });
     }
 
     /// <summary>

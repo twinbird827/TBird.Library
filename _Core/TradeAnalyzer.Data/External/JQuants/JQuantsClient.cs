@@ -6,7 +6,7 @@ using TradeAnalyzer.Data.Entities;
 namespace TradeAnalyzer.Data.External.JQuants;
 
 /// <summary>
-/// J-Quants V2 クライアント（Free）。認証は x-api-key（既定ヘッダ。DI 側で付与）。
+/// J-Quants V2 クライアント。認証は x-api-key（既定ヘッダ。DI 側で付与）。
 /// レート制御は <see cref="JQuantsRateLimitHandler"/>、429/5xx 再試行は resilience handler が担う。
 /// 本クラスは pagination_key を辿って全ページを連結し、エンティティへマップする。
 /// </summary>
@@ -112,6 +112,10 @@ public class JQuantsClient
                 DocType = i.DocType ?? string.Empty,
                 Sales = i.Sales, OperatingProfit = i.OP, NetProfit = i.NP,
                 Eps = i.EPS, Bps = i.BPS, TotalAssets = i.TA, Equity = i.Eq,
+                CurrentFiscalYearEnd = ParseDate(i.CurFYEn), NextFiscalYearEnd = ParseDate(i.NxtFYEn),
+                ForecastOperatingProfit = i.FOP, ForecastNetProfit = i.FNP,
+                NextForecastOperatingProfit = i.NxFOP, NextForecastNetProfit = i.NxFNp,
+                ForecastNonConsolidatedOperatingProfit = i.FNCOP, ForecastNonConsolidatedNetProfit = i.FNCNP,
             });
         }
         return result;
@@ -131,6 +135,52 @@ public class JQuantsClient
             result.Add(new EarningsCalendar
             {
                 Date = d.Value, Code = i.Code, FiscalYear = i.FY, FiscalQuarter = i.FQ,
+            });
+        }
+        return result;
+    }
+
+    /// <summary>信用取引残高（全銘柄）。Standard 以上。</summary>
+    public async Task<List<MarginInterest>> GetMarginInterestAsync(DateOnly date, CancellationToken ct = default)
+    {
+        var query = new Dictionary<string, string?> { ["date"] = date.ToIso() };
+        var items = await GetAllPagesAsync<MarginInterestPage, MarginInterestItem>(
+            "/v2/markets/margin-interest", query, p => p.Data, p => p.PaginationKey, ct).ConfigureAwait(false);
+
+        var result = new List<MarginInterest>(items.Count);
+        foreach (var i in items)
+        {
+            var d = ParseDate(i.Date);
+            if (i.Code == null || d == null) continue;
+            result.Add(new MarginInterest
+            {
+                Date = d.Value, Code = i.Code, IssueType = i.IssType,
+                ShortVolume = i.ShrtVol, LongVolume = i.LongVol,
+                ShortNegotiableVolume = i.ShrtNegVol, LongNegotiableVolume = i.LongNegVol,
+                ShortStandardizedVolume = i.ShrtStdVol, LongStandardizedVolume = i.LongStdVol,
+            });
+        }
+        return result;
+    }
+
+    /// <summary>業種別空売り比率（全業種）。Standard 以上。</summary>
+    public async Task<List<SectorShortRatio>> GetSectorShortRatioAsync(DateOnly date, CancellationToken ct = default)
+    {
+        var query = new Dictionary<string, string?> { ["date"] = date.ToIso() };
+        var items = await GetAllPagesAsync<SectorShortRatioPage, SectorShortRatioItem>(
+            "/v2/markets/short-ratio", query, p => p.Data, p => p.PaginationKey, ct).ConfigureAwait(false);
+
+        var result = new List<SectorShortRatio>(items.Count);
+        foreach (var i in items)
+        {
+            var d = ParseDate(i.Date);
+            if (i.S33 == null || d == null) continue;
+            result.Add(new SectorShortRatio
+            {
+                Date = d.Value, Sector33 = i.S33,
+                SellExShortValue = i.SellExShortVa,
+                ShortWithRestrictionValue = i.ShrtWithResVa,
+                ShortNoRestrictionValue = i.ShrtNoResVa,
             });
         }
         return result;

@@ -32,6 +32,25 @@ public class Signal
     public string? QualitativeJson { get; set; }
 }
 
+/// <summary>
+/// フォワードテストで、トリガー日 t の引け後に立ったトリガーの記録。複合キー (Date, Code, Trigger)。
+/// 行を最初の記録時刻のまま上書きしないのは、建てる前に記録した行だけを評価に数えて先読みを防ぐため。
+/// </summary>
+public class ForwardSignal
+{
+    /// <summary>トリガー日（複合キーの一部）。</summary>
+    public DateOnly Date { get; set; }
+
+    /// <summary>銘柄コード（複合キーの一部）。</summary>
+    public string Code { get; set; } = string.Empty;
+
+    /// <summary>トリガー名。triggers.py の辞書のキーそのまま（複合キーの一部）。</summary>
+    public string Trigger { get; set; } = string.Empty;
+
+    /// <summary>最初に記録した時刻（UTC）。</summary>
+    public DateTime RecordedAt { get; set; }
+}
+
 /// <summary>バックテスト1回分の実行パラメータと集計結果。</summary>
 public class BacktestRun
 {

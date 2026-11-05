@@ -79,6 +79,14 @@ public class FinSummaryItem
     [JsonPropertyName("BPS")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? BPS { get; set; }
     [JsonPropertyName("TA")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? TA { get; set; }
     [JsonPropertyName("Eq")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? Eq { get; set; }
+    [JsonPropertyName("CurFYEn")] public string? CurFYEn { get; set; }
+    [JsonPropertyName("NxtFYEn")] public string? NxtFYEn { get; set; }
+    [JsonPropertyName("FOP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FOP { get; set; }
+    [JsonPropertyName("FNP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FNP { get; set; }
+    [JsonPropertyName("NxFOP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? NxFOP { get; set; }
+    [JsonPropertyName("NxFNp")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? NxFNp { get; set; }
+    [JsonPropertyName("FNCOP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FNCOP { get; set; }
+    [JsonPropertyName("FNCNP")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? FNCNP { get; set; }
 }
 
 // --- 決算予定日 /v2/equities/earnings-calendar ---
@@ -94,6 +102,44 @@ public class EarningsCalendarItem
     [JsonPropertyName("Code")] public string? Code { get; set; }
     [JsonPropertyName("FY")] public string? FY { get; set; }
     [JsonPropertyName("FQ")] public string? FQ { get; set; }
+}
+
+// --- 信用取引残高 /v2/markets/margin-interest ---
+public class MarginInterestPage : JQuantsPage<MarginInterestItem>
+{
+    [JsonPropertyName("data")]
+    public List<MarginInterestItem> Data { get; set; } = new();
+}
+
+public class MarginInterestItem
+{
+    [JsonPropertyName("Date")] public string? Date { get; set; }
+    [JsonPropertyName("Code")] public string? Code { get; set; }
+    [JsonPropertyName("IssType")] public string? IssType { get; set; }
+
+    [JsonPropertyName("ShrtVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtVol { get; set; }
+    [JsonPropertyName("LongVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? LongVol { get; set; }
+    [JsonPropertyName("ShrtNegVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtNegVol { get; set; }
+    [JsonPropertyName("LongNegVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? LongNegVol { get; set; }
+    [JsonPropertyName("ShrtStdVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtStdVol { get; set; }
+    [JsonPropertyName("LongStdVol")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? LongStdVol { get; set; }
+}
+
+// --- 業種別空売り比率 /v2/markets/short-ratio ---
+public class SectorShortRatioPage : JQuantsPage<SectorShortRatioItem>
+{
+    [JsonPropertyName("data")]
+    public List<SectorShortRatioItem> Data { get; set; } = new();
+}
+
+public class SectorShortRatioItem
+{
+    [JsonPropertyName("Date")] public string? Date { get; set; }
+    [JsonPropertyName("S33")] public string? S33 { get; set; }
+
+    [JsonPropertyName("SellExShortVa")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? SellExShortVa { get; set; }
+    [JsonPropertyName("ShrtWithResVa")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtWithResVa { get; set; }
+    [JsonPropertyName("ShrtNoResVa")][JsonConverter(typeof(FlexibleDoubleConverter))] public double? ShrtNoResVa { get; set; }
 }
 
 // --- 取引カレンダー /v2/markets/calendar ---
