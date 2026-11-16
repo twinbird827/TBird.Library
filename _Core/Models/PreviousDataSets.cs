@@ -107,6 +107,17 @@ namespace Netkeiba.Models
 			var jockeyElos = details.Select(d => GetJockeyElo(d)).ToArray();
 			var trainerElos = details.Select(d => GetTrainerElo(d)).ToArray();
 			var fastHorseElos = details.Select(d => GetFastHorseElo(d)).ToArray();
+
+			// Elo の履歴は残らないので、更新前の値から過去走としての相手の強さと期待超過をここで書き残す
+			var sumFastHorseElo = fastHorseElos.Sum();
+			for (int i = 0; i < n; i++)
+			{
+				// 降順の平均順位（同値は平均）
+				var eloRank = 1f + fastHorseElos.Count(x => x > fastHorseElos[i]) + (fastHorseElos.Count(x => x == fastHorseElos[i]) - 1) / 2f;
+				details[i].OppFastElo = (sumFastHorseElo - fastHorseElos[i]) / (n - 1);
+				details[i].FastEloExcess = (1f - (details[i].FinishPosition - 1f) / (n - 1)) - (1f - (eloRank - 1f) / (n - 1));
+			}
+
 			var fastJockeyElos = details.Select(d => GetFastJockeyElo(d)).ToArray();
 			var fastTrainerElos = details.Select(d => GetFastTrainerElo(d)).ToArray();
 

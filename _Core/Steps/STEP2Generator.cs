@@ -14,7 +14,8 @@ namespace Netkeiba
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				var create = overwrite || !await conn.ExistsModelTableAsync();
+				// 特徴量の増減で BLOB 長が変わった旧行は Deserialize が列ずれになるので、作り直す
+				var create = overwrite || !await conn.ExistsModelTableAsync() || !await conn.IsModelBlobLengthCurrentAsync();
 
 				if (create)
 				{

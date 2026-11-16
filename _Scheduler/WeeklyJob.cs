@@ -7,7 +7,7 @@ namespace Netkeiba.Scheduler
 		public static async Task<int> RunAsync()
 		{
 			var step = "STEP1";
-			Models.RankingTrain[] trains;
+			Models.RankingTrain train;
 			int failed;
 
 			try
@@ -21,7 +21,7 @@ namespace Netkeiba.Scheduler
 				failed = await STEP2Generator.GenerateAsync(false);
 
 				step = "STEP3";
-				trains = await STEP3Trainer.TrainAsync();
+				train = await STEP3Trainer.TrainAsync();
 			}
 			catch (Exception ex)
 			{
@@ -32,7 +32,7 @@ namespace Netkeiba.Scheduler
 
 			await DiscordWebhook.SendAsync("weekly が完了しました\n"
 				+ (failed > 0 ? $"STEP2 失敗 {failed} 件\n" : string.Empty)
-				+ string.Join("\n", trains.Select(x => $"{x.Grade} NDCG@1 {x.NDCG1:F4}")));
+				+ $"{train.Grade} NDCG@1 {train.NDCG1:F4}");
 			return 0;
 		}
 	}

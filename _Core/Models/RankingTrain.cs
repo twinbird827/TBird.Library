@@ -46,5 +46,8 @@ namespace Netkeiba.Models
 		public double NDCG5 { get; set; }
 
 		public double Temperature { get; set; }
+
+		/// <summary>自信度の帯境界（テスト期間のレースごとの 1 着確率最大値の 20・40・60・80 パーセンタイル）</summary>
+		public double[] ConfidenceBounds { get; set; } = [];
 	}
 }

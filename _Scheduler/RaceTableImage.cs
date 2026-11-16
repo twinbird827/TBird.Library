@@ -26,10 +26,11 @@ namespace Netkeiba.Scheduler
 			var race = predictions[0].Detail.Race;
 			var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}"
 				+ (start != null ? $" 発走 {start:HH:mm}" : string.Empty)
-				+ $" 予想 {DateTime.Now:HH:mm}";
+				+ $" 予想 {DateTime.Now:HH:mm}"
+				+ $" {predictions[0].Confidence}";
 
 			(string, int) Text(string x) => (x, 0);
-			(string, int) Score(RaceScore x) => ($"{x.WinProb * 100:F1}%", x.Rank);
+			(string, int) Prob(float x) => ($"{x * 100:F1}%", 0);
 			(string, int) Num(float x, string format) => (float.IsNaN(x) ? "-" : x.ToString(format), 0);
 
 			var rows = predictions
@@ -38,16 +39,13 @@ namespace Netkeiba.Scheduler
 					Text(x.Detail.Wakuban.ToString()),
 					Text(x.Detail.Umaban.ToString()),
 					Text(x.Name),
-					Score(x.Total),
-					Score(x.Horse),
-					Score(x.TotalMedium),
-					Score(x.TotalSmall),
-					Score(x.Vars2),
-					Score(x.Vars1),
+					($"{x.Win.WinProb * 100:F1}%", x.Win.Rank),
+					Prob(x.Top2Prob),
+					Prob(x.Top3Prob),
 					Num(x.Detail.Odds, "F1"),
 					float.IsNaN(x.EV.Score) ? Text("-") : ($"{x.EV.Score:F2}", x.EV.Rank),
 				})
-				.Prepend(new[] { "枠", "馬番", "馬名", "Total", "Horse", "Medium", "Small", "Vars2", "Vars1", "単勝", "EV" }.Select(Text).ToArray())
+				.Prepend(new[] { "枠", "馬番", "馬名", "勝率", "2着内", "3着内", "単勝", "EV" }.Select(Text).ToArray())
 				.ToArray();
 
 			using var typeface = SKTypeface.FromFamilyName("Meiryo");

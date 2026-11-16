@@ -14,23 +14,18 @@ namespace Netkeiba
 {
 	public static class STEP3Trainer
 	{
-		// モデル別ハイパーパラメータ（iter=2000, lr=0.02, es=150 は全モデル共通）
-		public static readonly Dictionary<FeaturesType, (int leaves, int depth, double featFrac, double subFrac, double l2, int minLeaf)> ModelParams = new()
-		{
-			{ FeaturesType.Total, (20, 7, 0.25, 0.90, 7.0, 100) },
-			{ FeaturesType.Horse, (15, 6, 0.30, 0.80, 12.0, 150) },
-			{ FeaturesType.Connection, (20, 6, 0.35, 0.75, 15.0, 200) },
-			{ FeaturesType.TotalMedium, (15, 6, 0.40, 0.85, 10.0, 120) },
-			{ FeaturesType.TotalSmall, (15, 6, 0.55, 0.85, 10.0, 120) },
-			{ FeaturesType.TotalRaw, (15, 6, 0.40, 0.85, 10.0, 120) },
-			{ FeaturesType.TotalRank, (15, 6, 0.40, 0.85, 10.0, 120) },
-		};
+		// 旧 7 モデルの "Total" と別名にし、旧 app-setting.json の Total モデルを読まないようにする
+		public const string ModelName = "Single";
 
-		public static async Task<RankingTrain[]> TrainAsync()
+		// ハイパーパラメータ（iter=2000, lr=0.02, es=150）。値は研究の格子探索（netkeiba-feature-review.md 7.4 節）
+		private static readonly (int leaves, int depth, double featFrac, double subFrac, double l2, int minLeaf) ModelParams = (31, 8, 0.4, 0.90, 7.0, 100);
+
+		public static async Task<RankingTrain> TrainAsync()
 		{
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
-				if (!await conn.ExistsModelTableAsync())
+				// STEP2 を通らずに旧 BLOB を列ずれのまま学習しないよう、BLOB 長の不一致も未作成と同じに扱う
+				if (!await conn.ExistsModelTableAsync() || !await conn.IsModelBlobLengthCurrentAsync())
 				{
 					throw new InvalidOperationException("教育用データが作成されていません。");
 				}
@@ -42,10 +37,10 @@ namespace Netkeiba
 
 				AppSetting.Instance.RemoveAllRankingTrain();
 
-				return await ModelParams.Select(x => RankingAsync(x.Key.GetLabel(), data, test,
+				return await RankingAsync(ModelName, data, test,
 					OptimizedHorseFeatures.GetNormalizationNames(),
-					OptimizedHorseFeatures.GetFeaturesTypeNames(x.Key),
-					x.Value)).WhenAll();
+					OptimizedHorseFeatures.GetFeaturesNames(),
+					ModelParams);
 			}
 		}
 
@@ -113,6 +108,7 @@ namespace Netkeiba
 				}).ToArray();
 
 				var ndcg = featuresPredictions.GetNDCG();
+				var temperature = GetCalibration(featuresPredictions);
 
 				var result = new RankingTrain(
 					DateTime.Now,
@@ -120,8 +116,11 @@ namespace Netkeiba
 					ndcg.NDCG1,
 					ndcg.NDCG3,
 					ndcg.NDCG5,
-					GetCalibration(featuresPredictions)
-				);
+					temperature
+				)
+				{
+					ConfidenceBounds = GetConfidenceBounds(featuresPredictions, temperature)
+				};
 				AppSetting.Instance.UpdateRankingTrains(result);
 
 				DirectoryUtil.Create(Path.GetDirectoryName(result.Path));
@@ -130,7 +129,7 @@ namespace Netkeiba
 					_ml.Model.Save(model, null, fileStream);
 				}
 
-				MessageService.Debug($"{grade}\tNDCG@1\t{ndcg.NDCG1:F4}\tNDCG@3\t{ndcg.NDCG3:F4}\tNDCG@5\t{ndcg.NDCG5:F4}\tTemperature\t{result.Temperature:F2}\tモデルを保存しました: {result.Path}");
+				MessageService.Debug($"{grade}\tNDCG@1\t{ndcg.NDCG1:F4}\tNDCG@3\t{ndcg.NDCG3:F4}\tNDCG@5\t{ndcg.NDCG5:F4}\tTemperature\t{result.Temperature:F2}\tConfidenceBounds\t{string.Join(",", result.ConfidenceBounds.Select(x => x.ToString("F4")))}\tモデルを保存しました: {result.Path}");
 
 				return result;
 			});
@@ -154,12 +153,7 @@ namespace Netkeiba
 				foreach (var race in raceGroups)
 				{
 					var horses = race.ToArray();
-
-					// softmax: P(i) = exp(Score_i / T) / Σ exp(Score_j / T)
-					var maxScore = horses.Max(h => h.Score);
-					var exps = horses.Select(h => Math.Exp((h.Score - maxScore) / t)).ToArray();
-					var sumExp = exps.Sum();
-					var probs = exps.Select(e => e / sumExp).ToArray();
+					var probs = RacePredictionExtension.Softmax(horses.Select(h => h.Score).ToArray(), t);
 
 					for (int i = 0; i < horses.Length; i++)
 					{
@@ -179,6 +173,25 @@ namespace Netkeiba
 			}
 
 			return bestT;
+		}
+
+		private static double[] GetConfidenceBounds(FeaturesPrediction[] tests, double temperature)
+		{
+			var maxP1 = tests.GroupBy(x => x.RaceId)
+				.Where(g => g.Count() >= 3)
+				.Select(g => RacePredictionExtension.Softmax(g.Select(x => x.Score).ToArray(), temperature).Max())
+				.OrderBy(x => x)
+				.ToArray();
+			if (maxP1.Length == 0) return [];
+
+			// numpy.percentile の既定（線形補間）と同じ
+			return new[] { 0.2, 0.4, 0.6, 0.8 }.Select(q =>
+			{
+				var pos = q * (maxP1.Length - 1);
+				var lo = (int)Math.Floor(pos);
+				var hi = Math.Min(lo + 1, maxP1.Length - 1);
+				return maxP1[lo] + (maxP1[hi] - maxP1[lo]) * (pos - lo);
+			}).ToArray();
 		}
 	}
 }

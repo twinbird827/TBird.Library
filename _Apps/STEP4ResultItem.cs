@@ -17,12 +17,9 @@ namespace Netkeiba
 			Umaban = x.Detail.Umaban;
 			Name = x.Name;
 			Result = x.Result.Str();
-			Total = x.Total;
-			Horse = x.Horse;
-			TotalMedium = x.TotalMedium;
-			TotalSmall = x.TotalSmall;
-			Vars2 = x.Vars2;
-			Vars1 = x.Vars1;
+			Win = x.Win;
+			Top2Prob = x.Top2Prob;
+			Top3Prob = x.Top3Prob;
 			Odds = x.Detail.Odds;
 			EV = x.EV;
 		}
@@ -35,17 +32,11 @@ namespace Netkeiba
 
 		public string Result { get; set; }
 
-		public RaceScore Total { get; set; }
+		public RaceScore Win { get; set; }
 
-		public RaceScore Horse { get; set; }
+		public float Top2Prob { get; set; }
 
-		public RaceScore TotalMedium { get; set; }
-
-		public RaceScore TotalSmall { get; set; }
-
-		public RaceScore Vars2 { get; set; }
-
-		public RaceScore Vars1 { get; set; }
+		public float Top3Prob { get; set; }
 
 		public float Odds { get; set; }
 
