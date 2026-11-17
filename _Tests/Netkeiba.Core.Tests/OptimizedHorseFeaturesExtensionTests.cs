@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Netkeiba.Models;
 using NUnit.Framework;
@@ -83,6 +84,18 @@ namespace Netkeiba.Core.Tests
 			var results = new[] { 0.1f, float.NaN }.Select(t => new OptimizedHorseFeatures { Tuka = t }).CalculateInRaces();
 
 			Assert.That(new[] { results[0].FrontCount, results[0].TukaOrder, results[0].LoneFront, results[0].TukaPace }, Is.All.NaN);
+		}
+
+		// static の BlobLength が列に混ざると BLOB が 1 列長くなり、Deserialize が get しかないプロパティへ代入して落ちる
+		[Test]
+		public void SerializeRoundTripsWithBlobLength()
+		{
+			var bytes = new OptimizedHorseFeatures { TukaPace = 0.5f, TrainerBreederAvgTime2Condition = 2f }.Serialize();
+
+			Assert.That(bytes.Length, Is.EqualTo(OptimizedHorseFeatures.BlobLength));
+			Assert.That(OptimizedHorseFeatures.BlobLength, Is.EqualTo(230 * sizeof(float)));
+			var back = OptimizedHorseFeatures.Deserialize(new Dictionary<string, object> { ["Label"] = 1, ["RaceId"] = "R", ["Horse"] = "H", ["Features"] = bytes })!;
+			Assert.That(new[] { back.TukaPace, back.TrainerBreederAvgTime2Condition }, Is.EqualTo(new[] { 0.5f, 2f }));
 		}
 
 		private static OptimizedHorseFeatures[] Calculate() => new[]

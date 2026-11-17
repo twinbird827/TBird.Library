@@ -724,7 +724,8 @@ namespace Netkeiba.Models
 
 		private static CustomProperty[] GetProperties(Type type)
 		{
-			return type.GetProperties()
+			// 既定の GetProperties は static も返し、BlobLength が BLOB の列に混ざる
+			return type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
 				.Select(p => new CustomProperty(
 					p,
 					p.Name,
