@@ -74,8 +74,9 @@ namespace Netkeiba.Models
 
 				try
 				{
-					// 発走 10 分前（scheduler の予想時刻）のオッズは予想後に消えるので、API から取った回だけ残す
-					if (getShutsuba)
+					// 発走 10 分前（scheduler の予想時刻）のオッズは予想後に消えるので、API から取った回だけ残す。
+					// 発走後に開いたレースのオッズは確定オッズで、予想時のオッズの記録にならないので残さない
+					if (getShutsuba && IsBeforeStart(racearr.FirstOrDefault(), DateTime.Now))
 					{
 						var odds = racearr
 							.Select(x => (umaban: x["馬番"].Int32(), odds: x["単勝"].GetSingle()))
@@ -145,6 +146,18 @@ namespace Netkeiba.Models
 					}
 				}
 			}
+		}
+
+		/// <summary>出馬表の行（開催日・発走）から、now が発走前か。発走時刻が読めなければ false</summary>
+		public static bool IsBeforeStart(Dictionary<string, string>? row, DateTime now)
+		{
+			if (row == null
+				|| !DateTime.TryParseExact(row.GetValueOrDefault("開催日"), "yyyy/MM/dd", null, System.Globalization.DateTimeStyles.None, out var date)
+				|| !TimeSpan.TryParseExact(row.GetValueOrDefault("発走"), @"h\:mm", null, out var time))
+			{
+				return false;
+			}
+			return now < date + time;
 		}
 
 		// 名前付き Mutex はスレッド所有で await を跨げず、ファイルロックはプロセスが落ちても OS が解放する

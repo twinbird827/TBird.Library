@@ -290,6 +290,8 @@ namespace Netkeiba
 				var baba = left == "ダ" ? "ダート" : "芝";
 				// 馬場状態
 				var cond = Regex.Match(racedata01.InnerHtml, @"馬場:(?<x>[^\<]+)").Groups["x"].Value;
+				// 発走時刻(「15:40発走」)
+				var start = Regex.Match(racedata01.InnerHtml, @"(?<x>\d{1,2}:\d{2})発走").Groups["x"].Value;
 
 				// *****
 				// 「根岸ステークス(G3) 出馬表 | 2024年1月28日 東京11R レース情報(JRA) - netkeiba.com」この部分を取得して分類する
@@ -324,6 +326,8 @@ namespace Netkeiba
 					dic["優勝賞金"] = prise.Str();
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = date.ToTotalDays().Str();
+					// t_orig_h の列ではない。予想時のオッズを発走前だけ残すのに使う
+					dic["発走"] = start;
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					dic["回り"] = title.Contains("障害") ? "障" : mawari;
