@@ -241,10 +241,20 @@
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
-						<GridViewColumn Header="2着内"
-										DisplayMemberBinding="{Binding Top2Prob, StringFormat={}{0:P1}}" />
-						<GridViewColumn Header="3着内"
-										DisplayMemberBinding="{Binding Top3Prob, StringFormat={}{0:P1}}" />
+						<GridViewColumn Header="2着内">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Top2}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="3着内">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Top3}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
 						<GridViewColumn Header="単勝"
 										DisplayMemberBinding="{Binding Odds, StringFormat={}{0:F1}}" />
 						<GridViewColumn Header="EV">
@@ -254,6 +264,8 @@
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
+						<GridViewColumn Header="複勝分岐"
+										DisplayMemberBinding="{Binding PlaceBreakEven, StringFormat={}{0:F2}}" />
 					</GridView>
 				</ListView.View>
 			</ListView>

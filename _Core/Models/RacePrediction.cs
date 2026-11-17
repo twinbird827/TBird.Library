@@ -26,14 +26,17 @@ namespace Netkeiba.Models
 		/// <summary>単一モデルのスコア・順位・勝率</summary>
 		public RaceScore Win { get; } = new();
 
-		/// <summary>2 着以内確率（p1 + P2）</summary>
-		public float Top2Prob { get; private set; }
+		/// <summary>2 着以内確率（p1 + P2）と順位</summary>
+		public RaceScore Top2 { get; } = new();
 
-		/// <summary>3 着以内確率（p1 + P2 + P3）</summary>
-		public float Top3Prob { get; private set; }
+		/// <summary>3 着以内確率（p1 + P2 + P3）と順位</summary>
+		public RaceScore Top3 { get; } = new();
 
 		/// <summary>EV = 勝率 × 単勝</summary>
 		public RaceScore EV { get; } = new();
+
+		/// <summary>複勝の期待値が 1 になるオッズ（1 / 3 着以内確率）</summary>
+		public float PlaceBreakEven => 1f / Top3.Prob;
 
 		/// <summary>レースの自信度（同じレースの全馬で同じ値）</summary>
 		public RaceConfidence Confidence { get; }
@@ -168,16 +171,19 @@ namespace Netkeiba.Models
 			var confidence = RaceConfidence.Get(RacePredictionExtension.GetConfidenceBand(p1.Max(), _train.ConfidenceBounds));
 
 			var results = details
-				.Select((detail, i) => new RacePrediction(detail, scores[i], confidence)
-				{
-					Top2Prob = (float)(p1[i] + p2[i]),
-					Top3Prob = (float)(p1[i] + p2[i] + p3[i]),
-				})
+				.Select((detail, i) => new RacePrediction(detail, scores[i], confidence))
 				.ToArray();
-			results.ForEach((x, i) => x.Win.WinProb = (float)p1[i]);
+			results.ForEach((x, i) =>
+			{
+				x.Win.Prob = (float)p1[i];
+				x.Top2.Score = x.Top2.Prob = (float)(p1[i] + p2[i]);
+				x.Top3.Score = x.Top3.Prob = (float)(p1[i] + p2[i] + p3[i]);
+			});
 			results.CalculateRank(x => x.Win);
+			results.CalculateRank(x => x.Top2);
+			results.CalculateRank(x => x.Top3);
 
-			results.ForEach(x => x.EV.Score = x.Win.WinProb * x.Detail.Odds);
+			results.ForEach(x => x.EV.Score = x.Win.Prob * x.Detail.Odds);
 			results.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
 
 			return results.OrderBy(x => x.Detail.Umaban);
@@ -208,7 +214,8 @@ namespace Netkeiba.Models
 
 		public int Rank { get; set; }
 
-		public float WinProb { get; set; }
+		/// <summary>表示する確率（勝率・2 着以内・3 着以内）</summary>
+		public float Prob { get; set; }
 	}
 
 	/// <summary>レースの自信度の帯（1 低〜5 高）と、その帯の過去の 1 着的中率・3 着以内率</summary>

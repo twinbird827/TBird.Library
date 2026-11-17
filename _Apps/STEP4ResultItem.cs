@@ -18,10 +18,11 @@ namespace Netkeiba
 			Name = x.Name;
 			Result = x.Result.Str();
 			Win = x.Win;
-			Top2Prob = x.Top2Prob;
-			Top3Prob = x.Top3Prob;
+			Top2 = x.Top2;
+			Top3 = x.Top3;
 			Odds = x.Detail.Odds;
 			EV = x.EV;
+			PlaceBreakEven = x.PlaceBreakEven;
 		}
 
 		public int Wakuban { get; set; }
@@ -34,13 +35,15 @@ namespace Netkeiba
 
 		public RaceScore Win { get; set; }
 
-		public float Top2Prob { get; set; }
+		public RaceScore Top2 { get; set; }
 
-		public float Top3Prob { get; set; }
+		public RaceScore Top3 { get; set; }
 
 		public float Odds { get; set; }
 
 		public RaceScore EV { get; set; }
+
+		public float PlaceBreakEven { get; set; }
 
 	}
 }

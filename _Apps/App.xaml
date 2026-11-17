@@ -62,7 +62,7 @@
 			</DataTemplate>
 
 			<DataTemplate x:Key="S4CellItem" DataType="{x:Type models:RaceScore}">
-				<Label Content="{Binding WinProb}" ContentStringFormat="{}{0:P1}">
+				<Label Content="{Binding Prob}" ContentStringFormat="{}{0:P1}">
 					<Label.Resources>
 						<Style TargetType="Label">
 							<Style.Triggers>

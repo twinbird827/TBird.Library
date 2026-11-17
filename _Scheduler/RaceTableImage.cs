@@ -30,7 +30,7 @@ namespace Netkeiba.Scheduler
 				+ $" {predictions[0].Confidence}";
 
 			(string, int) Text(string x) => (x, 0);
-			(string, int) Prob(float x) => ($"{x * 100:F1}%", 0);
+			(string, int) Prob(RaceScore x) => ($"{x.Prob * 100:F1}%", x.Rank);
 			(string, int) Num(float x, string format) => (float.IsNaN(x) ? "-" : x.ToString(format), 0);
 
 			var rows = predictions
@@ -39,13 +39,14 @@ namespace Netkeiba.Scheduler
 					Text(x.Detail.Wakuban.ToString()),
 					Text(x.Detail.Umaban.ToString()),
 					Text(x.Name),
-					($"{x.Win.WinProb * 100:F1}%", x.Win.Rank),
-					Prob(x.Top2Prob),
-					Prob(x.Top3Prob),
+					Prob(x.Win),
+					Prob(x.Top2),
+					Prob(x.Top3),
 					Num(x.Detail.Odds, "F1"),
 					float.IsNaN(x.EV.Score) ? Text("-") : ($"{x.EV.Score:F2}", x.EV.Rank),
+					Num(x.PlaceBreakEven, "F2"),
 				})
-				.Prepend(new[] { "枠", "馬番", "馬名", "勝率", "2着内", "3着内", "単勝", "EV" }.Select(Text).ToArray())
+				.Prepend(new[] { "枠", "馬番", "馬名", "勝率", "2着内", "3着内", "単勝", "EV", "複勝分岐" }.Select(Text).ToArray())
 				.ToArray();
 
 			using var typeface = SKTypeface.FromFamilyName("Meiryo");
