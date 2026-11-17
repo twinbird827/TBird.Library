@@ -16,14 +16,10 @@ namespace Netkeiba.Scheduler
 			}
 
 			// weekly の STEP3 が失敗するとモデルが消えており、全レースが失敗する
-			var missing = STEP3Trainer.ModelParams.Keys
-				.Select(x => AppSetting.Instance.GetRankingTrain(x.GetLabel()).Run(t => (grade: x.GetLabel(), t)))
-				.Where(x => x.t == RankingTrain.Default || !File.Exists(x.t.Path))
-				.Select(x => x.grade)
-				.ToArray();
-			if (missing.Any())
+			var train = AppSetting.Instance.GetRankingTrain(STEP3Trainer.ModelName);
+			if (train == RankingTrain.Default || !File.Exists(train.Path))
 			{
-				var message = $"raceday: モデルがありません: {string.Join(", ", missing)}";
+				var message = $"raceday: モデルがありません: {STEP3Trainer.ModelName}";
 				MessageService.Error(message);
 				await DiscordWebhook.SendAsync(message);
 				return 1;

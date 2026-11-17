@@ -234,6 +234,27 @@
 										DisplayMemberBinding="{Binding Name}" />
 						<GridViewColumn Header="着順"
 										DisplayMemberBinding="{Binding Result}" />
+						<GridViewColumn Header="勝率">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Win}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="2着内">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Top2}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
+						<GridViewColumn Header="3着内">
+							<GridViewColumn.CellTemplate>
+								<DataTemplate>
+									<ContentControl Content="{Binding Top3}" ContentTemplate="{StaticResource S4CellItem}" />
+								</DataTemplate>
+							</GridViewColumn.CellTemplate>
+						</GridViewColumn>
 						<GridViewColumn Header="単勝"
 										DisplayMemberBinding="{Binding Odds, StringFormat={}{0:F1}}" />
 						<GridViewColumn Header="EV">
@@ -243,48 +264,8 @@
 								</DataTemplate>
 							</GridViewColumn.CellTemplate>
 						</GridViewColumn>
-						<GridViewColumn Header="Vars1">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding Vars1}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
-						<GridViewColumn Header="Vars2">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding Vars2}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
-						<GridViewColumn Header="Medium">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding TotalMedium}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
-						<GridViewColumn Header="Small">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding TotalSmall}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
-						<GridViewColumn Header="Total">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding Total}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
-						<GridViewColumn Header="Horse">
-							<GridViewColumn.CellTemplate>
-								<DataTemplate>
-									<ContentControl Content="{Binding Horse}" ContentTemplate="{StaticResource S4CellItem}" />
-								</DataTemplate>
-							</GridViewColumn.CellTemplate>
-						</GridViewColumn>
+						<GridViewColumn Header="複勝分岐"
+										DisplayMemberBinding="{Binding PlaceBreakEven, StringFormat={}{0:F2}}" />
 					</GridView>
 				</ListView.View>
 			</ListView>

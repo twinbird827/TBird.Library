@@ -88,9 +88,8 @@ namespace Netkeiba.Models
 					"セ" => 0.5F,
 					_ => 1.0F
 				},
-				// 枠番・馬番
+				// 枠番
 				Wakuban = detail.Wakuban,
-				Umaban = detail.Umaban,
 				// 前走変化
 				JockeyChange = detail.Last == null ? float.NaN : detail.Jockey != detail.Last.Jockey ? 1F : 0F,
 				SurfaceChange = detail.Last == null ? float.NaN : detail.Race.TrackType != detail.Last.Race.TrackType ? 1F : 0F,
@@ -101,20 +100,16 @@ namespace Netkeiba.Models
 				RestDaysN4 = restDaysArr.Length > 3 ? restDaysArr[3] : float.NaN,
 				RestDaysN5 = restDaysArr.Length > 4 ? restDaysArr[4] : float.NaN,
 				// 過去ﾚｰｽの経過日数（個別）
-				DaysAgoN1 = daysAgoArr.Length > 0 ? daysAgoArr[0] : float.NaN,
 				DaysAgoN2 = daysAgoArr.Length > 1 ? daysAgoArr[1] : float.NaN,
 				DaysAgoN3 = daysAgoArr.Length > 2 ? daysAgoArr[2] : float.NaN,
 				DaysAgoN4 = daysAgoArr.Length > 3 ? daysAgoArr[3] : float.NaN,
 				DaysAgoN5 = daysAgoArr.Length > 4 ? daysAgoArr[4] : float.NaN,
-				// 購入金額ﾗﾝｸ
+				// 購入金額
 				PurchasePrice = detail.PurchasePrice,
-				PurchasePriceRank = detail.GetRank(inraces, x => x.PurchasePrice, true),
-				// 斤量ﾗﾝｸ(軽い方が良い)
+				// 斤量
 				JockeyWeight = detail.JockeyWeight,
-				JockeyWeightRank = detail.GetRank(inraces, x => x.JockeyWeight, false),
-				// 体重ﾗﾝｸ(重い方が良い)
+				// 体重
 				Weight = detail.Weight,
-				WeightRank = detail.GetRank(inraces, x => x.Weight, true),
 				// 体重増減ﾗﾝｸ(少ない方が良い)
 				WeightDiff = detail.WeightChange,
 				WeightDiffRank = detail.GetRank(inraces, x => Math.Abs(x.WeightChange), false),
@@ -139,8 +134,11 @@ namespace Netkeiba.Models
 				// 通過順
 				Tuka = horses5.Tuka,
 
+				// 過去 5 走の相手の強さと期待超過（値は PreviousDataSets.UpdateElo が過去走に書いたもの）
+				OppElo5 = horses.Take(5).Select(x => x.OppFastElo).Where(x => !float.IsNaN(x)).DefaultIfEmpty(float.NaN).Average(),
+				Excess5 = horses.Take(5).Select(x => x.FastEloExcess).Where(x => !float.IsNaN(x)).DefaultIfEmpty(float.NaN).Average(),
+
 				// Eloﾚｰﾃｨﾝｸﾞ — 通常(K=24)
-				HorseElo = PreviousDataSets.GetHorseElo(detail),
 				JockeyElo = PreviousDataSets.GetJockeyElo(detail),
 				TrainerElo = PreviousDataSets.GetTrainerElo(detail),
 				// Eloﾚｰﾃｨﾝｸﾞ — 早期収束(K=48)
@@ -194,7 +192,6 @@ namespace Netkeiba.Models
 				AvgTime2Condition5 = horses5.AvgTime2Condition,
 				MaxTime2Condition5 = horses5.MaxTime2Condition,
 				// 同条件ﾚｰｽとのﾀｲﾑ差（個別）
-				Time2ConditionN1 = t2cArr.Length > 0 ? t2cArr[0] : float.NaN,
 				Time2ConditionN2 = t2cArr.Length > 1 ? t2cArr[1] : float.NaN,
 				Time2ConditionN3 = t2cArr.Length > 2 ? t2cArr[2] : float.NaN,
 				Time2ConditionN4 = t2cArr.Length > 3 ? t2cArr[3] : float.NaN,
@@ -284,7 +281,6 @@ namespace Netkeiba.Models
 				JockeyTrackAvgPrizeMoney = jockeytracks.AvgPrizeMoney,
 				JockeyTrackAvgRating = jockeytracks.AvgRating,
 				JockeyTrackAvgFinishPosition = jockeytracks.AvgFinishPosition,
-				JockeyTrackAvgTime2Top = jockeytracks.AvgTime2Top,
 				JockeyTrackAvgTime2Condition = jockeytracks.AvgTime2Condition,
 				// 騎手-馬場状態の情報
 				JockeyTrackConditionAvgPrizeMoney = jockeytrackconditions.AvgPrizeMoney,

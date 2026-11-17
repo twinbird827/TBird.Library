@@ -33,7 +33,7 @@ namespace Netkeiba
 			if (!predictions.Any()) return;
 
 			var race = predictions[0].Detail.Race;
-			var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName}";
+			var header = $"[{race.RaceId}] [{race.Place}] [R{race.RaceId.Right(2)}] [{race.Grade}] {race.CourseName} {predictions[0].Confidence}";
 
 			var arr = predictions.Select(x => new STEP4ResultItem(x)).ToArray();
 

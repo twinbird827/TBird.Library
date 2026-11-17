@@ -15,28 +15,28 @@ namespace Netkeiba
 	{
 		private static string[] Arr(params string[] arr) => arr;
 
-		public static async Task<Dictionary<string, string>> GetOdds(string raceid)
+		/// <summary>券種（1 単勝・2 複勝）のオッズを、ゼロ埋め 2 桁の馬番ごとに API の配列のまま返す</summary>
+		public static async Task<Dictionary<string, string[]>> GetOdds(string raceid, int type)
 		{
-			var dic = new Dictionary<string, string>();
 			try
 			{
-				var str = await WebUtil.GetStringAsync($"https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={raceid}&type=1&action=update");
-				if (string.IsNullOrEmpty(str)) return dic;
-
-				using var doc = System.Text.Json.JsonDocument.Parse(str);
-				var odds = doc.RootElement.GetProperty("data").GetProperty("odds").GetProperty("1");
-				foreach (var prop in odds.EnumerateObject())
-				{
-					// 値は配列 ["6.6", "", "1"] の先頭がオッズ
-					var value = prop.Value[0].GetString() ?? "0";
-					dic[prop.Name] = value;
-				}
+				var str = await WebUtil.GetStringAsync($"https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={raceid}&type={type}&action=update");
+				if (!string.IsNullOrEmpty(str)) return ParseOdds(str, type);
 			}
 			catch (Exception ex)
 			{
 				MessageService.Debug($"オッズ取得エラー: {ex.Message}");
 			}
-			return dic;
+			return new Dictionary<string, string[]>();
+		}
+
+		/// <summary>オッズ API の応答から券種の値を取り出す。値は単勝 ["6.6", "", "1"]、複勝 ["6.7", "9.1", "11"]（下限・上限・人気）</summary>
+		public static Dictionary<string, string[]> ParseOdds(string json, int type)
+		{
+			using var doc = System.Text.Json.JsonDocument.Parse(json);
+			return doc.RootElement.GetProperty("data").GetProperty("odds").GetProperty(type.ToString())
+				.EnumerateObject()
+				.ToDictionary(x => x.Name, x => x.Value.EnumerateArray().Select(v => v.GetString() ?? "").ToArray());
 		}
 
 		public static async Task<List<Dictionary<string, string>>> GetRaceResults(string raceid)
@@ -261,7 +261,8 @@ namespace Netkeiba
 		public static async Task<List<Dictionary<string, string>>> GetRaceShutubas(string raceid)
 		{
 			var arr = new List<Dictionary<string, string>>();
-			var odds = await GetOdds(raceid);
+			var odds = await GetOdds(raceid, 1);
+			var place = await GetOdds(raceid, 2);
 
 			var raceurl = $"https://race.netkeiba.com/race/shutuba.html?race_id={raceid}";
 
@@ -290,6 +291,8 @@ namespace Netkeiba
 				var baba = left == "ダ" ? "ダート" : "芝";
 				// 馬場状態
 				var cond = Regex.Match(racedata01.InnerHtml, @"馬場:(?<x>[^\<]+)").Groups["x"].Value;
+				// 発走時刻(「15:40発走」)
+				var start = Regex.Match(racedata01.InnerHtml, @"(?<x>\d{1,2}:\d{2})発走").Groups["x"].Value;
 
 				// *****
 				// 「根岸ステークス(G3) 出馬表 | 2024年1月28日 東京11R レース情報(JRA) - netkeiba.com」この部分を取得して分類する
@@ -324,6 +327,8 @@ namespace Netkeiba
 					dic["優勝賞金"] = prise.Str();
 					dic["開催日"] = date.ToString("yyyy/MM/dd");
 					dic["開催日数"] = date.ToTotalDays().Str();
+					// t_orig_h の列ではない。予想時のオッズを発走前だけ残すのに使う
+					dic["発走"] = start;
 					dic["開催場所"] = basyo.Replace("1", "");
 					dic["ﾗﾝｸ1"] = Getﾗﾝｸ1(dic["ﾚｰｽ名"], clas);
 					dic["回り"] = title.Contains("障害") ? "障" : mawari;
@@ -371,7 +376,11 @@ namespace Netkeiba
 					// 上り(なし)
 					dic["上り"] = "0";
 					// 単勝(APIから取得)
-					dic["単勝"] = odds.GetValueOrDefault(dic["馬番"].Int32().ToString("D2"), "0");
+					dic["単勝"] = odds.GetValueOrDefault(dic["馬番"].Int32().ToString("D2"))?.ElementAtOrDefault(0) ?? "0";
+					// t_orig_d の列ではない。予想時のオッズとして t_odds に残す
+					var fuku = place.GetValueOrDefault(dic["馬番"].Int32().ToString("D2"));
+					dic["複勝下限"] = fuku?.ElementAtOrDefault(0) ?? "0";
+					dic["複勝上限"] = fuku?.ElementAtOrDefault(1) ?? "0";
 					// 人気(スクレイピングじゃ取れないらしい)
 					dic["人気"] = "0";
 					// 体重

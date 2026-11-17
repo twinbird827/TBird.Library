@@ -147,6 +147,12 @@ namespace Netkeiba.Models
 		public float TimeIndex { get; }
 		public RaceDetail? Last { get; private set; }
 
+		/// <summary>このレースの自分以外の出走馬の FastHorseElo 平均（レース前の値）</summary>
+		public float OppFastElo { get; internal set; } = float.NaN;
+
+		/// <summary>着順パーセンタイル − FastHorseElo 順位パーセンタイル（レース前の値）</summary>
+		public float FastEloExcess { get; internal set; } = float.NaN;
+
 		// ﾚｰｽ結果(ﾄｯﾌﾟとの差)
 		public float Time2Top { get; private set; }
 		public float LastThreeFurlongs2Top { get; private set; }

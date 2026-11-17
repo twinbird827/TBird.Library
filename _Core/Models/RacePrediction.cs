@@ -14,43 +14,32 @@ namespace Netkeiba.Models
 {
 	public class RacePrediction : TBirdObject
 	{
-		private RacePrediction(RaceDetail detail, float total, float horse, float connection, float totalMedium, float totalSmall, float totalRaw, float totalRank, OptimizedHorseFeatures features)
+		private RacePrediction(RaceDetail detail, float score, RaceConfidence confidence)
 		{
 			Detail = detail;
-			Total.Score = total;
-			Horse.Score = horse;
-			TotalMedium.Score = totalMedium;
-			TotalSmall.Score = totalSmall;
-
-			// Vars2 = total_vars2: Horse+TotalMedium+TotalSmall+TotalRaw+TotalRank（NDCG1²加重平均）
-			var wH = _key[1].NDCG1 * _key[1].NDCG1; // Horse
-			var wM = _key[3].NDCG1 * _key[3].NDCG1; // TotalMedium
-			var wS = _key[4].NDCG1 * _key[4].NDCG1; // TotalSmall
-			var wR = _key[5].NDCG1 * _key[5].NDCG1; // TotalRaw
-			var wK = _key[6].NDCG1 * _key[6].NDCG1; // TotalRank
-			Vars2.Score = (float)((horse * wH + totalMedium * wM + totalSmall * wS + totalRaw * wR + totalRank * wK) / (wH + wM + wS + wR + wK));
-
-			// Vars1 = total_vars: Total+Horse+TotalMedium+TotalSmall+Connection（NDCG1²加重平均）
-			var wT = _key[0].NDCG1 * _key[0].NDCG1; // Total
-			var wC = _key[2].NDCG1 * _key[2].NDCG1; // Connection
-			Vars1.Score = (float)((total * wT + horse * wH + connection * wC + totalMedium * wM + totalSmall * wS) / (wT + wH + wC + wM + wS));
+			Win.Score = score;
+			Confidence = confidence;
 		}
 
 		public RaceDetail Detail { get; }
 
-		public RaceScore Total { get; } = new();
+		/// <summary>単一モデルのスコア・順位・勝率</summary>
+		public RaceScore Win { get; } = new();
 
-		public RaceScore Horse { get; } = new();
+		/// <summary>2 着以内確率（p1 + P2）と順位</summary>
+		public RaceScore Top2 { get; } = new();
 
-		public RaceScore TotalMedium { get; } = new();
+		/// <summary>3 着以内確率（p1 + P2 + P3）と順位</summary>
+		public RaceScore Top3 { get; } = new();
 
-		public RaceScore TotalSmall { get; } = new();
-
-		public RaceScore Vars2 { get; } = new();
-
-		public RaceScore Vars1 { get; } = new();
-
+		/// <summary>EV = 勝率 × 単勝</summary>
 		public RaceScore EV { get; } = new();
+
+		/// <summary>複勝の期待値が 1 になるオッズ（1 / 3 着以内確率）</summary>
+		public float PlaceBreakEven => 1f / Top3.Prob;
+
+		/// <summary>レースの自信度（同じレースの全馬で同じ値）</summary>
+		public RaceConfidence Confidence { get; }
 
 		public int Result { get; set; }
 
@@ -58,18 +47,8 @@ namespace Netkeiba.Models
 
 		public static void Initialize(MLContext ml)
 		{
-			_key = new[]
-			{
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Total.GetLabel()),      // 0
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Horse.GetLabel()),      // 1
-				AppSetting.Instance.GetRankingTrain(FeaturesType.Connection.GetLabel()), // 2
-				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalMedium.GetLabel()),// 3
-				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalSmall.GetLabel()), // 4
-				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalRaw.GetLabel()),   // 5
-				AppSetting.Instance.GetRankingTrain(FeaturesType.TotalRank.GetLabel()),  // 6
-			};
-
-			_dic = _key.ToDictionary(key => key, key => LoadModel(ml, key));
+			_train = AppSetting.Instance.GetRankingTrain(STEP3Trainer.ModelName);
+			_model = LoadModel(ml, _train);
 		}
 
 		public static async Task<RacePrediction[]> PredictShutsubaAsync(string raceid)
@@ -79,11 +58,12 @@ namespace Netkeiba.Models
 			using (var conn = AppUtil.CreateSQLiteControl())
 			{
 				var getShutsuba = false;
+				var racearr = new List<Dictionary<string, string>>();
 
 				MessageService.Debug($"ﾚｰｽID：{raceid} の出馬表データを取得します。");
 				if (!await conn.ExistsOrigAsync(raceid))
 				{
-					var racearr = await NetkeibaGetter.GetRaceShutubas(raceid);
+					racearr = await NetkeibaGetter.GetRaceShutubas(raceid);
 					await conn.BeginTransaction();
 					await conn.InsertShutsubaAsync(racearr);
 					await conn.InsertOikiriAsync(raceid);
@@ -94,6 +74,19 @@ namespace Netkeiba.Models
 
 				try
 				{
+					// 発走 10 分前（scheduler の予想時刻）のオッズは予想後に消えるので、API から取った回だけ残す。
+					// 発走後に開いたレースのオッズは確定オッズで、予想時のオッズの記録にならないので残さない
+					if (getShutsuba && IsBeforeStart(racearr.FirstOrDefault(), DateTime.Now))
+					{
+						var odds = racearr
+							.Select(x => (umaban: x["馬番"].Int32(), odds: x["単勝"].GetSingle(), placeLow: x["複勝下限"].GetSingle(), placeHigh: x["複勝上限"].GetSingle()))
+							.Where(x => 0 < x.odds)
+							.ToArray();
+						await conn.BeginTransaction();
+						await conn.InsertOddsAsync(raceid, odds, DateTime.Now);
+						conn.Commit();
+					}
+
 					var ml = new MLContext(seed: 1);
 
 					Initialize(ml);
@@ -155,6 +148,18 @@ namespace Netkeiba.Models
 			}
 		}
 
+		/// <summary>出馬表の行（開催日・発走）から、now が発走前か。発走時刻が読めなければ false</summary>
+		public static bool IsBeforeStart(Dictionary<string, string>? row, DateTime now)
+		{
+			if (row == null
+				|| !DateTime.TryParseExact(row.GetValueOrDefault("開催日"), "yyyy/MM/dd", null, System.Globalization.DateTimeStyles.None, out var date)
+				|| !TimeSpan.TryParseExact(row.GetValueOrDefault("発走"), @"h\:mm", null, out var time))
+			{
+				return false;
+			}
+			return now < date + time;
+		}
+
 		// 名前付き Mutex はスレッド所有で await を跨げず、ファイルロックはプロセスが落ちても OS が解放する
 		private static async Task<FileStream> LockPredictAsync()
 		{
@@ -173,49 +178,33 @@ namespace Netkeiba.Models
 
 		public static IEnumerable<RacePrediction> CalculatePrediction(MLContext ml, RaceDetail[] details, OptimizedHorseFeatures[] features)
 		{
-			// ｽｺｱ計算
-			var view = ml.Data.LoadFromEnumerable(features);
-			var totl = GetScores(_dic[_key[0]], view);
-			var hrse = GetScores(_dic[_key[1]], view);
-			var conn = GetScores(_dic[_key[2]], view);
-			var tmed = GetScores(_dic[_key[3]], view);
-			var tsml = GetScores(_dic[_key[4]], view);
-			var traw = GetScores(_dic[_key[5]], view);
-			var trnk = GetScores(_dic[_key[6]], view);
+			var scores = GetScores(_model, ml.Data.LoadFromEnumerable(features));
+			var p1 = RacePredictionExtension.Softmax(scores, _train.Temperature);
+			var (p2, p3) = RacePredictionExtension.Harville(p1);
+			var confidence = RaceConfidence.Get(RacePredictionExtension.GetConfidenceBand(p1.Max(), _train.ConfidenceBounds));
 
 			var results = details
-				.Select((detail, i) => new RacePrediction(detail, totl[i], hrse[i], conn[i], tmed[i], tsml[i], traw[i], trnk[i], features[i]))
+				.Select((detail, i) => new RacePrediction(detail, scores[i], confidence))
 				.ToArray();
-
-			results.CalculateRank(x => x.Total);
-			results.CalculateRank(x => x.Horse);
-			results.CalculateRank(x => x.TotalMedium);
-			results.CalculateRank(x => x.TotalSmall);
-			results.CalculateRank(x => x.Vars2);
-			results.CalculateRank(x => x.Vars1);
-
-			results.CalculateWinProb(x => x.Total, _key[0].Temperature);
-			results.CalculateWinProb(x => x.Horse, _key[1].Temperature);
-			results.CalculateWinProb(x => x.TotalMedium, _key[3].Temperature);
-			results.CalculateWinProb(x => x.TotalSmall, _key[4].Temperature);
-			results.CalculateWinProb(x => x.Vars2, _key[0].Temperature); // アンサンブルはTotal基準
-			results.CalculateWinProb(x => x.Vars1, _key[0].Temperature); // アンサンブルはTotal基準
-
-			// EV = 全モデルWinProbの中央値 × Odds
-			results.ForEach(x =>
+			results.ForEach((x, i) =>
 			{
-				var probs = new[] { x.Vars1.WinProb, x.Vars2.WinProb, x.TotalMedium.WinProb, x.TotalSmall.WinProb, x.Total.WinProb, x.Horse.WinProb };
-				Array.Sort(probs);
-				x.EV.Score = (probs[2] + probs[3]) / 2f * x.Detail.Odds;
+				x.Win.Prob = (float)p1[i];
+				x.Top2.Score = x.Top2.Prob = (float)(p1[i] + p2[i]);
+				x.Top3.Score = x.Top3.Prob = (float)(p1[i] + p2[i] + p3[i]);
 			});
+			results.CalculateRank(x => x.Win);
+			results.CalculateRank(x => x.Top2);
+			results.CalculateRank(x => x.Top3);
+
+			results.ForEach(x => x.EV.Score = x.Win.Prob * x.Detail.Odds);
 			results.Where(x => !float.IsNaN(x.EV.Score)).OrderByDescending(x => x.EV.Score).ForEach((x, i) => x.EV.Rank = i + 1);
 
 			return results.OrderBy(x => x.Detail.Umaban);
 		}
 
-		private static RankingTrain[] _key;
+		private static RankingTrain _train = RankingTrain.Default;
 
-		private static Dictionary<RankingTrain, ITransformer> _dic = new();
+		private static ITransformer? _model;
 
 		private static ITransformer LoadModel(MLContext ml, RankingTrain train)
 		{
@@ -223,8 +212,9 @@ namespace Netkeiba.Models
 			return ml.Model.Load(stream, out var schema);
 		}
 
-		private static float[] GetScores(ITransformer mo, IDataView view)
+		private static float[] GetScores(ITransformer? mo, IDataView view)
 		{
+			if (mo == null) throw new InvalidOperationException("予想モデルが読み込まれていません。");
 			var predictions = mo.Transform(view);
 			var scores = predictions.GetColumn<float>("Score").ToArray();
 			return scores;
@@ -237,6 +227,25 @@ namespace Netkeiba.Models
 
 		public int Rank { get; set; }
 
-		public float WinProb { get; set; }
+		/// <summary>表示する確率（勝率・2 着以内・3 着以内）</summary>
+		public float Prob { get; set; }
+	}
+
+	/// <summary>レースの自信度の帯（1 低〜5 高）と、その帯の過去の 1 着的中率・3 着以内率</summary>
+	public record RaceConfidence(int Band, double WinRate, double Top3Rate)
+	{
+		// 研究の選択用 fold 4 fold 合算（netkeiba-feature-review.md 9 節）
+		private static readonly RaceConfidence[] _bands =
+		[
+			new(1, 0.192, 0.446),
+			new(2, 0.246, 0.567),
+			new(3, 0.312, 0.630),
+			new(4, 0.366, 0.708),
+			new(5, 0.460, 0.791),
+		];
+
+		public static RaceConfidence Get(int band) => _bands[band - 1];
+
+		public override string ToString() => $"自信度 {Band}（1着 {WinRate:P0} / 3着内 {Top3Rate:P0}）";
 	}
 }
