@@ -325,26 +325,31 @@ SELECT DISTINCT 馬ID FROM (SELECT 父ID 馬ID FROM t_uma UNION ALL SELECT 母�
 			return length == null || length is DBNull || length.Int32() == OptimizedHorseFeatures.BlobLength;
 		}
 
-		/// <summary>予想時に取得した単勝の履歴。再取得できないので STEP1 の作り直しでも消さない</summary>
+		/// <summary>予想時に取得した単勝・複勝の履歴。再取得できないので STEP1 の作り直しでも消さない</summary>
 		public static async Task CreateOdds(this SQLiteControl conn)
 		{
-			await conn.Create("t_odds", Arr("ﾚｰｽID", "馬番", "取得日時", "単勝"), Arr("ﾚｰｽID", "馬番", "取得日時"));
+			await conn.Create("t_odds", Arr("ﾚｰｽID", "馬番", "取得日時", "単勝", "複勝下限", "複勝上限"), Arr("ﾚｰｽID", "馬番", "取得日時"));
 		}
 
-		public static async Task InsertOddsAsync(this SQLiteControl conn, string raceid, IEnumerable<(int umaban, float odds)> odds, DateTime acquired)
+		/// <summary>複勝下限・上限が 0 以下か NaN の馬はその列を NULL で書く</summary>
+		public static async Task InsertOddsAsync(this SQLiteControl conn, string raceid, IEnumerable<(int umaban, float odds, float placeLow, float placeHigh)> odds, DateTime acquired)
 		{
 			await conn.CreateOdds();
 
 			var date = acquired.ToString("yyyy/MM/dd HH:mm:ss");
-			foreach (var (umaban, value) in odds)
+			foreach (var (umaban, value, placeLow, placeHigh) in odds)
 			{
-				await conn.InsertAsync("t_odds", new Dictionary<string, string>()
+				var row = new Dictionary<string, string>()
 				{
 					["ﾚｰｽID"] = raceid,
 					["馬番"] = umaban.ToString(),
 					["取得日時"] = date,
 					["単勝"] = value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-				});
+				};
+				// REPLACE INTO で書かない列は NULL になる
+				if (0 < placeLow) row["複勝下限"] = placeLow.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				if (0 < placeHigh) row["複勝上限"] = placeHigh.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				await conn.InsertAsync("t_odds", row);
 			}
 		}
 

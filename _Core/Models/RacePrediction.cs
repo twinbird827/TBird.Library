@@ -79,7 +79,7 @@ namespace Netkeiba.Models
 					if (getShutsuba && IsBeforeStart(racearr.FirstOrDefault(), DateTime.Now))
 					{
 						var odds = racearr
-							.Select(x => (umaban: x["馬番"].Int32(), odds: x["単勝"].GetSingle()))
+							.Select(x => (umaban: x["馬番"].Int32(), odds: x["単勝"].GetSingle(), placeLow: x["複勝下限"].GetSingle(), placeHigh: x["複勝上限"].GetSingle()))
 							.Where(x => 0 < x.odds)
 							.ToArray();
 						await conn.BeginTransaction();
