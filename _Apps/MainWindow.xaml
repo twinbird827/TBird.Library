@@ -120,6 +120,8 @@
 					<Button Content="実行" Command="{Binding S1EXEC}" />
 
 					<Button Content="データ補完" Command="{Binding S3EXECPREDICT}" />
+
+					<Button Content="備考の取り直し" Command="{Binding S1BIKOU}" />
 				</StackPanel>
 			</GroupBox>
 

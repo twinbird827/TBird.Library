@@ -165,6 +165,8 @@ namespace Netkeiba
 
 		public IRelayCommand S3EXECPREDICT => new STEP1OikiriCommad(this).CreateCommand();
 
+		public IRelayCommand S1BIKOU => new STEP1BikouCommand(this).CreateCommand();
+
 		public UniformViewModel S4RoundHeader
 		{
 			get => _S4RoundHeader;

@@ -142,6 +142,40 @@ namespace Netkeiba
 				col_uma,
 				Arr("馬ID")
 			);
+
+			// 備考はほとんどの馬で空なので、列の値では取り直し済みかを区別できない
+			await conn.Create(
+				"t_bikou_done",
+				Arr("ﾚｰｽID"),
+				Arr("ﾚｰｽID")
+			);
+		}
+
+		/// <summary>備考を取り直していないﾚｰｽIDを昇順で返す</summary>
+		public static async IAsyncEnumerable<string> GetBikouTargets(this SQLiteControl conn)
+		{
+			var sql = @$"
+SELECT ﾚｰｽID FROM t_orig_h WHERE ﾚｰｽID NOT IN (SELECT ﾚｰｽID FROM t_bikou_done) ORDER BY ﾚｰｽID
+";
+
+			foreach (var x in await conn.GetRows(sql))
+			{
+				yield return x["ﾚｰｽID"].Str();
+			}
+		}
+
+		/// <summary>ﾚｰｽの各馬の備考を書き換え、取り直し済みにする</summary>
+		public static async Task UpdateBikouAsync(this SQLiteControl conn, string raceid, List<Dictionary<string, string>> racearr)
+		{
+			foreach (var x in racearr)
+			{
+				await conn.ExecuteNonQueryAsync("UPDATE t_orig_d SET 備考 = ? WHERE ﾚｰｽID = ? AND 馬番 = ?",
+					SQLiteUtil.CreateParameter(DbType.String, x["備考"]),
+					SQLiteUtil.CreateParameter(DbType.String, raceid),
+					SQLiteUtil.CreateParameter(DbType.String, x["馬番"])
+				);
+			}
+			await conn.InsertAsync("t_bikou_done", new Dictionary<string, string>() { ["ﾚｰｽID"] = raceid });
 		}
 
 		public static async Task InsertOrigAsync(this SQLiteControl conn, List<Dictionary<string, string>> racearr)
@@ -168,6 +202,7 @@ namespace Netkeiba
 					}
 					first = false;
 					await conn.InsertAsync("t_orig_h", col_orig_h.ToDictionary(s => s, s => ToValue(s)));
+					await conn.InsertAsync("t_bikou_done", new Dictionary<string, string>() { ["ﾚｰｽID"] = x["ﾚｰｽID"] });
 				}
 				await conn.InsertAsync("t_orig_d", col_orig_d.ToDictionary(s => s, s => x[s]));
 				await conn.InsertUmaInfoAsync(x["馬ID"], x["馬名"]);

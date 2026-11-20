@@ -6,6 +6,7 @@
 
 - `STEP1Command` - netkeiba.comからのデータ収集（Webスクレイピング）
 - `STEP1OikiriCommand` - オイキリデータ処理
+- `STEP1BikouCommand` - 取込済みの全レースの備考の取り直し（`t_bikou_done` で済んだレースを飛ばすので、止めても続きから再開できる）
 - `STEP2Command` - データ前処理
 - `STEP3Command` - ML.NETによる機械学習モデル構築
 - `STEP4*` - 予測結果の表示・分析
