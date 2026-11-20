@@ -150,7 +150,8 @@ namespace Netkeiba
 					dic["体重"] = row.Cells[18].GetInnerHtml().Split('(')[0].GetSingle().ToString();
 					dic["増減"] = row.Cells[18].GetTryCatch(s => s.Split('(')[1].Split(')')[0]);
 					// 備考(有料)
-					dic["備考"] = row.Cells[21].GetInnerHtml().Replace("\n", "");
+					// 文字の後ろに閉じていない空の div があり、GetInnerHtml だと div の中身（空）を返す
+					dic["備考"] = row.Cells[21].TextContent.Trim();
 					// 調教場所
 					dic["調教場所"] = row.Cells[22].GetInnerHtml().Split('[')[1].Split(']')[0];
 					// 調教師名

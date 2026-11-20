@@ -110,16 +110,50 @@ namespace Netkeiba
 			} while (retry);
 		}
 
+		/// <summary>t_orig_h の全ﾚｰｽの備考を ﾚｰｽID の昇順に取り直す。済んだﾚｰｽは t_bikou_done で飛ばすので、止めても続きから再開できる</summary>
+		public static async Task BackfillBikouAsync(IProgress<double> progress)
+		{
+			using (var conn = AppUtil.CreateSQLiteControl())
+			{
+				await conn.CreateOrig();
+
+				var raceids = await conn.GetBikouTargets().ToArrayAsync();
+				progress.Report(0);
+
+				for (var i = 0; i < raceids.Length; i++)
+				{
+					var raceid = raceids[i];
+					var arr = await NetkeibaGetter.GetRaceResults(raceid);
+
+					// t_orig_h のﾚｰｽには必ず結果の表があり、空は取得の失敗。済みにすると二度と取り直されない
+					if (arr.Count == 0) throw new InvalidOperationException($"ﾚｰｽ結果を取得できません。raceid:{raceid}");
+					ThrowIfTimeIndexInvalid(arr, raceid);
+
+					await conn.BeginTransaction();
+					await conn.UpdateBikouAsync(raceid, arr);
+					conn.Commit();
+					MessageService.Debug($"completed bikou:{raceid}");
+
+					progress.Report((i + 1D) / raceids.Length);
+				}
+			}
+		}
+
+		private static void ThrowIfTimeIndexInvalid(List<Dictionary<string, string>> arr, string raceid)
+		{
+			if (arr.Any(x => !string.IsNullOrWhiteSpace(x["ﾀｲﾑ指数"]) && !int.TryParse(x["ﾀｲﾑ指数"], out _)))
+			{
+				throw new InvalidOperationException($"ﾀｲﾑ指数が数値ではありません。netkeibaにﾛｸﾞｲﾝできていない可能性があります。raceid:{raceid}");
+			}
+		}
+
 		private static async IAsyncEnumerable<List<Dictionary<string, string>>> GetSTEP1Racearrs(SQLiteControl conn, string raceid)
 		{
 			if (!await conn.ExistsOrigAsync(raceid))
 			{
 				var arr = await NetkeibaGetter.GetRaceResults(raceid);
 
-				if (arr.Any(x => !string.IsNullOrWhiteSpace(x["ﾀｲﾑ指数"]) && !int.TryParse(x["ﾀｲﾑ指数"], out _)))
-				{
-					throw new InvalidOperationException($"ﾀｲﾑ指数が数値ではありません。netkeibaにﾛｸﾞｲﾝできていない可能性があります。raceid:{raceid}");
-				}
+				ThrowIfTimeIndexInvalid(arr, raceid);
 
 				if (arr.Any(x => x["回り"] != "障" && string.IsNullOrEmpty(x["ﾀｲﾑ指数"]))) yield break;
 
